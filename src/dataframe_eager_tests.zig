@@ -2640,6 +2640,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try sign_metric_table.positiveRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try sign_metric_table.negativeRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), (try sign_metric_table.signBitRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectEqual(@as(?usize, 2), try sign_metric_table.firstPositiveIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 2), try sign_metric_table.lastPositiveIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try sign_metric_table.firstNegativeIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try sign_metric_table.lastNegativeIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try sign_metric_table.firstSignBitIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 3), try sign_metric_table.lastSignBitIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstPositiveIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstSignBitIndexColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try ieee_class_table.normalCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try ieee_class_table.subnormalCountColumn("metric"));
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try ieee_class_table.normalRatioColumn("metric")).f64, 1e-12);

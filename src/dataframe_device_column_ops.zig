@@ -1461,6 +1461,48 @@ pub fn lastNonzeroIndex(self: anytype) array_mod.ArrayError!?usize {
     };
 }
 
+pub fn firstPositiveIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstPositiveIndex(),
+    };
+}
+
+pub fn lastPositiveIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastPositiveIndex(),
+    };
+}
+
+pub fn firstNegativeIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNegativeIndex(),
+    };
+}
+
+pub fn lastNegativeIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNegativeIndex(),
+    };
+}
+
+pub fn firstSignBitIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstSignBitIndex(),
+    };
+}
+
+pub fn lastSignBitIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastSignBitIndex(),
+    };
+}
+
 pub fn firstValidIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

@@ -1571,6 +1571,30 @@ pub fn lastNonzeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?
     return expr_mod.lastNonzeroIndexColumn(frameValue(self), name);
 }
 
+pub fn firstPositiveIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstPositiveIndexColumn(frameValue(self), name);
+}
+
+pub fn lastPositiveIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastPositiveIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNegativeIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNegativeIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNegativeIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNegativeIndexColumn(frameValue(self), name);
+}
+
+pub fn firstSignBitIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstSignBitIndexColumn(frameValue(self), name);
+}
+
+pub fn lastSignBitIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastSignBitIndexColumn(frameValue(self), name);
+}
+
 pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstValidIndexColumn(frameValue(self), name);
 }

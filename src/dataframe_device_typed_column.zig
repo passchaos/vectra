@@ -1906,6 +1906,30 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             }.f);
         }
 
+        pub fn firstPositiveIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isPositiveValue);
+        }
+
+        pub fn lastPositiveIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isPositiveValue);
+        }
+
+        pub fn firstNegativeIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isNegativeValue);
+        }
+
+        pub fn lastNegativeIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isNegativeValue);
+        }
+
+        pub fn firstSignBitIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isSignBitValue);
+        }
+
+        pub fn lastSignBitIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isSignBitValue);
+        }
+
         pub fn firstValidIndex(self: Self) array_mod.ArrayError!?usize {
             if (!self.nullable()) return if (self.len() == 0) null else 0;
             const validity = try validityValues(self, self.values.allocator);
