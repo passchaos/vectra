@@ -204,6 +204,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const neg = column_ops_mod.neg;
     pub const negative = column_ops_mod.neg;
     pub const square = column_ops_mod.square;
+    pub const reciprocal = column_ops_mod.reciprocal;
     pub const binary = column_ops_mod.binary;
     pub const add = column_ops_mod.add;
     pub const sub = column_ops_mod.sub;
