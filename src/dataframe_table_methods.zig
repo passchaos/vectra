@@ -1867,6 +1867,22 @@ pub fn countFalseColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.countFalseColumn(frameValue(self), name);
 }
 
+pub fn firstTrueIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstTrueIndexColumn(frameValue(self), name);
+}
+
+pub fn lastTrueIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastTrueIndexColumn(frameValue(self), name);
+}
+
+pub fn firstFalseIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstFalseIndexColumn(frameValue(self), name);
+}
+
+pub fn lastFalseIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastFalseIndexColumn(frameValue(self), name);
+}
+
 pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
 }

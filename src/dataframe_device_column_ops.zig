@@ -1912,6 +1912,38 @@ pub fn countFalse(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn firstTrueIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.firstTrueIndex(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn lastTrueIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.lastTrueIndex(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn firstFalseIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.firstFalseIndex(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn lastFalseIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.lastFalseIndex(),
+        else => error.TypeUnsupported,
+    };
+}
+
 pub fn logicalAndScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

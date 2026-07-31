@@ -2410,6 +2410,42 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return count;
         }
 
+        pub fn firstTrueIndex(self: Self) array_mod.ArrayError!?usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            return self.firstMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return value;
+                }
+            }.f);
+        }
+
+        pub fn lastTrueIndex(self: Self) array_mod.ArrayError!?usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            return self.lastMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return value;
+                }
+            }.f);
+        }
+
+        pub fn firstFalseIndex(self: Self) array_mod.ArrayError!?usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            return self.firstMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !value;
+                }
+            }.f);
+        }
+
+        pub fn lastFalseIndex(self: Self) array_mod.ArrayError!?usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            return self.lastMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !value;
+                }
+            }.f);
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }

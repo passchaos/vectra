@@ -2880,7 +2880,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expect(!try rounding_type_table.allColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));
     try std.testing.expectEqual(@as(usize, 1), try rounding_type_table.countFalseColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 0), try rounding_type_table.firstTrueIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 2), try rounding_type_table.lastTrueIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.firstFalseIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.lastFalseIndexColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, table.anyColumn("sales"));
+    try std.testing.expectError(error.TypeUnsupported, table.firstTrueIndexColumn("sales"));
 
     var nullable_bool = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false }, &.{ true, false, true }, .cpu);
     defer nullable_bool.deinit();
@@ -2890,6 +2895,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expect(!try nullable_bool_table.allColumn("flag"));
     try std.testing.expectEqual(@as(usize, 0), try nullable_bool_table.countTrueColumn("flag"));
     try std.testing.expectEqual(@as(usize, 2), try nullable_bool_table.countFalseColumn("flag"));
+    try std.testing.expectEqual(@as(?usize, null), try nullable_bool_table.firstTrueIndexColumn("flag"));
+    try std.testing.expectEqual(@as(?usize, null), try nullable_bool_table.lastTrueIndexColumn("flag"));
+    try std.testing.expectEqual(@as(?usize, 0), try nullable_bool_table.firstFalseIndexColumn("flag"));
+    try std.testing.expectEqual(@as(?usize, 2), try nullable_bool_table.lastFalseIndexColumn("flag"));
 
     var where_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 2.0, 5.0 }, .cpu);
     defer where_metric.deinit();

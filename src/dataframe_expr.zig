@@ -1258,6 +1258,26 @@ pub fn countFalseColumn(frame: anytype, name: []const u8) DeviceDataError!usize 
     return col.countFalse();
 }
 
+pub fn firstTrueIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstTrueIndex();
+}
+
+pub fn lastTrueIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastTrueIndex();
+}
+
+pub fn firstFalseIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstFalseIndex();
+}
+
+pub fn lastFalseIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastFalseIndex();
+}
+
 pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return switch (op) {
