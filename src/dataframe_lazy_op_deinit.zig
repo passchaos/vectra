@@ -153,7 +153,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(predicate.name);
             allocator.free(predicate.output_name);
         },
-        .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count, .row_positive_inf_count, .row_negative_inf_count, .row_zero_count, .row_non_zero_count, .row_finite_count, .row_normal_count, .row_subnormal_count, .row_non_finite_count => |row_count| {
+        .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count, .row_positive_inf_count, .row_negative_inf_count, .row_zero_count, .row_non_zero_count, .row_positive_count, .row_negative_count, .row_finite_count, .row_normal_count, .row_subnormal_count, .row_non_finite_count => |row_count| {
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
         },

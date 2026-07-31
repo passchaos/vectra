@@ -824,8 +824,21 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(flag_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, flag_is_positive);
 
+    var row_positive_counts = try table.withRowPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_count");
+    defer row_positive_counts.deinit();
+    const row_positive_count = try (try row_positive_counts.column("row_positive_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 2, 1, 2, 1, 1 }, row_positive_count);
+
+    var row_negative_counts = try table.withRowNegativeCount(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_count");
+    defer row_negative_counts.deinit();
+    const row_negative_count = try (try row_negative_counts.column("row_negative_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_count);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 0, 0, 1, 0, 0, 2, 0 }, row_negative_count);
+
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveColumn("missing", "missing_is_positive"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
 }
 
 test "device dataframe derives NaN and finite predicate columns" {

@@ -718,6 +718,21 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, row_negative_inf_count_explain, "scan_pushdown: projection=[sales,active]") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_negative_inf_count_explain, "row_negative_inf_count([sales,active]->row_negative_inf_count)") != null);
 
+    var row_positive_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_positive_count_scan.deinit();
+    try row_positive_count_scan.withRowPositiveCount(&.{ "sales", "active" }, "row_positive_count");
+    try row_positive_count_scan.select(&.{"row_positive_count"});
+
+    const row_positive_count_explain = try row_positive_count_scan.explain(gpa);
+    defer gpa.free(row_positive_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_positive_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_positive_count_explain, "row_positive_count([sales,active]->row_positive_count)") != null);
+    var row_positive_count_result = try row_positive_count_scan.collect();
+    defer row_positive_count_result.deinit();
+    const row_positive_count = try (try row_positive_count_result.column("row_positive_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, row_positive_count);
+
     var row_zero_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_zero_count_scan.deinit();
     try row_zero_count_scan.withRowZeroCount(&.{ "sales", "active" }, "row_zero_count");
