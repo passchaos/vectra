@@ -1758,6 +1758,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedStd(self, value_names, weight_names, output_name, correction);
             }
 
+            pub fn withRowWeightedCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedCovariance(self, lhs_names, rhs_names, weight_names, output_name, correction);
+            }
+
+            pub fn withRowWeightedCorrelation(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedCorrelation(self, lhs_names, rhs_names, weight_names, output_name, correction);
+            }
+
+            pub fn withRowWeightedBeta(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedBeta(self, lhs_names, rhs_names, weight_names, output_name, correction);
+            }
+
             pub fn withRowDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowDot(self, lhs_names, rhs_names, output_name);
             }

@@ -1421,6 +1421,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     try plan.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     try plan.withRowWeightedStddev(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_stddev", 0.0);
+    try plan.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_covariance", 0.0);
+    try plan.withRowWeightedCorrelation(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_correlation", 0.0);
+    try plan.withRowWeightedBeta(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_beta", 0.0);
     try plan.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     try plan.withRowCosineSimilarity(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_cosine");
     try plan.withRowSquaredEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_sqdist");
@@ -1458,7 +1461,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_pair_count", "row_weighted_mean", "row_weighted_variance", "row_weighted_stddev", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_pair_count", "row_weighted_mean", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1473,6 +1476,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mean(values=[a,b], weights=[wa,wb]->row_weighted_mean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_variance(values=[a,b], weights=[wa,wb]->row_weighted_variance, correction=0)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_stddev(values=[a,b], weights=[wa,wb]->row_weighted_stddev, correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_covariance(lhs=[a,b], rhs=[wa,wb], weights=[wa,wb]->row_weighted_covariance, correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_correlation(lhs=[a,b], rhs=[wa,wb], weights=[wa,wb]->row_weighted_correlation, correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_beta(lhs=[a,b], rhs=[wa,wb], weights=[wa,wb]->row_weighted_beta, correction=0)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_dot(lhs=[a,b], rhs=[wa,wb]->row_dot)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cosine_similarity(lhs=[a,b], rhs=[wa,wb]->row_cosine)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_squared_euclidean_distance(lhs=[a,b], rhs=[wa,wb]->row_sqdist)") != null);
@@ -1513,7 +1519,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 48), result.width());
+    try std.testing.expectEqual(@as(usize, 51), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1576,6 +1582,24 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_weighted_stddev);
     const row_weighted_stddev_validity = try row_weighted_stddev_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_weighted_stddev_validity);
+    const row_weighted_covariance_column = try result.column("row_weighted_covariance");
+    try std.testing.expect(row_weighted_covariance_column.f64.nullable());
+    const row_weighted_covariance = try row_weighted_covariance_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_covariance);
+    const row_weighted_covariance_validity = try row_weighted_covariance_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_covariance_validity);
+    const row_weighted_correlation_column = try result.column("row_weighted_correlation");
+    try std.testing.expect(row_weighted_correlation_column.f64.nullable());
+    const row_weighted_correlation = try row_weighted_correlation_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_correlation);
+    const row_weighted_correlation_validity = try row_weighted_correlation_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_correlation_validity);
+    const row_weighted_beta_column = try result.column("row_weighted_beta");
+    try std.testing.expect(row_weighted_beta_column.f64.nullable());
+    const row_weighted_beta = try row_weighted_beta_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_beta);
+    const row_weighted_beta_validity = try row_weighted_beta_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_beta_validity);
     const row_dot_column = try result.column("row_dot");
     try std.testing.expect(row_dot_column.f64.nullable());
     const row_dot = try row_dot_column.f64.toOwnedSlice(gpa);
@@ -1787,6 +1811,21 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 207.36)), row_weighted_stddev[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_stddev_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -17.28), row_weighted_covariance[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_covariance_validity);
+    try std.testing.expect(std.math.isNan(row_weighted_correlation[0]));
+    try std.testing.expect(std.math.isNan(row_weighted_correlation[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_correlation[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), row_weighted_correlation[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_correlation_validity);
+    try std.testing.expect(std.math.isNan(row_weighted_beta[0]));
+    try std.testing.expect(std.math.isNan(row_weighted_beta[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_beta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 12.0), row_weighted_beta[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_beta_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 56.0 }, row_dot);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_dot_validity);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_cosine[0], 1e-12);
@@ -1931,6 +1970,16 @@ test "device lazy frame derives row numeric reduction columns" {
     defer invalid_weighted_correction_plan.deinit();
     try invalid_weighted_correction_plan.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0);
     try std.testing.expectError(error.InvalidShape, invalid_weighted_correction_plan.collect());
+
+    var invalid_weighted_covariance_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_weighted_covariance_plan.deinit();
+    try invalid_weighted_covariance_plan.withRowWeightedCovariance(&.{"a"}, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", 0.0);
+    try std.testing.expectError(error.LengthMismatch, invalid_weighted_covariance_plan.collect());
+
+    var invalid_weighted_covariance_correction_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_weighted_covariance_correction_plan.deinit();
+    try invalid_weighted_covariance_correction_plan.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", -1.0);
+    try std.testing.expectError(error.InvalidShape, invalid_weighted_covariance_correction_plan.collect());
 
     var invalid_dot_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_dot_plan.deinit();

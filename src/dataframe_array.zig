@@ -2108,6 +2108,170 @@ pub fn withRowWeightedStd(
     return withRowWeightedStddev(DeviceDataFrame, input, value_names, weight_names, output_name, correction);
 }
 
+const OwnedRealF64Column = struct {
+    allocator: std.mem.Allocator,
+    values: []f64,
+    validity: ?[]bool,
+
+    fn deinit(self: *OwnedRealF64Column) void {
+        self.allocator.free(self.values);
+        if (self.validity) |mask| self.allocator.free(mask);
+        self.* = undefined;
+    }
+};
+
+fn ownedRealF64Column(allocator: std.mem.Allocator, source: anytype) DeviceFrameArrayError!OwnedRealF64Column {
+    if (!source.dtype().isReal()) return error.TypeMismatch;
+
+    switch (source.*) {
+        inline else => |typed| {
+            const raw_values = try typed.toOwnedSlice(allocator);
+            defer allocator.free(raw_values);
+            const values = try allocator.alloc(f64, raw_values.len);
+            errdefer allocator.free(values);
+            for (raw_values, values) |raw, *out| {
+                out.* = realValueAsF64(@TypeOf(raw), raw);
+            }
+            const maybe_validity = try validityValues(typed, allocator);
+            errdefer if (maybe_validity) |mask| allocator.free(mask);
+            return .{
+                .allocator = allocator,
+                .values = values,
+                .validity = maybe_validity,
+            };
+        },
+    }
+}
+
+const RowWeightedPairReduction = enum { covariance, correlation, beta };
+
+fn withRowWeightedPairReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: RowWeightedPairReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len or lhs_names.len != weight_names.len) return error.LengthMismatch;
+
+    const weight_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weight_sums);
+    const lhs_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(lhs_sums);
+    const rhs_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(rhs_sums);
+    const lhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(lhs_square_sums);
+    const rhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(rhs_square_sums);
+    const cross_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(cross_sums);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(weight_sums, 0.0);
+    @memset(lhs_sums, 0.0);
+    @memset(rhs_sums, 0.0);
+    @memset(lhs_square_sums, 0.0);
+    @memset(rhs_square_sums, 0.0);
+    @memset(cross_sums, 0.0);
+    @memset(validity, false);
+
+    for (lhs_names, rhs_names, weight_names) |lhs_name, rhs_name, weight_name| {
+        const lhs_source = try input.column(lhs_name);
+        const rhs_source = try input.column(rhs_name);
+        const weight_source = try input.column(weight_name);
+
+        var lhs_column = try ownedRealF64Column(input.allocator, lhs_source);
+        defer lhs_column.deinit();
+        var rhs_column = try ownedRealF64Column(input.allocator, rhs_source);
+        defer rhs_column.deinit();
+        var weight_column = try ownedRealF64Column(input.allocator, weight_source);
+        defer weight_column.deinit();
+
+        for (lhs_column.values, rhs_column.values, weight_column.values, 0..) |lhs, rhs, weight, row| {
+            const lhs_valid = if (lhs_column.validity) |mask| mask[row] else true;
+            const rhs_valid = if (rhs_column.validity) |mask| mask[row] else true;
+            const weight_valid = if (weight_column.validity) |mask| mask[row] else true;
+            if (!lhs_valid or !rhs_valid or !weight_valid) continue;
+            if (weight < 0.0) return error.InvalidShape;
+            weight_sums[row] += weight;
+            lhs_sums[row] += weight * lhs;
+            rhs_sums[row] += weight * rhs;
+            lhs_square_sums[row] += weight * lhs * lhs;
+            rhs_square_sums[row] += weight * rhs * rhs;
+            cross_sums[row] += weight * lhs * rhs;
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    for (values, validity, weight_sums, lhs_sums, rhs_sums, lhs_square_sums, rhs_square_sums, cross_sums) |*value, *valid, weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum| {
+        valid.* = weight_sum > 0.0;
+        if (!valid.*) {
+            value.* = 0.0;
+            continue;
+        }
+        const denominator = weight_sum - correction;
+        var lhs_centered = lhs_square_sum - lhs_sum * lhs_sum / weight_sum;
+        var rhs_centered = rhs_square_sum - rhs_sum * rhs_sum / weight_sum;
+        const cross_centered = cross_sum - lhs_sum * rhs_sum / weight_sum;
+        if (lhs_centered < 0.0 and lhs_centered > -1e-12) lhs_centered = 0.0;
+        if (rhs_centered < 0.0 and rhs_centered > -1e-12) rhs_centered = 0.0;
+
+        const covariance = if (denominator <= 0.0) quietNanF64() else cross_centered / denominator;
+        value.* = switch (reduction) {
+            .covariance => covariance,
+            .correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) quietNanF64() else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
+            .beta => if (denominator <= 0.0 or lhs_centered == 0.0) quietNanF64() else cross_centered / lhs_centered,
+        };
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedCovariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, correction, .covariance);
+}
+
+pub fn withRowWeightedCorrelation(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, correction, .correlation);
+}
+
+pub fn withRowWeightedBeta(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

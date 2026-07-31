@@ -527,6 +527,48 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 207.36)), row_weighted_stddev[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_stddev_validity);
 
+    var row_weighted_covariance_table = try validity_table.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_covariance", 0.0);
+    defer row_weighted_covariance_table.deinit();
+    const row_weighted_covariance_column = try row_weighted_covariance_table.column("row_weighted_covariance");
+    try std.testing.expect(row_weighted_covariance_column.f64.nullable());
+    const row_weighted_covariance = try row_weighted_covariance_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_covariance);
+    const row_weighted_covariance_validity = try row_weighted_covariance_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_covariance_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_covariance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -17.28), row_weighted_covariance[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_covariance_validity);
+
+    var row_weighted_correlation_table = try validity_table.withRowWeightedCorrelation(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_correlation", 0.0);
+    defer row_weighted_correlation_table.deinit();
+    const row_weighted_correlation_column = try row_weighted_correlation_table.column("row_weighted_correlation");
+    try std.testing.expect(row_weighted_correlation_column.f64.nullable());
+    const row_weighted_correlation = try row_weighted_correlation_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_correlation);
+    const row_weighted_correlation_validity = try row_weighted_correlation_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_correlation_validity);
+    try std.testing.expect(std.math.isNan(row_weighted_correlation[0]));
+    try std.testing.expect(std.math.isNan(row_weighted_correlation[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_correlation[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), row_weighted_correlation[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_correlation_validity);
+
+    var row_weighted_beta_table = try validity_table.withRowWeightedBeta(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_beta", 0.0);
+    defer row_weighted_beta_table.deinit();
+    const row_weighted_beta_column = try row_weighted_beta_table.column("row_weighted_beta");
+    try std.testing.expect(row_weighted_beta_column.f64.nullable());
+    const row_weighted_beta = try row_weighted_beta_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_beta);
+    const row_weighted_beta_validity = try row_weighted_beta_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_beta_validity);
+    try std.testing.expect(std.math.isNan(row_weighted_beta[0]));
+    try std.testing.expect(std.math.isNan(row_weighted_beta[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_beta[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 12.0), row_weighted_beta[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_beta_validity);
+
     var row_dot_table = try validity_table.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     defer row_dot_table.deinit();
     const row_dot_column = try row_dot_table.column("row_dot");
@@ -704,6 +746,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedVariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_variance", 0.0));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedCovariance(&.{"a"}, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", 0.0));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", -1.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCovariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_covariance"));
 

@@ -597,6 +597,60 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
         },
+        .row_weighted_covariance => |row_weighted| {
+            try writer.print("row_weighted_covariance(lhs=[", .{});
+            for (row_weighted.lhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_weighted.rhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
+        },
+        .row_weighted_correlation => |row_weighted| {
+            try writer.print("row_weighted_correlation(lhs=[", .{});
+            for (row_weighted.lhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_weighted.rhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
+        },
+        .row_weighted_beta => |row_weighted| {
+            try writer.print("row_weighted_beta(lhs=[", .{});
+            for (row_weighted.lhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_weighted.rhs_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
+        },
         .row_dot => |row_paired| {
             try writer.print("row_dot(lhs=[", .{});
             for (row_paired.value_names, 0..) |name, i| {

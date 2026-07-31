@@ -2611,6 +2611,69 @@ pub fn withRowWeightedStd(frame: anytype, value_names: []const []const u8, weigh
     return withRowWeightedStddev(frame, value_names, weight_names, output_name, correction);
 }
 
+fn withRowWeightedPair(
+    frame: anytype,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: enum { covariance, correlation, beta },
+) DeviceDataError!void {
+    const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
+    errdefer {
+        for (owned_lhs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_lhs);
+    }
+    const owned_rhs = try cloneNameList(frame.allocator, rhs_names);
+    errdefer {
+        for (owned_rhs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_rhs);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .covariance => try frame.ops.append(frame.allocator, .{ .row_weighted_covariance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .correlation => try frame.ops.append(frame.allocator, .{ .row_weighted_correlation = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .beta => try frame.ops.append(frame.allocator, .{ .row_weighted_beta = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+    }
+}
+
+pub fn withRowWeightedCovariance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .covariance);
+}
+
+pub fn withRowWeightedCorrelation(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .correlation);
+}
+
+pub fn withRowWeightedBeta(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
+}
+
 fn withRowPairedNumeric(
     frame: anytype,
     lhs_names: []const []const u8,
