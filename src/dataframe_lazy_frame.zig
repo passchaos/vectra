@@ -1838,8 +1838,16 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNormalCount(self, names, output_name);
             }
 
+            pub fn withRowNormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNormalRatio(self, names, output_name);
+            }
+
             pub fn withRowSubnormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSubnormalCount(self, names, output_name);
+            }
+
+            pub fn withRowSubnormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSubnormalRatio(self, names, output_name);
             }
 
             pub fn withRowNonFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

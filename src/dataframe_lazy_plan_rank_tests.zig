@@ -2362,28 +2362,38 @@ test "device lazy frame derives normal predicate columns" {
     var row_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_normal_plan.deinit();
     try row_normal_plan.withRowNormalCount(&.{ "metric", "id" }, "row_normal_count");
-    try row_normal_plan.select(&.{"row_normal_count"});
+    try row_normal_plan.withRowNormalRatio(&.{ "metric", "id" }, "row_normal_ratio");
+    try row_normal_plan.select(&.{ "row_normal_count", "row_normal_ratio" });
     const row_normal_explain = try row_normal_plan.explain(gpa);
     defer gpa.free(row_normal_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_count([metric,id]->row_normal_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_ratio([metric,id]->row_normal_ratio)") != null);
     var row_normal = try row_normal_plan.collect();
     defer row_normal.deinit();
     const row_normal_count = try (try row_normal.column("row_normal_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_normal_count);
+    const row_normal_ratio = try (try row_normal.column("row_normal_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_normal_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0, 0.0 }, row_normal_ratio);
 
     var row_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_subnormal_plan.deinit();
     try row_subnormal_plan.withRowSubnormalCount(&.{ "metric", "id" }, "row_subnormal_count");
-    try row_subnormal_plan.select(&.{"row_subnormal_count"});
+    try row_subnormal_plan.withRowSubnormalRatio(&.{ "metric", "id" }, "row_subnormal_ratio");
+    try row_subnormal_plan.select(&.{ "row_subnormal_count", "row_subnormal_ratio" });
     const row_subnormal_explain = try row_subnormal_plan.explain(gpa);
     defer gpa.free(row_subnormal_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_subnormal_explain, "row_subnormal_count([metric,id]->row_subnormal_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_subnormal_explain, "row_subnormal_ratio([metric,id]->row_subnormal_ratio)") != null);
     var row_subnormal = try row_subnormal_plan.collect();
     defer row_subnormal.deinit();
     const row_subnormal_count = try (try row_subnormal.column("row_subnormal_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_subnormal_count);
+    const row_subnormal_ratio = try (try row_subnormal.column("row_subnormal_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_subnormal_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_subnormal_count);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, row_subnormal_ratio);
 
     var drop_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_normal_plan.deinit();
@@ -2457,6 +2467,11 @@ test "device lazy frame derives normal predicate columns" {
     defer invalid_count_plan.deinit();
     try invalid_count_plan.withRowNormalCount(&.{"missing"}, "bad_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_count_plan.collect());
+
+    var invalid_ratio_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_ratio_plan.deinit();
+    try invalid_ratio_plan.withRowNormalRatio(&.{"missing"}, "bad_ratio");
+    try std.testing.expectError(error.ColumnNotFound, invalid_ratio_plan.collect());
 
     var invalid_subnormal_count_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_subnormal_count_plan.deinit();

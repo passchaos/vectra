@@ -2240,6 +2240,24 @@ pub fn withRowFiniteRatio(
     return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .finite);
 }
 
+pub fn withRowNormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .normal);
+}
+
+pub fn withRowSubnormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .subnormal);
+}
+
 pub fn withRowNonFiniteRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

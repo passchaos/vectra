@@ -1931,6 +1931,18 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(row_subnormal_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_subnormal_count);
 
+    var row_normal_ratios = try table.withRowNormalRatio(&.{ "metric", "id" }, "row_normal_ratio");
+    defer row_normal_ratios.deinit();
+    const row_normal_ratio = try (try row_normal_ratios.column("row_normal_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_normal_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0, 0.0 }, row_normal_ratio);
+
+    var row_subnormal_ratios = try table.withRowSubnormalRatio(&.{ "metric", "id" }, "row_subnormal_ratio");
+    defer row_subnormal_ratios.deinit();
+    const row_subnormal_ratio = try (try row_subnormal_ratios.column("row_subnormal_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_subnormal_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, row_subnormal_ratio);
+
     var dropped_normal_rows = try table.dropNormalsColumn("metric");
     defer dropped_normal_rows.deinit();
     try std.testing.expectEqual(@as(usize, 4), dropped_normal_rows.height());

@@ -2629,7 +2629,7 @@ fn withRowNumericPredicateRatio(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2684,6 +2684,14 @@ fn withRowNumericPredicateRatio(
             .output_name = owned_output,
         } }),
         .finite => try frame.ops.append(frame.allocator, .{ .row_finite_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .normal => try frame.ops.append(frame.allocator, .{ .row_normal_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .subnormal => try frame.ops.append(frame.allocator, .{ .row_subnormal_ratio = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2794,8 +2802,16 @@ pub fn withRowNormalCount(frame: anytype, names: []const []const u8, output_name
     return withRowNumericPredicateCount(frame, names, output_name, .normal);
 }
 
+pub fn withRowNormalRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .normal);
+}
+
 pub fn withRowSubnormalCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .subnormal);
+}
+
+pub fn withRowSubnormalRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .subnormal);
 }
 
 pub fn withRowNonFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
