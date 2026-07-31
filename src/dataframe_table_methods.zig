@@ -105,6 +105,46 @@ pub fn withColumnCbrt(self: anytype, output_name: []const u8, input_name: []cons
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnFloor(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnFloor(frameValue(self), name);
+}
+
+pub fn withColumnFloor(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnFloor(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnCeil(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnCeil(frameValue(self), name);
+}
+
+pub fn withColumnCeil(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnCeil(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnRound(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnRound(frameValue(self), name);
+}
+
+pub fn withColumnRound(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnRound(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnTrunc(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnTrunc(frameValue(self), name);
+}
+
+pub fn withColumnTrunc(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnTrunc(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnExp(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnExp(frameValue(self), name);
 }

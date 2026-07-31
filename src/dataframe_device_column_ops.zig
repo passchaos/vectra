@@ -78,6 +78,38 @@ pub fn cbrt(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     };
 }
 
+pub fn floor(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.floor()),
+    };
+}
+
+pub fn ceil(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.ceil()),
+    };
+}
+
+pub fn round(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.round()),
+    };
+}
+
+pub fn trunc(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.trunc()),
+    };
+}
+
 pub fn exp(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

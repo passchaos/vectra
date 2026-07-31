@@ -49,6 +49,26 @@ pub fn unaryColumnCbrt(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.cbrt();
 }
 
+pub fn unaryColumnFloor(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.floor();
+}
+
+pub fn unaryColumnCeil(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.ceil();
+}
+
+pub fn unaryColumnRound(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.round();
+}
+
+pub fn unaryColumnTrunc(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.trunc();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

@@ -434,117 +434,43 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .with_row_index => |row_index| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_index.name);
             },
-            .with_column_abs => |expr| {
+            .with_column_abs,
+            .with_column_neg,
+            .with_column_square,
+            .with_column_reciprocal,
+            .with_column_sqrt,
+            .with_column_rsqrt,
+            .with_column_cbrt,
+            .with_column_floor,
+            .with_column_ceil,
+            .with_column_round,
+            .with_column_trunc,
+            .with_column_exp,
+            .with_column_exp2,
+            .with_column_expm1,
+            .with_column_sin,
+            .with_column_cos,
+            .with_column_tan,
+            .with_column_asin,
+            .with_column_acos,
+            .with_column_atan,
+            .with_column_sinh,
+            .with_column_cosh,
+            .with_column_tanh,
+            .with_column_asinh,
+            .with_column_acosh,
+            .with_column_atanh,
+            .with_column_log,
+            .with_column_log1p,
+            .with_column_lgamma,
+            .with_column_sinc,
+            .with_column_log2,
+            .with_column_log10,
+            => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_neg => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_square => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_reciprocal => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_sqrt => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_rsqrt => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_cbrt => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_exp => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_exp2 => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_expm1 => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_sin => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_cos => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_tan => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_asin => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_acos => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_atan => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_sinh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_cosh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_tanh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_asinh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_acosh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_atanh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_log => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_log1p => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_lgamma => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_sinc => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_log2 => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-            },
-            .with_column_log10 => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                }
             },
             .with_column_binary => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);

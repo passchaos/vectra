@@ -2343,6 +2343,54 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnCbrt("bad_cbrt", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnCbrt("missing_cbrt", "missing"));
 
+    var rounding_active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer rounding_active.deinit();
+    var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
+    defer rounding_type_table.deinit();
+
+    var floor_cost_table = try table.withColumnFloor("cost_floor", "cost");
+    defer floor_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try floor_cost_table.columnDType("cost_floor"));
+    const cost_floor = try (try floor_cost_table.column("cost_floor")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_floor);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 2.0 }, cost_floor);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnFloor("bad_floor", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnFloor("missing_floor", "missing"));
+
+    var ceil_cost_table = try table.withColumnCeil("cost_ceil", "cost");
+    defer ceil_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try ceil_cost_table.columnDType("cost_ceil"));
+    const cost_ceil = try (try ceil_cost_table.column("cost_ceil")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_ceil);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0, 2.0 }, cost_ceil);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnCeil("bad_ceil", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnCeil("missing_ceil", "missing"));
+
+    var round_cost_table = try table.withColumnRound("cost_round", "cost");
+    defer round_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try round_cost_table.columnDType("cost_round"));
+    const cost_round = try (try round_cost_table.column("cost_round")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_round);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0, 2.0 }, cost_round);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRound("bad_round", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnRound("missing_round", "missing"));
+
+    var trunc_cost_table = try table.withColumnTrunc("cost_trunc", "cost");
+    defer trunc_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try trunc_cost_table.columnDType("cost_trunc"));
+    const cost_trunc = try (try trunc_cost_table.column("cost_trunc")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_trunc);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 2.0 }, cost_trunc);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnTrunc("bad_trunc", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnTrunc("missing_trunc", "missing"));
+
+    var floor_units_table = try table.withColumnFloor("units_floor", "units");
+    defer floor_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try floor_units_table.columnDType("units_floor"));
+    const units_floor = try (try floor_units_table.column("units_floor")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_floor);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, units_floor);
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));
