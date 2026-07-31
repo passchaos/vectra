@@ -803,6 +803,22 @@ pub fn withColumnRelu(frame: anytype, name: []const u8, input_name: []const u8) 
     } });
 }
 
+pub fn withColumnLeakyRelu(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, negative_slope: T) DeviceDataError!void {
+    return withColumnLeakyReluWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, negative_slope));
+}
+
+pub fn withColumnLeakyReluWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, negative_slope: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_leaky_relu = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = negative_slope,
+    } });
+}
+
 pub fn withColumnRelu6(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

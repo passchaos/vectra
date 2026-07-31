@@ -219,6 +219,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.name);
             allocator.free(expr.input_name);
         },
+        .with_column_leaky_relu => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+        },
         .with_column_relu6 => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.input_name);

@@ -225,6 +225,26 @@ pub fn withColumnRelu(self: anytype, output_name: []const u8, input_name: []cons
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnLeakyRelu(self: anytype, name: []const u8, comptime T: type, negative_slope: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnLeakyRelu(frameValue(self), name, T, negative_slope);
+}
+
+pub fn unaryColumnLeakyReluWithDeviceScalar(self: anytype, name: []const u8, negative_slope: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnLeakyReluWithDeviceScalar(frameValue(self), name, negative_slope);
+}
+
+pub fn withColumnLeakyRelu(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, negative_slope: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnLeakyRelu(self, input_name, T, negative_slope);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnLeakyReluWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, negative_slope: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnLeakyReluWithDeviceScalar(self, input_name, negative_slope);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnRelu6(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnRelu6(frameValue(self), name);
 }

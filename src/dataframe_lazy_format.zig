@@ -362,6 +362,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_softplus => |expr| try writer.print("with_column_softplus({s}=softplus({s}))", .{ expr.name, expr.input_name }),
         .with_column_logsigmoid => |expr| try writer.print("with_column_logsigmoid({s}=logsigmoid({s}))", .{ expr.name, expr.input_name }),
         .with_column_relu => |expr| try writer.print("with_column_relu({s}=relu({s}))", .{ expr.name, expr.input_name }),
+        .with_column_leaky_relu => |expr| try writer.print("with_column_leaky_relu({s}=leaky_relu({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_relu6 => |expr| try writer.print("with_column_relu6({s}=relu6({s}))", .{ expr.name, expr.input_name }),
         .with_column_softsign => |expr| try writer.print("with_column_softsign({s}=softsign({s}))", .{ expr.name, expr.input_name }),
         .with_column_hardsigmoid => |expr| try writer.print("with_column_hardsigmoid({s}=hardsigmoid({s}))", .{ expr.name, expr.input_name }),

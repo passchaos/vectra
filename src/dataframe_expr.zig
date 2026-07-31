@@ -109,6 +109,16 @@ pub fn unaryColumnRelu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.relu();
 }
 
+pub fn unaryColumnLeakyRelu(frame: anytype, name: []const u8, comptime T: type, negative_slope: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.leakyRelu(T, negative_slope);
+}
+
+pub fn unaryColumnLeakyReluWithDeviceScalar(frame: anytype, name: []const u8, negative_slope: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.leakyReluWithDeviceScalar(negative_slope);
+}
+
 pub fn unaryColumnRelu6(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.relu6();

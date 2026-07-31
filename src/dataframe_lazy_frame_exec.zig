@@ -260,6 +260,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_leaky_relu => |expr| blk: {
+                var column_value = try current.unaryColumnLeakyReluWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_relu6 => |expr| blk: {
                 var column_value = try current.unaryColumnRelu6(expr.input_name);
                 defer column_value.deinit();

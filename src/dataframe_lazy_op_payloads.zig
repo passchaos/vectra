@@ -102,6 +102,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             op: DeviceColumnBinaryOp,
             scalar: DeviceScalar,
         };
+        pub const WithColumnParamUnary = struct {
+            name: []const u8,
+            input_name: []const u8,
+            scalar: DeviceScalar,
+        };
         pub const WithColumnLiteral = struct {
             name: []const u8,
             scalar: DeviceScalar,

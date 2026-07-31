@@ -929,6 +929,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnRelu(self, name, input_name);
             }
 
+            pub fn withColumnLeakyRelu(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, negative_slope: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLeakyRelu(self, name, input_name, T, negative_slope);
+            }
+
+            pub fn withColumnLeakyReluWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, negative_slope: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLeakyReluWithDeviceScalar(self, name, input_name, negative_slope);
+            }
+
             pub fn withColumnRelu6(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnRelu6(self, name, input_name);
             }

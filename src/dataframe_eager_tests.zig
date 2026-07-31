@@ -2492,6 +2492,50 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu("bad_relu", "active"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnRelu("missing_relu", "missing"));
 
+    var leaky_relu_ratio_table = try inverse_trig_table.withColumnLeakyRelu("ratio_leaky_relu", "ratio", f64, 0.1);
+    defer leaky_relu_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try leaky_relu_ratio_table.columnDType("ratio_leaky_relu"));
+    const ratio_leaky_relu = try (try leaky_relu_ratio_table.column("ratio_leaky_relu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_leaky_relu);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.05), ratio_leaky_relu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_leaky_relu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_leaky_relu[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnLeakyRelu("bad_leaky_relu", "active", f64, 0.1));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLeakyRelu("missing_leaky_relu", "missing", f64, 0.1));
+
+    var nullable_ratio = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -2.0, 3.0, -4.0 }, &.{ true, false, true }, .cpu);
+    defer nullable_ratio.deinit();
+    var nullable_ratio_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "ratio", .data = nullable_ratio }});
+    defer nullable_ratio_table.deinit();
+    var nullable_leaky_relu_table = try nullable_ratio_table.withColumnLeakyRelu("ratio_leaky_relu", "ratio", f64, 0.25);
+    defer nullable_leaky_relu_table.deinit();
+    const nullable_leaky_relu_column = try nullable_leaky_relu_table.column("ratio_leaky_relu");
+    try std.testing.expect(nullable_leaky_relu_column.f64.nullable());
+    try std.testing.expectEqual(@as(usize, 1), nullable_leaky_relu_column.f64.null_count);
+    const nullable_leaky_relu = try nullable_leaky_relu_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(nullable_leaky_relu);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), nullable_leaky_relu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), nullable_leaky_relu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), nullable_leaky_relu[2], 1e-12);
+
+    var leaky_relu_units_table = try table.withColumnLeakyRelu("units_leaky_relu", "units", i64, 2);
+    defer leaky_relu_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try leaky_relu_units_table.columnDType("units_leaky_relu"));
+    const units_leaky_relu = try (try leaky_relu_units_table.column("units_leaky_relu")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_leaky_relu);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, units_leaky_relu);
+
+    var signed_units = try DeviceColumn.fromSlice(i64, gpa, &.{ -2, 3, -4 }, .cpu);
+    defer signed_units.deinit();
+    var signed_units_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "signed_units", .data = signed_units }});
+    defer signed_units_table.deinit();
+    var signed_units_leaky_relu_table = try signed_units_table.withColumnLeakyReluWithDeviceScalar("signed_units_leaky_relu", "signed_units", .{ .f64 = 2.0 });
+    defer signed_units_leaky_relu_table.deinit();
+    const signed_units_leaky_relu = try (try signed_units_leaky_relu_table.column("signed_units_leaky_relu")).i64.toOwnedSlice(gpa);
+    defer gpa.free(signed_units_leaky_relu);
+    try std.testing.expectEqualSlices(i64, &.{ -4, 3, -8 }, signed_units_leaky_relu);
+    try std.testing.expectError(error.TypeUnsupported, signed_units_table.withColumnLeakyReluWithDeviceScalar("bad_fractional_slope", "signed_units", .{ .f64 = 0.5 }));
+
     var relu6_cost_table = try table.withColumnRelu6("cost_relu6", "cost");
     defer relu6_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try relu6_cost_table.columnDType("cost_relu6"));
