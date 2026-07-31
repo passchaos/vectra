@@ -686,6 +686,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_mae => |row_paired| try current.withRowMae(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_mse => |row_paired| try current.withRowMse(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_rmse => |row_paired| try current.withRowRmse(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
+            .row_mape => |row_paired| try current.withRowMape(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
+            .row_smape => |row_paired| try current.withRowSmape(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_argmin => |row_count| try current.withRowArgMin(row_count.names, row_count.output_name),
             .row_argmax => |row_count| try current.withRowArgMax(row_count.names, row_count.output_name),
             .row_quantile => |row_quantile| try current.withRowQuantile(row_quantile.names, row_quantile.output_name, row_quantile.q),

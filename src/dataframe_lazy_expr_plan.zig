@@ -2544,7 +2544,7 @@ fn withRowPairedNumeric(
     lhs_names: []const []const u8,
     rhs_names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mae, mse, rmse },
+    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mae, mse, rmse, mape, smape },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -2604,6 +2604,16 @@ fn withRowPairedNumeric(
             .weight_names = owned_weights,
             .output_name = owned_output,
         } }),
+        .mape => try frame.ops.append(frame.allocator, .{ .row_mape = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .smape => try frame.ops.append(frame.allocator, .{ .row_smape = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2641,6 +2651,14 @@ pub fn withRowMse(frame: anytype, lhs_names: []const []const u8, rhs_names: []co
 
 pub fn withRowRmse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .rmse);
+}
+
+pub fn withRowMape(frame: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, actual_names, predicted_names, output_name, .mape);
+}
+
+pub fn withRowSmape(frame: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, actual_names, predicted_names, output_name, .smape);
 }
 
 fn withRowNumericArgReduction(

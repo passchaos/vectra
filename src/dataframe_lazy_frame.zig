@@ -1774,6 +1774,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowRmse(self, lhs_names, rhs_names, output_name);
             }
 
+            pub fn withRowMape(self: *DeviceLazyFrame, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMape(self, actual_names, predicted_names, output_name);
+            }
+
+            pub fn withRowSmape(self: *DeviceLazyFrame, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSmape(self, actual_names, predicted_names, output_name);
+            }
+
             pub fn withRowArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowArgMin(self, names, output_name);
             }

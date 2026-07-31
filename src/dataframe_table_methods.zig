@@ -2663,6 +2663,14 @@ pub fn withRowRmse(self: anytype, lhs_names: []const []const u8, rhs_names: []co
     return dataframe_array_mod.withRowRmse(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
 
+pub fn withRowMape(self: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMape(FrameType(@TypeOf(self)), frameValue(self), actual_names, predicted_names, output_name);
+}
+
+pub fn withRowSmape(self: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSmape(FrameType(@TypeOf(self)), frameValue(self), actual_names, predicted_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

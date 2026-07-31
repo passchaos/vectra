@@ -561,6 +561,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 19.0), row_rmse[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rmse[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 760.5)), row_rmse[3], 1e-12);
+
+    var row_mape_table = try validity_table.withRowMape(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mape");
+    defer row_mape_table.deinit();
+    const row_mape_column = try row_mape_table.column("row_mape");
+    try std.testing.expect(row_mape_column.f64.nullable());
+    const row_mape = try row_mape_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mape);
+    const row_mape_validity = try row_mape_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mape_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_mape[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0 / 20.0), row_mape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_mape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0 / 80.0), row_mape[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mape_validity);
+
+    var row_smape_table = try validity_table.withRowSmape(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_smape");
+    defer row_smape_table.deinit();
+    const row_smape_column = try row_smape_table.column("row_smape");
+    try std.testing.expect(row_smape_column.f64.nullable());
+    const row_smape = try row_smape_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_smape);
+    const row_smape_validity = try row_smape_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_smape_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_smape[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 38.0 / 21.0), row_smape[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_smape[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0 / 41.0), row_smape[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_smape_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
 
