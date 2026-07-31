@@ -471,6 +471,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_mode_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mode_validity);
+
+    var row_distinct_table = try validity_table.withRowCountDistinct(&.{ "a", "b" }, "row_distinct");
+    defer row_distinct_table.deinit();
+    const row_distinct = try (try row_distinct_table.column("row_distinct")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_distinct);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_distinct);
+
+    var row_unique_table = try validity_table.withRowNUnique(&.{ "a", "b" }, "row_unique");
+    defer row_unique_table.deinit();
+    const row_unique = try (try row_unique_table.column("row_unique")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_unique);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_unique);
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
 
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");

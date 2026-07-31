@@ -2576,6 +2576,90 @@ pub fn withRowMode(
     return withRowModeCore(DeviceDataFrame, input, names, output_name);
 }
 
+fn withRowDistinctCountCore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    for (0..input.rows) |row| {
+        for (0..check_names.len) |col_index| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            const candidate = flat_values[offset];
+
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * check_names.len + previous_index;
+                if (!flat_validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat_values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) counts[row] += 1;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowCountDistinct(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowNUnique(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
+}
+
 const RowNumericDispersion = enum { variance, stddev, sem, cv, skewness, kurtosis };
 
 fn withRowNumericDispersion(
