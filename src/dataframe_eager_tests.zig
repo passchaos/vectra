@@ -2628,6 +2628,36 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnXlogyScalar("bad_xlogy", "units", f64, std.math.e));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnXlogyScalar("missing_xlogy", "missing", f64, std.math.e));
 
+    var fmax_ratio_table = try inverse_trig_table.withColumnFmaxScalar("ratio_fmax", "ratio", f64, 0.25);
+    defer fmax_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try fmax_ratio_table.columnDType("ratio_fmax"));
+    const ratio_fmax = try (try fmax_ratio_table.column("ratio_fmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_fmax);
+    try std.testing.expectEqualSlices(f64, &.{ 0.25, 0.25, 0.5 }, ratio_fmax);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnFmaxScalar("bad_fmax", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnFmaxScalar("missing_fmax", "missing", f64, 0.25));
+
+    var fmin_ratio_table = try inverse_trig_table.withColumnFminScalar("ratio_fmin", "ratio", f64, 0.25);
+    defer fmin_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try fmin_ratio_table.columnDType("ratio_fmin"));
+    const ratio_fmin = try (try fmin_ratio_table.column("ratio_fmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_fmin);
+    try std.testing.expectEqualSlices(f64, &.{ -0.5, 0.0, 0.25 }, ratio_fmin);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnFminScalar("bad_fmin", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnFminScalar("missing_fmin", "missing", f64, 0.25));
+
+    var nan_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), -1.0, 2.0 }, .cpu);
+    defer nan_metric.deinit();
+    var nan_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_metric }});
+    defer nan_table.deinit();
+    var fmax_nan_table = try nan_table.withColumnFmaxScalar("metric_fmax", "metric", f64, 0.5);
+    defer fmax_nan_table.deinit();
+    const metric_fmax = try (try fmax_nan_table.column("metric_fmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_fmax);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), metric_fmax[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), metric_fmax[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), metric_fmax[2], 1e-12);
+
     var threshold_ratio_table = try inverse_trig_table.withColumnThreshold("ratio_threshold", "ratio", f64, -0.25, 1.0);
     defer threshold_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try threshold_ratio_table.columnDType("ratio_threshold"));

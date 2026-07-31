@@ -371,6 +371,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_log_add_exp_scalar => |expr| try writer.print("with_column_log_add_exp_scalar({s}=log_add_exp({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_log_add_exp2_scalar => |expr| try writer.print("with_column_log_add_exp2_scalar({s}=log_add_exp2({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_xlogy_scalar => |expr| try writer.print("with_column_xlogy_scalar({s}=xlogy({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
+        .with_column_fmax_scalar => |expr| try writer.print("with_column_fmax_scalar({s}=fmax({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
+        .with_column_fmin_scalar => |expr| try writer.print("with_column_fmin_scalar({s}=fmin({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_threshold => |expr| try writer.print("with_column_threshold({s}=threshold({s}, threshold:{s}, replacement:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_hardtanh => |expr| try writer.print("with_column_hardtanh({s}=hardtanh({s}, min:{s}, max:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_maximum_scalar => |expr| try writer.print("with_column_maximum_scalar({s}=maximum({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),

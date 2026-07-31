@@ -194,6 +194,26 @@ pub fn unaryColumnXlogyWithDeviceScalar(frame: anytype, name: []const u8, scalar
     return col.xlogyWithDeviceScalar(scalar);
 }
 
+pub fn unaryColumnFmaxScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.fmaxScalar(T, scalar);
+}
+
+pub fn unaryColumnFmaxWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.fmaxWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnFminScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.fminScalar(T, scalar);
+}
+
+pub fn unaryColumnFminWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.fminWithDeviceScalar(scalar);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);
