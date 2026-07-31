@@ -232,6 +232,16 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return Self.fromSlice(self.values.allocator, host_values, self.device());
         }
 
+        pub fn abs(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool) return error.TypeUnsupported;
+            var values = try self.values.abs();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn binary(self: Self, other: Self, op: DeviceColumnBinaryOp) array_mod.ArrayError!Self {
             if (comptime T == bool) return error.TypeUnsupported;
             try requireCompatibleColumnArrays(T, self.values, other.values);

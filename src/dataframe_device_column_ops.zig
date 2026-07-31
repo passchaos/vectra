@@ -23,6 +23,13 @@ fn ColumnType(comptime Self: type) type {
     };
 }
 
+pub fn abs(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.abs()),
+    };
+}
+
 pub fn binary(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnBinaryOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

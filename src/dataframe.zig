@@ -142,6 +142,8 @@ pub const DeviceDataFrame = struct {
         return dataframe_core_mod.columnDType(self, name);
     }
 
+    pub const unaryColumnAbs = table_methods_mod.unaryColumnAbs;
+    pub const withColumnAbs = table_methods_mod.withColumnAbs;
     pub const binaryColumns = table_methods_mod.binaryColumns;
     pub const addColumns = table_methods_mod.addColumns;
     pub const subColumns = table_methods_mod.subColumns;

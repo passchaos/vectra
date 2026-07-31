@@ -200,6 +200,7 @@ pub const DeviceColumn = union(DeviceDType) {
 
     pub const argsort = column_sort_mod.argsort;
 
+    pub const abs = column_ops_mod.abs;
     pub const binary = column_ops_mod.binary;
     pub const add = column_ops_mod.add;
     pub const sub = column_ops_mod.sub;

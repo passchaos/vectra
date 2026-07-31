@@ -343,6 +343,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .fill_subnormal_column => |fill| try writer.print("fill_subnormal_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_non_finite_column => |fill| try writer.print("fill_non_finite_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .coalesce_columns => |coalesce| try writer.print("coalesce_columns({s},{s}->{s})", .{ coalesce.primary_name, coalesce.fallback_name, coalesce.output_name }),
+        .with_column_abs => |expr| try writer.print("with_column_abs({s}=abs({s}))", .{ expr.name, expr.input_name }),
         .is_null_column => |predicate| try writer.print("is_null_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),
