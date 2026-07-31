@@ -2599,6 +2599,14 @@ pub fn withRowValidCount(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowValidCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowNullRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNullRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowValidRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowValidRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowTrueCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTrueCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

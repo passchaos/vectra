@@ -2457,6 +2457,35 @@ pub fn withRowValidCount(frame: anytype, names: []const []const u8, output_name:
     return withRowValidityCount(frame, names, output_name, true);
 }
 
+fn withRowValidityRatio(frame: anytype, names: []const []const u8, output_name: []const u8, comptime count_valid: bool) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    if (count_valid) {
+        try frame.ops.append(frame.allocator, .{ .row_valid_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_null_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    }
+}
+
+pub fn withRowNullRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityRatio(frame, names, output_name, false);
+}
+
+pub fn withRowValidRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityRatio(frame, names, output_name, true);
+}
+
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

@@ -370,6 +370,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_count);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valid_count);
 
+    var row_null_ratios = try table.withRowNullRatio(&.{ "sales", "units", "active" }, "row_null_ratio");
+    defer row_null_ratios.deinit();
+    const row_null_ratio = try (try row_null_ratios.column("row_null_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_null_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0 / 3.0, 0.0 }, row_null_ratio);
+
+    var row_valid_ratios = try table.withRowValidRatio(&.{ "sales", "units", "active" }, "row_valid_ratio");
+    defer row_valid_ratios.deinit();
+    const row_valid_ratio = try (try row_valid_ratios.column("row_valid_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_valid_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0 / 3.0, 1.0 }, row_valid_ratio);
+
     var row_true_counts = try table.withRowTrueCount(&.{"active"}, "row_true_count");
     defer row_true_counts.deinit();
     const row_true_count = try (try row_true_counts.column("row_true_count")).i64.toOwnedSlice(gpa);

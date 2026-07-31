@@ -1704,6 +1704,66 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
+fn withRowValidityRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime count_valid: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (counts, validity) |*slot, valid| {
+                        if (valid == count_valid) slot.* += 1;
+                    }
+                } else if (count_valid) {
+                    for (counts) |*slot| slot.* += 1;
+                }
+            },
+        }
+    }
+
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+    const denominator: f64 = @floatFromInt(check_names.len);
+    for (ratios, counts) |*ratio, count| {
+        ratio.* = if (check_names.len == 0) std.math.nan(f64) else @as(f64, @floatFromInt(count)) / denominator;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(f64, input.allocator, ratios, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowNullRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityRatio(DeviceDataFrame, input, names, output_name, false);
+}
+
+pub fn withRowValidRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityRatio(DeviceDataFrame, input, names, output_name, true);
+}
+
 fn withRowBoolPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
