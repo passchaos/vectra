@@ -492,6 +492,26 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_inf_count_explain, "row_inf_count([]->row_inf_count)") != null);
 
+    var row_positive_inf_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_positive_inf_count_scan.deinit();
+    try row_positive_inf_count_scan.withRowPositiveInfCount(&.{ "sales", "active" }, "row_positive_inf_count");
+    try row_positive_inf_count_scan.select(&.{"row_positive_inf_count"});
+
+    const row_positive_inf_count_explain = try row_positive_inf_count_scan.explain(gpa);
+    defer gpa.free(row_positive_inf_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_positive_inf_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_positive_inf_count_explain, "row_positive_inf_count([sales,active]->row_positive_inf_count)") != null);
+
+    var row_negative_inf_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_negative_inf_count_scan.deinit();
+    try row_negative_inf_count_scan.withRowNegativeInfCount(&.{ "sales", "active" }, "row_negative_inf_count");
+    try row_negative_inf_count_scan.select(&.{"row_negative_inf_count"});
+
+    const row_negative_inf_count_explain = try row_negative_inf_count_scan.explain(gpa);
+    defer gpa.free(row_negative_inf_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_negative_inf_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_negative_inf_count_explain, "row_negative_inf_count([sales,active]->row_negative_inf_count)") != null);
+
     var row_finite_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_finite_count_scan.deinit();
     try row_finite_count_scan.withRowFiniteCount(&.{ "sales", "active" }, "row_finite_count");

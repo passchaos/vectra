@@ -637,6 +637,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowInfCount(self, names, output_name);
             }
 
+            pub fn withRowPositiveInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPositiveInfCount(self, names, output_name);
+            }
+
+            pub fn withRowNegativeInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNegativeInfCount(self, names, output_name);
+            }
+
             pub fn withRowFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowFiniteCount(self, names, output_name);
             }

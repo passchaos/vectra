@@ -109,6 +109,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_valid_count: Payloads.RowValidityCount,
         row_nan_count: Payloads.RowValidityCount,
         row_inf_count: Payloads.RowValidityCount,
+        row_positive_inf_count: Payloads.RowValidityCount,
+        row_negative_inf_count: Payloads.RowValidityCount,
         row_finite_count: Payloads.RowValidityCount,
         row_non_finite_count: Payloads.RowValidityCount,
         with_column_compare: Payloads.WithColumnCompare,

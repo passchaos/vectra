@@ -1074,8 +1074,21 @@ test "device dataframe filters signed Inf rows" {
     defer gpa.free(filtered_negative_values);
     try std.testing.expect(std.math.isNegativeInf(filtered_negative_values[0]));
 
+    var row_positive_counts = try table.withRowPositiveInfCount(&.{}, "row_positive_inf_count");
+    defer row_positive_counts.deinit();
+    const row_positive_inf_count = try (try row_positive_counts.column("row_positive_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_inf_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, row_positive_inf_count);
+
+    var row_negative_counts = try table.withRowNegativeInfCount(&.{"metric"}, "row_negative_inf_count");
+    defer row_negative_counts.deinit();
+    const row_negative_inf_count = try (try row_negative_counts.column("row_negative_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_inf_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_negative_inf_count);
+
     try std.testing.expectError(error.ColumnNotFound, table.dropPositiveInfsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNegativeInfsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveInfCount(&.{"missing"}, "bad_count"));
 }
 
 test "device dataframe selects and drops columns by name pattern" {
