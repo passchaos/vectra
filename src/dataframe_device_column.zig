@@ -350,6 +350,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const iscloseWithDeviceScalars = column_ops_mod.iscloseWithDeviceScalars;
     pub const allcloseScalar = column_ops_mod.allcloseScalar;
     pub const allcloseWithDeviceScalars = column_ops_mod.allcloseWithDeviceScalars;
+    pub const countNonzero = column_ops_mod.countNonzero;
     pub const logical = column_ops_mod.logical;
     pub const logicalAnd = column_ops_mod.logicalAnd;
     pub const logicalOr = column_ops_mod.logicalOr;

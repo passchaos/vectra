@@ -1335,6 +1335,13 @@ pub fn allcloseWithDeviceScalars(
     };
 }
 
+pub fn countNonzero(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNonzero(),
+    };
+}
+
 pub fn logicalAndScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

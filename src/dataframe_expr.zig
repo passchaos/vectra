@@ -753,6 +753,11 @@ pub fn allcloseColumnWithDeviceScalars(
     return col.allcloseWithDeviceScalars(scalar, rtol, atol, equal_nan);
 }
 
+pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNonzero();
+}
+
 pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return switch (op) {

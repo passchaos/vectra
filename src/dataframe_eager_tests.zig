@@ -2580,6 +2580,9 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expect(try nan_close_source.allcloseColumnScalarEqualNan("metric", f64, std.math.nan(f64), 0.0, 0.0, true) == false);
     try std.testing.expectError(error.TypeUnsupported, table.allcloseColumnScalar("units", i64, 2, 0, 1));
     try std.testing.expectError(error.ColumnNotFound, table.allcloseColumnScalar("missing", f64, 1.0, 0.0, 0.0));
+    try std.testing.expectEqual(@as(usize, 3), try table.countNonzeroColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 2), try table.countNonzeroColumn("units"));
+    try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
 
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();

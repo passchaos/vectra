@@ -1427,6 +1427,10 @@ pub fn allcloseColumnWithDeviceScalarsEqualNan(self: anytype, name: []const u8, 
     return expr_mod.allcloseColumnWithDeviceScalars(frameValue(self), name, scalar, rtol, atol, equal_nan);
 }
 
+pub fn countNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.countNonzeroColumn(frameValue(self), name);
+}
+
 pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
 }

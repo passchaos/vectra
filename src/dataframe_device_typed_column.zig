@@ -1350,6 +1350,27 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.values.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
+        fn isZeroValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return value.eql(zeroValue(T));
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return value.re == 0 and value.im == 0;
+            return value == zeroValue(T);
+        }
+
+        pub fn countNonzero(self: Self) array_mod.ArrayError!usize {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!isZeroValue(value)) count += 1;
+            }
+            return count;
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }
