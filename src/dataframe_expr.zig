@@ -822,6 +822,16 @@ pub fn nonFiniteCountColumn(frame: anytype, name: []const u8) DeviceDataError!us
     return col.countNonFinite();
 }
 
+pub fn normalCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNormal();
+}
+
+pub fn subnormalCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countSubnormal();
+}
+
 fn ratioFromValidCount(count: usize, valid_count: usize) DeviceScalar {
     if (valid_count == 0) return .{ .f64 = std.math.nan(f64) };
     return .{ .f64 = @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(valid_count)) };
@@ -891,6 +901,16 @@ pub fn finiteRatioColumn(frame: anytype, name: []const u8) DeviceDataError!Devic
 pub fn nonFiniteRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return ratioFromValidCount(try col.countNonFinite(), col.validCount());
+}
+
+pub fn normalRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNormal(), col.validCount());
+}
+
+pub fn subnormalRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countSubnormal(), col.validCount());
 }
 
 pub fn firstValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {

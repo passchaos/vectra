@@ -1465,6 +1465,30 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             };
         }
 
+        fn isNormalValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isNormal(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNormal(value.re) and std.math.isNormal(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNormal(value),
+                else => false,
+            };
+        }
+
+        fn isSubnormalFloat(comptime F: type, value: F) bool {
+            return std.math.isFinite(value) and !std.math.isNormal(value) and value != 0;
+        }
+
+        fn isSubnormalValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return isSubnormalFloat(f32, value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) {
+                return isSubnormalFloat(@TypeOf(value.re), value.re) or isSubnormalFloat(@TypeOf(value.im), value.im);
+            }
+            return switch (@typeInfo(T)) {
+                .float => isSubnormalFloat(T, value),
+                else => false,
+            };
+        }
+
         fn floatKeyEqual(comptime F: type, lhs: F, rhs: F) bool {
             const lhs_nan = std.math.isNan(lhs);
             const rhs_nan = std.math.isNan(rhs);
@@ -1818,6 +1842,14 @@ pub fn DeviceTypedColumn(comptime T: type) type {
                     return !isFiniteValue(value);
                 }
             }.f);
+        }
+
+        pub fn countNormal(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isNormalValue);
+        }
+
+        pub fn countSubnormal(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isSubnormalValue);
         }
 
         pub fn firstValidIndex(self: Self) array_mod.ArrayError!?usize {

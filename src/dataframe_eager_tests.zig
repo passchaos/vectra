@@ -2596,6 +2596,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer sign_metric.deinit();
     var sign_metric_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = sign_metric }});
     defer sign_metric_table.deinit();
+    var ieee_class_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.floatMin(f64), std.math.floatMin(f64) / 2.0, 0.0, std.math.inf(f64) }, .cpu);
+    defer ieee_class_metric.deinit();
+    var ieee_class_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = ieee_class_metric }});
+    defer ieee_class_table.deinit();
     var nan_close_table = try nan_close_source.withColumnIscloseScalarEqualNan("metric_nan_close", "metric", f64, std.math.nan(f64), 0.0, 0.0, true);
     defer nan_close_table.deinit();
     const nan_close = try (try nan_close_table.column("metric_nan_close")).bool.toOwnedSlice(gpa);
@@ -2628,6 +2632,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try sign_metric_table.positiveRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try sign_metric_table.negativeRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), (try sign_metric_table.signBitRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), try ieee_class_table.normalCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try ieee_class_table.subnormalCountColumn("metric"));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try ieee_class_table.normalRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try ieee_class_table.subnormalRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectEqual(@as(usize, 0), try all_null_metric_table.zeroCountColumn("metric"));
     try std.testing.expect(std.math.isNan((try all_null_metric_table.zeroRatioColumn("metric")).f64));
     try std.testing.expectError(error.ColumnNotFound, table.zeroCountColumn("missing"));

@@ -1419,6 +1419,20 @@ pub fn countNonFinite(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countNormal(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNormal(),
+    };
+}
+
+pub fn countSubnormal(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countSubnormal(),
+    };
+}
+
 pub fn firstValidIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

@@ -1483,6 +1483,14 @@ pub fn nonFiniteCountColumn(self: anytype, name: []const u8) DeviceDataError!usi
     return expr_mod.nonFiniteCountColumn(frameValue(self), name);
 }
 
+pub fn normalCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.normalCountColumn(frameValue(self), name);
+}
+
+pub fn subnormalCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.subnormalCountColumn(frameValue(self), name);
+}
+
 pub fn zeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.zeroRatioColumn(frameValue(self), name);
 }
@@ -1537,6 +1545,14 @@ pub fn finiteRatioColumn(self: anytype, name: []const u8) DeviceDataError!Device
 
 pub fn nonFiniteRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.nonFiniteRatioColumn(frameValue(self), name);
+}
+
+pub fn normalRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.normalRatioColumn(frameValue(self), name);
+}
+
+pub fn subnormalRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.subnormalRatioColumn(frameValue(self), name);
 }
 
 pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
