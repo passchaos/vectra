@@ -711,16 +711,20 @@ test "device lazy frame derives zero predicate columns" {
     try plan.isNonZeroColumn("metric", "metric_is_non_zero");
     try plan.isZeroColumn("id", "id_is_zero");
     try plan.isNonZeroColumn("flag", "flag_is_non_zero");
-    try plan.select(&.{ "metric_is_zero", "metric_is_non_zero", "id_is_zero", "flag_is_non_zero" });
+    try plan.withRowZeroCount(&.{ "metric", "id", "flag" }, "row_zero_count");
+    try plan.withRowNonZeroCount(&.{ "metric", "id", "flag" }, "row_non_zero_count");
+    try plan.select(&.{ "metric_is_zero", "metric_is_non_zero", "id_is_zero", "flag_is_non_zero", "row_zero_count", "row_non_zero_count" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_zero_column(metric->metric_is_zero)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_non_zero_column(metric->metric_is_non_zero)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_zero_count([metric,id,flag]->row_zero_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_non_zero_count([metric,id,flag]->row_non_zero_count)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 4), result.width());
+    try std.testing.expectEqual(@as(usize, 6), result.width());
     const metric_is_zero = try (try result.column("metric_is_zero")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_zero);
     const metric_is_non_zero = try (try result.column("metric_is_non_zero")).bool.toOwnedSlice(gpa);
@@ -729,10 +733,16 @@ test "device lazy frame derives zero predicate columns" {
     defer gpa.free(id_is_zero);
     const flag_is_non_zero = try (try result.column("flag_is_non_zero")).bool.toOwnedSlice(gpa);
     defer gpa.free(flag_is_non_zero);
+    const row_zero_count = try (try result.column("row_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_zero_count);
+    const row_non_zero_count = try (try result.column("row_non_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_non_zero_count);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false }, metric_is_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true, false }, metric_is_non_zero);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false, true }, id_is_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, flag_is_non_zero);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 1, 2, 0, 0, 2 }, row_zero_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 3, 3, 0 }, row_non_zero_count);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

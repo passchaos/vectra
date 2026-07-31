@@ -162,6 +162,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_inf_count => |row_count| try current.withRowInfCount(row_count.names, row_count.output_name),
             .row_positive_inf_count => |row_count| try current.withRowPositiveInfCount(row_count.names, row_count.output_name),
             .row_negative_inf_count => |row_count| try current.withRowNegativeInfCount(row_count.names, row_count.output_name),
+            .row_zero_count => |row_count| try current.withRowZeroCount(row_count.names, row_count.output_name),
+            .row_non_zero_count => |row_count| try current.withRowNonZeroCount(row_count.names, row_count.output_name),
             .row_finite_count => |row_count| try current.withRowFiniteCount(row_count.names, row_count.output_name),
             .row_normal_count => |row_count| try current.withRowNormalCount(row_count.names, row_count.output_name),
             .row_subnormal_count => |row_count| try current.withRowSubnormalCount(row_count.names, row_count.output_name),

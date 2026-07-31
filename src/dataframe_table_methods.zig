@@ -553,6 +553,14 @@ pub fn withRowNegativeInfCount(self: anytype, names: []const []const u8, output_
     return dataframe_array_mod.withRowNegativeInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowZeroCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowNonZeroCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowFiniteCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

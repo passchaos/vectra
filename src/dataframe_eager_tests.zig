@@ -725,8 +725,21 @@ test "device dataframe derives zero predicate columns" {
     defer gpa.free(flag_is_non_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, flag_is_non_zero);
 
+    var row_zero_counts = try table.withRowZeroCount(&.{ "metric", "id", "flag" }, "row_zero_count");
+    defer row_zero_counts.deinit();
+    const row_zero_count = try (try row_zero_counts.column("row_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_zero_count);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 1, 2, 0, 0, 2 }, row_zero_count);
+
+    var row_non_zero_counts = try table.withRowNonZeroCount(&.{ "metric", "id", "flag" }, "row_non_zero_count");
+    defer row_non_zero_counts.deinit();
+    const row_non_zero_count = try (try row_non_zero_counts.column("row_non_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_non_zero_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 3, 3, 0 }, row_non_zero_count);
+
     try std.testing.expectError(error.ColumnNotFound, table.isZeroColumn("missing", "missing_is_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowZeroCount(&.{"missing"}, "bad_zero_count"));
 }
 
 test "device dataframe derives NaN and finite predicate columns" {
