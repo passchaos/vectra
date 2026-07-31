@@ -369,6 +369,22 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_normals = {} });
             }
 
+            pub fn selectColumnsWithSubnormals(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_subnormals = {} });
+            }
+
+            pub fn selectColumnsWithoutSubnormals(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_subnormals = {} });
+            }
+
+            pub fn dropColumnsWithSubnormals(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_subnormals = {} });
+            }
+
+            pub fn dropColumnsWithoutSubnormals(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_subnormals = {} });
+            }
+
             pub fn selectColumnsWithNonFinites(self: *DeviceLazyFrame) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .select_columns_with_non_finites = {} });
             }

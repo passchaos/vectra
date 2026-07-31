@@ -321,6 +321,22 @@ pub fn dropColumnsWithoutNormals(self: anytype) DeviceDataError!FrameType(@TypeO
     return dataframe_array_mod.dropColumnsWithoutNormals(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithSubnormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithSubnormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutSubnormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutSubnormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithSubnormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithSubnormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutSubnormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutSubnormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithNonFinites(FrameType(@TypeOf(self)), frameValue(self));
 }

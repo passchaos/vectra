@@ -779,6 +779,15 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expect(std.mem.indexOf(u8, normal_columns_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, normal_columns_explain, "select_columns_with_normals") != null);
 
+    var lazy_subnormal_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_subnormal_columns_scan.deinit();
+    try lazy_subnormal_columns_scan.selectColumnsWithSubnormals();
+
+    const subnormal_columns_explain = try lazy_subnormal_columns_scan.explain(gpa);
+    defer gpa.free(subnormal_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, subnormal_columns_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, subnormal_columns_explain, "select_columns_with_subnormals") != null);
+
     var lazy_non_finite_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_non_finite_columns_scan.deinit();
     try lazy_non_finite_columns_scan.selectColumnsWithNonFinites();

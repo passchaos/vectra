@@ -1314,6 +1314,28 @@ test "device lazy frame selects normal columns" {
     try std.testing.expectEqual(@as(?usize, 0), non_normal_columns.columnIndex("zero_metric"));
     try std.testing.expectEqual(@as(?usize, 1), non_normal_columns.columnIndex("special_metric"));
     try std.testing.expectEqual(@as(?usize, 2), non_normal_columns.columnIndex("id"));
+
+    var select_subnormals_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_subnormals_plan.deinit();
+    try select_subnormals_plan.selectColumnsWithSubnormals();
+    const select_subnormals_explain = try select_subnormals_plan.explain(gpa);
+    defer gpa.free(select_subnormals_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_subnormals_explain, "select_columns_with_subnormals") != null);
+    var subnormal_columns = try select_subnormals_plan.collect();
+    defer subnormal_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), subnormal_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), subnormal_columns.columnIndex("mixed_metric"));
+
+    var drop_without_subnormals_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_subnormals_plan.deinit();
+    try drop_without_subnormals_plan.dropColumnsWithoutSubnormals();
+    const drop_without_subnormals_explain = try drop_without_subnormals_plan.explain(gpa);
+    defer gpa.free(drop_without_subnormals_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_subnormals_explain, "drop_columns_without_subnormals") != null);
+    var only_subnormal_columns = try drop_without_subnormals_plan.collect();
+    defer only_subnormal_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), only_subnormal_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_subnormal_columns.columnIndex("mixed_metric"));
 }
 
 test "device lazy frame selects signed Inf columns" {

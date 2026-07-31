@@ -1129,6 +1129,29 @@ test "device dataframe selects normal columns" {
     try std.testing.expectEqual(@as(usize, 2), drop_without_normals.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_without_normals.columnIndex("normal_metric"));
     try std.testing.expectEqual(@as(?usize, 1), drop_without_normals.columnIndex("mixed_metric"));
+
+    var with_subnormals = try table.selectColumnsWithSubnormals();
+    defer with_subnormals.deinit();
+    try std.testing.expectEqual(@as(usize, 1), with_subnormals.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_subnormals.columnIndex("mixed_metric"));
+
+    var without_subnormals = try table.selectColumnsWithoutSubnormals();
+    defer without_subnormals.deinit();
+    try std.testing.expectEqual(@as(usize, 4), without_subnormals.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_subnormals.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_subnormals.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_subnormals.columnIndex("special_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), without_subnormals.columnIndex("id"));
+
+    var drop_with_subnormals = try table.dropColumnsWithSubnormals();
+    defer drop_with_subnormals.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drop_with_subnormals.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_subnormals.columnIndex("mixed_metric"));
+
+    var drop_without_subnormals = try table.dropColumnsWithoutSubnormals();
+    defer drop_without_subnormals.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_without_subnormals.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_subnormals.columnIndex("mixed_metric"));
 }
 
 test "device dataframe selects signed Inf columns" {

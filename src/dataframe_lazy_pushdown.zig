@@ -82,6 +82,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .select_columns_without_negative_infs,
             .select_columns_with_normals,
             .select_columns_without_normals,
+            .select_columns_with_subnormals,
+            .select_columns_without_subnormals,
             .select_columns_with_non_finites,
             .select_columns_without_non_finites,
             .drop_nullable_columns,
@@ -98,6 +100,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .drop_columns_without_negative_infs,
             .drop_columns_with_normals,
             .drop_columns_without_normals,
+            .drop_columns_with_subnormals,
+            .drop_columns_without_subnormals,
             .drop_columns_with_non_finites,
             .drop_columns_without_non_finites,
             => {

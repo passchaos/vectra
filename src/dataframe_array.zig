@@ -594,6 +594,34 @@ pub fn dropColumnsWithoutNormals(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .normal);
 }
 
+pub fn selectColumnsWithSubnormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .subnormal);
+}
+
+pub fn selectColumnsWithoutSubnormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .subnormal);
+}
+
+pub fn dropColumnsWithSubnormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .subnormal);
+}
+
+pub fn dropColumnsWithoutSubnormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .subnormal);
+}
+
 pub fn selectColumnsWithNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
