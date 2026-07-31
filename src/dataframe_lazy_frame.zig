@@ -1790,6 +1790,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSmape(self, actual_names, predicted_names, output_name);
             }
 
+            pub fn withRowCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCovariance(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowCorrelation(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCorrelation(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowBeta(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowBeta(self, lhs_names, rhs_names, output_name);
+            }
+
             pub fn withRowArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowArgMin(self, names, output_name);
             }

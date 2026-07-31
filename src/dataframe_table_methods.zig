@@ -2679,6 +2679,18 @@ pub fn withRowSmape(self: anytype, actual_names: []const []const u8, predicted_n
     return dataframe_array_mod.withRowSmape(FrameType(@TypeOf(self)), frameValue(self), actual_names, predicted_names, output_name);
 }
 
+pub fn withRowCovariance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCovariance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowCorrelation(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCorrelation(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowBeta(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowBeta(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

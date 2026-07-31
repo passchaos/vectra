@@ -2544,7 +2544,7 @@ fn withRowPairedNumeric(
     lhs_names: []const []const u8,
     rhs_names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape },
+    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -2619,6 +2619,21 @@ fn withRowPairedNumeric(
             .weight_names = owned_weights,
             .output_name = owned_output,
         } }),
+        .covariance => try frame.ops.append(frame.allocator, .{ .row_covariance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .correlation => try frame.ops.append(frame.allocator, .{ .row_correlation = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .beta => try frame.ops.append(frame.allocator, .{ .row_beta = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2672,6 +2687,18 @@ pub fn withRowMape(frame: anytype, actual_names: []const []const u8, predicted_n
 
 pub fn withRowSmape(frame: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, actual_names, predicted_names, output_name, .smape);
+}
+
+pub fn withRowCovariance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .covariance);
+}
+
+pub fn withRowCorrelation(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .correlation);
+}
+
+pub fn withRowBeta(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .beta);
 }
 
 fn withRowNumericArgReduction(

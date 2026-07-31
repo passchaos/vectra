@@ -1933,7 +1933,7 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
-const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape };
+const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {
     return @bitCast(@as(u64, 0x7ff8_0000_0000_0000));
@@ -1955,6 +1955,10 @@ fn withRowPairedNumericReduction(
     defer input.allocator.free(lhs_norm2);
     const rhs_norm2 = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(rhs_norm2);
+    const lhs_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(lhs_sums);
+    const rhs_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(rhs_sums);
     const manhattan = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(manhattan);
     const mape_sum = try input.allocator.alloc(f64, input.rows);
@@ -1970,6 +1974,8 @@ fn withRowPairedNumericReduction(
     @memset(dots, 0.0);
     @memset(lhs_norm2, 0.0);
     @memset(rhs_norm2, 0.0);
+    @memset(lhs_sums, 0.0);
+    @memset(rhs_sums, 0.0);
     @memset(manhattan, 0.0);
     @memset(mape_sum, 0.0);
     @memset(smape_sum, 0.0);
@@ -2003,6 +2009,8 @@ fn withRowPairedNumericReduction(
                             const lhs = realValueAsF64(@TypeOf(raw_lhs), raw_lhs);
                             const rhs = realValueAsF64(@TypeOf(raw_rhs), raw_rhs);
                             const signed_error = lhs - rhs;
+                            lhs_sums[row] += lhs;
+                            rhs_sums[row] += rhs;
                             dots[row] += lhs * rhs;
                             lhs_norm2[row] += lhs * lhs;
                             rhs_norm2[row] += rhs * rhs;
@@ -2023,12 +2031,19 @@ fn withRowPairedNumericReduction(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, dots, lhs_norm2, rhs_norm2, manhattan, mape_sum, smape_sum, signed_error_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, l1, ape_sum, symmetric_ape_sum, signed_error, pair_count| {
+    for (values, validity, dots, lhs_norm2, rhs_norm2, lhs_sums, rhs_sums, manhattan, mape_sum, smape_sum, signed_error_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, lhs_sum, rhs_sum, l1, ape_sum, symmetric_ape_sum, signed_error, pair_count| {
         if (!valid) {
             value.* = 0.0;
         } else {
             const squared_distance = lhs2 + rhs2 - 2.0 * dot;
             const count_f64: f64 = @floatFromInt(pair_count);
+            const mean_lhs = lhs_sum / count_f64;
+            const mean_rhs = rhs_sum / count_f64;
+            const covariance = dot / count_f64 - mean_lhs * mean_rhs;
+            const lhs_variance_raw = lhs2 / count_f64 - mean_lhs * mean_lhs;
+            const rhs_variance_raw = rhs2 / count_f64 - mean_rhs * mean_rhs;
+            const lhs_variance = if (lhs_variance_raw < 0.0) 0.0 else lhs_variance_raw;
+            const rhs_variance = if (rhs_variance_raw < 0.0) 0.0 else rhs_variance_raw;
             value.* = switch (reduction) {
                 .dot => dot,
                 .cosine => if (lhs2 == 0.0 or rhs2 == 0.0) std.math.nan(f64) else dot / (std.math.sqrt(lhs2) * std.math.sqrt(rhs2)),
@@ -2041,6 +2056,9 @@ fn withRowPairedNumericReduction(
                 .rmse => std.math.sqrt(squared_distance / count_f64),
                 .mape => ape_sum / count_f64,
                 .smape => symmetric_ape_sum / count_f64,
+                .covariance => covariance,
+                .correlation => if (lhs_variance == 0.0 or rhs_variance == 0.0) quietNanF64() else covariance / std.math.sqrt(lhs_variance * rhs_variance),
+                .beta => if (lhs_variance == 0.0) quietNanF64() else covariance / lhs_variance,
             };
         }
     }
@@ -2179,6 +2197,36 @@ pub fn withRowSmape(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowPairedNumericReduction(DeviceDataFrame, input, actual_names, predicted_names, output_name, .smape);
+}
+
+pub fn withRowCovariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .covariance);
+}
+
+pub fn withRowCorrelation(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .correlation);
+}
+
+pub fn withRowBeta(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .beta);
 }
 
 const RowNumericArgReduction = enum { argmin, argmax };
