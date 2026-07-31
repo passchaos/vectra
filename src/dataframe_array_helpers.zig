@@ -53,6 +53,17 @@ pub fn zeroValue(comptime T: type) T {
     };
 }
 
+pub fn oneValue(comptime T: type) T {
+    if (comptime T == bool) return true;
+    if (comptime T == array_mod.BFloat16) return array_mod.BFloat16.fromF32(1);
+    if (comptime T == array_mod.Complex64) return .{ .re = 1, .im = 0 };
+    if (comptime T == array_mod.Complex128) return .{ .re = 1, .im = 0 };
+    return switch (@typeInfo(T)) {
+        .int, .float => 1,
+        else => @compileError("oneValue only supports primitive numeric Arrow values"),
+    };
+}
+
 pub fn rowIndicesFromMask(allocator: std.mem.Allocator, mask: []const bool) array_mod.ArrayError![]usize {
     var count: usize = 0;
     for (mask) |keep| {

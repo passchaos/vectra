@@ -2555,6 +2555,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer nullable_sales.deinit();
     var nullable_sales_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nullable_sales }});
     defer nullable_sales_table.deinit();
+    var all_null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 4.0, 5.0 }, &.{ false, false }, .cpu);
+    defer all_null_metric.deinit();
+    var all_null_metric_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = all_null_metric }});
+    defer all_null_metric_table.deinit();
     var nullable_close_table = try nullable_sales_table.withColumnIscloseWithDeviceScalars("metric_close", "metric", .{ .f64 = 2.0 }, .{ .f64 = 0.0 }, .{ .f64 = 0.1 });
     defer nullable_close_table.deinit();
     const nullable_close_column = try nullable_close_table.column("metric_close");
@@ -2586,6 +2590,11 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 10.0 }, try table.sumColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 4 }, try table.sumColumn("units"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 30.0 }, try table.prodColumn("sales"));
+    try std.testing.expectEqual(DeviceScalar{ .i64 = 3 }, try table.prodColumn("units"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 3.0 }, try nullable_sales_table.prodColumn("metric"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try all_null_metric_table.prodColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.prodColumn("missing"));
     const sales_mean = try table.meanColumn("sales");
     try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 3.0), sales_mean.f64, 1e-12);
     try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.meanColumn("metric"));
@@ -2608,6 +2617,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.sumColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.prodColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
     try std.testing.expect(try rounding_type_table.anyColumn("active"));

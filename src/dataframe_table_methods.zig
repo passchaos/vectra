@@ -1435,6 +1435,10 @@ pub fn sumColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.sumColumn(frameValue(self), name);
 }
 
+pub fn prodColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.prodColumn(frameValue(self), name);
+}
+
 pub fn meanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.meanColumn(frameValue(self), name);
 }

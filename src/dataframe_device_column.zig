@@ -352,6 +352,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const allcloseWithDeviceScalars = column_ops_mod.allcloseWithDeviceScalars;
     pub const countNonzero = column_ops_mod.countNonzero;
     pub const sum = column_ops_mod.sum;
+    pub const prod = column_ops_mod.prod;
     pub const mean = column_ops_mod.mean;
     pub const min = column_ops_mod.min;
     pub const max = column_ops_mod.max;

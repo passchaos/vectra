@@ -420,6 +420,7 @@ pub const DeviceDataFrame = struct {
     pub const allcloseColumnWithDeviceScalarsEqualNan = table_methods_mod.allcloseColumnWithDeviceScalarsEqualNan;
     pub const countNonzeroColumn = table_methods_mod.countNonzeroColumn;
     pub const sumColumn = table_methods_mod.sumColumn;
+    pub const prodColumn = table_methods_mod.prodColumn;
     pub const meanColumn = table_methods_mod.meanColumn;
     pub const minColumn = table_methods_mod.minColumn;
     pub const maxColumn = table_methods_mod.maxColumn;

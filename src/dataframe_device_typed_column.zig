@@ -23,6 +23,7 @@ const countNullsInArray = validity_core_mod.countNullsInArray;
 const validityValues = validity_core_mod.validityValues;
 const requireCompatibleColumnArrays = array_helpers_mod.requireCompatibleColumnArrays;
 const combineValidityMasks = array_helpers_mod.combineValidityMasks;
+const oneValue = array_helpers_mod.oneValue;
 const zeroValue = array_helpers_mod.zeroValue;
 const rowIndicesFromMask = array_helpers_mod.rowIndicesFromMask;
 const sliceArray1d = array_helpers_mod.sliceArray1d;
@@ -1362,6 +1363,12 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return lhs + rhs;
         }
 
+        fn mulValue(lhs: T, rhs: T) T {
+            if (comptime T == array_mod.BFloat16) return lhs.mul(rhs);
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.mul(rhs);
+            return lhs * rhs;
+        }
+
         fn divByCount(value: T, count: usize) T {
             if (comptime T == array_mod.BFloat16) return value.div(array_mod.BFloat16.fromF64(@floatFromInt(count)));
             return value / @as(T, @floatFromInt(count));
@@ -1384,6 +1391,25 @@ pub fn DeviceTypedColumn(comptime T: type) type {
                     if (!validity[row]) continue;
                 }
                 total = addValue(total, value);
+            }
+            return total;
+        }
+
+        pub fn prod(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            // Match array product semantics for empty/all-null inputs: the
+            // multiplicative identity is the neutral result after skipping
+            // nullable rows, just as sum starts from zero.
+            var total = oneValue(T);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                total = mulValue(total, value);
             }
             return total;
         }

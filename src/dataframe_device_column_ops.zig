@@ -1350,6 +1350,14 @@ pub fn sum(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     };
 }
 
+pub fn prod(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => error.TypeUnsupported,
+        inline else => |typed| options_mod.DeviceScalar.init(@TypeOf(typed).Scalar, try typed.prod()),
+    };
+}
+
 pub fn mean(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {
