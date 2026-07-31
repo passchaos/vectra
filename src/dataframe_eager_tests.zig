@@ -683,6 +683,52 @@ test "device dataframe selects and drops columns by nullability" {
     try std.testing.expectEqual(@as(?usize, 0), drop_without_nulls.columnIndex("quality"));
 }
 
+test "device dataframe derives zero predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, -0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 0, 5, 0, -7, 9, 0 }, .cpu);
+    defer id.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false, true, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var zero_flags = try table.isZeroColumn("metric", "metric_is_zero");
+    defer zero_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try zero_flags.columnDType("metric_is_zero"));
+    const metric_is_zero = try (try zero_flags.column("metric_is_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false }, metric_is_zero);
+
+    var non_zero_flags = try table.isNonZeroColumn("metric", "metric_is_non_zero");
+    defer non_zero_flags.deinit();
+    const metric_is_non_zero = try (try non_zero_flags.column("metric_is_non_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_non_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true, false }, metric_is_non_zero);
+
+    var id_zero_flags = try table.isZeroColumn("id", "id_is_zero");
+    defer id_zero_flags.deinit();
+    const id_is_zero = try (try id_zero_flags.column("id_is_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false, true }, id_is_zero);
+
+    var flag_non_zero_flags = try table.isNonZeroColumn("flag", "flag_is_non_zero");
+    defer flag_non_zero_flags.deinit();
+    const flag_is_non_zero = try (try flag_non_zero_flags.column("flag_is_non_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(flag_is_non_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, flag_is_non_zero);
+
+    try std.testing.expectError(error.ColumnNotFound, table.isZeroColumn("missing", "missing_is_zero"));
+    try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
+}
+
 test "device dataframe derives NaN and finite predicate columns" {
     const gpa = std.testing.allocator;
 

@@ -493,6 +493,14 @@ pub fn isNanColumn(self: anytype, name: []const u8, output_name: []const u8) Dev
     return dataframe_array_mod.isNanColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isZeroColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
+pub fn isNonZeroColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNonZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn isFiniteColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

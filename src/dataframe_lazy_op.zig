@@ -130,6 +130,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         is_null_column: Payloads.NullPredicateColumn,
         is_valid_column: Payloads.NullPredicateColumn,
         is_nan_column: Payloads.NullPredicateColumn,
+        is_zero_column: Payloads.NullPredicateColumn,
+        is_non_zero_column: Payloads.NullPredicateColumn,
         is_finite_column: Payloads.NullPredicateColumn,
         is_normal_column: Payloads.NullPredicateColumn,
         is_subnormal_column: Payloads.NullPredicateColumn,

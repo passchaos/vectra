@@ -688,6 +688,58 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives zero predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, -0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 0, 5, 0, -7, 9, 0 }, .cpu);
+    defer id.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false, true, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isZeroColumn("metric", "metric_is_zero");
+    try plan.isNonZeroColumn("metric", "metric_is_non_zero");
+    try plan.isZeroColumn("id", "id_is_zero");
+    try plan.isNonZeroColumn("flag", "flag_is_non_zero");
+    try plan.select(&.{ "metric_is_zero", "metric_is_non_zero", "id_is_zero", "flag_is_non_zero" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_zero_column(metric->metric_is_zero)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_non_zero_column(metric->metric_is_non_zero)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), result.width());
+    const metric_is_zero = try (try result.column("metric_is_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_zero);
+    const metric_is_non_zero = try (try result.column("metric_is_non_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_non_zero);
+    const id_is_zero = try (try result.column("id_is_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_zero);
+    const flag_is_non_zero = try (try result.column("flag_is_non_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(flag_is_non_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false }, metric_is_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, true, false }, metric_is_non_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false, true }, id_is_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, true, false }, flag_is_non_zero);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isZeroColumn("missing", "missing_is_zero");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame derives NaN and finite predicate columns" {
     const gpa = std.testing.allocator;
 
