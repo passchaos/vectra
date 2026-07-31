@@ -858,6 +858,16 @@ pub fn harmonicMeanColumn(frame: anytype, name: []const u8) DeviceDataError!Devi
     return col.harmonicMean();
 }
 
+pub fn madColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.mad();
+}
+
+pub fn iqrColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.iqr();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

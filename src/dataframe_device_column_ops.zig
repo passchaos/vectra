@@ -1495,6 +1495,22 @@ pub fn harmonicMean(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar
     };
 }
 
+pub fn mad(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.mad() },
+    };
+}
+
+pub fn iqr(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.iqr() },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

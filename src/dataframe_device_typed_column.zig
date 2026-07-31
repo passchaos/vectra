@@ -1927,6 +1927,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return @as(f64, @floatFromInt(count)) / reciprocal_total;
         }
 
+        pub fn mad(self: Self) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const center = try self.median();
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            const scratch = try self.values.allocator.alloc(f64, values.len);
+            defer self.values.allocator.free(scratch);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                scratch[count] = @abs(realValueToF64(value) - center);
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            std.sort.insertion(f64, scratch[0..count], {}, quantileLess);
+            return quantileFromSorted(scratch[0..count], 0.5);
+        }
+
+        pub fn iqr(self: Self) array_mod.ArrayError!f64 {
+            return (try self.quantile(0.75)) - (try self.quantile(0.25));
+        }
+
         pub fn any(self: Self) array_mod.ArrayError!bool {
             if (comptime T != bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);

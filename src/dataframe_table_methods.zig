@@ -1535,6 +1535,18 @@ pub fn harmMeanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceSca
     return harmonicMeanColumn(self, name);
 }
 
+pub fn madColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.madColumn(frameValue(self), name);
+}
+
+pub fn medianAbsDevColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return madColumn(self, name);
+}
+
+pub fn iqrColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.iqrColumn(frameValue(self), name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }
