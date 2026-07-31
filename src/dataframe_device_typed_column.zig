@@ -1362,6 +1362,11 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return lhs + rhs;
         }
 
+        fn divByCount(value: T, count: usize) T {
+            if (comptime T == array_mod.BFloat16) return value.div(array_mod.BFloat16.fromF64(@floatFromInt(count)));
+            return value / @as(T, @floatFromInt(count));
+        }
+
         pub fn sum(self: Self) array_mod.ArrayError!T {
             if (comptime T == bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);
@@ -1376,6 +1381,25 @@ pub fn DeviceTypedColumn(comptime T: type) type {
                 total = addValue(total, value);
             }
             return total;
+        }
+
+        pub fn mean(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var total = zeroValue(T);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                total = addValue(total, value);
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            return divByCount(total, count);
         }
 
         pub fn countNonzero(self: Self) array_mod.ArrayError!usize {

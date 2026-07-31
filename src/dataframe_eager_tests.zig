@@ -2586,6 +2586,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 10.0 }, try table.sumColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 4 }, try table.sumColumn("units"));
+    const sales_mean = try table.meanColumn("sales");
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 3.0), sales_mean.f64, 1e-12);
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.meanColumn("metric"));
+    try std.testing.expectError(error.TypeUnsupported, table.meanColumn("units"));
 
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
