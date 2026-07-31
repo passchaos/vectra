@@ -1234,6 +1234,22 @@ test "device dataframe selects zero columns" {
     try std.testing.expectEqual(@as(usize, 2), drop_with_zeros.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_with_zeros.columnIndex("non_zero_metric"));
     try std.testing.expectEqual(@as(?usize, 1), drop_with_zeros.columnIndex("null_metric"));
+
+    var with_positive_zeros = try table.selectColumnsWithPositiveZeros();
+    defer with_positive_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 2), with_positive_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_positive_zeros.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_positive_zeros.columnIndex("mixed_metric"));
+
+    var with_negative_zeros = try table.selectColumnsWithNegativeZeros();
+    defer with_negative_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 1), with_negative_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_negative_zeros.columnIndex("zero_metric"));
+
+    var drop_without_negative_zeros = try table.dropColumnsWithoutNegativeZeros();
+    defer drop_without_negative_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_without_negative_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_negative_zeros.columnIndex("zero_metric"));
 }
 
 test "device dataframe selects sign columns" {

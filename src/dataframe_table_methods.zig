@@ -321,6 +321,38 @@ pub fn dropColumnsWithoutZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(
     return dataframe_array_mod.dropColumnsWithoutZeros(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithPositiveZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithPositiveZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutPositiveZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutPositiveZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithPositiveZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithPositiveZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutPositiveZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutPositiveZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithNegativeZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNegativeZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNegativeZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNegativeZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNegativeZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNegativeZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNegativeZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNegativeZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithNonZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithNonZeros(FrameType(@TypeOf(self)), frameValue(self));
 }

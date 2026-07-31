@@ -594,6 +594,62 @@ pub fn dropColumnsWithoutZeros(
     return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .zero);
 }
 
+pub fn selectColumnsWithPositiveZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive_zero);
+}
+
+pub fn selectColumnsWithoutPositiveZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive_zero);
+}
+
+pub fn dropColumnsWithPositiveZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive_zero);
+}
+
+pub fn dropColumnsWithoutPositiveZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive_zero);
+}
+
+pub fn selectColumnsWithNegativeZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative_zero);
+}
+
+pub fn selectColumnsWithoutNegativeZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative_zero);
+}
+
+pub fn dropColumnsWithNegativeZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative_zero);
+}
+
+pub fn dropColumnsWithoutNegativeZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative_zero);
+}
+
 pub fn selectColumnsWithNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

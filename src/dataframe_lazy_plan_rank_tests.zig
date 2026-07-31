@@ -1414,6 +1414,29 @@ test "device lazy frame selects zero columns" {
     try std.testing.expectEqual(@as(?usize, 1), only_zero_columns.columnIndex("mixed_metric"));
     try std.testing.expectEqual(@as(?usize, 2), only_zero_columns.columnIndex("id"));
     try std.testing.expectEqual(@as(?usize, 3), only_zero_columns.columnIndex("flag"));
+
+    var select_positive_zeros_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_positive_zeros_plan.deinit();
+    try select_positive_zeros_plan.selectColumnsWithPositiveZeros();
+    const select_positive_zeros_explain = try select_positive_zeros_plan.explain(gpa);
+    defer gpa.free(select_positive_zeros_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_positive_zeros_explain, "select_columns_with_positive_zeros") != null);
+    var positive_zero_columns = try select_positive_zeros_plan.collect();
+    defer positive_zero_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positive_zero_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), positive_zero_columns.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), positive_zero_columns.columnIndex("mixed_metric"));
+
+    var select_negative_zeros_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_negative_zeros_plan.deinit();
+    try select_negative_zeros_plan.selectColumnsWithNegativeZeros();
+    const select_negative_zeros_explain = try select_negative_zeros_plan.explain(gpa);
+    defer gpa.free(select_negative_zeros_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_negative_zeros_explain, "select_columns_with_negative_zeros") != null);
+    var negative_zero_columns = try select_negative_zeros_plan.collect();
+    defer negative_zero_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), negative_zero_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), negative_zero_columns.columnIndex("zero_metric"));
 }
 
 test "device lazy frame selects sign columns" {
