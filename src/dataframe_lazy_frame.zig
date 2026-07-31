@@ -1778,6 +1778,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowHarmMean(self, names, output_name);
             }
 
+            pub fn withRowSkewness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSkewness(self, names, output_name);
+            }
+
+            pub fn withRowSkew(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSkew(self, names, output_name);
+            }
+
+            pub fn withRowKurtosis(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowKurtosis(self, names, output_name);
+            }
+
+            pub fn withRowKurt(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowKurt(self, names, output_name);
+            }
+
             pub fn withRowProd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowProd(self, names, output_name);
             }

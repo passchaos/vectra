@@ -2723,6 +2723,22 @@ pub fn withRowCv(self: anytype, names: []const []const u8, output_name: []const 
     return dataframe_array_mod.withRowCv(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }
 
+pub fn withRowSkewness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSkewness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSkew(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSkew(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowKurtosis(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowKurtosis(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowKurt(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowKurt(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowTrueCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTrueCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

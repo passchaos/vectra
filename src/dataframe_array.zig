@@ -2384,7 +2384,7 @@ pub fn withRowIqr(
     return withRowIqrCore(DeviceDataFrame, input, names, output_name);
 }
 
-const RowNumericDispersion = enum { variance, stddev, sem, cv };
+const RowNumericDispersion = enum { variance, stddev, sem, cv, skewness, kurtosis };
 
 fn withRowNumericDispersion(
     comptime DeviceDataFrame: type,
@@ -2401,12 +2401,18 @@ fn withRowNumericDispersion(
     defer input.allocator.free(means);
     const m2s = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(m2s);
+    const m3s = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(m3s);
+    const m4s = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(m4s);
     const counts = try input.allocator.alloc(usize, input.rows);
     defer input.allocator.free(counts);
     const validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(validity);
     @memset(means, 0.0);
     @memset(m2s, 0.0);
+    @memset(m3s, 0.0);
+    @memset(m4s, 0.0);
     @memset(counts, 0);
     @memset(validity, false);
 
@@ -2426,16 +2432,24 @@ fn withRowNumericDispersion(
                     if (!valid) continue;
 
                     // Keep row-wise dispersion numerically aligned with the
-                    // scalar column moment implementation: Welford's online M2
-                    // update gives stable population/sample variance while
+                    // scalar column moment implementation: online central
+                    // moment updates give stable variance/skew/kurtosis while
                     // skipping nulls without materializing a dense row matrix.
+                    const previous_count = counts[row];
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
                     counts[row] += 1;
                     const n: f64 = @floatFromInt(counts[row]);
+                    const previous_n: f64 = @floatFromInt(previous_count);
                     const delta = value - means[row];
                     means[row] += delta / n;
-                    const delta2 = value - means[row];
-                    m2s[row] += delta * delta2;
+                    const delta_n = delta / n;
+                    const delta_n2 = delta_n * delta_n;
+                    const term1 = delta * delta_n * previous_n;
+                    const previous_m2 = m2s[row];
+                    const previous_m3 = m3s[row];
+                    m4s[row] += term1 * delta_n2 * (n * n - 3.0 * n + 3.0) + 6.0 * delta_n2 * previous_m2 - 4.0 * delta_n * previous_m3;
+                    m3s[row] += term1 * delta_n * (n - 2.0) - 3.0 * delta_n * previous_m2;
+                    m2s[row] += term1;
                     validity[row] = true;
                 }
             },
@@ -2444,7 +2458,7 @@ fn withRowNumericDispersion(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, counts, m2s, means) |*value, valid, count, m2, mean| {
+    for (values, validity, counts, m2s, m3s, m4s, means) |*value, valid, count, m2, m3, m4, mean| {
         if (!valid) {
             value.* = 0.0;
             continue;
@@ -2457,6 +2471,8 @@ fn withRowNumericDispersion(
             .stddev => stddev_value,
             .sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
             .cv => stddev_value / mean,
+            .skewness => if (count < 2 or m2 == 0.0) std.math.nan(f64) else std.math.sqrt(@as(f64, @floatFromInt(count))) * m3 / std.math.pow(f64, m2, 1.5),
+            .kurtosis => if (count < 2 or m2 == 0.0) std.math.nan(f64) else @as(f64, @floatFromInt(count)) * m4 / (m2 * m2) - 3.0,
         };
     }
 
@@ -2504,6 +2520,42 @@ pub fn withRowCv(
     correction: f64,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .cv);
+}
+
+pub fn withRowSkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, 0.0, .skewness);
+}
+
+pub fn withRowSkew(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSkewness(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowKurtosis(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, 0.0, .kurtosis);
+}
+
+pub fn withRowKurt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowKurtosis(DeviceDataFrame, input, names, output_name);
 }
 
 fn withRowBoolPredicateCount(

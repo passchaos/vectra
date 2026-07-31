@@ -2620,7 +2620,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2643,6 +2643,14 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .harmonic_mean => try frame.ops.append(frame.allocator, .{ .row_harmonic_mean = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .skewness => try frame.ops.append(frame.allocator, .{ .row_skewness = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .kurtosis => try frame.ops.append(frame.allocator, .{ .row_kurtosis = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2703,6 +2711,22 @@ pub fn withRowHarmonicMean(frame: anytype, names: []const []const u8, output_nam
 
 pub fn withRowHarmMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowHarmonicMean(frame, names, output_name);
+}
+
+pub fn withRowSkewness(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .skewness);
+}
+
+pub fn withRowSkew(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowSkewness(frame, names, output_name);
+}
+
+pub fn withRowKurtosis(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .kurtosis);
+}
+
+pub fn withRowKurt(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowKurtosis(frame, names, output_name);
 }
 
 pub fn withRowProd(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -501,6 +501,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 80.0 / 11.0), row_harm[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_harm_validity);
 
+    var row_skew_table = try validity_table.withRowSkewness(&.{ "a", "b" }, "row_skew");
+    defer row_skew_table.deinit();
+    const row_skew_column = try row_skew_table.column("row_skew");
+    try std.testing.expect(row_skew_column.f64.nullable());
+    const row_skew = try row_skew_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_skew);
+    const row_skew_validity = try row_skew_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_skew_validity);
+    try std.testing.expect(std.math.isNan(row_skew[0]));
+    try std.testing.expect(std.math.isNan(row_skew[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_skew[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_skew[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_skew_validity);
+
+    var row_kurt_table = try validity_table.withRowKurtosis(&.{ "a", "b" }, "row_kurt");
+    defer row_kurt_table.deinit();
+    const row_kurt_column = try row_kurt_table.column("row_kurt");
+    try std.testing.expect(row_kurt_column.f64.nullable());
+    const row_kurt = try row_kurt_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_kurt);
+    const row_kurt_validity = try row_kurt_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_kurt_validity);
+    try std.testing.expect(std.math.isNan(row_kurt[0]));
+    try std.testing.expect(std.math.isNan(row_kurt[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_kurt[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_kurt[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_kurt_validity);
+
     var row_prod_table = try validity_table.withRowProd(&.{ "a", "b" }, "row_prod");
     defer row_prod_table.deinit();
     const row_prod_column = try row_prod_table.column("row_prod");

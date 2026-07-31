@@ -713,6 +713,22 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
         },
+        .row_skewness => |row_count| {
+            try writer.print("row_skewness([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_kurtosis => |row_count| {
+            try writer.print("row_kurtosis([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_true_count => |row_count| {
             try writer.print("row_true_count([", .{});
             for (row_count.names, 0..) |name, i| {
