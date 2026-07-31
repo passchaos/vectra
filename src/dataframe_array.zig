@@ -3198,6 +3198,37 @@ pub fn filterRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+pub fn whereIndicesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    mask_name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const mask_column = try input.column(mask_name);
+    const typed_mask = switch (mask_column.*) {
+        .bool => |typed| typed,
+        else => return error.TypeMismatch,
+    };
+    if (!typed_mask.device().sameDevice(input.device)) return error.InvalidDevice;
+    if (typed_mask.len() != input.rows) return error.LengthMismatch;
+    const values = try typed_mask.values.toOwnedSlice(input.allocator);
+    defer input.allocator.free(values);
+    const validity = if (typed_mask.validity) |validity_array| try validity_array.toOwnedSlice(input.allocator) else null;
+    defer if (validity) |validity_values| input.allocator.free(validity_values);
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(input.allocator);
+    for (values, 0..) |value, row| {
+        // Match dataframe filter semantics: null predicate rows behave as
+        // false, so they do not appear in where-indices output.
+        const selected = if (validity) |validity_values| validity_values[row] and value else value;
+        if (selected) try row_indices.append(input.allocator, row);
+    }
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(usize, input.allocator, row_indices.items, input.device);
+    defer column.deinit();
+    return DeviceDataFrame.init(input.allocator, &.{.{ .name = output_name, .data = column }});
+}
+
 pub fn toDevice(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

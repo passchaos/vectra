@@ -597,6 +597,19 @@ pub fn dropRowsByColumnMask(frame: anytype, name: []const u8) DeviceDataError!vo
     try frame.ops.append(frame.allocator, .{ .drop_rows_by_mask_column = owned_name });
 }
 
+pub fn whereIndicesColumn(frame: anytype, mask_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, mask_name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .where_indices_column = .{
+        .name = owned_name,
+        .output_name = owned_output,
+    } });
+}
+
+pub const argwhereColumn = whereIndicesColumn;
+
 pub fn withColumnAbs(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

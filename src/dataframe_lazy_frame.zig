@@ -853,6 +853,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.dropRowsByColumnMask(self, name);
             }
 
+            pub fn whereIndicesColumn(self: *DeviceLazyFrame, mask_name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.whereIndicesColumn(self, mask_name, output_name);
+            }
+
+            pub fn argwhereColumn(self: *DeviceLazyFrame, mask_name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.argwhereColumn(self, mask_name, output_name);
+            }
+
             pub fn withColumnAbs(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnAbs(self, name, input_name);
             }

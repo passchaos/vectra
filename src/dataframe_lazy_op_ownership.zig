@@ -1648,6 +1648,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .filter_mask => |mask| .{ .filter_mask = try mask.clone() },
         .filter_column => |name| .{ .filter_column = try allocator.dupe(u8, name) },
         .drop_rows_by_mask_column => |name| .{ .drop_rows_by_mask_column = try allocator.dupe(u8, name) },
+        .where_indices_column => |predicate| blk: {
+            const name = try allocator.dupe(u8, predicate.name);
+            errdefer allocator.free(name);
+            const output_name = try allocator.dupe(u8, predicate.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .where_indices_column = .{
+                .name = name,
+                .output_name = output_name,
+            } };
+        },
         .filter_scalar => |filter_op| .{ .filter_scalar = .{
             .name = try allocator.dupe(u8, filter_op.name),
             .op = filter_op.op,

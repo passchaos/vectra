@@ -3657,6 +3657,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(named_mask_sales);
     try std.testing.expectEqualSlices(f64, &.{5.0}, named_mask_sales);
 
+    var where_indices = try mask_table.whereIndicesColumn("units_gt_one", "row_index");
+    defer where_indices.deinit();
+    try std.testing.expectEqual(@as(usize, 1), where_indices.width());
+    const where_index_values = try (try where_indices.column("row_index")).usize.toOwnedSlice(gpa);
+    defer gpa.free(where_index_values);
+    try std.testing.expectEqualSlices(usize, &.{2}, where_index_values);
+    try std.testing.expectError(error.TypeMismatch, mask_table.whereIndicesColumn("sales", "bad_rows"));
+
     var named_mask_dropped = try mask_table.dropRowsByColumnMask("units_gt_one");
     defer named_mask_dropped.deinit();
     try std.testing.expectEqual(@as(usize, 2), named_mask_dropped.height());

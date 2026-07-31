@@ -564,6 +564,19 @@ test "device lazy frame filters by named boolean columns" {
     defer gpa.free(active_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
 
+    var where_indices_plan = try DeviceLazyFrame.init(gpa, table);
+    defer where_indices_plan.deinit();
+    try where_indices_plan.whereIndicesColumn("active", "active_row");
+    const where_indices_explain = try where_indices_plan.explain(gpa);
+    defer gpa.free(where_indices_explain);
+    try std.testing.expect(std.mem.indexOf(u8, where_indices_explain, "where_indices_column(active->active_row)") != null);
+    var where_indices_result = try where_indices_plan.collect();
+    defer where_indices_result.deinit();
+    try std.testing.expectEqual(@as(usize, 1), where_indices_result.width());
+    const active_rows = try (try where_indices_result.column("active_row")).usize.toOwnedSlice(gpa);
+    defer gpa.free(active_rows);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3 }, active_rows);
+
     var isin_plan = try DeviceLazyFrame.init(gpa, table);
     defer isin_plan.deinit();
     try isin_plan.withColumnLiteral("needle", f64, 3.0);

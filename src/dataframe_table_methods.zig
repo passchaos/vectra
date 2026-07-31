@@ -1483,6 +1483,12 @@ pub fn dropRowsByColumnMask(self: anytype, name: []const u8) DeviceDataError!Fra
     return expr_mod.dropRowsByColumnMask(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn whereIndicesColumn(self: anytype, mask_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.whereIndicesColumn(FrameType(@TypeOf(self)), frameValue(self), mask_name, output_name);
+}
+
+pub const argwhereColumn = whereIndicesColumn;
+
 pub fn view(self: anytype) DeviceDataError!dataframe_view_mod.DeviceDataFrameView {
     return dataframe_array_mod.view(dataframe_view_mod.DeviceDataFrameView, dataframe_view_mod.DeviceColumnView, frameValue(self));
 }

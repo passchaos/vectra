@@ -699,6 +699,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .filter_mask => |mask| try current.filterColumnMask(mask),
             .filter_column => |name| try current.filterColumn(name),
             .drop_rows_by_mask_column => |name| try current.dropRowsByColumnMask(name),
+            .where_indices_column => |predicate| try current.whereIndicesColumn(predicate.name, predicate.output_name),
             .filter_scalar => |filter_op| blk: {
                 var mask = try current.compareColumnScalarWithDeviceScalar(filter_op.name, filter_op.scalar, filter_op.op);
                 defer mask.deinit();
