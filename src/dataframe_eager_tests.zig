@@ -836,9 +836,41 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(row_negative_count);
     try std.testing.expectEqualSlices(i64, &.{ 2, 0, 0, 1, 0, 0, 2, 0 }, row_negative_count);
 
+    var dropped_positive_rows = try table.dropPositivesColumn("metric");
+    defer dropped_positive_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 6), dropped_positive_rows.height());
+    const dropped_positive_metric = try (try dropped_positive_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_positive_metric);
+    const dropped_positive_validity = try (try dropped_positive_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_positive_validity);
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_positive_metric[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), dropped_positive_metric[1]);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_positive_metric[2]);
+    try std.testing.expect(std.math.isNan(dropped_positive_metric[3]));
+    try std.testing.expect(std.math.isNegativeInf(dropped_positive_metric[4]));
+    try std.testing.expectEqual(@as(f64, 9.0), dropped_positive_metric[5]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, false }, dropped_positive_validity);
+
+    var filtered_positive_rows = try table.filterPositivesColumn("metric");
+    defer filtered_positive_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_positive_rows.height());
+    const filtered_positive_metric = try (try filtered_positive_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_positive_metric);
+    try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
+    try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
+
+    var filtered_negative_rows = try table.filterNegativesColumn("id");
+    defer filtered_negative_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), filtered_negative_rows.height());
+    const filtered_negative_id = try (try filtered_negative_rows.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_negative_id);
+    try std.testing.expectEqualSlices(i64, &.{ -3, -5, -7 }, filtered_negative_id);
+
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveColumn("missing", "missing_is_positive"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterPositivesColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNegativesColumn("missing"));
 }
 
 test "device dataframe derives NaN and finite predicate columns" {

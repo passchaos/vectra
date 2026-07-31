@@ -842,10 +842,42 @@ test "device lazy frame derives sign predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 2, 1, 2, 1, 1 }, row_positive_count);
     try std.testing.expectEqualSlices(i64, &.{ 2, 0, 0, 1, 0, 0, 2, 0 }, row_negative_count);
 
+    var filter_positive_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_positive_plan.deinit();
+    try filter_positive_plan.filterPositivesColumn("metric");
+    const filter_positive_explain = try filter_positive_plan.explain(gpa);
+    defer gpa.free(filter_positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_positive_explain, "filter_positives_column(metric)") != null);
+    var filtered_positive_rows = try filter_positive_plan.collect();
+    defer filtered_positive_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_positive_rows.height());
+    const filtered_positive_metric = try (try filtered_positive_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_positive_metric);
+    try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
+    try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
+
+    var drop_negative_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_negative_plan.deinit();
+    try drop_negative_plan.dropNegativesColumn("id");
+    const drop_negative_explain = try drop_negative_plan.explain(gpa);
+    defer gpa.free(drop_negative_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_negative_explain, "drop_negatives[id]") != null);
+    var dropped_negative_rows = try drop_negative_plan.collect();
+    defer dropped_negative_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 5), dropped_negative_rows.height());
+    const dropped_negative_id = try (try dropped_negative_rows.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_negative_id);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 4, 6, 0, 8 }, dropped_negative_id);
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isPositiveColumn("missing", "missing_is_positive");
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+
+    var invalid_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_filter_plan.deinit();
+    try invalid_filter_plan.filterNegativesColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_filter_plan.collect());
 }
 
 test "device lazy frame derives NaN and finite predicate columns" {

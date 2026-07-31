@@ -215,6 +215,24 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             try writer.print("]", .{});
         },
         .filter_non_zeros_column => |name| try writer.print("filter_non_zeros_column({s})", .{name}),
+        .drop_positives => |names| {
+            try writer.print("drop_positives[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]", .{});
+        },
+        .filter_positives_column => |name| try writer.print("filter_positives_column({s})", .{name}),
+        .drop_negatives => |names| {
+            try writer.print("drop_negatives[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]", .{});
+        },
+        .filter_negatives_column => |name| try writer.print("filter_negatives_column({s})", .{name}),
         .drop_finites => |names| {
             try writer.print("drop_finites[", .{});
             for (names, 0..) |name, i| {

@@ -583,6 +583,34 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, filter_negative_inf_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_negative_inf_explain, "filter_negative_infs_column(sales)") != null);
 
+    var drop_positive_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_positive_scan.deinit();
+    try drop_positive_scan.dropPositivesColumn("sales");
+    try drop_positive_scan.select(&.{"id"});
+
+    const drop_positive_explain = try drop_positive_scan.explain(gpa);
+    defer gpa.free(drop_positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_positive_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_positive_explain, "drop_positives[sales]") != null);
+
+    var filter_positive_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_positive_scan.deinit();
+    try filter_positive_scan.filterPositivesColumn("sales");
+
+    const filter_positive_explain = try filter_positive_scan.explain(gpa);
+    defer gpa.free(filter_positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_positive_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_positive_explain, "filter_positives_column(sales)") != null);
+
+    var filter_negative_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_negative_scan.deinit();
+    try filter_negative_scan.filterNegativesColumn("sales");
+
+    const filter_negative_explain = try filter_negative_scan.explain(gpa);
+    defer gpa.free(filter_negative_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_negative_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_negative_explain, "filter_negatives_column(sales)") != null);
+
     var drop_zero_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer drop_zero_scan.deinit();
     try drop_zero_scan.dropZerosColumn("active");

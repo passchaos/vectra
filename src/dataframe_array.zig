@@ -2013,11 +2013,11 @@ pub fn filterNullsColumn(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
-fn dropSpecialFloats(
+fn dropRowsByNumericPredicate(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const check_names = if (names.len == 0) input.names else names;
     const keep = try input.allocator.alloc(bool, input.rows);
@@ -2034,7 +2034,7 @@ fn dropSpecialFloats(
                 defer if (maybe_validity) |validity| input.allocator.free(validity);
                 for (keep, host_values, 0..) |*slot, value, row| {
                     const valid = if (maybe_validity) |validity| validity[row] else true;
-                    if (valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate)) slot.* = false;
+                    if (valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate)) slot.* = false;
                 }
             },
         }
@@ -2047,7 +2047,7 @@ pub fn dropNaNs(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .nan);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .nan);
 }
 
 pub fn dropInfs(
@@ -2055,7 +2055,7 @@ pub fn dropInfs(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .inf);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .inf);
 }
 
 pub fn dropPositiveInfs(
@@ -2063,7 +2063,7 @@ pub fn dropPositiveInfs(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .positive_inf);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .positive_inf);
 }
 
 pub fn dropNegativeInfs(
@@ -2071,7 +2071,7 @@ pub fn dropNegativeInfs(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .negative_inf);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .negative_inf);
 }
 
 pub fn dropZeros(
@@ -2079,7 +2079,7 @@ pub fn dropZeros(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .zero);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .zero);
 }
 
 pub fn dropNonZeros(
@@ -2087,7 +2087,23 @@ pub fn dropNonZeros(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .non_zero);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .non_zero);
+}
+
+pub fn dropPositives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .positive);
+}
+
+pub fn dropNegatives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .negative);
 }
 
 pub fn dropFinites(
@@ -2095,7 +2111,7 @@ pub fn dropFinites(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .finite);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .finite);
 }
 
 pub fn dropNormals(
@@ -2103,7 +2119,7 @@ pub fn dropNormals(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .normal);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .normal);
 }
 
 pub fn dropSubnormals(
@@ -2111,7 +2127,7 @@ pub fn dropSubnormals(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .subnormal);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .subnormal);
 }
 
 pub fn dropNonFinites(
@@ -2119,14 +2135,14 @@ pub fn dropNonFinites(
     input: DeviceDataFrame,
     names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropSpecialFloats(DeviceDataFrame, input, names, .non_finite);
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .non_finite);
 }
 
-fn filterSpecialFloatsColumn(
+fn filterRowsByNumericPredicateColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     name: []const u8,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const keep = try input.allocator.alloc(bool, input.rows);
@@ -2141,7 +2157,7 @@ fn filterSpecialFloatsColumn(
             defer if (maybe_validity) |validity| input.allocator.free(validity);
             for (keep, host_values, 0..) |*slot, value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                slot.* = valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate);
+                slot.* = valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate);
             }
         },
     }
@@ -2153,7 +2169,7 @@ pub fn filterNaNsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .nan);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .nan);
 }
 
 pub fn filterInfsColumn(
@@ -2161,7 +2177,7 @@ pub fn filterInfsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .inf);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .inf);
 }
 
 pub fn filterPositiveInfsColumn(
@@ -2169,7 +2185,7 @@ pub fn filterPositiveInfsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .positive_inf);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .positive_inf);
 }
 
 pub fn filterNegativeInfsColumn(
@@ -2177,7 +2193,7 @@ pub fn filterNegativeInfsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .negative_inf);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .negative_inf);
 }
 
 pub fn filterZerosColumn(
@@ -2185,7 +2201,7 @@ pub fn filterZerosColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .zero);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .zero);
 }
 
 pub fn filterNonZerosColumn(
@@ -2193,7 +2209,23 @@ pub fn filterNonZerosColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .non_zero);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .non_zero);
+}
+
+pub fn filterPositivesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .positive);
+}
+
+pub fn filterNegativesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .negative);
 }
 
 pub fn filterFinitesColumn(
@@ -2201,7 +2233,7 @@ pub fn filterFinitesColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .finite);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .finite);
 }
 
 pub fn filterNormalsColumn(
@@ -2209,7 +2241,7 @@ pub fn filterNormalsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .normal);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .normal);
 }
 
 pub fn filterSubnormalsColumn(
@@ -2217,7 +2249,7 @@ pub fn filterSubnormalsColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .subnormal);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .subnormal);
 }
 
 pub fn filterNonFinitesColumn(
@@ -2225,7 +2257,7 @@ pub fn filterNonFinitesColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .non_finite);
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .non_finite);
 }
 
 pub fn view(
