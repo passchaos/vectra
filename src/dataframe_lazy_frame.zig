@@ -1742,6 +1742,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowArgMax(self, names, output_name);
             }
 
+            pub fn withRowQuantile(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowQuantile(self, names, output_name, q);
+            }
+
+            pub fn withRowMedian(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMedian(self, names, output_name);
+            }
+
+            pub fn withRowIqr(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIqr(self, names, output_name);
+            }
+
             pub fn withRowSum(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSum(self, names, output_name);
             }

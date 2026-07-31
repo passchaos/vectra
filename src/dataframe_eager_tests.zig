@@ -417,6 +417,40 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1 }, row_argmax);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmax_validity);
 
+    var row_quantile_table = try validity_table.withRowQuantile(&.{ "a", "b" }, "row_quantile", 0.25);
+    defer row_quantile_table.deinit();
+    const row_quantile_column = try row_quantile_table.column("row_quantile");
+    try std.testing.expect(row_quantile_column.f64.nullable());
+    const row_quantile = try row_quantile_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_quantile);
+    const row_quantile_validity = try row_quantile_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_quantile_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 13.0 }, row_quantile);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_quantile_validity);
+
+    var row_median_table = try validity_table.withRowMedian(&.{ "a", "b" }, "row_median");
+    defer row_median_table.deinit();
+    const row_median_column = try row_median_table.column("row_median");
+    try std.testing.expect(row_median_column.f64.nullable());
+    const row_median = try row_median_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_median);
+    const row_median_validity = try row_median_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_median_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_median);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
+
+    var row_iqr_table = try validity_table.withRowIqr(&.{ "a", "b" }, "row_iqr");
+    defer row_iqr_table.deinit();
+    const row_iqr_column = try row_iqr_table.column("row_iqr");
+    try std.testing.expect(row_iqr_column.f64.nullable());
+    const row_iqr = try row_iqr_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_iqr);
+    const row_iqr_validity = try row_iqr_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_iqr_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_iqr);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_iqr_validity);
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
+
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");
     defer row_sum_table.deinit();
     const row_sum_column = try row_sum_table.column("row_sum");

@@ -2568,6 +2568,54 @@ pub fn withRowArgMax(frame: anytype, names: []const []const u8, output_name: []c
     return withRowNumericArgReduction(frame, names, output_name, .argmax);
 }
 
+pub fn withRowQuantile(frame: anytype, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_quantile = .{
+        .names = owned_names,
+        .output_name = owned_output,
+        .q = q,
+    } });
+}
+
+fn withRowQuantileAlias(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { median, iqr },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .median => try frame.ops.append(frame.allocator, .{ .row_median = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .iqr => try frame.ops.append(frame.allocator, .{ .row_iqr = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowMedian(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .median);
+}
+
+pub fn withRowIqr(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .iqr);
+}
+
 fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,

@@ -561,6 +561,30 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_quantile => |row_quantile| {
+            try writer.print("row_quantile([", .{});
+            for (row_quantile.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, q={d})", .{ row_quantile.output_name, row_quantile.q });
+        },
+        .row_median => |row_count| {
+            try writer.print("row_median([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_iqr => |row_count| {
+            try writer.print("row_iqr([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_sum => |row_count| {
             try writer.print("row_sum([", .{});
             for (row_count.names, 0..) |name, i| {

@@ -2631,6 +2631,18 @@ pub fn withRowArgMax(self: anytype, names: []const []const u8, output_name: []co
     return dataframe_array_mod.withRowArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowQuantile(self: anytype, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowQuantile(FrameType(@TypeOf(self)), frameValue(self), names, output_name, q);
+}
+
+pub fn withRowMedian(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMedian(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowIqr(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIqr(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowSum(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSum(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
