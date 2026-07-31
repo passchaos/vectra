@@ -710,6 +710,12 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(metric_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
 
+    var non_finite_flags = try table.isNonFiniteColumn("metric", "metric_is_non_finite");
+    defer non_finite_flags.deinit();
+    const metric_is_non_finite = try (try non_finite_flags.column("metric_is_non_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_non_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, metric_is_non_finite);
+
     var inf_flags = try table.isInfColumn("metric", "metric_is_inf");
     defer inf_flags.deinit();
     const metric_is_inf = try (try inf_flags.column("metric_is_inf")).bool.toOwnedSlice(gpa);
@@ -760,7 +766,14 @@ test "device dataframe derives NaN and finite predicate columns" {
     const id_is_finite = try (try integer_finite_flags.column("id_is_finite")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
+
+    var integer_non_finite_flags = try table.isNonFiniteColumn("id", "id_is_non_finite");
+    defer integer_non_finite_flags.deinit();
+    const id_is_non_finite = try (try integer_non_finite_flags.column("id_is_non_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_non_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, id_is_non_finite);
     try std.testing.expectError(error.ColumnNotFound, table.isNanColumn("missing", "missing_is_nan"));
+    try std.testing.expectError(error.ColumnNotFound, table.isNonFiniteColumn("missing", "missing_is_non_finite"));
 
     var columns_with_nans = try table.selectColumnsWithNaNs();
     defer columns_with_nans.deinit();

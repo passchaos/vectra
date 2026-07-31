@@ -679,7 +679,7 @@ pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) 
     } });
 }
 
-fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, finite, normal, subnormal, inf, positive_inf, negative_inf }) DeviceDataError!void {
+fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, finite, normal, subnormal, non_finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     const owned_output = try frame.allocator.dupe(u8, output_name);
@@ -698,6 +698,10 @@ fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const
             .output_name = owned_output,
         } }),
         .subnormal => try frame.ops.append(frame.allocator, .{ .is_subnormal_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
+        .non_finite => try frame.ops.append(frame.allocator, .{ .is_non_finite_column = .{
             .name = owned_name,
             .output_name = owned_output,
         } }),
@@ -730,6 +734,10 @@ pub fn isNormalColumn(frame: anytype, name: []const u8, output_name: []const u8)
 
 pub fn isSubnormalColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     return numericPredicateColumn(frame, name, output_name, .subnormal);
+}
+
+pub fn isNonFiniteColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .non_finite);
 }
 
 pub fn isInfColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {

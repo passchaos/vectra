@@ -706,31 +706,40 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer plan.deinit();
     try plan.isNanColumn("metric", "metric_is_nan");
     try plan.isFiniteColumn("metric", "metric_is_finite");
+    try plan.isNonFiniteColumn("metric", "metric_is_non_finite");
     try plan.isInfColumn("metric", "metric_is_inf");
     try plan.isFiniteColumn("id", "id_is_finite");
-    try plan.select(&.{ "metric_is_nan", "metric_is_finite", "metric_is_inf", "id_is_finite" });
+    try plan.isNonFiniteColumn("id", "id_is_non_finite");
+    try plan.select(&.{ "metric_is_nan", "metric_is_finite", "metric_is_non_finite", "metric_is_inf", "id_is_finite", "id_is_non_finite" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_nan_column(metric->metric_is_nan)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_finite_column(metric->metric_is_finite)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_non_finite_column(metric->metric_is_non_finite)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_inf_column(metric->metric_is_inf)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 4), result.width());
+    try std.testing.expectEqual(@as(usize, 6), result.width());
     const metric_is_nan = try (try result.column("metric_is_nan")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_nan);
     const metric_is_finite = try (try result.column("metric_is_finite")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_finite);
+    const metric_is_non_finite = try (try result.column("metric_is_non_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_non_finite);
     const metric_is_inf = try (try result.column("metric_is_inf")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_inf);
     const id_is_finite = try (try result.column("id_is_finite")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_finite);
+    const id_is_non_finite = try (try result.column("id_is_non_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_non_finite);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, metric_is_nan);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, metric_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, metric_is_non_finite);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, metric_is_inf);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, id_is_non_finite);
 
     var fill_nan_plan = try DeviceLazyFrame.init(gpa, table);
     defer fill_nan_plan.deinit();

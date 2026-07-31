@@ -1103,7 +1103,7 @@ fn withNumericPredicateColumn(
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal },
+    comptime predicate: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -1130,6 +1130,7 @@ fn withNumericPredicateColumn(
                     .finite => isFiniteValue(@TypeOf(value), value),
                     .normal => isNormalValue(@TypeOf(value), value),
                     .subnormal => isSubnormalValue(@TypeOf(value), value),
+                    .non_finite => !isFiniteValue(@TypeOf(value), value),
                 };
             }
         },
@@ -1175,6 +1176,15 @@ pub fn isSubnormalColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .subnormal);
+}
+
+pub fn isNonFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .non_finite);
 }
 
 pub fn isInfColumn(

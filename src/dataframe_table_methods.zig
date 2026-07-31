@@ -481,6 +481,10 @@ pub fn isSubnormalColumn(self: anytype, name: []const u8, output_name: []const u
     return dataframe_array_mod.isSubnormalColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isNonFiniteColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNonFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn isInfColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

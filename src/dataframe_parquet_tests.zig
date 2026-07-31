@@ -279,6 +279,22 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(sales_is_finite);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, sales_is_finite);
 
+    var non_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer non_finite_scan.deinit();
+    try non_finite_scan.isNonFiniteColumn("sales", "sales_is_non_finite");
+    try non_finite_scan.select(&.{"sales_is_non_finite"});
+
+    const non_finite_explain = try non_finite_scan.explain(gpa);
+    defer gpa.free(non_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, non_finite_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, non_finite_explain, "is_non_finite_column(sales->sales_is_non_finite)") != null);
+
+    var non_finite_result = try non_finite_scan.collect();
+    defer non_finite_result.deinit();
+    const sales_is_non_finite = try (try non_finite_result.column("sales_is_non_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_non_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, sales_is_non_finite);
+
     var normal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer normal_scan.deinit();
     try normal_scan.isNormalColumn("sales", "sales_is_normal");

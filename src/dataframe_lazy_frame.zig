@@ -729,6 +729,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.isSubnormalColumn(self, name, output_name);
             }
 
+            pub fn isNonFiniteColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.isNonFiniteColumn(self, name, output_name);
+            }
+
             pub fn isInfColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.isInfColumn(self, name, output_name);
             }

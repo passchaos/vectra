@@ -299,6 +299,7 @@ pub const DeviceDataFrame = struct {
     pub const isFiniteColumn = table_methods_mod.isFiniteColumn;
     pub const isNormalColumn = table_methods_mod.isNormalColumn;
     pub const isSubnormalColumn = table_methods_mod.isSubnormalColumn;
+    pub const isNonFiniteColumn = table_methods_mod.isNonFiniteColumn;
     pub const isInfColumn = table_methods_mod.isInfColumn;
     pub const isPositiveInfColumn = table_methods_mod.isPositiveInfColumn;
     pub const isNegativeInfColumn = table_methods_mod.isNegativeInfColumn;
