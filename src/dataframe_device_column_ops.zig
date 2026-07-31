@@ -54,6 +54,14 @@ pub fn reciprocal(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) 
     };
 }
 
+pub fn sign(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.sign()),
+    };
+}
+
 pub fn sqrt(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

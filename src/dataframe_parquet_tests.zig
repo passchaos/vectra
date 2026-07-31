@@ -176,6 +176,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try lazy_scan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
     try lazy_scan.withColumnAbs("sales_abs", "sales");
     try lazy_scan.withColumnNeg("sales_neg", "sales");
+    try lazy_scan.withColumnSign("sales_neg_sign", "sales_neg");
     try lazy_scan.withColumnSquare("sales_square", "sales");
     try lazy_scan.withColumnReciprocal("sales_recip", "sales");
     try lazy_scan.withColumnSqrt("sales_sqrt", "sales");
@@ -218,7 +219,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try lazy_scan.withColumnLog2("sales_log2", "sales");
     try lazy_scan.withColumnLog10("sales_log10", "sales");
     try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
-    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "ratio_expit", "ratio_logit", "ratio_softplus", "ratio_logsigmoid", "sales_neg_relu", "sales_relu6", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "ratio_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "id" });
+    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "ratio_expit", "ratio_logit", "ratio_softplus", "ratio_logsigmoid", "sales_neg_relu", "sales_relu6", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "ratio_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "id" });
 
     const explain = try lazy_scan.explain(gpa);
     defer gpa.free(explain);
@@ -226,6 +227,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_neg(sales_neg=neg(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_sign(sales_neg_sign=sign(sales_neg))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_square(sales_square=square(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_reciprocal(sales_recip=reciprocal(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_sqrt(sales_sqrt=sqrt(sales))") != null);
@@ -272,7 +274,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     var result = try lazy_scan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 45), result.width());
+    try std.testing.expectEqual(@as(usize, 46), result.width());
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("ratio"));
@@ -282,6 +284,8 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     defer gpa.free(result_sales_abs);
     const result_sales_neg = try (try result.column("sales_neg")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_neg);
+    const result_sales_neg_sign = try (try result.column("sales_neg_sign")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_neg_sign);
     const result_sales_square = try (try result.column("sales_square")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_square);
     const result_sales_recip = try (try result.column("sales_recip")).f64.toOwnedSlice(gpa);
@@ -367,6 +371,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 10.0 }, result_sales_x2);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, result_sales_abs);
     try std.testing.expectEqualSlices(f64, &.{ -3.0, -5.0 }, result_sales_neg);
+    try std.testing.expectEqualSlices(f64, &.{ -1.0, -1.0 }, result_sales_neg_sign);
     try std.testing.expectEqualSlices(f64, &.{ 9.0, 25.0 }, result_sales_square);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), result_sales_recip[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.2), result_sales_recip[1], 1e-12);

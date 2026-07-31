@@ -205,6 +205,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const negative = column_ops_mod.neg;
     pub const square = column_ops_mod.square;
     pub const reciprocal = column_ops_mod.reciprocal;
+    pub const sign = column_ops_mod.sign;
     pub const sqrt = column_ops_mod.sqrt;
     pub const rsqrt = column_ops_mod.rsqrt;
     pub const cbrt = column_ops_mod.cbrt;

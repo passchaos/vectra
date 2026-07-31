@@ -34,6 +34,11 @@ pub fn unaryColumnReciprocal(frame: anytype, name: []const u8) DeviceDataError!@
     return col.reciprocal();
 }
 
+pub fn unaryColumnSign(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.sign();
+}
+
 pub fn unaryColumnSqrt(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.sqrt();

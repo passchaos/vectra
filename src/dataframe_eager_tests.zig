@@ -2283,6 +2283,11 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.5, 2.0 }, cost_abs);
     try std.testing.expectError(error.ColumnNotFound, table.withColumnAbs("bad_abs", "missing"));
 
+    var rounding_active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer rounding_active.deinit();
+    var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
+    defer rounding_type_table.deinit();
+
     var neg_sales_table = try table.withColumnNeg("sales_neg", "sales");
     defer neg_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try neg_sales_table.columnDType("sales_neg"));
@@ -2290,6 +2295,22 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(sales_neg);
     try std.testing.expectEqualSlices(f64, &.{ -2.0, -3.0, -5.0 }, sales_neg);
     try std.testing.expectError(error.ColumnNotFound, table.withColumnNeg("bad_neg", "missing"));
+
+    var sign_sales_table = try neg_sales_table.withColumnSign("sales_neg_sign", "sales_neg");
+    defer sign_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try sign_sales_table.columnDType("sales_neg_sign"));
+    const sales_neg_sign = try (try sign_sales_table.column("sales_neg_sign")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_neg_sign);
+    try std.testing.expectEqualSlices(f64, &.{ -1.0, -1.0, -1.0 }, sales_neg_sign);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnSign("bad_sign", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnSign("missing_sign", "missing"));
+
+    var sign_units_table = try table.withColumnSign("units_sign", "units");
+    defer sign_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try sign_units_table.columnDType("units_sign"));
+    const units_sign = try (try sign_units_table.column("units_sign")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_sign);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, units_sign);
 
     var square_sales_table = try table.withColumnSquare("sales_square", "sales");
     defer square_sales_table.deinit();
@@ -2342,11 +2363,6 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(std.math.cbrt(@as(f64, 5.0)), sales_cbrt[2], 1e-12);
     try std.testing.expectError(error.TypeUnsupported, table.withColumnCbrt("bad_cbrt", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnCbrt("missing_cbrt", "missing"));
-
-    var rounding_active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
-    defer rounding_active.deinit();
-    var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
-    defer rounding_type_table.deinit();
 
     var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ -0.5, 0.0, 0.5 }, .cpu);
     defer ratio.deinit();

@@ -638,6 +638,17 @@ pub fn withColumnReciprocal(frame: anytype, name: []const u8, input_name: []cons
     } });
 }
 
+pub fn withColumnSign(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_sign = .{
+        .name = owned_name,
+        .input_name = owned_input,
+    } });
+}
+
 pub fn withColumnSqrt(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
