@@ -63,6 +63,13 @@ fn castNumericScalar(comptime Src: type, comptime Dst: type, value: Src) array_m
     };
 }
 
+fn castDeviceScalar(comptime Dst: type, scalar: options_mod.DeviceScalar) array_mod.ArrayError!Dst {
+    return switch (scalar) {
+        inline .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .bf16, .f16, .f32, .f64 => |value| castNumericScalar(@TypeOf(value), Dst, value),
+        .bool, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
 pub fn abs(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {
@@ -237,6 +244,50 @@ pub fn relu6(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     };
 }
 
+pub fn threshold(self: anytype, comptime T: type, threshold_value: T, replacement_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.threshold(
+            try castNumericScalar(T, @TypeOf(typed).Scalar, threshold_value),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, replacement_value),
+        )),
+    };
+}
+
+pub fn thresholdWithDeviceScalars(self: anytype, threshold_value: options_mod.DeviceScalar, replacement_value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.threshold(
+            try castDeviceScalar(@TypeOf(typed).Scalar, threshold_value),
+            try castDeviceScalar(@TypeOf(typed).Scalar, replacement_value),
+        )),
+    };
+}
+
+pub fn hardtanh(self: anytype, comptime T: type, min_value: T, max_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.hardtanh(
+            try castNumericScalar(T, @TypeOf(typed).Scalar, min_value),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, max_value),
+        )),
+    };
+}
+
+pub fn hardtanhWithDeviceScalars(self: anytype, min_value: options_mod.DeviceScalar, max_value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.hardtanh(
+            try castDeviceScalar(@TypeOf(typed).Scalar, min_value),
+            try castDeviceScalar(@TypeOf(typed).Scalar, max_value),
+        )),
+    };
+}
+
 pub fn hardshrink(self: anytype, comptime T: type, lambd: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {
@@ -272,6 +323,36 @@ pub fn tanhshrink(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) 
     return switch (value) {
         .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
         inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.tanhshrink()),
+    };
+}
+
+pub fn elu(self: anytype, comptime T: type, alpha: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.elu(try castNumericScalar(T, @TypeOf(typed).Scalar, alpha))),
+    };
+}
+
+pub fn eluWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (scalar) {
+        inline .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .bf16, .f16, .f32, .f64 => |value| elu(self, @TypeOf(value), value),
+        .bool, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn celu(self: anytype, comptime T: type, alpha: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.celu(try castNumericScalar(T, @TypeOf(typed).Scalar, alpha))),
+    };
+}
+
+pub fn celuWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (scalar) {
+        inline .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .bf16, .f16, .f32, .f64 => |value| celu(self, @TypeOf(value), value),
+        .bool, .c64, .c128 => error.TypeUnsupported,
     };
 }
 

@@ -270,6 +270,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_threshold => |expr| blk: {
+                var column_value = try current.unaryColumnThresholdWithDeviceScalars(expr.input_name, expr.lhs_scalar, expr.rhs_scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_hardtanh => |expr| blk: {
+                var column_value = try current.unaryColumnHardtanhWithDeviceScalars(expr.input_name, expr.lhs_scalar, expr.rhs_scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_hardshrink => |expr| blk: {
                 var column_value = try current.unaryColumnHardshrinkWithDeviceScalar(expr.input_name, expr.scalar);
                 defer column_value.deinit();
@@ -282,6 +292,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .with_column_tanhshrink => |expr| blk: {
                 var column_value = try current.unaryColumnTanhshrink(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_elu => |expr| blk: {
+                var column_value = try current.unaryColumnEluWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_celu => |expr| blk: {
+                var column_value = try current.unaryColumnCeluWithDeviceScalar(expr.input_name, expr.scalar);
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },

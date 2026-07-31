@@ -496,6 +496,18 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
                 }
             },
+            .with_column_threshold => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                }
+            },
+            .with_column_hardtanh => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                }
+            },
             .with_column_hardshrink => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
@@ -503,6 +515,18 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .with_column_softshrink => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                }
+            },
+            .with_column_elu => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                }
+            },
+            .with_column_celu => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, expr.input_name);

@@ -434,6 +434,28 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .input_name = input_name,
             } };
         },
+        .with_column_threshold => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_threshold = .{
+                .name = name,
+                .input_name = input_name,
+                .lhs_scalar = expr.lhs_scalar,
+                .rhs_scalar = expr.rhs_scalar,
+            } };
+        },
+        .with_column_hardtanh => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_hardtanh = .{
+                .name = name,
+                .input_name = input_name,
+                .lhs_scalar = expr.lhs_scalar,
+                .rhs_scalar = expr.rhs_scalar,
+            } };
+        },
         .with_column_hardshrink => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);
@@ -461,6 +483,26 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             break :blk .{ .with_column_tanhshrink = .{
                 .name = name,
                 .input_name = input_name,
+            } };
+        },
+        .with_column_elu => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_elu = .{
+                .name = name,
+                .input_name = input_name,
+                .scalar = expr.scalar,
+            } };
+        },
+        .with_column_celu => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_celu = .{
+                .name = name,
+                .input_name = input_name,
+                .scalar = expr.scalar,
             } };
         },
         .with_column_softsign => |expr| blk: {

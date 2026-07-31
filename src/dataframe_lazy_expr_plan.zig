@@ -830,6 +830,66 @@ pub fn withColumnRelu6(frame: anytype, name: []const u8, input_name: []const u8)
     } });
 }
 
+pub fn withColumnThreshold(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    threshold_value: T,
+    replacement_value: T,
+) DeviceDataError!void {
+    return withColumnThresholdWithDeviceScalars(frame, name, input_name, DeviceScalar.init(T, threshold_value), DeviceScalar.init(T, replacement_value));
+}
+
+pub fn withColumnThresholdWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    threshold_value: DeviceScalar,
+    replacement_value: DeviceScalar,
+) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_threshold = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .lhs_scalar = threshold_value,
+        .rhs_scalar = replacement_value,
+    } });
+}
+
+pub fn withColumnHardtanh(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    min_value: T,
+    max_value: T,
+) DeviceDataError!void {
+    return withColumnHardtanhWithDeviceScalars(frame, name, input_name, DeviceScalar.init(T, min_value), DeviceScalar.init(T, max_value));
+}
+
+pub fn withColumnHardtanhWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    min_value: DeviceScalar,
+    max_value: DeviceScalar,
+) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_hardtanh = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .lhs_scalar = min_value,
+        .rhs_scalar = max_value,
+    } });
+}
+
 pub fn withColumnHardshrink(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!void {
     return withColumnHardshrinkWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, lambd));
 }
@@ -870,6 +930,38 @@ pub fn withColumnTanhshrink(frame: anytype, name: []const u8, input_name: []cons
     try frame.ops.append(frame.allocator, .{ .with_column_tanhshrink = .{
         .name = owned_name,
         .input_name = owned_input,
+    } });
+}
+
+pub fn withColumnElu(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, alpha: T) DeviceDataError!void {
+    return withColumnEluWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, alpha));
+}
+
+pub fn withColumnEluWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, alpha: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_elu = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = alpha,
+    } });
+}
+
+pub fn withColumnCelu(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, alpha: T) DeviceDataError!void {
+    return withColumnCeluWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, alpha));
+}
+
+pub fn withColumnCeluWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, alpha: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_celu = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = alpha,
     } });
 }
 

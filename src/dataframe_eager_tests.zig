@@ -2545,6 +2545,38 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu6("bad_relu6", "active"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnRelu6("missing_relu6", "missing"));
 
+    var threshold_ratio_table = try inverse_trig_table.withColumnThreshold("ratio_threshold", "ratio", f64, -0.25, 1.0);
+    defer threshold_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try threshold_ratio_table.columnDType("ratio_threshold"));
+    const ratio_threshold = try (try threshold_ratio_table.column("ratio_threshold")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_threshold);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.5 }, ratio_threshold);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnThreshold("bad_threshold", "active", f64, -0.25, 1.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnThreshold("missing_threshold", "missing", f64, -0.25, 1.0));
+
+    var threshold_units_table = try table.withColumnThreshold("units_threshold", "units", i64, 2, 0);
+    defer threshold_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try threshold_units_table.columnDType("units_threshold"));
+    const units_threshold = try (try threshold_units_table.column("units_threshold")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_threshold);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 3 }, units_threshold);
+
+    var hardtanh_ratio_table = try inverse_trig_table.withColumnHardtanh("ratio_hardtanh", "ratio", f64, -0.25, 0.25);
+    defer hardtanh_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try hardtanh_ratio_table.columnDType("ratio_hardtanh"));
+    const ratio_hardtanh = try (try hardtanh_ratio_table.column("ratio_hardtanh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_hardtanh);
+    try std.testing.expectEqualSlices(f64, &.{ -0.25, 0.0, 0.25 }, ratio_hardtanh);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnHardtanh("bad_hardtanh", "active", f64, -0.25, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHardtanh("missing_hardtanh", "missing", f64, -0.25, 0.25));
+
+    var hardtanh_units_table = try table.withColumnHardtanh("units_hardtanh", "units", i64, 2, 3);
+    defer hardtanh_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try hardtanh_units_table.columnDType("units_hardtanh"));
+    const units_hardtanh = try (try hardtanh_units_table.column("units_hardtanh")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_hardtanh);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 3 }, units_hardtanh);
+
     var hardshrink_ratio_table = try inverse_trig_table.withColumnHardshrink("ratio_hardshrink", "ratio", f64, 0.25);
     defer hardshrink_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try hardshrink_ratio_table.columnDType("ratio_hardshrink"));
@@ -2573,6 +2605,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.5) - std.math.tanh(@as(f64, 0.5)), ratio_tanhshrink[2], 1e-12);
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnTanhshrink("bad_tanhshrink", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnTanhshrink("missing_tanhshrink", "missing"));
+
+    var elu_ratio_table = try inverse_trig_table.withColumnElu("ratio_elu", "ratio", f64, 0.5);
+    defer elu_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try elu_ratio_table.columnDType("ratio_elu"));
+    const ratio_elu = try (try elu_ratio_table.column("ratio_elu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_elu);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5) * std.math.expm1(@as(f64, -0.5)), ratio_elu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_elu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_elu[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnElu("bad_elu", "units", f64, 0.5));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnElu("missing_elu", "missing", f64, 0.5));
+
+    var celu_ratio_table = try inverse_trig_table.withColumnCelu("ratio_celu", "ratio", f64, 2.0);
+    defer celu_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try celu_ratio_table.columnDType("ratio_celu"));
+    const ratio_celu = try (try celu_ratio_table.column("ratio_celu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_celu);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) * std.math.expm1(@as(f64, -0.25)), ratio_celu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_celu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_celu[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnCelu("bad_celu", "units", f64, 2.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnCelu("missing_celu", "missing", f64, 2.0));
 
     var softsign_ratio_table = try inverse_trig_table.withColumnSoftsign("ratio_softsign", "ratio");
     defer softsign_ratio_table.deinit();

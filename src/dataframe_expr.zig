@@ -124,6 +124,26 @@ pub fn unaryColumnRelu6(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.relu6();
 }
 
+pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.threshold(T, threshold_value, replacement_value);
+}
+
+pub fn unaryColumnThresholdWithDeviceScalars(frame: anytype, name: []const u8, threshold_value: DeviceScalar, replacement_value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.thresholdWithDeviceScalars(threshold_value, replacement_value);
+}
+
+pub fn unaryColumnHardtanh(frame: anytype, name: []const u8, comptime T: type, min_value: T, max_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardtanh(T, min_value, max_value);
+}
+
+pub fn unaryColumnHardtanhWithDeviceScalars(frame: anytype, name: []const u8, min_value: DeviceScalar, max_value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardtanhWithDeviceScalars(min_value, max_value);
+}
+
 pub fn unaryColumnHardshrink(frame: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.hardshrink(T, lambd);
@@ -147,6 +167,26 @@ pub fn unaryColumnSoftshrinkWithDeviceScalar(frame: anytype, name: []const u8, l
 pub fn unaryColumnTanhshrink(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.tanhshrink();
+}
+
+pub fn unaryColumnElu(frame: anytype, name: []const u8, comptime T: type, alpha: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.elu(T, alpha);
+}
+
+pub fn unaryColumnEluWithDeviceScalar(frame: anytype, name: []const u8, alpha: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.eluWithDeviceScalar(alpha);
+}
+
+pub fn unaryColumnCelu(frame: anytype, name: []const u8, comptime T: type, alpha: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.celu(T, alpha);
+}
+
+pub fn unaryColumnCeluWithDeviceScalar(frame: anytype, name: []const u8, alpha: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.celuWithDeviceScalar(alpha);
 }
 
 pub fn unaryColumnSoftsign(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {

@@ -446,6 +446,26 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.threshold(threshold_value, replacement_value);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn hardtanh(self: Self, min_value: T, max_value: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.hardtanh(min_value, max_value);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn hardshrink(self: Self, lambd: T) array_mod.ArrayError!Self {
             if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.hardshrink(lambd);
@@ -469,6 +489,26 @@ pub fn DeviceTypedColumn(comptime T: type) type {
         pub fn tanhshrink(self: Self) array_mod.ArrayError!Self {
             if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.tanhshrink();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn elu(self: Self, alpha: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.elu(alpha);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn celu(self: Self, alpha: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.celu(alpha);
             errdefer values.deinit();
             var validity: ?array_mod.Array(bool) = null;
             errdefer if (validity) |*mask| mask.deinit();
