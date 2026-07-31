@@ -2445,6 +2445,13 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(i64, &.{ -1, 2, -1 }, units_index_put);
     try std.testing.expectError(error.IndexOutOfBounds, table.withColumnPutFlatScalar("bad_put_flat", "sales", &.{table.height()}, f64, 0.0));
 
+    var units_put_signed_table = try table.withColumnPutFlatScalarSigned("units_put_signed", "units", &.{-1}, i64, 7);
+    defer units_put_signed_table.deinit();
+    const units_put_signed = try (try units_put_signed_table.column("units_put_signed")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_put_signed);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 7 }, units_put_signed);
+    try std.testing.expectError(error.IndexOutOfBounds, table.withColumnPutFlatScalarSigned("bad_put_signed", "sales", &.{-4}, f64, 0.0));
+
     var active_and_table = try rounding_type_table.withColumnLogicalAndScalar("active_and", "active", false);
     defer active_and_table.deinit();
     const active_and = try (try active_and_table.column("active_and")).bool.toOwnedSlice(gpa);

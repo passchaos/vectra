@@ -1121,6 +1121,29 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn putFlatScalarSigned(self: Self, row_indices: []const isize, value: T) array_mod.ArrayError!Self {
+            var indices = try array_mod.Array(isize).fromSliceOn(self.values.allocator, row_indices, &.{row_indices.len}, self.device());
+            defer indices.deinit();
+            var values = try self.values.putFlatScalarSigned(indices, value);
+            errdefer values.deinit();
+
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| {
+                const validity_values = try mask.toOwnedSlice(self.values.allocator);
+                defer self.values.allocator.free(validity_values);
+                const signed_len: isize = @intCast(self.len());
+                for (row_indices) |row_index| {
+                    const normalized = if (row_index < 0) signed_len + row_index else row_index;
+                    if (normalized < 0 or normalized >= signed_len) return error.IndexOutOfBounds;
+                    validity_values[@intCast(normalized)] = true;
+                }
+                validity = try array_mod.Array(bool).fromSliceOn(self.values.allocator, validity_values, &.{validity_values.len}, self.device());
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn logicalScalar(self: Self, scalar: bool, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
             if (comptime T != bool) return error.TypeUnsupported;
             var values = switch (op) {

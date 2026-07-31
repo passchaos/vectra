@@ -1103,6 +1103,35 @@ pub fn putFlatWithDeviceScalar(self: anytype, row_indices: []const usize, value:
     };
 }
 
+pub fn putFlatScalarSigned(self: anytype, row_indices: []const isize, comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;
+    const tag = comptime array_mod.DType.of(T);
+    return @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try @field(column, @tagName(tag)).putFlatScalarSigned(row_indices, value));
+}
+
+pub fn putFlatSignedWithDeviceScalar(self: anytype, row_indices: []const isize, value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (value) {
+        .bool => |scalar| putFlatScalarSigned(self, row_indices, bool, scalar),
+        .i8 => |scalar| putFlatScalarSigned(self, row_indices, i8, scalar),
+        .i16 => |scalar| putFlatScalarSigned(self, row_indices, i16, scalar),
+        .i32 => |scalar| putFlatScalarSigned(self, row_indices, i32, scalar),
+        .i64 => |scalar| putFlatScalarSigned(self, row_indices, i64, scalar),
+        .u8 => |scalar| putFlatScalarSigned(self, row_indices, u8, scalar),
+        .u16 => |scalar| putFlatScalarSigned(self, row_indices, u16, scalar),
+        .u32 => |scalar| putFlatScalarSigned(self, row_indices, u32, scalar),
+        .u64 => |scalar| putFlatScalarSigned(self, row_indices, u64, scalar),
+        .usize => |scalar| putFlatScalarSigned(self, row_indices, usize, scalar),
+        .isize => |scalar| putFlatScalarSigned(self, row_indices, isize, scalar),
+        .f16 => |scalar| putFlatScalarSigned(self, row_indices, f16, scalar),
+        .f32 => |scalar| putFlatScalarSigned(self, row_indices, f32, scalar),
+        .f64 => |scalar| putFlatScalarSigned(self, row_indices, f64, scalar),
+        .bf16 => |scalar| putFlatScalarSigned(self, row_indices, array_mod.BFloat16, scalar),
+        .c64 => |scalar| putFlatScalarSigned(self, row_indices, array_mod.Complex64, scalar),
+        .c128 => |scalar| putFlatScalarSigned(self, row_indices, array_mod.Complex128, scalar),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

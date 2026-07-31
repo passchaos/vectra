@@ -1363,6 +1363,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnIndexPutWithDeviceScalar(self, name, input_name, row_indices, value);
             }
 
+            pub fn withColumnPutFlatScalarSigned(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const isize, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutFlatScalarSigned(self, name, input_name, row_indices, T, value);
+            }
+
+            pub fn withColumnPutFlatSignedWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const isize, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutFlatSignedWithDeviceScalar(self, name, input_name, row_indices, value);
+            }
+
+            pub fn withColumnIndexPutScalarSigned(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const isize, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIndexPutScalarSigned(self, name, input_name, row_indices, T, value);
+            }
+
+            pub fn withColumnIndexPutSignedWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const isize, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIndexPutSignedWithDeviceScalar(self, name, input_name, row_indices, value);
+            }
+
             pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
             }

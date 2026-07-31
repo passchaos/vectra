@@ -3453,15 +3453,20 @@ test "device lazy frame collects row slice operations" {
     var put_flat_plan = try DeviceLazyFrame.init(gpa, table);
     defer put_flat_plan.deinit();
     try put_flat_plan.withColumnPutFlatScalar("sales_put", "sales", &.{ 1, 3 }, f64, 9.0);
-    try put_flat_plan.select(&.{ "sales", "sales_put" });
+    try put_flat_plan.withColumnPutFlatScalarSigned("sales_put_signed", "sales", &.{-1}, f64, -5.0);
+    try put_flat_plan.select(&.{ "sales", "sales_put", "sales_put_signed" });
     const put_flat_explain = try put_flat_plan.explain(gpa);
     defer gpa.free(put_flat_explain);
     try std.testing.expect(std.mem.indexOf(u8, put_flat_explain, "with_column_put_flat_scalar(sales_put=put_flat(sales, indices=[1,3], scalar:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, put_flat_explain, "with_column_put_flat_scalar_signed(sales_put_signed=put_flat_signed(sales, indices=[-1], scalar:f64))") != null);
     var put_flat_result = try put_flat_plan.collect();
     defer put_flat_result.deinit();
     const put_flat_sales = try (try put_flat_result.column("sales_put")).f64.toOwnedSlice(gpa);
     defer gpa.free(put_flat_sales);
+    const put_flat_signed_sales = try (try put_flat_result.column("sales_put_signed")).f64.toOwnedSlice(gpa);
+    defer gpa.free(put_flat_signed_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 5.0, 9.0 }, put_flat_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, -5.0 }, put_flat_signed_sales);
 
     var repeat_plan = try DeviceLazyFrame.init(gpa, table);
     defer repeat_plan.deinit();
