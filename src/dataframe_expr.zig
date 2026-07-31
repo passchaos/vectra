@@ -124,6 +124,16 @@ pub fn unaryColumnRelu6(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.relu6();
 }
 
+pub fn unaryColumnPowScalar(frame: anytype, name: []const u8, comptime T: type, exponent: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.powScalar(T, exponent);
+}
+
+pub fn unaryColumnPowWithDeviceScalar(frame: anytype, name: []const u8, exponent: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.powWithDeviceScalar(exponent);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

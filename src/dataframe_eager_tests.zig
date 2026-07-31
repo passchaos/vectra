@@ -2545,6 +2545,23 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu6("bad_relu6", "active"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnRelu6("missing_relu6", "missing"));
 
+    var pow_ratio_table = try inverse_trig_table.withColumnPowScalar("ratio_pow", "ratio", f64, 2.0);
+    defer pow_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try pow_ratio_table.columnDType("ratio_pow"));
+    const ratio_pow = try (try pow_ratio_table.column("ratio_pow")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_pow);
+    try std.testing.expectEqualSlices(f64, &.{ 0.25, 0.0, 0.25 }, ratio_pow);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnPowScalar("bad_pow", "active", f64, 2.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnPowScalar("missing_pow", "missing", f64, 2.0));
+
+    var pow_units_table = try table.withColumnPowWithDeviceScalar("units_pow", "units", .{ .f64 = 2.0 });
+    defer pow_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try pow_units_table.columnDType("units_pow"));
+    const units_pow = try (try pow_units_table.column("units_pow")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_pow);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 4, 9 }, units_pow);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnPowWithDeviceScalar("bad_fractional_pow", "units", .{ .f64 = 2.5 }));
+
     var threshold_ratio_table = try inverse_trig_table.withColumnThreshold("ratio_threshold", "ratio", f64, -0.25, 1.0);
     defer threshold_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try threshold_ratio_table.columnDType("ratio_threshold"));

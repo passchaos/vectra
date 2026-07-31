@@ -941,6 +941,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnRelu6(self, name, input_name);
             }
 
+            pub fn withColumnPowScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, exponent: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPowScalar(self, name, input_name, T, exponent);
+            }
+
+            pub fn withColumnPowWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, exponent: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPowWithDeviceScalar(self, name, input_name, exponent);
+            }
+
             pub fn withColumnThreshold(
                 self: *DeviceLazyFrame,
                 name: []const u8,

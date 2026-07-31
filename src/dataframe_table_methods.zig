@@ -255,6 +255,26 @@ pub fn withColumnRelu6(self: anytype, output_name: []const u8, input_name: []con
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnPowScalar(self: anytype, name: []const u8, comptime T: type, exponent: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnPowScalar(frameValue(self), name, T, exponent);
+}
+
+pub fn unaryColumnPowWithDeviceScalar(self: anytype, name: []const u8, exponent: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnPowWithDeviceScalar(frameValue(self), name, exponent);
+}
+
+pub fn withColumnPowScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, exponent: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnPowScalar(self, input_name, T, exponent);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnPowWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, exponent: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnPowWithDeviceScalar(self, input_name, exponent);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnThreshold(
     self: anytype,
     name: []const u8,

@@ -364,6 +364,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_relu => |expr| try writer.print("with_column_relu({s}=relu({s}))", .{ expr.name, expr.input_name }),
         .with_column_leaky_relu => |expr| try writer.print("with_column_leaky_relu({s}=leaky_relu({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_relu6 => |expr| try writer.print("with_column_relu6({s}=relu6({s}))", .{ expr.name, expr.input_name }),
+        .with_column_pow_scalar => |expr| try writer.print("with_column_pow_scalar({s}=pow({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_threshold => |expr| try writer.print("with_column_threshold({s}=threshold({s}, threshold:{s}, replacement:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_hardtanh => |expr| try writer.print("with_column_hardtanh({s}=hardtanh({s}, min:{s}, max:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_maximum_scalar => |expr| try writer.print("with_column_maximum_scalar({s}=maximum({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
