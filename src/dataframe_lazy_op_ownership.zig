@@ -397,6 +397,33 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .input_name = input_name,
             } };
         },
+        .with_column_asinh => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_asinh = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
+        .with_column_acosh => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_acosh = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
+        .with_column_atanh => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_atanh = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
         .with_column_log => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

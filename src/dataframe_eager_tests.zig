@@ -2463,6 +2463,39 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnTanh("bad_tanh", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnTanh("missing_tanh", "missing"));
 
+    var asinh_ratio_table = try inverse_trig_table.withColumnAsinh("ratio_asinh", "ratio");
+    defer asinh_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try asinh_ratio_table.columnDType("ratio_asinh"));
+    const ratio_asinh = try (try asinh_ratio_table.column("ratio_asinh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_asinh);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, -0.5)), ratio_asinh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 0.0)), ratio_asinh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 0.5)), ratio_asinh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAsinh("bad_asinh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAsinh("missing_asinh", "missing"));
+
+    var acosh_cost_table = try table.withColumnAcosh("cost_acosh", "cost");
+    defer acosh_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try acosh_cost_table.columnDType("cost_acosh"));
+    const cost_acosh = try (try acosh_cost_table.column("cost_acosh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_acosh);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 1.0)), cost_acosh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 1.5)), cost_acosh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 2.0)), cost_acosh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnAcosh("bad_acosh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnAcosh("missing_acosh", "missing"));
+
+    var atanh_ratio_table = try inverse_trig_table.withColumnAtanh("ratio_atanh", "ratio");
+    defer atanh_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try atanh_ratio_table.columnDType("ratio_atanh"));
+    const ratio_atanh = try (try atanh_ratio_table.column("ratio_atanh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_atanh);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, -0.5)), ratio_atanh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.0)), ratio_atanh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), ratio_atanh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAtanh("bad_atanh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAtanh("missing_atanh", "missing"));
+
     var log_sales_table = try table.withColumnLog("sales_log", "sales");
     defer log_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try log_sales_table.columnDType("sales_log"));

@@ -191,12 +191,15 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try lazy_scan.withColumnSinh("sales_sinh", "sales");
     try lazy_scan.withColumnCosh("sales_cosh", "sales");
     try lazy_scan.withColumnTanh("sales_tanh", "sales");
+    try lazy_scan.withColumnAsinh("sales_asinh", "sales");
+    try lazy_scan.withColumnAcosh("sales_acosh", "sales");
+    try lazy_scan.withColumnAtanh("ratio_atanh", "ratio");
     try lazy_scan.withColumnLog("sales_log", "sales");
     try lazy_scan.withColumnLog1p("sales_log1p", "sales");
     try lazy_scan.withColumnLog2("sales_log2", "sales");
     try lazy_scan.withColumnLog10("sales_log10", "sales");
     try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
-    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "id" });
+    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "ratio_atanh", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "id" });
 
     const explain = try lazy_scan.explain(gpa);
     defer gpa.free(explain);
@@ -219,6 +222,9 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_sinh(sales_sinh=sinh(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_cosh(sales_cosh=cosh(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_tanh(sales_tanh=tanh(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_asinh(sales_asinh=asinh(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_acosh(sales_acosh=acosh(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_atanh(ratio_atanh=atanh(ratio))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_log(sales_log=log(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_log1p(sales_log1p=log1p(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_log2(sales_log2=log2(sales))") != null);
@@ -228,7 +234,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     var result = try lazy_scan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 23), result.width());
+    try std.testing.expectEqual(@as(usize, 26), result.width());
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("ratio"));
@@ -268,6 +274,12 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     defer gpa.free(result_sales_cosh);
     const result_sales_tanh = try (try result.column("sales_tanh")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_tanh);
+    const result_sales_asinh = try (try result.column("sales_asinh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_asinh);
+    const result_sales_acosh = try (try result.column("sales_acosh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_acosh);
+    const result_ratio_atanh = try (try result.column("ratio_atanh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_ratio_atanh);
     const result_sales_log = try (try result.column("sales_log")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_log);
     const result_sales_log1p = try (try result.column("sales_log1p")).f64.toOwnedSlice(gpa);
@@ -308,6 +320,12 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectApproxEqAbs(std.math.cosh(@as(f64, 5.0)), result_sales_cosh[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.tanh(@as(f64, 3.0)), result_sales_tanh[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.tanh(@as(f64, 5.0)), result_sales_tanh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 3.0)), result_sales_asinh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asinh(@as(f64, 5.0)), result_sales_asinh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 3.0)), result_sales_acosh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acosh(@as(f64, 5.0)), result_sales_acosh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.25)), result_ratio_atanh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atanh(@as(f64, 0.5)), result_ratio_atanh[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 3.0)), result_sales_log[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 5.0)), result_sales_log[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log1p(@as(f64, 3.0)), result_sales_log1p[0], 1e-12);

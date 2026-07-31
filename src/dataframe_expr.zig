@@ -99,6 +99,21 @@ pub fn unaryColumnTanh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.tanh();
 }
 
+pub fn unaryColumnAsinh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.asinh();
+}
+
+pub fn unaryColumnAcosh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.acosh();
+}
+
+pub fn unaryColumnAtanh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.atanh();
+}
+
 pub fn unaryColumnLog(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log();
