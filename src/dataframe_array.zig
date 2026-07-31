@@ -2639,6 +2639,25 @@ pub fn takeRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
 }
 
+pub fn repeatRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    repeat_count: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (repeat_count == 0 or input.rows == 0) return takeRows(DeviceDataFrame, input, &.{});
+    const total_rows = std.math.mul(usize, input.rows, repeat_count) catch return error.InvalidShape;
+    var row_indices = try input.allocator.alloc(usize, total_rows);
+    defer input.allocator.free(row_indices);
+    var write: usize = 0;
+    for (0..input.rows) |row_index| {
+        for (0..repeat_count) |_| {
+            row_indices[write] = row_index;
+            write += 1;
+        }
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn dropRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

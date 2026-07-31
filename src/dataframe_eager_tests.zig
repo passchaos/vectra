@@ -538,6 +538,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, last_row_dropped_sales);
     try std.testing.expectError(error.IndexOutOfBounds, table.dropRows(&.{table.height()}));
 
+    var repeated_rows = try table.repeatRows(2);
+    defer repeated_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 6), repeated_rows.height());
+    const repeated_sales = try (try repeated_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(repeated_sales);
+    const repeated_units_validity = try (try repeated_rows.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(repeated_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 2.0, 3.0, 3.0, 5.0, 5.0 }, repeated_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true, true }, repeated_units_validity);
+
+    var repeated_zero = try table.repeatRows(0);
+    defer repeated_zero.deinit();
+    try std.testing.expectEqual(@as(usize, 0), repeated_zero.height());
+    try std.testing.expectEqual(table.width(), repeated_zero.width());
+
     var stepped_slice = try table.sliceRowsStep(0, table.height(), 2);
     defer stepped_slice.deinit();
     try std.testing.expectEqual(@as(usize, 2), stepped_slice.height());

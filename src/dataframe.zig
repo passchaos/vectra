@@ -715,6 +715,7 @@ pub const DeviceDataFrame = struct {
     pub const sliceRowsStep = table_methods_mod.sliceRowsStep;
     pub const sliceStep = table_methods_mod.sliceStep;
     pub const take = table_methods_mod.take;
+    pub const repeatRows = table_methods_mod.repeatRows;
     pub const sampleRows = table_methods_mod.sampleRows;
     pub const sampleRowsWithReplacement = table_methods_mod.sampleRowsWithReplacement;
     pub const strideRows = table_methods_mod.strideRows;

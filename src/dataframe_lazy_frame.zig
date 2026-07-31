@@ -1855,6 +1855,10 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .take_rows = owned });
             }
 
+            pub fn repeatRows(self: *DeviceLazyFrame, repeat_count: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
+            }
+
             pub fn sampleRows(self: *DeviceLazyFrame, count: usize, seed: u64) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .sample_rows = .{
                     .count = count,
