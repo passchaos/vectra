@@ -1763,6 +1763,33 @@ pub fn withColumnPutMaskWithDeviceScalar(frame: anytype, name: []const u8, input
     return withColumnMaskedPutWithDeviceScalar(frame, name, input_name, mask_name, value);
 }
 
+pub fn withColumnPutFlatScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnPutFlatWithDeviceScalar(frame, name, input_name, row_indices, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnPutFlatWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_indices = try frame.allocator.dupe(usize, row_indices);
+    errdefer frame.allocator.free(owned_indices);
+    try frame.ops.append(frame.allocator, .{ .with_column_put_flat_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .row_indices = owned_indices,
+        .scalar = value,
+    } });
+}
+
+pub fn withColumnIndexPutScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnPutFlatScalar(frame, name, input_name, row_indices, T, value);
+}
+
+pub fn withColumnIndexPutWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!void {
+    return withColumnPutFlatWithDeviceScalar(frame, name, input_name, row_indices, value);
+}
+
 pub fn withColumnIscloseScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
     return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), false);
 }

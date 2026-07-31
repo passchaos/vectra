@@ -1250,6 +1250,34 @@ pub fn withColumnPutMaskWithDeviceScalar(self: anytype, output_name: []const u8,
     return withColumnMaskedPutWithDeviceScalar(self, output_name, input_name, mask_name, value);
 }
 
+pub fn putFlatColumnScalar(self: anytype, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.putFlatColumnScalar(frameValue(self), input_name, row_indices, T, value);
+}
+
+pub fn putFlatColumnWithDeviceScalar(self: anytype, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.putFlatColumnWithDeviceScalar(frameValue(self), input_name, row_indices, value);
+}
+
+pub fn withColumnPutFlatScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try putFlatColumnScalar(self, input_name, row_indices, T, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnPutFlatWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try putFlatColumnWithDeviceScalar(self, input_name, row_indices, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIndexPutScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnPutFlatScalar(self, output_name, input_name, row_indices, T, value);
+}
+
+pub fn withColumnIndexPutWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnPutFlatWithDeviceScalar(self, output_name, input_name, row_indices, value);
+}
+
 pub fn compareColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.compareColumns(frameValue(self), lhs_name, rhs_name, op);
 }

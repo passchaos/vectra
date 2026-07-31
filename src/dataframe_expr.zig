@@ -629,6 +629,16 @@ pub fn maskedPutColumnWithDeviceScalar(frame: anytype, input_name: []const u8, m
     return input.maskedPutWithDeviceScalar(mask.*, value);
 }
 
+pub fn putFlatColumnScalar(frame: anytype, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    return input.putFlatScalar(row_indices, T, value);
+}
+
+pub fn putFlatColumnWithDeviceScalar(frame: anytype, input_name: []const u8, row_indices: []const usize, value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    return input.putFlatWithDeviceScalar(row_indices, value);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

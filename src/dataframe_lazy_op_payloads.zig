@@ -139,6 +139,12 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             mask_name: []const u8,
             scalar: DeviceScalar,
         };
+        pub const WithColumnPutFlatScalar = struct {
+            name: []const u8,
+            input_name: []const u8,
+            row_indices: []const usize,
+            scalar: DeviceScalar,
+        };
         pub const WithColumnIsCloseScalar = struct {
             name: []const u8,
             input_name: []const u8,

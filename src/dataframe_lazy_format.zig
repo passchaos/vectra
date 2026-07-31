@@ -328,6 +328,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_where => |expr| try writer.print("with_column_where({s}=where({s}, mask:{s}, other:{s}))", .{ expr.name, expr.input_name, expr.lhs_name, expr.rhs_name }),
         .with_column_where_scalar => |expr| try writer.print("with_column_where_scalar({s}=where({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
         .with_column_masked_put_scalar => |expr| try writer.print("with_column_masked_put_scalar({s}=masked_put({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
+        .with_column_put_flat_scalar => |expr| {
+            try writer.print("with_column_put_flat_scalar({s}=put_flat({s}, indices=[", .{ expr.name, expr.input_name });
+            for (expr.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], scalar:{s}))", .{@tagName(expr.scalar)});
+        },
         .with_column_isclose_scalar => |expr| try writer.print("with_column_isclose_scalar({s}=isclose({s}, scalar:{s}, rtol:{s}, atol:{s}, equal_nan={any}))", .{ expr.name, expr.input_name, @tagName(expr.scalar), @tagName(expr.rtol), @tagName(expr.atol), expr.equal_nan }),
         .with_column_logical => |expr| try writer.print("with_column_logical({s}=logical_{s}({s}, {s}))", .{ expr.name, @tagName(expr.op), expr.lhs_name, expr.rhs_name }),
         .with_column_logical_scalar => |expr| try writer.print("with_column_logical_scalar({s}=logical_{s}({s}, scalar:{any}))", .{ expr.name, @tagName(expr.op), expr.input_name, expr.scalar }),
