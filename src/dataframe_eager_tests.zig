@@ -2354,6 +2354,27 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnLog1p("bad_log1p", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnLog1p("missing_log1p", "missing"));
 
+    var log2_sales_table = try table.withColumnLog2("sales_log2", "sales");
+    defer log2_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try log2_sales_table.columnDType("sales_log2"));
+    const sales_log2 = try (try log2_sales_table.column("sales_log2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_log2);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 2.0)), sales_log2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 3.0)), sales_log2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 5.0)), sales_log2[2], 1e-12);
+
+    var log10_sales_table = try table.withColumnLog10("sales_log10", "sales");
+    defer log10_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try log10_sales_table.columnDType("sales_log10"));
+    const sales_log10 = try (try log10_sales_table.column("sales_log10")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_log10);
+    try std.testing.expectApproxEqAbs(std.math.log10(@as(f64, 2.0)), sales_log10[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log10(@as(f64, 3.0)), sales_log10[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log10(@as(f64, 5.0)), sales_log10[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLog2("bad_log2", "units"));
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLog10("bad_log10", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnLog2("missing_log2", "missing"));
+
     var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
     defer mask.deinit();
     try std.testing.expectEqual(DeviceDType.bool, mask.dtype());

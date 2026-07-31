@@ -201,6 +201,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_log2 => |expr| blk: {
+                var column_value = try current.unaryColumnLog2(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_log10 => |expr| blk: {
+                var column_value = try current.unaryColumnLog10(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_binary => |expr| blk: {
                 var column_value = try current.binaryColumns(expr.lhs_name, expr.rhs_name, expr.op);
                 defer column_value.deinit();

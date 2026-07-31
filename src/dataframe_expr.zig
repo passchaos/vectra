@@ -54,6 +54,16 @@ pub fn unaryColumnLog1p(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.log1p();
 }
 
+pub fn unaryColumnLog2(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.log2();
+}
+
+pub fn unaryColumnLog10(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.log10();
+}
+
 pub fn binaryColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

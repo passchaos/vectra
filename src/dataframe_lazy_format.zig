@@ -351,6 +351,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_exp => |expr| try writer.print("with_column_exp({s}=exp({s}))", .{ expr.name, expr.input_name }),
         .with_column_log => |expr| try writer.print("with_column_log({s}=log({s}))", .{ expr.name, expr.input_name }),
         .with_column_log1p => |expr| try writer.print("with_column_log1p({s}=log1p({s}))", .{ expr.name, expr.input_name }),
+        .with_column_log2 => |expr| try writer.print("with_column_log2({s}=log2({s}))", .{ expr.name, expr.input_name }),
+        .with_column_log10 => |expr| try writer.print("with_column_log10({s}=log10({s}))", .{ expr.name, expr.input_name }),
         .is_null_column => |predicate| try writer.print("is_null_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),

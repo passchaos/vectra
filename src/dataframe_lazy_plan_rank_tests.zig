@@ -22,18 +22,20 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnExp("sales_exp", "sales");
     try plan.withColumnLog("sales_log", "sales");
     try plan.withColumnLog1p("sales_log1p", "sales");
+    try plan.withColumnLog2("sales_log2", "sales");
+    try plan.withColumnLog10("sales_log10", "sales");
     try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_log", "sales_log1p", "big_sale", "active" });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_log", "sales_log1p", "big_sale" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=16") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=14") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=18") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=16") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_neg(sales_neg=neg(sales))") != null);
@@ -43,13 +45,15 @@ test "device lazy frame collects plan operations" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_exp(sales_exp=exp(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log(sales_log=log(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log1p(sales_log1p=log1p(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log2(sales_log2=log2(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log10(sales_log10=log10(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_compare_scalar(big_sale") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "filter_scalar(sales") != null);
 
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 12), result.width());
+    try std.testing.expectEqual(@as(usize, 14), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
@@ -72,6 +76,10 @@ test "device lazy frame collects plan operations" {
     defer gpa.free(result_sales_log);
     const result_sales_log1p = try (try result.column("sales_log1p")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_log1p);
+    const result_sales_log2 = try (try result.column("sales_log2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_log2);
+    const result_sales_log10 = try (try result.column("sales_log10")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_log10);
     const result_big_sale = try (try result.column("big_sale")).bool.toOwnedSlice(gpa);
     defer gpa.free(result_big_sale);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, result_sales);
@@ -90,6 +98,10 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 5.0)), result_sales_log[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log1p(@as(f64, 7.0)), result_sales_log1p[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log1p(@as(f64, 5.0)), result_sales_log1p[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 7.0)), result_sales_log2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log2(@as(f64, 5.0)), result_sales_log2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log10(@as(f64, 7.0)), result_sales_log10[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log10(@as(f64, 5.0)), result_sales_log10[1], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, false }, result_big_sale);
 }
 
