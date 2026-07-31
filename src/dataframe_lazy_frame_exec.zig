@@ -686,6 +686,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_weighted_beta => |row_weighted| try current.withRowWeightedBeta(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.correction),
             .row_weighted_quantile => |row_weighted| try current.withRowWeightedQuantile(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.q),
             .row_weighted_median => |row_weighted| try current.withRowWeightedMedian(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_iqr => |row_weighted| try current.withRowWeightedIqr(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_mad => |row_weighted| try current.withRowWeightedMad(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_dot => |row_paired| try current.withRowDot(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_cosine_similarity => |row_paired| try current.withRowCosineSimilarity(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_squared_euclidean_distance => |row_paired| try current.withRowSquaredEuclideanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),

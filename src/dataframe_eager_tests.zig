@@ -521,6 +521,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_weighted_median);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_median_validity);
 
+    var row_weighted_iqr_table = try validity_table.withRowWeightedIqr(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_iqr");
+    defer row_weighted_iqr_table.deinit();
+    const row_weighted_iqr_column = try row_weighted_iqr_table.column("row_weighted_iqr");
+    try std.testing.expect(row_weighted_iqr_column.f64.nullable());
+    const row_weighted_iqr = try row_weighted_iqr_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_iqr);
+    const row_weighted_iqr_validity = try row_weighted_iqr_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_iqr_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, row_weighted_iqr);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_iqr_validity);
+
+    var row_weighted_mad_table = try validity_table.withRowWeightedMad(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mad");
+    defer row_weighted_mad_table.deinit();
+    const row_weighted_mad_column = try row_weighted_mad_table.column("row_weighted_mad");
+    try std.testing.expect(row_weighted_mad_column.f64.nullable());
+    const row_weighted_mad = try row_weighted_mad_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mad);
+    const row_weighted_mad_validity = try row_weighted_mad_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mad_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, row_weighted_mad);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mad_validity);
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");
