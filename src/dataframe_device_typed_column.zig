@@ -1357,6 +1357,26 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return value == zeroValue(T);
         }
 
+        fn floatKeyEqual(comptime F: type, lhs: F, rhs: F) bool {
+            const lhs_nan = std.math.isNan(lhs);
+            const rhs_nan = std.math.isNan(rhs);
+            return if (lhs_nan or rhs_nan) lhs_nan and rhs_nan else lhs == rhs;
+        }
+
+        fn distinctValueEqual(lhs: T, rhs: T) bool {
+            if (comptime T == array_mod.BFloat16) return floatKeyEqual(f32, lhs.toF32(), rhs.toF32());
+            if (comptime T == array_mod.Complex64) {
+                return floatKeyEqual(f32, lhs.re, rhs.re) and floatKeyEqual(f32, lhs.im, rhs.im);
+            }
+            if (comptime T == array_mod.Complex128) {
+                return floatKeyEqual(f64, lhs.re, rhs.re) and floatKeyEqual(f64, lhs.im, rhs.im);
+            }
+            return switch (@typeInfo(T)) {
+                .float => floatKeyEqual(T, lhs, rhs),
+                else => lhs == rhs,
+            };
+        }
+
         fn addValue(lhs: T, rhs: T) T {
             if (comptime T == array_mod.BFloat16) return lhs.add(rhs);
             if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.add(rhs);
@@ -1560,6 +1580,40 @@ pub fn DeviceTypedColumn(comptime T: type) type {
                 if (!isZeroValue(value)) count += 1;
             }
             return count;
+        }
+
+        pub fn countDistinct(self: Self) array_mod.ArrayError!usize {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var distinct_count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                var seen = false;
+                // This intentionally stays as a small host-side baseline until
+                // a per-device hash-set kernel exists. It preserves dataframe
+                // null semantics now (skip null rows) and NaN-key semantics
+                // used by joins/groups (all NaNs of the same dtype compare
+                // equal for distinct counting).
+                for (values[0..row], 0..) |previous, previous_row| {
+                    if (maybe_validity) |validity| {
+                        if (!validity[previous_row]) continue;
+                    }
+                    if (distinctValueEqual(previous, value)) {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (!seen) distinct_count += 1;
+            }
+            return distinct_count;
+        }
+
+        pub fn nUnique(self: Self) array_mod.ArrayError!usize {
+            return self.countDistinct();
         }
 
         pub fn any(self: Self) array_mod.ArrayError!bool {

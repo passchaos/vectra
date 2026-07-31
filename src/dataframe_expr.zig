@@ -758,6 +758,16 @@ pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usiz
     return col.countNonzero();
 }
 
+pub fn countDistinctColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countDistinct();
+}
+
+pub fn nUniqueColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.nUnique();
+}
+
 pub fn sumColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.sum();

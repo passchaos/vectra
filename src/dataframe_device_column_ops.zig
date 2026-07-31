@@ -1342,6 +1342,17 @@ pub fn countNonzero(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countDistinct(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countDistinct(),
+    };
+}
+
+pub fn nUnique(self: anytype) array_mod.ArrayError!usize {
+    return countDistinct(self);
+}
+
 pub fn sum(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {
