@@ -305,6 +305,38 @@ pub fn dropColumnsWithoutNegativeInfs(self: anytype) DeviceDataError!FrameType(@
     return dataframe_array_mod.dropColumnsWithoutNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithNonZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNonZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNonZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNonZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNonZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNonZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNonZeros(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNonZeros(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithFinites(FrameType(@TypeOf(self)), frameValue(self));
 }

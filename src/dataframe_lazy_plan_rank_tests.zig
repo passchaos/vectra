@@ -1189,6 +1189,75 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame selects zero columns" {
+    const gpa = std.testing.allocator;
+
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, 4.0, std.math.nan(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var non_zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.nan(f64), std.math.inf(f64) }, .cpu);
+    defer non_zero_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, 0.0, 0.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 0, 5, 0 }, .cpu);
+    defer id.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "non_zero_metric", .data = non_zero_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var select_zeros_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_zeros_plan.deinit();
+    try select_zeros_plan.selectColumnsWithZeros();
+    const select_zeros_explain = try select_zeros_plan.explain(gpa);
+    defer gpa.free(select_zeros_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_zeros_explain, "select_columns_with_zeros") != null);
+    var zero_columns = try select_zeros_plan.collect();
+    defer zero_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 4), zero_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), zero_columns.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), zero_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), zero_columns.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), zero_columns.columnIndex("flag"));
+
+    var select_non_zeros_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_non_zeros_plan.deinit();
+    try select_non_zeros_plan.selectColumnsWithNonZeros();
+    const select_non_zeros_explain = try select_non_zeros_plan.explain(gpa);
+    defer gpa.free(select_non_zeros_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_non_zeros_explain, "select_columns_with_non_zeros") != null);
+    var non_zero_columns = try select_non_zeros_plan.collect();
+    defer non_zero_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 4), non_zero_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_zero_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), non_zero_columns.columnIndex("non_zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), non_zero_columns.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), non_zero_columns.columnIndex("flag"));
+
+    var drop_without_zeros_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_zeros_plan.deinit();
+    try drop_without_zeros_plan.dropColumnsWithoutZeros();
+    const drop_without_zeros_explain = try drop_without_zeros_plan.explain(gpa);
+    defer gpa.free(drop_without_zeros_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_zeros_explain, "drop_columns_without_zeros") != null);
+    var only_zero_columns = try drop_without_zeros_plan.collect();
+    defer only_zero_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 4), only_zero_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_zero_columns.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), only_zero_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), only_zero_columns.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), only_zero_columns.columnIndex("flag"));
+}
+
 test "device lazy frame selects finite columns" {
     const gpa = std.testing.allocator;
 

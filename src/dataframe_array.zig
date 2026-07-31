@@ -566,6 +566,62 @@ pub fn dropColumnsWithoutNegativeInfs(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
 }
 
+pub fn selectColumnsWithZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .zero);
+}
+
+pub fn selectColumnsWithoutZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .zero);
+}
+
+pub fn dropColumnsWithZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .zero);
+}
+
+pub fn dropColumnsWithoutZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .zero);
+}
+
+pub fn selectColumnsWithNonZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_zero);
+}
+
+pub fn selectColumnsWithoutNonZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_zero);
+}
+
+pub fn dropColumnsWithNonZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_zero);
+}
+
+pub fn dropColumnsWithoutNonZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_zero);
+}
+
 pub fn selectColumnsWithFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

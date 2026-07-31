@@ -353,6 +353,38 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_negative_infs = {} });
             }
 
+            pub fn selectColumnsWithZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_zeros = {} });
+            }
+
+            pub fn selectColumnsWithoutZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_zeros = {} });
+            }
+
+            pub fn dropColumnsWithZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_zeros = {} });
+            }
+
+            pub fn dropColumnsWithoutZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_zeros = {} });
+            }
+
+            pub fn selectColumnsWithNonZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_non_zeros = {} });
+            }
+
+            pub fn selectColumnsWithoutNonZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_non_zeros = {} });
+            }
+
+            pub fn dropColumnsWithNonZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_non_zeros = {} });
+            }
+
+            pub fn dropColumnsWithoutNonZeros(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_non_zeros = {} });
+            }
+
             pub fn selectColumnsWithFinites(self: *DeviceLazyFrame) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .select_columns_with_finites = {} });
             }

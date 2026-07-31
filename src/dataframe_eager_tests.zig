@@ -1023,6 +1023,69 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
 }
 
+test "device dataframe selects zero columns" {
+    const gpa = std.testing.allocator;
+
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, 4.0, std.math.nan(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var non_zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.nan(f64), std.math.inf(f64) }, .cpu);
+    defer non_zero_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, 0.0, 0.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 0, 5, 0 }, .cpu);
+    defer id.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "non_zero_metric", .data = non_zero_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var with_zeros = try table.selectColumnsWithZeros();
+    defer with_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 4), with_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_zeros.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_zeros.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_zeros.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), with_zeros.columnIndex("flag"));
+
+    var without_zeros = try table.selectColumnsWithoutZeros();
+    defer without_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 2), without_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_zeros.columnIndex("non_zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_zeros.columnIndex("null_metric"));
+
+    var with_non_zeros = try table.selectColumnsWithNonZeros();
+    defer with_non_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 4), with_non_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_non_zeros.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_non_zeros.columnIndex("non_zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_non_zeros.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), with_non_zeros.columnIndex("flag"));
+
+    var drop_without_non_zeros = try table.dropColumnsWithoutNonZeros();
+    defer drop_without_non_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drop_without_non_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_non_zeros.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_non_zeros.columnIndex("non_zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_without_non_zeros.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), drop_without_non_zeros.columnIndex("flag"));
+
+    var drop_with_zeros = try table.dropColumnsWithZeros();
+    defer drop_with_zeros.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_with_zeros.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_with_zeros.columnIndex("non_zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_with_zeros.columnIndex("null_metric"));
+}
+
 test "device dataframe selects finite columns" {
     const gpa = std.testing.allocator;
 
