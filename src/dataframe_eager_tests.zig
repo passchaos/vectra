@@ -548,6 +548,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_manhattan);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
 
+    var row_chebyshev_table = try validity_table.withRowChebyshevDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_chebyshev");
+    defer row_chebyshev_table.deinit();
+    const row_chebyshev = try (try row_chebyshev_table.column("row_chebyshev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_chebyshev);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_chebyshev);
+
+    var row_canberra_table = try validity_table.withRowCanberraDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_canberra");
+    defer row_canberra_table.deinit();
+    const row_canberra = try (try row_canberra_table.column("row_canberra")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_canberra);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_canberra[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0 / 21.0), row_canberra[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_canberra[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0 + 39.0 / 41.0), row_canberra[3], 1e-12);
+
+    var row_bray_table = try validity_table.withRowBrayCurtisDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_bray");
+    defer row_bray_table.deinit();
+    const row_bray = try (try row_bray_table.column("row_bray")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_bray);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bray[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0 / 21.0), row_bray[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bray[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0 / 49.0), row_bray[3], 1e-12);
+
     var row_mean_error_table = try validity_table.withRowMeanError(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mean_error");
     defer row_mean_error_table.deinit();
     const row_mean_error_column = try row_mean_error_table.column("row_mean_error");

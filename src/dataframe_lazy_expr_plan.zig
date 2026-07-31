@@ -2564,7 +2564,7 @@ fn withRowPairedNumeric(
     lhs_names: []const []const u8,
     rhs_names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
+    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -2605,6 +2605,21 @@ fn withRowPairedNumeric(
             .output_name = owned_output,
         } }),
         .manhattan => try frame.ops.append(frame.allocator, .{ .row_manhattan_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .chebyshev => try frame.ops.append(frame.allocator, .{ .row_chebyshev_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .canberra => try frame.ops.append(frame.allocator, .{ .row_canberra_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .bray_curtis => try frame.ops.append(frame.allocator, .{ .row_bray_curtis_distance = .{
             .value_names = owned_values,
             .weight_names = owned_weights,
             .output_name = owned_output,
@@ -2679,6 +2694,18 @@ pub fn withRowEuclideanDistance(frame: anytype, lhs_names: []const []const u8, r
 
 pub fn withRowManhattanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .manhattan);
+}
+
+pub fn withRowChebyshevDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .chebyshev);
+}
+
+pub fn withRowCanberraDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .canberra);
+}
+
+pub fn withRowBrayCurtisDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .bray_curtis);
 }
 
 pub fn withRowMeanError(frame: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {

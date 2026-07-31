@@ -1977,7 +1977,7 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
-const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
+const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {
     return @bitCast(@as(u64, 0x7ff8_0000_0000_0000));
@@ -2005,6 +2005,12 @@ fn withRowPairedNumericReduction(
     defer input.allocator.free(rhs_sums);
     const manhattan = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(manhattan);
+    const chebyshev = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(chebyshev);
+    const canberra = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(canberra);
+    const bray_curtis_denominator = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(bray_curtis_denominator);
     const mape_sum = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(mape_sum);
     const smape_sum = try input.allocator.alloc(f64, input.rows);
@@ -2021,6 +2027,9 @@ fn withRowPairedNumericReduction(
     @memset(lhs_sums, 0.0);
     @memset(rhs_sums, 0.0);
     @memset(manhattan, 0.0);
+    @memset(chebyshev, 0.0);
+    @memset(canberra, 0.0);
+    @memset(bray_curtis_denominator, 0.0);
     @memset(mape_sum, 0.0);
     @memset(smape_sum, 0.0);
     @memset(signed_error_sum, 0.0);
@@ -2060,10 +2069,18 @@ fn withRowPairedNumericReduction(
                             rhs_norm2[row] += rhs * rhs;
                             signed_error_sum[row] += signed_error;
                             const abs_error = @abs(signed_error);
+                            const abs_lhs = @abs(lhs);
+                            const abs_rhs = @abs(rhs);
+                            const abs_sum = abs_lhs + abs_rhs;
                             manhattan[row] += abs_error;
-                            mape_sum[row] += if (lhs == 0.0) quietNanF64() else abs_error / @abs(lhs);
-                            const smape_denominator = @abs(lhs) + @abs(rhs);
-                            smape_sum[row] += if (smape_denominator == 0.0) quietNanF64() else 2.0 * abs_error / smape_denominator;
+                            chebyshev[row] = @max(chebyshev[row], abs_error);
+                            // Canberra treats a zero/zero coordinate as no contribution, while
+                            // Bray-Curtis keeps the zero total denominator so the whole-row result
+                            // can surface NaN for an all-zero paired row.
+                            canberra[row] += if (abs_sum == 0.0) 0.0 else abs_error / abs_sum;
+                            bray_curtis_denominator[row] += abs_sum;
+                            mape_sum[row] += if (lhs == 0.0) quietNanF64() else abs_error / abs_lhs;
+                            smape_sum[row] += if (abs_sum == 0.0) quietNanF64() else 2.0 * abs_error / abs_sum;
                             pair_counts[row] += 1;
                             validity[row] = true;
                         }
@@ -2075,7 +2092,7 @@ fn withRowPairedNumericReduction(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, dots, lhs_norm2, rhs_norm2, lhs_sums, rhs_sums, manhattan, mape_sum, smape_sum, signed_error_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, lhs_sum, rhs_sum, l1, ape_sum, symmetric_ape_sum, signed_error, pair_count| {
+    for (values, validity, dots, lhs_norm2, rhs_norm2, lhs_sums, rhs_sums, manhattan, chebyshev, canberra, bray_curtis_denominator, mape_sum, smape_sum, signed_error_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, lhs_sum, rhs_sum, l1, linf, canberra_distance, bray_denominator, ape_sum, symmetric_ape_sum, signed_error, pair_count| {
         if (!valid) {
             value.* = 0.0;
         } else {
@@ -2094,6 +2111,9 @@ fn withRowPairedNumericReduction(
                 .squared_euclidean => squared_distance,
                 .euclidean => std.math.sqrt(squared_distance),
                 .manhattan => l1,
+                .chebyshev => linf,
+                .canberra => canberra_distance,
+                .bray_curtis => if (bray_denominator == 0.0) quietNanF64() else l1 / bray_denominator,
                 .mean_error => signed_error / count_f64,
                 .mae => l1 / count_f64,
                 .mse => squared_distance / count_f64,
@@ -2171,6 +2191,36 @@ pub fn withRowManhattanDistance(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .manhattan);
+}
+
+pub fn withRowChebyshevDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .chebyshev);
+}
+
+pub fn withRowCanberraDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .canberra);
+}
+
+pub fn withRowBrayCurtisDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .bray_curtis);
 }
 
 pub fn withRowMeanError(

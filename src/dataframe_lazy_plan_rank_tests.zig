@@ -1424,6 +1424,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowSquaredEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_sqdist");
     try plan.withRowEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_euclidean");
     try plan.withRowManhattanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_manhattan");
+    try plan.withRowChebyshevDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_chebyshev");
+    try plan.withRowCanberraDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_canberra");
+    try plan.withRowBrayCurtisDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_bray");
     try plan.withRowMeanError(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mean_error");
     try plan.withRowMae(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mae");
     try plan.withRowMse(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mse");
@@ -1453,7 +1456,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_pair_count", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_pair_count", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1471,6 +1474,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_squared_euclidean_distance(lhs=[a,b], rhs=[wa,wb]->row_sqdist)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_euclidean_distance(lhs=[a,b], rhs=[wa,wb]->row_euclidean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_manhattan_distance(lhs=[a,b], rhs=[wa,wb]->row_manhattan)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_chebyshev_distance(lhs=[a,b], rhs=[wa,wb]->row_chebyshev)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_canberra_distance(lhs=[a,b], rhs=[wa,wb]->row_canberra)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_bray_curtis_distance(lhs=[a,b], rhs=[wa,wb]->row_bray)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean_error(actual=[a,b], predicted=[wa,wb]->row_mean_error)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mae(lhs=[a,b], rhs=[wa,wb]->row_mae)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mse(lhs=[a,b], rhs=[wa,wb]->row_mse)") != null);
@@ -1503,7 +1509,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 43), result.width());
+    try std.testing.expectEqual(@as(usize, 46), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1574,6 +1580,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_euclidean);
     const row_manhattan = try (try result.column("row_manhattan")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_manhattan);
+    const row_chebyshev = try (try result.column("row_chebyshev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_chebyshev);
+    const row_canberra = try (try result.column("row_canberra")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_canberra);
+    const row_bray = try (try result.column("row_bray")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_bray);
     const row_mean_error_column = try result.column("row_mean_error");
     try std.testing.expect(row_mean_error_column.f64.nullable());
     const row_mean_error = try row_mean_error_column.f64.toOwnedSlice(gpa);
@@ -1763,6 +1775,15 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_euclidean[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 39.0), row_euclidean[3], 1e-12);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_chebyshev);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_canberra[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0 / 21.0), row_canberra[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_canberra[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0 / 41.0), row_canberra[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bray[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0 / 21.0), row_bray[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bray[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0 / 49.0), row_bray[3], 1e-12);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 19.5 }, row_mean_error);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_error_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 19.5 }, row_mae);

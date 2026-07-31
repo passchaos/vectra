@@ -636,6 +636,45 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_paired.output_name});
         },
+        .row_chebyshev_distance => |row_paired| {
+            try writer.print("row_chebyshev_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
+        .row_canberra_distance => |row_paired| {
+            try writer.print("row_canberra_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
+        .row_bray_curtis_distance => |row_paired| {
+            try writer.print("row_bray_curtis_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
         .row_mean_error => |row_paired| {
             try writer.print("row_mean_error(actual=[", .{});
             for (row_paired.value_names, 0..) |name, i| {

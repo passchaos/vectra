@@ -1766,6 +1766,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowManhattanDistance(self, lhs_names, rhs_names, output_name);
             }
 
+            pub fn withRowChebyshevDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowChebyshevDistance(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowCanberraDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCanberraDistance(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowBrayCurtisDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowBrayCurtisDistance(self, lhs_names, rhs_names, output_name);
+            }
+
             pub fn withRowMeanError(self: *DeviceLazyFrame, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMeanError(self, actual_names, predicted_names, output_name);
             }
