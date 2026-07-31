@@ -2284,6 +2284,38 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(doubled_values);
     try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0 }, doubled_values);
 
+    var sales_close_table = try table.withColumnIscloseScalar("sales_close_3", "sales", f64, 3.1, 0.0, 0.2);
+    defer sales_close_table.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try sales_close_table.columnDType("sales_close_3"));
+    const sales_close = try (try sales_close_table.column("sales_close_3")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_close);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, sales_close);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnIscloseScalar("bad_isclose", "units", i64, 2, 0, 1));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnIscloseScalar("missing_isclose", "missing", f64, 3.1, 0.0, 0.2));
+
+    var nullable_sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.05, 3.0 }, &.{ true, false, true }, .cpu);
+    defer nullable_sales.deinit();
+    var nullable_sales_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nullable_sales }});
+    defer nullable_sales_table.deinit();
+    var nullable_close_table = try nullable_sales_table.withColumnIscloseWithDeviceScalars("metric_close", "metric", .{ .f64 = 2.0 }, .{ .f64 = 0.0 }, .{ .f64 = 0.1 });
+    defer nullable_close_table.deinit();
+    const nullable_close_column = try nullable_close_table.column("metric_close");
+    try std.testing.expect(nullable_close_column.bool.nullable());
+    try std.testing.expectEqual(@as(usize, 1), nullable_close_column.bool.null_count);
+    const nullable_close = try nullable_close_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(nullable_close);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, nullable_close);
+
+    var nan_close_column = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), 2.0, 2.2 }, .cpu);
+    defer nan_close_column.deinit();
+    var nan_close_source = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_close_column }});
+    defer nan_close_source.deinit();
+    var nan_close_table = try nan_close_source.withColumnIscloseScalarEqualNan("metric_nan_close", "metric", f64, std.math.nan(f64), 0.0, 0.0, true);
+    defer nan_close_table.deinit();
+    const nan_close = try (try nan_close_table.column("metric_nan_close")).bool.toOwnedSlice(gpa);
+    defer gpa.free(nan_close);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, nan_close);
+
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try cost_delta.columnDType("cost_abs"));

@@ -1153,6 +1153,46 @@ pub fn compareColumnScalarWithDeviceScalar(self: anytype, name: []const u8, scal
     return expr_mod.compareColumnScalarWithDeviceScalar(frameValue(self), name, scalar, op);
 }
 
+pub fn iscloseColumnScalar(self: anytype, name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.iscloseColumnScalar(frameValue(self), name, T, scalar, rtol, atol, false);
+}
+
+pub fn iscloseColumnScalarEqualNan(self: anytype, name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T, equal_nan: bool) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.iscloseColumnScalar(frameValue(self), name, T, scalar, rtol, atol, equal_nan);
+}
+
+pub fn iscloseColumnWithDeviceScalars(self: anytype, name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.iscloseColumnWithDeviceScalars(frameValue(self), name, scalar, rtol, atol, false);
+}
+
+pub fn iscloseColumnWithDeviceScalarsEqualNan(self: anytype, name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar, equal_nan: bool) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.iscloseColumnWithDeviceScalars(frameValue(self), name, scalar, rtol, atol, equal_nan);
+}
+
+pub fn withColumnIscloseScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try iscloseColumnScalar(self, input_name, T, scalar, rtol, atol);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIscloseScalarEqualNan(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T, equal_nan: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try iscloseColumnScalarEqualNan(self, input_name, T, scalar, rtol, atol, equal_nan);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIscloseWithDeviceScalars(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try iscloseColumnWithDeviceScalars(self, input_name, scalar, rtol, atol);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIscloseWithDeviceScalarsEqualNan(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar, equal_nan: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try iscloseColumnWithDeviceScalarsEqualNan(self, input_name, scalar, rtol, atol, equal_nan);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn filterColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
     return expr_mod.filterColumnMask(FrameType(@TypeOf(self)), frameValue(self), mask);
 }

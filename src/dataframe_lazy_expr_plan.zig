@@ -1631,6 +1631,33 @@ pub fn withColumnLerpWithDeviceScalar(frame: anytype, name: []const u8, lhs_name
     } });
 }
 
+pub fn withColumnIscloseScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
+    return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), false);
+}
+
+pub fn withColumnIscloseScalarEqualNan(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T, equal_nan: bool) DeviceDataError!void {
+    return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), equal_nan);
+}
+
+pub fn withColumnIscloseWithDeviceScalars(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar) DeviceDataError!void {
+    return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, scalar, rtol, atol, false);
+}
+
+pub fn withColumnIscloseWithDeviceScalarsEqualNan(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar, equal_nan: bool) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_isclose_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = scalar,
+        .rtol = rtol,
+        .atol = atol,
+        .equal_nan = equal_nan,
+    } });
+}
+
 pub fn withColumnLiteral(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

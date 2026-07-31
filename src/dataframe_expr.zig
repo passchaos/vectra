@@ -594,6 +594,31 @@ pub fn compareColumnScalarWithDeviceScalar(frame: anytype, name: []const u8, sca
     };
 }
 
+pub fn iscloseColumnScalar(
+    frame: anytype,
+    name: []const u8,
+    comptime T: type,
+    scalar: T,
+    rtol: T,
+    atol: T,
+    equal_nan: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.iscloseScalar(T, scalar, rtol, atol, equal_nan);
+}
+
+pub fn iscloseColumnWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    scalar: DeviceScalar,
+    rtol: DeviceScalar,
+    atol: DeviceScalar,
+    equal_nan: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.iscloseWithDeviceScalars(scalar, rtol, atol, equal_nan);
+}
+
 pub fn filterColumnMask(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

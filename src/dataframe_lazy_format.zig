@@ -322,6 +322,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_binary => |expr| try writer.print("with_column_binary({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
         .with_column_scalar => |expr| try writer.print("with_column_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .with_column_lerp_scalar => |expr| try writer.print("with_column_lerp_scalar({s}=lerp({s}, {s}, weight:{s}))", .{ expr.name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
+        .with_column_isclose_scalar => |expr| try writer.print("with_column_isclose_scalar({s}=isclose({s}, scalar:{s}, rtol:{s}, atol:{s}, equal_nan={any}))", .{ expr.name, expr.input_name, @tagName(expr.scalar), @tagName(expr.rtol), @tagName(expr.atol), expr.equal_nan }),
         .with_column_literal => |expr| try writer.print("with_column_literal({s}=scalar:{s})", .{ expr.name, @tagName(expr.scalar) }),
         .with_column_literal_at => |expr| try writer.print("with_column_literal_at({s}=scalar:{s}, index={d})", .{ expr.name, @tagName(expr.scalar), expr.target_index }),
         .with_column_literal_before => |expr| try writer.print("with_column_literal_before({s}=scalar:{s} before {s})", .{ expr.name, @tagName(expr.scalar), expr.anchor_name }),

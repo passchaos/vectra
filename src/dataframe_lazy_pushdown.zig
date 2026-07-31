@@ -660,6 +660,10 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
             },
+            .with_column_isclose_scalar => |expr| {
+                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+            },
             .with_column_literal => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
             },

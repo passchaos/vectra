@@ -51,6 +51,7 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnHeavisideScalar("sales_neg_heaviside", "sales_neg", f64, 0.25);
     try plan.withColumnLdexpScalar("sales_ldexp1", "sales", 1);
     try plan.withColumnLerpScalar("sales_lerp_x2", "sales", "sales_x2", f64, 0.25);
+    try plan.withColumnIscloseScalar("sales_close5", "sales", f64, 5.0, 0.0, 0.1);
     try plan.withColumnThreshold("sales_neg_threshold", "sales_neg", f64, -6.0, 0.0);
     try plan.withColumnHardtanh("sales_neg_hardtanh", "sales_neg", f64, -6.0, -1.0);
     try plan.withColumnMaximumScalar("sales_neg_max", "sales_neg", f64, -6.0);
@@ -94,15 +95,15 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_logaddexp0", "sales_logaddexp2_0", "sales_xlogy_e", "sales_fmax4", "sales_fmin4", "sales_hypot4", "sales_atan2_4", "sales_next_after8", "sales_copysign_neg", "sales_neg_heaviside", "sales_ldexp1", "sales_lerp_x2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_logaddexp0", "sales_logaddexp2_0", "sales_xlogy_e", "sales_fmax4", "sales_fmin4", "sales_hypot4", "sales_atan2_4", "sales_next_after8", "sales_copysign_neg", "sales_neg_heaviside", "sales_ldexp1", "sales_lerp_x2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_logaddexp0", "sales_logaddexp2_0", "sales_xlogy_e", "sales_fmax4", "sales_fmin4", "sales_hypot4", "sales_atan2_4", "sales_next_after8", "sales_copysign_neg", "sales_neg_heaviside", "sales_ldexp1", "sales_lerp_x2", "sales_close5", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_logaddexp0", "sales_logaddexp2_0", "sales_xlogy_e", "sales_fmax4", "sales_fmin4", "sales_hypot4", "sales_atan2_4", "sales_next_after8", "sales_copysign_neg", "sales_neg_heaviside", "sales_ldexp1", "sales_lerp_x2", "sales_close5", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=85") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=83") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=86") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=84") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_neg(sales_neg=neg(sales))") != null);
@@ -141,6 +142,7 @@ test "device lazy frame collects plan operations" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_heaviside_scalar(sales_neg_heaviside=heaviside(sales_neg, value_at_zero:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_ldexp_scalar(sales_ldexp1=ldexp(sales, exponent:1))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_lerp_scalar(sales_lerp_x2=lerp(sales, sales_x2, weight:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_isclose_scalar(sales_close5=isclose(sales, scalar:f64, rtol:f64, atol:f64, equal_nan=false))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_threshold(sales_neg_threshold=threshold(sales_neg, threshold:f64, replacement:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_hardtanh(sales_neg_hardtanh=hardtanh(sales_neg, min:f64, max:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_maximum_scalar(sales_neg_max=maximum(sales_neg, scalar:f64))") != null);
@@ -187,7 +189,7 @@ test "device lazy frame collects plan operations" {
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 81), result.width());
+    try std.testing.expectEqual(@as(usize, 82), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
@@ -268,6 +270,8 @@ test "device lazy frame collects plan operations" {
     defer gpa.free(result_sales_ldexp1);
     const result_sales_lerp_x2 = try (try result.column("sales_lerp_x2")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_lerp_x2);
+    const result_sales_close5 = try (try result.column("sales_close5")).bool.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_close5);
     const result_sales_neg_threshold = try (try result.column("sales_neg_threshold")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_neg_threshold);
     const result_sales_neg_hardtanh = try (try result.column("sales_neg_hardtanh")).f64.toOwnedSlice(gpa);
@@ -408,6 +412,7 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectEqualSlices(f64, &.{ 14.0, 10.0 }, result_sales_ldexp1);
     try std.testing.expectApproxEqAbs(@as(f64, 7.0) + (@as(f64, 14.0) - @as(f64, 7.0)) * @as(f64, 0.25), result_sales_lerp_x2[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0) + (@as(f64, 10.0) - @as(f64, 5.0)) * @as(f64, 0.25), result_sales_lerp_x2[1], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, result_sales_close5);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, -5.0 }, result_sales_neg_threshold);
     try std.testing.expectEqualSlices(f64, &.{ -6.0, -5.0 }, result_sales_neg_hardtanh);
     try std.testing.expectEqualSlices(f64, &.{ -6.0, -5.0 }, result_sales_neg_max);

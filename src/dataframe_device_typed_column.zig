@@ -1077,6 +1077,16 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn iscloseScalar(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) array_mod.ArrayError!DeviceTypedColumn(bool) {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }

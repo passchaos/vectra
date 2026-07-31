@@ -328,6 +328,8 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const greaterEqualScalar = column_ops_mod.greaterEqualScalar;
     pub const lessScalar = column_ops_mod.lessScalar;
     pub const lessEqualScalar = column_ops_mod.lessEqualScalar;
+    pub const iscloseScalar = column_ops_mod.iscloseScalar;
+    pub const iscloseWithDeviceScalars = column_ops_mod.iscloseWithDeviceScalars;
 
     pub const arrowDataType = column_arrow_mod.arrowDataType;
     pub const toArrowArray = column_arrow_mod.toArrowArray;

@@ -1005,3 +1005,42 @@ pub fn lessScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayErr
 pub fn lessEqualScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     return compareScalar(self, T, scalar, .le);
 }
+
+pub fn iscloseScalar(
+    self: anytype,
+    comptime T: type,
+    scalar: T,
+    rtol: T,
+    atol: T,
+    equal_nan: bool,
+) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .bool = try typed.iscloseScalar(
+            try castNumericScalar(T, @TypeOf(typed).Scalar, scalar),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, rtol),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, atol),
+            equal_nan,
+        ) },
+    };
+}
+
+pub fn iscloseWithDeviceScalars(
+    self: anytype,
+    scalar: options_mod.DeviceScalar,
+    rtol: options_mod.DeviceScalar,
+    atol: options_mod.DeviceScalar,
+    equal_nan: bool,
+) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .bool = try typed.iscloseScalar(
+            try castDeviceScalar(@TypeOf(typed).Scalar, scalar),
+            try castDeviceScalar(@TypeOf(typed).Scalar, rtol),
+            try castDeviceScalar(@TypeOf(typed).Scalar, atol),
+            equal_nan,
+        ) },
+    };
+}

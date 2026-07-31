@@ -1299,6 +1299,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnLerpWithDeviceScalar(self, name, lhs_name, rhs_name, weight);
             }
 
+            pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
+            }
+
+            pub fn withColumnIscloseScalarEqualNan(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T, equal_nan: bool) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIscloseScalarEqualNan(self, name, input_name, T, scalar, rtol, atol, equal_nan);
+            }
+
+            pub fn withColumnIscloseWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIscloseWithDeviceScalars(self, name, input_name, scalar, rtol, atol);
+            }
+
+            pub fn withColumnIscloseWithDeviceScalarsEqualNan(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar, equal_nan: bool) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIscloseWithDeviceScalarsEqualNan(self, name, input_name, scalar, rtol, atol, equal_nan);
+            }
+
             pub fn withColumnLiteral(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnLiteral(self, name, T, value);
             }
