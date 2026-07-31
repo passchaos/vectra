@@ -1447,6 +1447,34 @@ pub fn lastZeroIndex(self: anytype) array_mod.ArrayError!?usize {
     };
 }
 
+pub fn firstPositiveZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstPositiveZeroIndex(),
+    };
+}
+
+pub fn lastPositiveZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastPositiveZeroIndex(),
+    };
+}
+
+pub fn firstNegativeZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNegativeZeroIndex(),
+    };
+}
+
+pub fn lastNegativeZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNegativeZeroIndex(),
+    };
+}
+
 pub fn firstNonzeroIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

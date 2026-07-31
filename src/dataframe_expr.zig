@@ -923,6 +923,26 @@ pub fn lastZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?us
     return col.lastZeroIndex();
 }
 
+pub fn firstPositiveZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstPositiveZeroIndex();
+}
+
+pub fn lastPositiveZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastPositiveZeroIndex();
+}
+
+pub fn firstNegativeZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNegativeZeroIndex();
+}
+
+pub fn lastNegativeZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNegativeZeroIndex();
+}
+
 pub fn firstNonzeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstNonzeroIndex();

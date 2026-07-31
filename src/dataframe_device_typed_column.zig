@@ -1890,6 +1890,22 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.lastMatchingIndex(isZeroValue);
         }
 
+        pub fn firstPositiveZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isPositiveZeroValue);
+        }
+
+        pub fn lastPositiveZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isPositiveZeroValue);
+        }
+
+        pub fn firstNegativeZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isNegativeZeroValue);
+        }
+
+        pub fn lastNegativeZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isNegativeZeroValue);
+        }
+
         pub fn firstNonzeroIndex(self: Self) array_mod.ArrayError!?usize {
             return self.firstMatchingIndex(struct {
                 fn f(value: T) bool {

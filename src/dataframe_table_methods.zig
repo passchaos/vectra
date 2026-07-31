@@ -1563,6 +1563,22 @@ pub fn lastZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usi
     return expr_mod.lastZeroIndexColumn(frameValue(self), name);
 }
 
+pub fn firstPositiveZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstPositiveZeroIndexColumn(frameValue(self), name);
+}
+
+pub fn lastPositiveZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastPositiveZeroIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNegativeZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNegativeZeroIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNegativeZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNegativeZeroIndexColumn(frameValue(self), name);
+}
+
 pub fn firstNonzeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstNonzeroIndexColumn(frameValue(self), name);
 }

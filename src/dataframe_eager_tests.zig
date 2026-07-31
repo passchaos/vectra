@@ -2626,6 +2626,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(?usize, 2), try table.lastNonzeroIndexColumn("sales"));
     try std.testing.expectEqual(@as(?usize, 0), try signed_zero_table.firstZeroIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 1), try signed_zero_table.lastZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try signed_zero_table.firstPositiveZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try signed_zero_table.lastPositiveZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 1), try signed_zero_table.firstNegativeZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 1), try signed_zero_table.lastNegativeZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try table.firstPositiveZeroIndexColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.lastNegativeZeroIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 2), try signed_zero_table.firstNonzeroIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 2), try signed_zero_table.lastNonzeroIndexColumn("metric"));
     try std.testing.expectEqual(@as(usize, 0), try table.positiveZeroCountColumn("sales"));
