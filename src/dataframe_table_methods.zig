@@ -597,6 +597,14 @@ pub fn fillPositiveColumnWithScalar(self: anytype, name: []const u8, scalar: Dev
     return dataframe_array_mod.fillPositiveColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
 }
 
+pub fn fillSignBitColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillSignBitColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
+}
+
+pub fn fillSignBitColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillSignBitColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
 pub fn fillNegativeColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.fillNegativeColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
 }

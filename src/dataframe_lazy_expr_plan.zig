@@ -821,6 +821,19 @@ pub fn fillPositiveColumnWithScalar(frame: anytype, name: []const u8, scalar: De
     } });
 }
 
+pub fn fillSignBitColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillSignBitColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillSignBitColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_signbit_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn fillNegativeColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return fillNegativeColumnWithScalar(frame, name, DeviceScalar.init(T, value));
 }

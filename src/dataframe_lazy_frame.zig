@@ -973,6 +973,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.fillPositiveColumnWithScalar(self, name, scalar);
             }
 
+            pub fn fillSignBitColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillSignBitColumn(self, name, T, value);
+            }
+
+            pub fn fillSignBitColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillSignBitColumnWithScalar(self, name, scalar);
+            }
+
             pub fn fillNegativeColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.fillNegativeColumn(self, name, T, value);
             }

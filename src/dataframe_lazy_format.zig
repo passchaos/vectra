@@ -336,6 +336,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .fill_negative_zero_column => |fill| try writer.print("fill_negative_zero_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_non_zero_column => |fill| try writer.print("fill_non_zero_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_positive_column => |fill| try writer.print("fill_positive_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
+        .fill_signbit_column => |fill| try writer.print("fill_signbit_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_negative_column => |fill| try writer.print("fill_negative_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_finite_column => |fill| try writer.print("fill_finite_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_normal_column => |fill| try writer.print("fill_normal_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),

@@ -2123,6 +2123,25 @@ test "device lazy frame fills sign values" {
     try std.testing.expect(std.math.isNegativeInf(positive_values[6]));
     try std.testing.expectEqual(@as(f64, 9.0), positive_values[7]);
 
+    var signbit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer signbit_plan.deinit();
+    try signbit_plan.fillSignBitColumn("metric", f64, -42.0);
+    const signbit_explain = try signbit_plan.explain(gpa);
+    defer gpa.free(signbit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, signbit_explain, "fill_signbit_column(metric=scalar:f64)") != null);
+    var filled_signbit = try signbit_plan.collect();
+    defer filled_signbit.deinit();
+    const signbit_values = try (try filled_signbit.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signbit_values);
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[0]);
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[1]);
+    try std.testing.expectEqual(@as(f64, 0.0), signbit_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), signbit_values[3]);
+    try std.testing.expect(std.math.isNan(signbit_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(signbit_values[5]));
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[6]);
+    try std.testing.expectEqual(@as(f64, 9.0), signbit_values[7]);
+
     var negative_plan = try DeviceLazyFrame.init(gpa, table);
     defer negative_plan.deinit();
     try negative_plan.fillNegativeColumn("metric", f64, 7.0);
@@ -2182,7 +2201,7 @@ test "device lazy frame fills sign values" {
 
     var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
     defer mismatch_plan.deinit();
-    try mismatch_plan.fillPositiveColumn("metric", i64, 0);
+    try mismatch_plan.fillSignBitColumn("metric", i64, 0);
     try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
 }
 

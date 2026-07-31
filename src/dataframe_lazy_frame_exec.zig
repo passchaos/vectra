@@ -186,6 +186,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .fill_negative_zero_column => |fill| try current.fillNegativeZeroColumnWithScalar(fill.name, fill.scalar),
             .fill_non_zero_column => |fill| try current.fillNonZeroColumnWithScalar(fill.name, fill.scalar),
             .fill_positive_column => |fill| try current.fillPositiveColumnWithScalar(fill.name, fill.scalar),
+            .fill_signbit_column => |fill| try current.fillSignBitColumnWithScalar(fill.name, fill.scalar),
             .fill_negative_column => |fill| try current.fillNegativeColumnWithScalar(fill.name, fill.scalar),
             .fill_finite_column => |fill| try current.fillFiniteColumnWithScalar(fill.name, fill.scalar),
             .fill_normal_column => |fill| try current.fillNormalColumnWithScalar(fill.name, fill.scalar),

@@ -1684,6 +1684,19 @@ test "device dataframe fills sign values" {
     try std.testing.expectEqual(@as(f64, 9.0), positive_values[7]);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true, true, false }, positive_validity);
 
+    var filled_signbit = try table.fillSignBitColumn("metric", f64, -42.0);
+    defer filled_signbit.deinit();
+    const signbit_values = try (try filled_signbit.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signbit_values);
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[0]);
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[1]);
+    try std.testing.expectEqual(@as(f64, 0.0), signbit_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), signbit_values[3]);
+    try std.testing.expect(std.math.isNan(signbit_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(signbit_values[5]));
+    try std.testing.expectEqual(@as(f64, -42.0), signbit_values[6]);
+    try std.testing.expectEqual(@as(f64, 9.0), signbit_values[7]);
+
     var filled_negative = try table.fillNegativeColumn("metric", f64, 7.0);
     defer filled_negative.deinit();
     const negative_values = try (try filled_negative.column("metric")).f64.toOwnedSlice(gpa);
@@ -1731,6 +1744,8 @@ test "device dataframe fills sign values" {
 
     try std.testing.expectError(error.TypeUnsupported, table.fillPositiveZeroColumn("metric", i64, 0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNegativeZeroColumn("missing", f64, 0.0));
+    try std.testing.expectError(error.TypeUnsupported, table.fillSignBitColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillSignBitColumn("missing", f64, 0.0));
     try std.testing.expectError(error.TypeUnsupported, table.fillPositiveColumn("metric", i64, 0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNegativeColumn("missing", f64, 0.0));
 }

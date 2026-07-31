@@ -1162,6 +1162,15 @@ pub fn fillPositiveColumn(
     return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .positive);
 }
 
+pub fn fillSignBitColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .signbit);
+}
+
 pub fn fillNegativeColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
