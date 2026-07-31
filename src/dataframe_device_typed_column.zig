@@ -1405,6 +1405,33 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return lhs < rhs;
         }
 
+        fn realValueToF64(value: T) f64 {
+            if (comptime T == array_mod.BFloat16) return value.toF64();
+            return switch (@typeInfo(T)) {
+                .float, .comptime_float => @floatCast(value),
+                .int, .comptime_int => @floatFromInt(value),
+                else => @compileError("realValueToF64 requires a real numeric column value"),
+            };
+        }
+
+        fn quantileLess(_: void, lhs: f64, rhs: f64) bool {
+            const lhs_nan = std.math.isNan(lhs);
+            const rhs_nan = std.math.isNan(rhs);
+            if (lhs_nan != rhs_nan) return !lhs_nan;
+            if (lhs_nan and rhs_nan) return false;
+            return lhs < rhs;
+        }
+
+        fn quantileFromSorted(sorted_values: []const f64, q: f64) f64 {
+            const max_index = sorted_values.len - 1;
+            const position = q * @as(f64, @floatFromInt(max_index));
+            const lower_float = @floor(position);
+            const lower: usize = @intFromFloat(lower_float);
+            const upper = @min(lower + 1, max_index);
+            const weight = position - lower_float;
+            return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight;
+        }
+
         pub fn sum(self: Self) array_mod.ArrayError!T {
             if (comptime T == bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);
@@ -1614,6 +1641,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
 
         pub fn nUnique(self: Self) array_mod.ArrayError!usize {
             return self.countDistinct();
+        }
+
+        pub fn quantile(self: Self, q: f64) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            const scratch = try self.values.allocator.alloc(f64, values.len);
+            defer self.values.allocator.free(scratch);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                scratch[count] = realValueToF64(value);
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            std.sort.insertion(f64, scratch[0..count], {}, quantileLess);
+            return quantileFromSorted(scratch[0..count], q);
+        }
+
+        pub fn median(self: Self) array_mod.ArrayError!f64 {
+            return self.quantile(0.5);
         }
 
         pub fn any(self: Self) array_mod.ArrayError!bool {

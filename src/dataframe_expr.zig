@@ -783,6 +783,16 @@ pub fn meanColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar
     return col.mean();
 }
 
+pub fn quantileColumn(frame: anytype, name: []const u8, q: f64) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.quantile(q);
+}
+
+pub fn medianColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.median();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

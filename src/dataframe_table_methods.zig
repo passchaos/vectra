@@ -1451,6 +1451,14 @@ pub fn meanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar 
     return expr_mod.meanColumn(frameValue(self), name);
 }
 
+pub fn quantileColumn(self: anytype, name: []const u8, q: f64) DeviceDataError!DeviceScalar {
+    return expr_mod.quantileColumn(frameValue(self), name, q);
+}
+
+pub fn medianColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.medianColumn(frameValue(self), name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }
