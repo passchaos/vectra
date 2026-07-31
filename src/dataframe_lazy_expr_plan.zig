@@ -1719,6 +1719,23 @@ pub fn withColumnWhereWithDeviceScalar(frame: anytype, name: []const u8, input_n
     } });
 }
 
+pub fn withColumnWhere(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, other_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_mask = try frame.allocator.dupe(u8, mask_name);
+    errdefer frame.allocator.free(owned_mask);
+    const owned_other = try frame.allocator.dupe(u8, other_name);
+    errdefer frame.allocator.free(owned_other);
+    try frame.ops.append(frame.allocator, .{ .with_column_where = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .lhs_name = owned_mask,
+        .rhs_name = owned_other,
+    } });
+}
+
 pub fn withColumnMaskedPutScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return withColumnMaskedPutWithDeviceScalar(frame, name, input_name, mask_name, DeviceScalar.init(T, value));
 }

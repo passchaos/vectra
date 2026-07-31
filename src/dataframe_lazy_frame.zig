@@ -1327,6 +1327,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnWhereWithDeviceScalar(self, name, input_name, mask_name, other_value);
             }
 
+            pub fn withColumnWhere(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, other_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnWhere(self, name, input_name, mask_name, other_name);
+            }
+
             pub fn withColumnMaskedPutScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnMaskedPutScalar(self, name, input_name, mask_name, T, value);
             }

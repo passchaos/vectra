@@ -1033,6 +1033,16 @@ pub fn whereWithDeviceScalar(self: anytype, mask: ColumnType(@TypeOf(self)), oth
     };
 }
 
+pub fn whereColumn(self: anytype, mask: ColumnType(@TypeOf(self)), other: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (mask != .bool) return error.TypeUnsupported;
+    if (column.dtype() != other.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(mask.device()) or !column.device().sameDevice(other.device())) return error.InvalidDevice;
+    return switch (column) {
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.whereColumn(mask.bool, @field(other, @tagName(tag)))),
+    };
+}
+
 pub fn maskedPutScalar(self: anytype, mask: ColumnType(@TypeOf(self)), comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const column = columnValue(self);
     if (mask != .bool) return error.TypeUnsupported;

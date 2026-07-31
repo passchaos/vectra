@@ -319,6 +319,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const addcdivScalar = column_ops_mod.addcdivScalar;
     pub const addcdivWithDeviceScalar = column_ops_mod.addcdivWithDeviceScalar;
     pub const clipArray = column_ops_mod.clipArray;
+    pub const whereColumn = column_ops_mod.whereColumn;
     pub const whereScalar = column_ops_mod.whereScalar;
     pub const whereWithDeviceScalar = column_ops_mod.whereWithDeviceScalar;
     pub const maskedPutScalar = column_ops_mod.maskedPutScalar;

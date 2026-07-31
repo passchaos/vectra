@@ -2355,7 +2355,9 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer where_metric.deinit();
     var where_mask = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
     defer where_mask.deinit();
-    var where_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "metric", .data = where_metric }, .{ .name = "mask", .data = where_mask } });
+    var where_fallback = try DeviceColumn.fromSlice(f64, gpa, &.{ 10.0, 20.0, 30.0 }, .cpu);
+    defer where_fallback.deinit();
+    var where_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "metric", .data = where_metric }, .{ .name = "mask", .data = where_mask }, .{ .name = "fallback", .data = where_fallback } });
     defer where_table.deinit();
     var where_scalar_table = try where_table.withColumnWhereScalar("metric_where", "metric", "mask", f64, 0.0);
     defer where_scalar_table.deinit();
@@ -2364,6 +2366,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(f64, &.{ -1.0, 0.0, 5.0 }, metric_where);
     try std.testing.expectError(error.TypeUnsupported, table.withColumnWhereScalar("bad_where", "sales", "cost", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, where_table.withColumnWhereScalar("missing_where", "metric", "missing", f64, 0.0));
+
+    var where_column_table = try where_table.withColumnWhere("metric_where_column", "metric", "mask", "fallback");
+    defer where_column_table.deinit();
+    const metric_where_column = try (try where_column_table.column("metric_where_column")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_where_column);
+    try std.testing.expectEqualSlices(f64, &.{ -1.0, 20.0, 5.0 }, metric_where_column);
+    try std.testing.expectError(error.TypeUnsupported, where_table.withColumnWhere("bad_where_column", "metric", "mask", "mask"));
+    try std.testing.expectError(error.ColumnNotFound, where_table.withColumnWhere("missing_where_column", "metric", "mask", "missing"));
 
     var masked_put_table = try where_table.withColumnMaskedPutScalar("metric_masked", "metric", "mask", f64, 9.0);
     defer masked_put_table.deinit();

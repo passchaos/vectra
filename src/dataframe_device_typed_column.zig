@@ -1071,6 +1071,24 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn whereColumn(self: Self, mask_column: DeviceTypedColumn(bool), other: Self) array_mod.ArrayError!Self {
+            if (!self.device().sameDevice(mask_column.device())) return error.InvalidDevice;
+            if (mask_column.values.shape.len != 1 or mask_column.len() != self.len()) return error.ShapeMismatch;
+            try requireCompatibleColumnArrays(T, self.values, other.values);
+            var values = try self.values.where(mask_column.values, other.values);
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, mask_column.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            if (other.validity) |mask| {
+                var combined = try combineValidityMasks(self.values.allocator, validity, mask, self.len(), self.device());
+                errdefer if (combined) |*combined_mask| combined_mask.deinit();
+                if (validity) |*old_mask| old_mask.deinit();
+                validity = combined;
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn maskedPutScalar(self: Self, mask_column: DeviceTypedColumn(bool), value: T) array_mod.ArrayError!Self {
             if (!self.device().sameDevice(mask_column.device())) return error.InvalidDevice;
             if (mask_column.values.shape.len != 1 or mask_column.len() != self.len()) return error.ShapeMismatch;

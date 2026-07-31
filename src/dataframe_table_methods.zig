@@ -1212,6 +1212,16 @@ pub fn withColumnWhereWithDeviceScalar(self: anytype, output_name: []const u8, i
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn whereColumns(self: anytype, input_name: []const u8, mask_name: []const u8, other_name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.whereColumns(frameValue(self), input_name, mask_name, other_name);
+}
+
+pub fn withColumnWhere(self: anytype, output_name: []const u8, input_name: []const u8, mask_name: []const u8, other_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try whereColumns(self, input_name, mask_name, other_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn maskedPutColumnScalar(self: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.maskedPutColumnScalar(frameValue(self), input_name, mask_name, T, value);
 }

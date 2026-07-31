@@ -325,6 +325,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_addcmul_scalar => |expr| try writer.print("with_column_addcmul_scalar({s}=addcmul({s}, {s}, {s}, value:{s}))", .{ expr.name, expr.base_name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
         .with_column_addcdiv_scalar => |expr| try writer.print("with_column_addcdiv_scalar({s}=addcdiv({s}, {s}, {s}, value:{s}))", .{ expr.name, expr.base_name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
         .with_column_clip_array => |expr| try writer.print("with_column_clip_array({s}=clip_array({s}, min:{s}, max:{s}))", .{ expr.name, expr.input_name, expr.lhs_name, expr.rhs_name }),
+        .with_column_where => |expr| try writer.print("with_column_where({s}=where({s}, mask:{s}, other:{s}))", .{ expr.name, expr.input_name, expr.lhs_name, expr.rhs_name }),
         .with_column_where_scalar => |expr| try writer.print("with_column_where_scalar({s}=where({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
         .with_column_masked_put_scalar => |expr| try writer.print("with_column_masked_put_scalar({s}=masked_put({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
         .with_column_isclose_scalar => |expr| try writer.print("with_column_isclose_scalar({s}=isclose({s}, scalar:{s}, rtol:{s}, atol:{s}, equal_nan={any}))", .{ expr.name, expr.input_name, @tagName(expr.scalar), @tagName(expr.rtol), @tagName(expr.atol), expr.equal_nan }),
