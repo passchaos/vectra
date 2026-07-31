@@ -1555,6 +1555,22 @@ pub fn subnormalRatioColumn(self: anytype, name: []const u8) DeviceDataError!Dev
     return expr_mod.subnormalRatioColumn(frameValue(self), name);
 }
 
+pub fn firstZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstZeroIndexColumn(frameValue(self), name);
+}
+
+pub fn lastZeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastZeroIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNonzeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNonzeroIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNonzeroIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNonzeroIndexColumn(frameValue(self), name);
+}
+
 pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstValidIndexColumn(frameValue(self), name);
 }

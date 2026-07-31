@@ -1433,6 +1433,34 @@ pub fn countSubnormal(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn firstZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstZeroIndex(),
+    };
+}
+
+pub fn lastZeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastZeroIndex(),
+    };
+}
+
+pub fn firstNonzeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNonzeroIndex(),
+    };
+}
+
+pub fn lastNonzeroIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNonzeroIndex(),
+    };
+}
+
 pub fn firstValidIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

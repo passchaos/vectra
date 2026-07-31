@@ -913,6 +913,26 @@ pub fn subnormalRatioColumn(frame: anytype, name: []const u8) DeviceDataError!De
     return ratioFromValidCount(try col.countSubnormal(), col.validCount());
 }
 
+pub fn firstZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstZeroIndex();
+}
+
+pub fn lastZeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastZeroIndex();
+}
+
+pub fn firstNonzeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNonzeroIndex();
+}
+
+pub fn lastNonzeroIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNonzeroIndex();
+}
+
 pub fn firstValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstValidIndex();

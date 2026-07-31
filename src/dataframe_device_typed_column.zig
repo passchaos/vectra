@@ -1796,6 +1796,36 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return count;
         }
 
+        fn firstMatchingIndex(self: Self, comptime predicate: fn (T) bool) array_mod.ArrayError!?usize {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (predicate(value)) return row;
+            }
+            return null;
+        }
+
+        fn lastMatchingIndex(self: Self, comptime predicate: fn (T) bool) array_mod.ArrayError!?usize {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var row = values.len;
+            while (row > 0) {
+                row -= 1;
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (predicate(values[row])) return row;
+            }
+            return null;
+        }
+
         pub fn countNan(self: Self) array_mod.ArrayError!usize {
             return self.countMatching(isNanValue);
         }
@@ -1850,6 +1880,30 @@ pub fn DeviceTypedColumn(comptime T: type) type {
 
         pub fn countSubnormal(self: Self) array_mod.ArrayError!usize {
             return self.countMatching(isSubnormalValue);
+        }
+
+        pub fn firstZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isZeroValue);
+        }
+
+        pub fn lastZeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isZeroValue);
+        }
+
+        pub fn firstNonzeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !isZeroValue(value);
+                }
+            }.f);
+        }
+
+        pub fn lastNonzeroIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !isZeroValue(value);
+                }
+            }.f);
         }
 
         pub fn firstValidIndex(self: Self) array_mod.ArrayError!?usize {

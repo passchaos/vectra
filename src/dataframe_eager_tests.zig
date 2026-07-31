@@ -2620,6 +2620,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 0), try table.countZeroColumn("units"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 0.0 }, try table.zeroRatioColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.nonzeroRatioColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, null), try table.firstZeroIndexColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, null), try table.lastZeroIndexColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, 0), try table.firstNonzeroIndexColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), try table.lastNonzeroIndexColumn("sales"));
+    try std.testing.expectEqual(@as(?usize, 0), try signed_zero_table.firstZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 1), try signed_zero_table.lastZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 2), try signed_zero_table.firstNonzeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 2), try signed_zero_table.lastNonzeroIndexColumn("metric"));
     try std.testing.expectEqual(@as(usize, 0), try table.positiveZeroCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 0), try table.negativeZeroCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 1), try signed_zero_table.positiveZeroCountColumn("metric"));
@@ -2638,6 +2646,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), (try ieee_class_table.subnormalRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectEqual(@as(usize, 0), try all_null_metric_table.zeroCountColumn("metric"));
     try std.testing.expect(std.math.isNan((try all_null_metric_table.zeroRatioColumn("metric")).f64));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstZeroIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstNonzeroIndexColumn("metric"));
     try std.testing.expectError(error.ColumnNotFound, table.zeroCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 0), try table.nanCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 0), try table.infCountColumn("sales"));
@@ -2800,6 +2810,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 1), try rounding_type_table.zeroCountColumn("active"));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try rounding_type_table.zeroRatioColumn("active")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try rounding_type_table.nonZeroRatioColumn("active")).f64, 1e-12);
+    try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.firstZeroIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.lastZeroIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 0), try rounding_type_table.firstNonzeroIndexColumn("active"));
+    try std.testing.expectEqual(@as(?usize, 2), try rounding_type_table.lastNonzeroIndexColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.nUniqueColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countDistinctColumn("active"));
     try std.testing.expectEqual(DeviceScalar{ .bool = true }, try rounding_type_table.modeColumn("active"));
