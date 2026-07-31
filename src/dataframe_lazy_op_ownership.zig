@@ -298,6 +298,15 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .input_name = input_name,
             } };
         },
+        .with_column_log => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_log = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
         .with_column_binary => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

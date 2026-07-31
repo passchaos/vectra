@@ -2332,6 +2332,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnExp("bad_exp", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnExp("missing_exp", "missing"));
 
+    var log_sales_table = try table.withColumnLog("sales_log", "sales");
+    defer log_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try log_sales_table.columnDType("sales_log"));
+    const sales_log = try (try log_sales_table.column("sales_log")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_log);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 2.0)), sales_log[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 3.0)), sales_log[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 5.0)), sales_log[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLog("bad_log", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnLog("missing_log", "missing"));
+
     var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
     defer mask.deinit();
     try std.testing.expectEqual(DeviceDType.bool, mask.dtype());

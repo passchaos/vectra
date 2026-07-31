@@ -877,6 +877,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnExp(self, name, input_name);
             }
 
+            pub fn withColumnLog(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLog(self, name, input_name);
+            }
+
             pub fn withColumnBinary(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!void {
                 return lazy_expr_mod.withColumnBinary(self, name, lhs_name, rhs_name, op);
             }

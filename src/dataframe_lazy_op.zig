@@ -158,6 +158,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_reciprocal: Payloads.WithColumnUnary,
         with_column_sqrt: Payloads.WithColumnUnary,
         with_column_exp: Payloads.WithColumnUnary,
+        with_column_log: Payloads.WithColumnUnary,
         with_column_binary: Payloads.WithColumnBinary,
         with_column_scalar: Payloads.WithColumnScalar,
         with_column_literal: Payloads.WithColumnLiteral,
