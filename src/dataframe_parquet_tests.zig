@@ -973,6 +973,21 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expect(std.mem.indexOf(u8, zero_columns_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, zero_columns_explain, "select_columns_with_zeros") != null);
 
+    var lazy_positive_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_positive_columns_scan.deinit();
+    try lazy_positive_columns_scan.selectColumnsWithPositives();
+
+    const positive_columns_explain = try lazy_positive_columns_scan.explain(gpa);
+    defer gpa.free(positive_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positive_columns_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, positive_columns_explain, "select_columns_with_positives") != null);
+    var positive_columns = try lazy_positive_columns_scan.collect();
+    defer positive_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positive_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), positive_columns.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 1), positive_columns.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), positive_columns.columnIndex("active"));
+
     var lazy_finite_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_finite_columns_scan.deinit();
     try lazy_finite_columns_scan.selectColumnsWithFinites();

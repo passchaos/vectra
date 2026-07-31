@@ -1359,6 +1359,79 @@ test "device lazy frame selects zero columns" {
     try std.testing.expectEqual(@as(?usize, 3), only_zero_columns.columnIndex("flag"));
 }
 
+test "device lazy frame selects sign columns" {
+    const gpa = std.testing.allocator;
+
+    var positive_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.inf(f64), 3.0 }, .cpu);
+    defer positive_metric.deinit();
+    var negative_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, -std.math.inf(f64), -3.0 }, .cpu);
+    defer negative_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 0.0, 2.0 }, .cpu);
+    defer mixed_metric.deinit();
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -1.0, 2.0, -3.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ -1, 0, 3 }, .cpu);
+    defer id.deinit();
+    var unsigned = try DeviceColumn.fromSlice(u64, gpa, &.{ 0, 4, 0 }, .cpu);
+    defer unsigned.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer flag.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "positive_metric", .data = positive_metric },
+        .{ .name = "negative_metric", .data = negative_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "unsigned", .data = unsigned },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var select_positives_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_positives_plan.deinit();
+    try select_positives_plan.selectColumnsWithPositives();
+    const select_positives_explain = try select_positives_plan.explain(gpa);
+    defer gpa.free(select_positives_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_positives_explain, "select_columns_with_positives") != null);
+    var positive_columns = try select_positives_plan.collect();
+    defer positive_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 4), positive_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), positive_columns.columnIndex("positive_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), positive_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), positive_columns.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), positive_columns.columnIndex("unsigned"));
+
+    var select_negatives_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_negatives_plan.deinit();
+    try select_negatives_plan.selectColumnsWithNegatives();
+    const select_negatives_explain = try select_negatives_plan.explain(gpa);
+    defer gpa.free(select_negatives_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_negatives_explain, "select_columns_with_negatives") != null);
+    var negative_columns = try select_negatives_plan.collect();
+    defer negative_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), negative_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), negative_columns.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), negative_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), negative_columns.columnIndex("id"));
+
+    var drop_without_negatives_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_negatives_plan.deinit();
+    try drop_without_negatives_plan.dropColumnsWithoutNegatives();
+    const drop_without_negatives_explain = try drop_without_negatives_plan.explain(gpa);
+    defer gpa.free(drop_without_negatives_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_negatives_explain, "drop_columns_without_negatives") != null);
+    var only_negative_columns = try drop_without_negatives_plan.collect();
+    defer only_negative_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), only_negative_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_negative_columns.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), only_negative_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), only_negative_columns.columnIndex("id"));
+}
+
 test "device lazy frame selects finite columns" {
     const gpa = std.testing.allocator;
 

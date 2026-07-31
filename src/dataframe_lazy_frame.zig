@@ -385,6 +385,38 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_non_zeros = {} });
             }
 
+            pub fn selectColumnsWithPositives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_positives = {} });
+            }
+
+            pub fn selectColumnsWithoutPositives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_positives = {} });
+            }
+
+            pub fn dropColumnsWithPositives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_positives = {} });
+            }
+
+            pub fn dropColumnsWithoutPositives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_positives = {} });
+            }
+
+            pub fn selectColumnsWithNegatives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_negatives = {} });
+            }
+
+            pub fn selectColumnsWithoutNegatives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_negatives = {} });
+            }
+
+            pub fn dropColumnsWithNegatives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_negatives = {} });
+            }
+
+            pub fn dropColumnsWithoutNegatives(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_negatives = {} });
+            }
+
             pub fn selectColumnsWithFinites(self: *DeviceLazyFrame) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .select_columns_with_finites = {} });
             }

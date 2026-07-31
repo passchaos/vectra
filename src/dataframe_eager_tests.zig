@@ -1186,6 +1186,86 @@ test "device dataframe selects zero columns" {
     try std.testing.expectEqual(@as(?usize, 1), drop_with_zeros.columnIndex("null_metric"));
 }
 
+test "device dataframe selects sign columns" {
+    const gpa = std.testing.allocator;
+
+    var positive_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.inf(f64), 3.0 }, .cpu);
+    defer positive_metric.deinit();
+    var negative_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, -std.math.inf(f64), -3.0 }, .cpu);
+    defer negative_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 0.0, 2.0 }, .cpu);
+    defer mixed_metric.deinit();
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -1.0, 2.0, -3.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ -1, 0, 3 }, .cpu);
+    defer id.deinit();
+    var unsigned = try DeviceColumn.fromSlice(u64, gpa, &.{ 0, 4, 0 }, .cpu);
+    defer unsigned.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "positive_metric", .data = positive_metric },
+        .{ .name = "negative_metric", .data = negative_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "unsigned", .data = unsigned },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var with_positives = try table.selectColumnsWithPositives();
+    defer with_positives.deinit();
+    try std.testing.expectEqual(@as(usize, 4), with_positives.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_positives.columnIndex("positive_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_positives.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_positives.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 3), with_positives.columnIndex("unsigned"));
+
+    var without_positives = try table.selectColumnsWithoutPositives();
+    defer without_positives.deinit();
+    try std.testing.expectEqual(@as(usize, 4), without_positives.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_positives.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_positives.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_positives.columnIndex("null_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), without_positives.columnIndex("flag"));
+
+    var with_negatives = try table.selectColumnsWithNegatives();
+    defer with_negatives.deinit();
+    try std.testing.expectEqual(@as(usize, 3), with_negatives.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_negatives.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_negatives.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_negatives.columnIndex("id"));
+
+    var without_negatives = try table.selectColumnsWithoutNegatives();
+    defer without_negatives.deinit();
+    try std.testing.expectEqual(@as(usize, 5), without_negatives.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_negatives.columnIndex("positive_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_negatives.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_negatives.columnIndex("null_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), without_negatives.columnIndex("unsigned"));
+    try std.testing.expectEqual(@as(?usize, 4), without_negatives.columnIndex("flag"));
+
+    var drop_with_positives = try table.dropColumnsWithPositives();
+    defer drop_with_positives.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drop_with_positives.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_with_positives.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_with_positives.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_with_positives.columnIndex("null_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), drop_with_positives.columnIndex("flag"));
+
+    var drop_without_negatives = try table.dropColumnsWithoutNegatives();
+    defer drop_without_negatives.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_without_negatives.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_negatives.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_negatives.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_without_negatives.columnIndex("id"));
+}
+
 test "device dataframe selects finite columns" {
     const gpa = std.testing.allocator;
 

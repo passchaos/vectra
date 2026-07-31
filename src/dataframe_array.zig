@@ -354,7 +354,7 @@ const HasNullsColumnPredicate = struct {
     }
 };
 
-fn columnHasSpecialFloat(column: anytype, allocator: std.mem.Allocator, comptime predicate: SpecialFloatPredicate) DeviceFrameArrayError!bool {
+fn columnHasNumericPredicate(column: anytype, allocator: std.mem.Allocator, comptime predicate: RowNumericPredicate) DeviceFrameArrayError!bool {
     return switch (column) {
         inline else => |typed| {
             const host_values = try typed.toOwnedSlice(allocator);
@@ -363,37 +363,37 @@ fn columnHasSpecialFloat(column: anytype, allocator: std.mem.Allocator, comptime
             defer if (maybe_validity) |validity| allocator.free(validity);
             for (host_values, 0..) |value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                if (valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate)) return true;
+                if (valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate)) return true;
             }
             return false;
         },
     };
 }
 
-fn selectColumnsBySpecialFloatPresence(
+fn selectColumnsByNumericPredicatePresence(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     wanted: bool,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     var selected_names: std.ArrayList([]const u8) = .empty;
     defer selected_names.deinit(input.allocator);
     for (input.names, input.columns) |name, column| {
-        if ((try columnHasSpecialFloat(column, input.allocator, predicate)) == wanted) try selected_names.append(input.allocator, name);
+        if ((try columnHasNumericPredicate(column, input.allocator, predicate)) == wanted) try selected_names.append(input.allocator, name);
     }
     return select(DeviceDataFrame, input, selected_names.items);
 }
 
-fn dropColumnsBySpecialFloatPresence(
+fn dropColumnsByNumericPredicatePresence(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     wanted: bool,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     var kept_names: std.ArrayList([]const u8) = .empty;
     defer kept_names.deinit(input.allocator);
     for (input.names, input.columns) |name, column| {
-        if ((try columnHasSpecialFloat(column, input.allocator, predicate)) != wanted) try kept_names.append(input.allocator, name);
+        if ((try columnHasNumericPredicate(column, input.allocator, predicate)) != wanted) try kept_names.append(input.allocator, name);
     }
     return select(DeviceDataFrame, input, kept_names.items);
 }
@@ -458,280 +458,336 @@ pub fn selectColumnsWithNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .nan);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .nan);
 }
 
 pub fn selectColumnsWithoutNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .nan);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .nan);
 }
 
 pub fn dropColumnsWithNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .nan);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .nan);
 }
 
 pub fn dropColumnsWithoutNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .nan);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .nan);
 }
 
 pub fn selectColumnsWithInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .inf);
 }
 
 pub fn selectColumnsWithoutInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .inf);
 }
 
 pub fn dropColumnsWithInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .inf);
 }
 
 pub fn dropColumnsWithoutInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .inf);
 }
 
 pub fn selectColumnsWithPositiveInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .positive_inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive_inf);
 }
 
 pub fn selectColumnsWithoutPositiveInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .positive_inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive_inf);
 }
 
 pub fn dropColumnsWithPositiveInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .positive_inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive_inf);
 }
 
 pub fn dropColumnsWithoutPositiveInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .positive_inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive_inf);
 }
 
 pub fn selectColumnsWithNegativeInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .negative_inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative_inf);
 }
 
 pub fn selectColumnsWithoutNegativeInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative_inf);
 }
 
 pub fn dropColumnsWithNegativeInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .negative_inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative_inf);
 }
 
 pub fn dropColumnsWithoutNegativeInfs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative_inf);
 }
 
 pub fn selectColumnsWithZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .zero);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .zero);
 }
 
 pub fn selectColumnsWithoutZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .zero);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .zero);
 }
 
 pub fn dropColumnsWithZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .zero);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .zero);
 }
 
 pub fn dropColumnsWithoutZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .zero);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .zero);
 }
 
 pub fn selectColumnsWithNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_zero);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .non_zero);
 }
 
 pub fn selectColumnsWithoutNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_zero);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .non_zero);
 }
 
 pub fn dropColumnsWithNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_zero);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .non_zero);
 }
 
 pub fn dropColumnsWithoutNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_zero);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .non_zero);
+}
+
+pub fn selectColumnsWithPositives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive);
+}
+
+pub fn selectColumnsWithoutPositives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive);
+}
+
+pub fn dropColumnsWithPositives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .positive);
+}
+
+pub fn dropColumnsWithoutPositives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive);
+}
+
+pub fn selectColumnsWithNegatives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative);
+}
+
+pub fn selectColumnsWithoutNegatives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative);
+}
+
+pub fn dropColumnsWithNegatives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .negative);
+}
+
+pub fn dropColumnsWithoutNegatives(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .negative);
 }
 
 pub fn selectColumnsWithFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .finite);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .finite);
 }
 
 pub fn selectColumnsWithoutFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .finite);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .finite);
 }
 
 pub fn dropColumnsWithFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .finite);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .finite);
 }
 
 pub fn dropColumnsWithoutFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .finite);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .finite);
 }
 
 pub fn selectColumnsWithNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .normal);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .normal);
 }
 
 pub fn selectColumnsWithoutNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .normal);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .normal);
 }
 
 pub fn dropColumnsWithNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .normal);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .normal);
 }
 
 pub fn dropColumnsWithoutNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .normal);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .normal);
 }
 
 pub fn selectColumnsWithSubnormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .subnormal);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .subnormal);
 }
 
 pub fn selectColumnsWithoutSubnormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .subnormal);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .subnormal);
 }
 
 pub fn dropColumnsWithSubnormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .subnormal);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .subnormal);
 }
 
 pub fn dropColumnsWithoutSubnormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .subnormal);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .subnormal);
 }
 
 pub fn selectColumnsWithNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_finite);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .non_finite);
 }
 
 pub fn selectColumnsWithoutNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_finite);
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .non_finite);
 }
 
 pub fn dropColumnsWithNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_finite);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .non_finite);
 }
 
 pub fn dropColumnsWithoutNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_finite);
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .non_finite);
 }
 
 pub fn withColumn(
