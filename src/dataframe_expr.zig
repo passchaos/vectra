@@ -782,6 +782,21 @@ pub fn negativeZeroCountColumn(frame: anytype, name: []const u8) DeviceDataError
     return col.countNegativeZero();
 }
 
+pub fn positiveCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countPositive();
+}
+
+pub fn negativeCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNegative();
+}
+
+pub fn signBitCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countSignBit();
+}
+
 pub fn infCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countInf();
@@ -831,6 +846,21 @@ pub fn positiveZeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError
 pub fn negativeZeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return ratioFromValidCount(try col.countNegativeZero(), col.validCount());
+}
+
+pub fn positiveRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countPositive(), col.validCount());
+}
+
+pub fn negativeRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNegative(), col.validCount());
+}
+
+pub fn signBitRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countSignBit(), col.validCount());
 }
 
 pub fn nanRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {

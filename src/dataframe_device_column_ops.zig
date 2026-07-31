@@ -1363,6 +1363,27 @@ pub fn countNegativeZero(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countPositive(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countPositive(),
+    };
+}
+
+pub fn countNegative(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNegative(),
+    };
+}
+
+pub fn countSignBit(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countSignBit(),
+    };
+}
+
 pub fn countInf(self: anytype) array_mod.ArrayError!usize {
     const value = columnValue(self);
     return switch (value) {

@@ -1451,6 +1451,18 @@ pub fn negativeZeroCountColumn(self: anytype, name: []const u8) DeviceDataError!
     return expr_mod.negativeZeroCountColumn(frameValue(self), name);
 }
 
+pub fn positiveCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.positiveCountColumn(frameValue(self), name);
+}
+
+pub fn negativeCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.negativeCountColumn(frameValue(self), name);
+}
+
+pub fn signBitCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.signBitCountColumn(frameValue(self), name);
+}
+
 pub fn infCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.infCountColumn(frameValue(self), name);
 }
@@ -1489,6 +1501,18 @@ pub fn positiveZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!
 
 pub fn negativeZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.negativeZeroRatioColumn(frameValue(self), name);
+}
+
+pub fn positiveRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.positiveRatioColumn(frameValue(self), name);
+}
+
+pub fn negativeRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.negativeRatioColumn(frameValue(self), name);
+}
+
+pub fn signBitRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.signBitRatioColumn(frameValue(self), name);
 }
 
 pub fn nanRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {

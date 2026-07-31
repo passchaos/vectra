@@ -1392,6 +1392,34 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             };
         }
 
+        fn isPositiveValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return value.toF32() > 0;
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+            return switch (@typeInfo(T)) {
+                .float, .comptime_float, .int, .comptime_int => value > 0,
+                else => false,
+            };
+        }
+
+        fn isNegativeValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return value.toF32() < 0;
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+            return switch (@typeInfo(T)) {
+                .float, .comptime_float, .int, .comptime_int => value < 0,
+                else => false,
+            };
+        }
+
+        fn isSignBitValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.signbit(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+            return switch (@typeInfo(T)) {
+                .float, .comptime_float => std.math.signbit(value),
+                .int, .comptime_int => value < 0,
+                else => false,
+            };
+        }
+
         fn isNanValue(value: T) bool {
             if (comptime T == array_mod.BFloat16) return std.math.isNan(value.toF32());
             if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNan(value.re) or std.math.isNan(value.im);
@@ -1754,6 +1782,18 @@ pub fn DeviceTypedColumn(comptime T: type) type {
 
         pub fn countNegativeZero(self: Self) array_mod.ArrayError!usize {
             return self.countMatching(isNegativeZeroValue);
+        }
+
+        pub fn countPositive(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isPositiveValue);
+        }
+
+        pub fn countNegative(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isNegativeValue);
+        }
+
+        pub fn countSignBit(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isSignBitValue);
         }
 
         pub fn countInf(self: Self) array_mod.ArrayError!usize {
