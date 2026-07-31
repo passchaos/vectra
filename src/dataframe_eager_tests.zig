@@ -1023,6 +1023,61 @@ test "device dataframe fills signed Inf values" {
     try std.testing.expectError(error.ColumnNotFound, table.fillNegativeInfColumn("missing", f64, 0.0));
 }
 
+test "device dataframe filters signed Inf rows" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 9.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var dropped_positive = try table.dropPositiveInfsColumn("metric");
+    defer dropped_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_positive.height());
+    const dropped_positive_values = try (try dropped_positive.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_positive_values);
+    const dropped_positive_validity = try (try dropped_positive.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_positive_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_positive_values[0]);
+    try std.testing.expect(std.math.isNegativeInf(dropped_positive_values[1]));
+    try std.testing.expect(std.math.isNan(dropped_positive_values[2]));
+    try std.testing.expectEqual(@as(f64, 9.0), dropped_positive_values[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, dropped_positive_validity);
+
+    var filtered_positive = try table.filterPositiveInfsColumn("metric");
+    defer filtered_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_positive.height());
+    const filtered_positive_values = try (try filtered_positive.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_positive_values);
+    try std.testing.expect(std.math.isPositiveInf(filtered_positive_values[0]));
+
+    var dropped_negative = try table.dropNegativeInfsColumn("metric");
+    defer dropped_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_negative.height());
+    const dropped_negative_values = try (try dropped_negative.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_negative_values);
+    const dropped_negative_validity = try (try dropped_negative.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_negative_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_negative_values[0]);
+    try std.testing.expect(std.math.isPositiveInf(dropped_negative_values[1]));
+    try std.testing.expect(std.math.isNan(dropped_negative_values[2]));
+    try std.testing.expectEqual(@as(f64, 9.0), dropped_negative_values[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, dropped_negative_validity);
+
+    var filtered_negative = try table.filterNegativeInfsColumn("metric");
+    defer filtered_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_negative.height());
+    const filtered_negative_values = try (try filtered_negative.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_negative_values);
+    try std.testing.expect(std.math.isNegativeInf(filtered_negative_values[0]));
+
+    try std.testing.expectError(error.ColumnNotFound, table.dropPositiveInfsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterNegativeInfsColumn("missing"));
+}
+
 test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 

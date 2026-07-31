@@ -171,6 +171,38 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, name);
                 }
             },
+            .drop_positive_infs => |names| {
+                if (names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .filter_positive_infs_column => |name| {
+                if (!nameInBorrowedList(name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, name);
+                }
+            },
+            .drop_negative_infs => |names| {
+                if (names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .filter_negative_infs_column => |name| {
+                if (!nameInBorrowedList(name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, name);
+                }
+            },
             .drop_non_finites => |names| {
                 if (names.len == 0) {
                     // Empty dropNonFinites input means "consider every visible

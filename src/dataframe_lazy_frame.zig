@@ -441,6 +441,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterInfsColumn(self, name);
             }
 
+            pub fn dropPositiveInfs(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropPositiveInfs(self, names);
+            }
+
+            pub fn dropPositiveInfsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropPositiveInfs(names);
+            }
+
+            pub fn dropPositiveInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropPositiveInfsColumn(self, name);
+            }
+
+            pub fn filterPositiveInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterPositiveInfsColumn(self, name);
+            }
+
+            pub fn dropNegativeInfs(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNegativeInfs(self, names);
+            }
+
+            pub fn dropNegativeInfsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropNegativeInfs(names);
+            }
+
+            pub fn dropNegativeInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNegativeInfsColumn(self, name);
+            }
+
+            pub fn filterNegativeInfsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterNegativeInfsColumn(self, name);
+            }
+
             pub fn dropNonFinites(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropNonFinites(self, names);
             }

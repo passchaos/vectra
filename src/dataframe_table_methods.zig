@@ -549,6 +549,38 @@ pub fn filterInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameTy
     return dataframe_array_mod.filterInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropPositiveInfs(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropPositiveInfs(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropPositiveInfsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropPositiveInfs(self, names);
+}
+
+pub fn dropPositiveInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropPositiveInfs(self, &.{name});
+}
+
+pub fn filterPositiveInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterPositiveInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn dropNegativeInfs(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNegativeInfs(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropNegativeInfsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNegativeInfs(self, names);
+}
+
+pub fn dropNegativeInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNegativeInfs(self, &.{name});
+}
+
+pub fn filterNegativeInfsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterNegativeInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn dropNonFinites(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropNonFinites(FrameType(@TypeOf(self)), frameValue(self), names);
 }

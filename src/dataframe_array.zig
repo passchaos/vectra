@@ -1594,6 +1594,22 @@ pub fn dropInfs(
     return dropSpecialFloats(DeviceDataFrame, input, names, .inf);
 }
 
+pub fn dropPositiveInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .positive_inf);
+}
+
+pub fn dropNegativeInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .negative_inf);
+}
+
 pub fn dropNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -1642,6 +1658,22 @@ pub fn filterInfsColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .inf);
+}
+
+pub fn filterPositiveInfsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .positive_inf);
+}
+
+pub fn filterNegativeInfsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .negative_inf);
 }
 
 pub fn filterNonFinitesColumn(
