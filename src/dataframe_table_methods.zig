@@ -2827,6 +2827,14 @@ pub fn withRowInverseSimpson(self: anytype, names: []const []const u8, output_na
     return dataframe_array_mod.withRowInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSimpsonConcentration(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSimpsonConcentration(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowEvenness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowEvenness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowModeCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowModeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

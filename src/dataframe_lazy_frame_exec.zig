@@ -723,6 +723,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_gini_impurity => |row_count| try current.withRowGiniImpurity(row_count.names, row_count.output_name),
             .row_perplexity => |row_count| try current.withRowPerplexity(row_count.names, row_count.output_name),
             .row_inverse_simpson => |row_count| try current.withRowInverseSimpson(row_count.names, row_count.output_name),
+            .row_simpson_concentration => |row_count| try current.withRowSimpsonConcentration(row_count.names, row_count.output_name),
+            .row_evenness => |row_count| try current.withRowEvenness(row_count.names, row_count.output_name),
             .row_mode_count => |row_count| try current.withRowModeCount(row_count.names, row_count.output_name),
             .row_mode_ratio => |row_count| try current.withRowModeRatio(row_count.names, row_count.output_name),
             .row_count_distinct => |row_count| try current.withRowCountDistinct(row_count.names, row_count.output_name),

@@ -2654,7 +2654,7 @@ pub fn withRowWeightedModeRatio(
     return withRowWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_name, .ratio);
 }
 
-const RowWeightedDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson };
+const RowWeightedDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
 fn withRowWeightedDistributionReduction(
     comptime DeviceDataFrame: type,
@@ -2684,6 +2684,7 @@ fn withRowWeightedDistributionReduction(
 
         var entropy: f64 = 0.0;
         var sum_prob_sq: f64 = 0.0;
+        var distinct_count: usize = 0;
         for (0..flat.width) |col_index| {
             const offset = row * flat.width + col_index;
             if (!flat.validity[offset]) continue;
@@ -2710,6 +2711,7 @@ fn withRowWeightedDistributionReduction(
             const probability = candidate_weight / total_weight;
             entropy -= probability * std.math.log(f64, std.math.e, probability);
             sum_prob_sq += probability * probability;
+            distinct_count += 1;
         }
 
         values[row] = switch (reduction) {
@@ -2717,6 +2719,8 @@ fn withRowWeightedDistributionReduction(
             .gini_impurity => 1.0 - sum_prob_sq,
             .perplexity => std.math.exp(entropy),
             .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
+            .simpson_concentration => sum_prob_sq,
+            .evenness => if (distinct_count <= 1) 1.0 else entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(distinct_count))),
         };
         validity[row] = true;
     }
@@ -3721,7 +3725,7 @@ fn rowModeValueEqual(lhs: f64, rhs: f64) bool {
     return (std.math.isNan(lhs) and std.math.isNan(rhs)) or lhs == rhs;
 }
 
-const RowDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson };
+const RowDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
 fn withRowDistributionReduction(
     comptime DeviceDataFrame: type,
@@ -3778,6 +3782,7 @@ fn withRowDistributionReduction(
 
         var entropy: f64 = 0.0;
         var sum_prob_sq: f64 = 0.0;
+        var distinct_count: usize = 0;
         const count_f: f64 = @floatFromInt(count);
         for (0..check_names.len) |col_index| {
             const offset = row * check_names.len + col_index;
@@ -3804,6 +3809,7 @@ fn withRowDistributionReduction(
             const probability = @as(f64, @floatFromInt(frequency)) / count_f;
             entropy -= probability * std.math.log(f64, std.math.e, probability);
             sum_prob_sq += probability * probability;
+            distinct_count += 1;
         }
 
         values[row] = switch (reduction) {
@@ -3811,6 +3817,8 @@ fn withRowDistributionReduction(
             .gini_impurity => 1.0 - sum_prob_sq,
             .perplexity => std.math.exp(entropy),
             .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
+            .simpson_concentration => sum_prob_sq,
+            .evenness => if (distinct_count <= 1) 1.0 else entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(distinct_count))),
         };
         validity[row] = true;
     }
@@ -3855,6 +3863,24 @@ pub fn withRowInverseSimpson(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .inverse_simpson);
+}
+
+pub fn withRowSimpsonConcentration(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .simpson_concentration);
+}
+
+pub fn withRowEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .evenness);
 }
 
 const RowModeFrequency = enum { count, ratio };

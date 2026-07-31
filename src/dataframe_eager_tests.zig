@@ -541,6 +541,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.8), row_inverse_simpson[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_inverse_simpson_validity);
 
+    var row_concentration_table = try validity_table.withRowSimpsonConcentration(&.{ "a", "b", "wa" }, "row_concentration");
+    defer row_concentration_table.deinit();
+    const row_concentration = try (try row_concentration_table.column("row_concentration")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_concentration);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_concentration[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), row_concentration[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_concentration[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), row_concentration[3], 1e-12);
+
+    var row_evenness_table = try validity_table.withRowEvenness(&.{ "a", "b", "wa" }, "row_evenness");
+    defer row_evenness_table.deinit();
+    const row_evenness = try (try row_evenness_table.column("row_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_evenness);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_evenness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_evenness[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))) / std.math.log(f64, std.math.e, @as(f64, 2.0)), row_evenness[3], 1e-12);
+
     var row_mode_count_table = try validity_table.withRowModeCount(&.{ "a", "b", "wa" }, "row_mode_count");
     defer row_mode_count_table.deinit();
     const row_mode_count_column = try row_mode_count_table.column("row_mode_count");

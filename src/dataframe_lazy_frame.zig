@@ -1938,6 +1938,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowInverseSimpson(self, names, output_name);
             }
 
+            pub fn withRowSimpsonConcentration(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSimpsonConcentration(self, names, output_name);
+            }
+
+            pub fn withRowEvenness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowEvenness(self, names, output_name);
+            }
+
             pub fn withRowModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowModeCount(self, names, output_name);
             }
