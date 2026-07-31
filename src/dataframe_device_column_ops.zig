@@ -1531,6 +1531,34 @@ pub fn lastInfIndex(self: anytype) array_mod.ArrayError!?usize {
     };
 }
 
+pub fn firstPositiveInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstPositiveInfIndex(),
+    };
+}
+
+pub fn lastPositiveInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastPositiveInfIndex(),
+    };
+}
+
+pub fn firstNegativeInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNegativeInfIndex(),
+    };
+}
+
+pub fn lastNegativeInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNegativeInfIndex(),
+    };
+}
+
 pub fn firstFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

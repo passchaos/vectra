@@ -983,6 +983,26 @@ pub fn lastInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usi
     return col.lastInfIndex();
 }
 
+pub fn firstPositiveInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstPositiveInfIndex();
+}
+
+pub fn lastPositiveInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastPositiveInfIndex();
+}
+
+pub fn firstNegativeInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNegativeInfIndex();
+}
+
+pub fn lastNegativeInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNegativeInfIndex();
+}
+
 pub fn firstFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstFiniteIndex();

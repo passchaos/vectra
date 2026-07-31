@@ -1946,6 +1946,22 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.lastMatchingIndex(isInfValue);
         }
 
+        pub fn firstPositiveInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isPositiveInfValue);
+        }
+
+        pub fn lastPositiveInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isPositiveInfValue);
+        }
+
+        pub fn firstNegativeInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isNegativeInfValue);
+        }
+
+        pub fn lastNegativeInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isNegativeInfValue);
+        }
+
         pub fn firstFiniteIndex(self: Self) array_mod.ArrayError!?usize {
             return self.firstMatchingIndex(isFiniteValue);
         }

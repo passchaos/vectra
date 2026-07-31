@@ -2683,6 +2683,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(?usize, 2), try anomaly_metric_table.lastNanIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.firstInfIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.lastInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try signed_inf_table.firstPositiveInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try signed_inf_table.lastPositiveInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 1), try signed_inf_table.firstNegativeInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 1), try signed_inf_table.lastNegativeInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try anomaly_metric_table.firstNegativeInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.lastPositiveInfIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 3), try anomaly_metric_table.firstFiniteIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 3), try anomaly_metric_table.lastFiniteIndexColumn("metric"));
     try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.firstNonFiniteIndexColumn("metric"));
