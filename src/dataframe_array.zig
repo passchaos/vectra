@@ -2567,6 +2567,119 @@ pub fn withRowWeightedMode(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+const RowWeightedDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson };
+
+fn withRowWeightedDistributionReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedDistributionReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (flat.validity[offset]) total_weight += flat.weights[offset];
+        }
+        if (!(total_weight > 0.0)) continue;
+
+        var entropy: f64 = 0.0;
+        var sum_prob_sq: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const candidate = flat.values[offset];
+
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * flat.width + previous_index;
+                if (!flat.validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) continue;
+
+            var candidate_weight: f64 = 0.0;
+            for (col_index..flat.width) |candidate_index| {
+                const candidate_offset = row * flat.width + candidate_index;
+                if (!flat.validity[candidate_offset]) continue;
+                if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
+            }
+            if (!(candidate_weight > 0.0)) continue;
+            const probability = candidate_weight / total_weight;
+            entropy -= probability * std.math.log(f64, std.math.e, probability);
+            sum_prob_sq += probability * probability;
+        }
+
+        values[row] = switch (reduction) {
+            .entropy => entropy,
+            .gini_impurity => 1.0 - sum_prob_sq,
+            .perplexity => std.math.exp(entropy),
+            .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .entropy);
+}
+
+pub fn withRowWeightedGiniImpurity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .gini_impurity);
+}
+
+pub fn withRowWeightedPerplexity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .perplexity);
+}
+
+pub fn withRowWeightedInverseSimpson(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .inverse_simpson);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

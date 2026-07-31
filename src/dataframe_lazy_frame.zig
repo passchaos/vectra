@@ -1790,6 +1790,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMode(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedEntropy(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedEntropy(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedGiniImpurity(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedGiniImpurity(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedPerplexity(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedPerplexity(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedInverseSimpson(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedInverseSimpson(self, value_names, weight_names, output_name);
+            }
+
             pub fn withRowDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowDot(self, lhs_names, rhs_names, output_name);
             }

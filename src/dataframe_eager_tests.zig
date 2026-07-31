@@ -635,6 +635,52 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 3.0, 40.0 }, row_weighted_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_weighted_mode_validity);
 
+    var row_weighted_entropy_table = try validity_table.withRowWeightedEntropy(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_entropy");
+    defer row_weighted_entropy_table.deinit();
+    const row_weighted_entropy_column = try row_weighted_entropy_table.column("row_weighted_entropy");
+    try std.testing.expect(row_weighted_entropy_column.f64.nullable());
+    const row_weighted_entropy = try row_weighted_entropy_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_entropy);
+    const row_weighted_entropy_validity = try row_weighted_entropy_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_entropy_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_entropy[0], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))), row_weighted_entropy[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_entropy[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))), row_weighted_entropy[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_weighted_entropy_validity);
+
+    var row_weighted_gini_table = try validity_table.withRowWeightedGiniImpurity(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_gini");
+    defer row_weighted_gini_table.deinit();
+    const row_weighted_gini_column = try row_weighted_gini_table.column("row_weighted_gini");
+    try std.testing.expect(row_weighted_gini_column.f64.nullable());
+    const row_weighted_gini = try row_weighted_gini_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_gini);
+    const row_weighted_gini_validity = try row_weighted_gini_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_gini_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_gini[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 9.0), row_weighted_gini[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_gini[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 9.0), row_weighted_gini[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_weighted_gini_validity);
+
+    var row_weighted_perplexity_table = try validity_table.withRowWeightedPerplexity(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_perplexity");
+    defer row_weighted_perplexity_table.deinit();
+    const row_weighted_perplexity = try (try row_weighted_perplexity_table.column("row_weighted_perplexity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_perplexity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_perplexity[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0)))), row_weighted_perplexity[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_perplexity[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0)))), row_weighted_perplexity[3], 1e-12);
+
+    var row_weighted_inverse_table = try validity_table.withRowWeightedInverseSimpson(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_inverse");
+    defer row_weighted_inverse_table.deinit();
+    const row_weighted_inverse = try (try row_weighted_inverse_table.column("row_weighted_inverse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_inverse);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_inverse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.8), row_weighted_inverse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_inverse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.8), row_weighted_inverse[3], 1e-12);
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");
