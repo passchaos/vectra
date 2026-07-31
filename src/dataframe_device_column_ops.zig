@@ -908,6 +908,26 @@ pub fn divScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayErro
     return binaryScalar(self, T, scalar, .div);
 }
 
+pub fn lerpScalar(self: anytype, end: ColumnType(@TypeOf(self)), comptime T: type, weight: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    if (value.dtype() != end.dtype()) return error.TypeUnsupported;
+    if (!value.device().sameDevice(end.device())) return error.InvalidDevice;
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.lerpScalar(@field(end, @tagName(tag)), try castNumericScalar(T, @TypeOf(typed).Scalar, weight))),
+    };
+}
+
+pub fn lerpWithDeviceScalar(self: anytype, end: ColumnType(@TypeOf(self)), weight: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    if (value.dtype() != end.dtype()) return error.TypeUnsupported;
+    if (!value.device().sameDevice(end.device())) return error.InvalidDevice;
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.lerpScalar(@field(end, @tagName(tag)), try castDeviceScalar(@TypeOf(typed).Scalar, weight))),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

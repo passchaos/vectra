@@ -982,6 +982,20 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = expr.scalar,
             } };
         },
+        .with_column_lerp_scalar => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const lhs_name = try allocator.dupe(u8, expr.lhs_name);
+            errdefer allocator.free(lhs_name);
+            const rhs_name = try allocator.dupe(u8, expr.rhs_name);
+            errdefer allocator.free(rhs_name);
+            break :blk .{ .with_column_lerp_scalar = .{
+                .name = name,
+                .lhs_name = lhs_name,
+                .rhs_name = rhs_name,
+                .scalar = expr.scalar,
+            } };
+        },
         .with_column_literal => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             break :blk .{ .with_column_literal = .{

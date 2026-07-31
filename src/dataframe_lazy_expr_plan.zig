@@ -1612,6 +1612,25 @@ pub fn withColumnScalar(frame: anytype, name: []const u8, input_name: []const u8
     } });
 }
 
+pub fn withColumnLerpScalar(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, comptime T: type, weight: T) DeviceDataError!void {
+    return withColumnLerpWithDeviceScalar(frame, name, lhs_name, rhs_name, DeviceScalar.init(T, weight));
+}
+
+pub fn withColumnLerpWithDeviceScalar(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    try frame.ops.append(frame.allocator, .{ .with_column_lerp_scalar = .{
+        .name = owned_name,
+        .lhs_name = owned_lhs,
+        .rhs_name = owned_rhs,
+        .scalar = weight,
+    } });
+}
+
 pub fn withColumnLiteral(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

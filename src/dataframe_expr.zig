@@ -550,6 +550,18 @@ pub fn binaryColumnScalarWithDeviceScalar(frame: anytype, name: []const u8, scal
     };
 }
 
+pub fn lerpColumnsScalar(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, comptime T: type, weight: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const lhs = try frame.column(lhs_name);
+    const rhs = try frame.column(rhs_name);
+    return lhs.lerpScalar(rhs.*, T, weight);
+}
+
+pub fn lerpColumnsWithDeviceScalar(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, weight: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const lhs = try frame.column(lhs_name);
+    const rhs = try frame.column(rhs_name);
+    return lhs.lerpWithDeviceScalar(rhs.*, weight);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

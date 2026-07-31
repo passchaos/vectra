@@ -1009,6 +1009,17 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn lerpScalar(self: Self, end: Self, weight: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            try requireCompatibleColumnArrays(T, self.values, end.values);
+            var values = try self.values.lerpScalar(end.values, weight);
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, end.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn compare(self: Self, other: Self, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
             try requireCompatibleColumnArrays(T, self.values, other.values);
             if (comptime !isOrderedColumnType(T)) {

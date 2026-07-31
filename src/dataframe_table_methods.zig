@@ -1121,6 +1121,26 @@ pub fn binaryColumnScalarWithDeviceScalar(self: anytype, name: []const u8, scala
     return expr_mod.binaryColumnScalarWithDeviceScalar(frameValue(self), name, scalar, op);
 }
 
+pub fn lerpColumnsScalar(self: anytype, lhs_name: []const u8, rhs_name: []const u8, comptime T: type, weight: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.lerpColumnsScalar(frameValue(self), lhs_name, rhs_name, T, weight);
+}
+
+pub fn lerpColumnsWithDeviceScalar(self: anytype, lhs_name: []const u8, rhs_name: []const u8, weight: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.lerpColumnsWithDeviceScalar(frameValue(self), lhs_name, rhs_name, weight);
+}
+
+pub fn withColumnLerpScalar(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, comptime T: type, weight: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try lerpColumnsScalar(self, lhs_name, rhs_name, T, weight);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnLerpWithDeviceScalar(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try lerpColumnsWithDeviceScalar(self, lhs_name, rhs_name, weight);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn compareColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.compareColumns(frameValue(self), lhs_name, rhs_name, op);
 }

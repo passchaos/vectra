@@ -555,6 +555,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_lerp_scalar => |expr| blk: {
+                var column_value = try current.lerpColumnsWithDeviceScalar(expr.lhs_name, expr.rhs_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_literal => |expr| try current.withColumnLiteralScalar(expr.name, expr.scalar),
             .with_column_literal_at => |expr| try current.withColumnLiteralScalarAt(expr.name, expr.scalar, expr.target_index),
             .with_column_literal_before => |expr| try current.withColumnLiteralScalarBefore(expr.name, expr.scalar, expr.anchor_name),

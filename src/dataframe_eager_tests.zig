@@ -2269,6 +2269,15 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(margin_values);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.5, 3.0 }, margin_values);
 
+    var sales_cost_midpoint_table = try table.withColumnLerpScalar("sales_cost_midpoint", "sales", "cost", f64, 0.5);
+    defer sales_cost_midpoint_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try sales_cost_midpoint_table.columnDType("sales_cost_midpoint"));
+    const sales_cost_midpoint = try (try sales_cost_midpoint_table.column("sales_cost_midpoint")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cost_midpoint);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 2.25, 3.5 }, sales_cost_midpoint);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLerpScalar("bad_lerp", "sales", "units", f64, 0.5));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnLerpScalar("missing_lerp", "sales", "missing", f64, 0.5));
+
     var doubled = try table.binaryColumnScalar("sales", f64, 2.0, .mul);
     defer doubled.deinit();
     const doubled_values = try doubled.f64.toOwnedSlice(gpa);

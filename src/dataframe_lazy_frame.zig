@@ -1291,6 +1291,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnScalar(self, name, input_name, T, scalar, op);
             }
 
+            pub fn withColumnLerpScalar(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, comptime T: type, weight: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLerpScalar(self, name, lhs_name, rhs_name, T, weight);
+            }
+
+            pub fn withColumnLerpWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLerpWithDeviceScalar(self, name, lhs_name, rhs_name, weight);
+            }
+
             pub fn withColumnLiteral(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnLiteral(self, name, T, value);
             }
