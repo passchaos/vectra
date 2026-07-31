@@ -1098,6 +1098,79 @@ test "device lazy frame derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame selects signed Inf columns" {
+    const gpa = std.testing.allocator;
+
+    var pos_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.inf(f64), 2.0 }, .cpu);
+    defer pos_metric.deinit();
+    var neg_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 3.0, -std.math.inf(f64), 4.0 }, .cpu);
+    defer neg_metric.deinit();
+    var both_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.inf(f64), -std.math.inf(f64), 5.0 }, .cpu);
+    defer both_metric.deinit();
+    var finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 6.0, 7.0, 8.0 }, .cpu);
+    defer finite_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "pos_metric", .data = pos_metric },
+        .{ .name = "neg_metric", .data = neg_metric },
+        .{ .name = "both_metric", .data = both_metric },
+        .{ .name = "finite_metric", .data = finite_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var positive_plan = try DeviceLazyFrame.init(gpa, table);
+    defer positive_plan.deinit();
+    try positive_plan.selectColumnsWithPositiveInfs();
+    const positive_explain = try positive_plan.explain(gpa);
+    defer gpa.free(positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positive_explain, "select_columns_with_positive_infs") != null);
+    var positive_columns = try positive_plan.collect();
+    defer positive_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), positive_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), positive_columns.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), positive_columns.columnIndex("both_metric"));
+
+    var negative_plan = try DeviceLazyFrame.init(gpa, table);
+    defer negative_plan.deinit();
+    try negative_plan.selectColumnsWithNegativeInfs();
+    const negative_explain = try negative_plan.explain(gpa);
+    defer gpa.free(negative_explain);
+    try std.testing.expect(std.mem.indexOf(u8, negative_explain, "select_columns_with_negative_infs") != null);
+    var negative_columns = try negative_plan.collect();
+    defer negative_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), negative_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), negative_columns.columnIndex("neg_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), negative_columns.columnIndex("both_metric"));
+
+    var drop_without_positive_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_positive_plan.deinit();
+    try drop_without_positive_plan.dropColumnsWithoutPositiveInfs();
+    const drop_without_positive_explain = try drop_without_positive_plan.explain(gpa);
+    defer gpa.free(drop_without_positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_positive_explain, "drop_columns_without_positive_infs") != null);
+    var only_positive_columns = try drop_without_positive_plan.collect();
+    defer only_positive_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), only_positive_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_positive_columns.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), only_positive_columns.columnIndex("both_metric"));
+
+    var drop_with_negative_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_with_negative_plan.deinit();
+    try drop_with_negative_plan.dropColumnsWithNegativeInfs();
+    const drop_with_negative_explain = try drop_with_negative_plan.explain(gpa);
+    defer gpa.free(drop_with_negative_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_with_negative_explain, "drop_columns_with_negative_infs") != null);
+    var no_negative_columns = try drop_with_negative_plan.collect();
+    defer no_negative_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), no_negative_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), no_negative_columns.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), no_negative_columns.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), no_negative_columns.columnIndex("id"));
+}
+
 test "device lazy frame fills signed Inf values" {
     const gpa = std.testing.allocator;
 

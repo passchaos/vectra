@@ -273,6 +273,38 @@ pub fn dropColumnsWithoutInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(s
     return dataframe_array_mod.dropColumnsWithoutInfs(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithPositiveInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithPositiveInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutPositiveInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutPositiveInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithPositiveInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithPositiveInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutPositiveInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutPositiveInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithNegativeInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNegativeInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNegativeInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNegativeInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithNonFinites(FrameType(@TypeOf(self)), frameValue(self));
 }

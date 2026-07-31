@@ -510,6 +510,62 @@ pub fn dropColumnsWithoutInfs(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
 }
 
+pub fn selectColumnsWithPositiveInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .positive_inf);
+}
+
+pub fn selectColumnsWithoutPositiveInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .positive_inf);
+}
+
+pub fn dropColumnsWithPositiveInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .positive_inf);
+}
+
+pub fn dropColumnsWithoutPositiveInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .positive_inf);
+}
+
+pub fn selectColumnsWithNegativeInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .negative_inf);
+}
+
+pub fn selectColumnsWithoutNegativeInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
+}
+
+pub fn dropColumnsWithNegativeInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .negative_inf);
+}
+
+pub fn dropColumnsWithoutNegativeInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
+}
+
 pub fn selectColumnsWithNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

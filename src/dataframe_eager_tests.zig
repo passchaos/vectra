@@ -980,6 +980,80 @@ test "device dataframe derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeInfColumn("missing", "missing_is_neg_inf"));
 }
 
+test "device dataframe selects signed Inf columns" {
+    const gpa = std.testing.allocator;
+
+    var pos_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, std.math.inf(f64), 2.0 }, .cpu);
+    defer pos_metric.deinit();
+    var neg_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 3.0, -std.math.inf(f64), 4.0 }, .cpu);
+    defer neg_metric.deinit();
+    var both_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.inf(f64), -std.math.inf(f64), 5.0 }, .cpu);
+    defer both_metric.deinit();
+    var finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 6.0, 7.0, 8.0 }, .cpu);
+    defer finite_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "pos_metric", .data = pos_metric },
+        .{ .name = "neg_metric", .data = neg_metric },
+        .{ .name = "both_metric", .data = both_metric },
+        .{ .name = "finite_metric", .data = finite_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var with_positive = try table.selectColumnsWithPositiveInfs();
+    defer with_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 2), with_positive.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_positive.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_positive.columnIndex("both_metric"));
+
+    var without_positive = try table.selectColumnsWithoutPositiveInfs();
+    defer without_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 3), without_positive.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_positive.columnIndex("neg_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_positive.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_positive.columnIndex("id"));
+
+    var drop_with_positive = try table.dropColumnsWithPositiveInfs();
+    defer drop_with_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_with_positive.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_positive.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, null), drop_with_positive.columnIndex("both_metric"));
+
+    var drop_without_positive = try table.dropColumnsWithoutPositiveInfs();
+    defer drop_without_positive.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_without_positive.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_positive.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_positive.columnIndex("both_metric"));
+
+    var with_negative = try table.selectColumnsWithNegativeInfs();
+    defer with_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 2), with_negative.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_negative.columnIndex("neg_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_negative.columnIndex("both_metric"));
+
+    var without_negative = try table.selectColumnsWithoutNegativeInfs();
+    defer without_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 3), without_negative.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_negative.columnIndex("pos_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_negative.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_negative.columnIndex("id"));
+
+    var drop_with_negative = try table.dropColumnsWithNegativeInfs();
+    defer drop_with_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_with_negative.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_negative.columnIndex("neg_metric"));
+    try std.testing.expectEqual(@as(?usize, null), drop_with_negative.columnIndex("both_metric"));
+
+    var drop_without_negative = try table.dropColumnsWithoutNegativeInfs();
+    defer drop_without_negative.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_without_negative.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_negative.columnIndex("neg_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_negative.columnIndex("both_metric"));
+}
+
 test "device dataframe fills signed Inf values" {
     const gpa = std.testing.allocator;
 
