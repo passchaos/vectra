@@ -1043,6 +1043,15 @@ pub fn whereColumn(self: anytype, mask: ColumnType(@TypeOf(self)), other: Column
     };
 }
 
+pub fn isinColumn(self: anytype, test_elements: ColumnType(@TypeOf(self)), invert: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != test_elements.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(test_elements.device())) return error.InvalidDevice;
+    return switch (column) {
+        inline else => |typed, tag| .{ .bool = try typed.isinColumn(@field(test_elements, @tagName(tag)), invert) },
+    };
+}
+
 pub fn maskedPutScalar(self: anytype, mask: ColumnType(@TypeOf(self)), comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const column = columnValue(self);
     if (mask != .bool) return error.TypeUnsupported;

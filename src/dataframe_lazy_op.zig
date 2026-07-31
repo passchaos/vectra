@@ -236,6 +236,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_clip_array: Payloads.WithColumnTernary,
         with_column_where: Payloads.WithColumnTernary,
         with_column_where_scalar: Payloads.WithColumnWhereScalar,
+        with_column_isin: Payloads.WithColumnIsIn,
         with_column_masked_put_scalar: Payloads.WithColumnWhereScalar,
         with_column_put_flat_scalar: Payloads.WithColumnPutFlatScalar,
         with_column_put_flat: Payloads.WithColumnPutFlat,

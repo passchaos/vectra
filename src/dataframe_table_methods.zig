@@ -1222,6 +1222,25 @@ pub fn withColumnWhere(self: anytype, output_name: []const u8, input_name: []con
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn isinColumns(self: anytype, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.isinColumns(frameValue(self), input_name, test_name, invert);
+}
+
+pub fn withColumnIsIn(self: anytype, output_name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try isinColumns(self, input_name, test_name, false);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIsInInverted(self: anytype, output_name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try isinColumns(self, input_name, test_name, true);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub const withColumnIsin = withColumnIsIn;
+pub const withColumnIsinInverted = withColumnIsInInverted;
+
 pub fn maskedPutColumnScalar(self: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.maskedPutColumnScalar(frameValue(self), input_name, mask_name, T, value);
 }

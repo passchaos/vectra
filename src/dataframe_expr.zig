@@ -617,6 +617,12 @@ pub fn whereColumns(frame: anytype, input_name: []const u8, mask_name: []const u
     return input.whereColumn(mask.*, other.*);
 }
 
+pub fn isinColumns(frame: anytype, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const test_elements = try frame.column(test_name);
+    return input.isinColumn(test_elements.*, invert);
+}
+
 pub fn maskedPutColumnScalar(frame: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const input = try frame.column(input_name);
     const mask = try frame.column(mask_name);

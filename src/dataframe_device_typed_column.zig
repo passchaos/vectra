@@ -1060,6 +1060,42 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn isinColumn(self: Self, test_elements: Self, invert: bool) array_mod.ArrayError!DeviceTypedColumn(bool) {
+            if (comptime T == array_mod.BFloat16 or isComplexColumnType(T)) return error.TypeUnsupported;
+            if (!self.device().sameDevice(test_elements.device())) return error.InvalidDevice;
+            var candidates: array_mod.Array(T) = undefined;
+            var owns_candidates = false;
+            if (test_elements.validity) |validity_mask| {
+                const raw_values = try test_elements.values.toOwnedSlice(self.values.allocator);
+                defer self.values.allocator.free(raw_values);
+                const validity_values = try validity_mask.toOwnedSlice(self.values.allocator);
+                defer self.values.allocator.free(validity_values);
+                var valid_count: usize = 0;
+                for (validity_values) |valid| valid_count += @intFromBool(valid);
+                const filtered = try self.values.allocator.alloc(T, valid_count);
+                defer self.values.allocator.free(filtered);
+                var write: usize = 0;
+                for (raw_values, validity_values) |value, valid| {
+                    if (valid) {
+                        filtered[write] = value;
+                        write += 1;
+                    }
+                }
+                candidates = try array_mod.Array(T).fromSliceOn(self.values.allocator, filtered, &.{filtered.len}, self.device());
+                owns_candidates = true;
+            } else {
+                candidates = test_elements.values;
+            }
+            defer if (owns_candidates) candidates.deinit();
+
+            var values = try self.values.isin(candidates, invert);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn whereScalar(self: Self, mask_column: DeviceTypedColumn(bool), other_value: T) array_mod.ArrayError!Self {
             if (!self.device().sameDevice(mask_column.device())) return error.InvalidDevice;
             if (mask_column.values.shape.len != 1 or mask_column.len() != self.len()) return error.ShapeMismatch;

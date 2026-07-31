@@ -1742,6 +1742,32 @@ pub fn withColumnWhere(frame: anytype, name: []const u8, input_name: []const u8,
     } });
 }
 
+pub fn withColumnIsIn(frame: anytype, name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return withColumnIsInMode(frame, name, input_name, test_name, false);
+}
+
+pub fn withColumnIsInInverted(frame: anytype, name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return withColumnIsInMode(frame, name, input_name, test_name, true);
+}
+
+pub const withColumnIsin = withColumnIsIn;
+pub const withColumnIsinInverted = withColumnIsInInverted;
+
+fn withColumnIsInMode(frame: anytype, name: []const u8, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_test = try frame.allocator.dupe(u8, test_name);
+    errdefer frame.allocator.free(owned_test);
+    try frame.ops.append(frame.allocator, .{ .with_column_isin = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .test_name = owned_test,
+        .invert = invert,
+    } });
+}
+
 pub fn withColumnMaskedPutScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return withColumnMaskedPutWithDeviceScalar(frame, name, input_name, mask_name, DeviceScalar.init(T, value));
 }

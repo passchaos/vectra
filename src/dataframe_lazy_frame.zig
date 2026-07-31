@@ -1335,6 +1335,17 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnWhere(self, name, input_name, mask_name, other_name);
             }
 
+            pub fn withColumnIsIn(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIsIn(self, name, input_name, test_name);
+            }
+
+            pub fn withColumnIsInInverted(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnIsInInverted(self, name, input_name, test_name);
+            }
+
+            pub const withColumnIsin = withColumnIsIn;
+            pub const withColumnIsinInverted = withColumnIsInInverted;
+
             pub fn withColumnMaskedPutScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnMaskedPutScalar(self, name, input_name, mask_name, T, value);
             }

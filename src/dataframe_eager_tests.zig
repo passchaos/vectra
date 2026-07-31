@@ -2600,8 +2600,24 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer where_mask.deinit();
     var where_fallback = try DeviceColumn.fromSlice(f64, gpa, &.{ 10.0, 20.0, 30.0 }, .cpu);
     defer where_fallback.deinit();
-    var where_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "metric", .data = where_metric }, .{ .name = "mask", .data = where_mask }, .{ .name = "fallback", .data = where_fallback } });
+    var where_needles = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 5.0, 8.0 }, .cpu);
+    defer where_needles.deinit();
+    var where_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "metric", .data = where_metric }, .{ .name = "mask", .data = where_mask }, .{ .name = "fallback", .data = where_fallback }, .{ .name = "needles", .data = where_needles } });
     defer where_table.deinit();
+
+    var metric_isin_table = try where_table.withColumnIsIn("metric_isin", "metric", "needles");
+    defer metric_isin_table.deinit();
+    const metric_isin = try (try metric_isin_table.column("metric_isin")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_isin);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, metric_isin);
+
+    var metric_isin_inverted_table = try where_table.withColumnIsInInverted("metric_isin_inverted", "metric", "needles");
+    defer metric_isin_inverted_table.deinit();
+    const metric_isin_inverted = try (try metric_isin_inverted_table.column("metric_isin_inverted")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_isin_inverted);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, metric_isin_inverted);
+    try std.testing.expectError(error.TypeUnsupported, where_table.withColumnIsIn("bad_isin", "metric", "mask"));
+
     var where_scalar_table = try where_table.withColumnWhereScalar("metric_where", "metric", "mask", f64, 0.0);
     defer where_scalar_table.deinit();
     const metric_where = try (try where_scalar_table.column("metric_where")).f64.toOwnedSlice(gpa);

@@ -490,6 +490,11 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.input_name);
             allocator.free(expr.mask_name);
         },
+        .with_column_isin => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+            allocator.free(expr.test_name);
+        },
         .with_column_masked_put_scalar => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.input_name);
