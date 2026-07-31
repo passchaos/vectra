@@ -1278,6 +1278,26 @@ pub fn withColumnIndexPutWithDeviceScalar(self: anytype, output_name: []const u8
     return withColumnPutFlatWithDeviceScalar(self, output_name, input_name, row_indices, value);
 }
 
+pub fn putFlatColumnScalarMode(self: anytype, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T, mode: array_mod.IndexMode) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.putFlatColumnScalarMode(frameValue(self), input_name, row_indices, T, value, mode);
+}
+
+pub fn putFlatColumnModeWithDeviceScalar(self: anytype, input_name: []const u8, row_indices: []const usize, value: DeviceScalar, mode: array_mod.IndexMode) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.putFlatColumnModeWithDeviceScalar(frameValue(self), input_name, row_indices, value, mode);
+}
+
+pub fn withColumnPutFlatScalarMode(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try putFlatColumnScalarMode(self, input_name, row_indices, T, value, mode);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnPutFlatModeWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try putFlatColumnModeWithDeviceScalar(self, input_name, row_indices, value, mode);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn putFlatColumnScalarSigned(self: anytype, input_name: []const u8, row_indices: []const isize, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.putFlatColumnScalarSigned(frameValue(self), input_name, row_indices, T, value);
 }

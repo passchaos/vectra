@@ -1355,6 +1355,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnPutFlatWithDeviceScalar(self, name, input_name, row_indices, value);
             }
 
+            pub fn withColumnPutFlatScalarMode(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T, mode: array_mod.IndexMode) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutFlatScalarMode(self, name, input_name, row_indices, T, value, mode);
+            }
+
+            pub fn withColumnPutFlatModeWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar, mode: array_mod.IndexMode) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutFlatModeWithDeviceScalar(self, name, input_name, row_indices, value, mode);
+            }
+
             pub fn withColumnIndexPutScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIndexPutScalar(self, name, input_name, row_indices, T, value);
             }

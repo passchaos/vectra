@@ -2452,6 +2452,18 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 7 }, units_put_signed);
     try std.testing.expectError(error.IndexOutOfBounds, table.withColumnPutFlatScalarSigned("bad_put_signed", "sales", &.{-4}, f64, 0.0));
 
+    var units_put_wrap_table = try table.withColumnPutFlatScalarMode("units_put_wrap", "units", &.{table.height() + 1}, i64, 8, .wrap);
+    defer units_put_wrap_table.deinit();
+    const units_put_wrap = try (try units_put_wrap_table.column("units_put_wrap")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_put_wrap);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 8, 3 }, units_put_wrap);
+
+    var units_put_clip_table = try table.withColumnPutFlatScalarMode("units_put_clip", "units", &.{table.height() + 10}, i64, 6, .clip);
+    defer units_put_clip_table.deinit();
+    const units_put_clip = try (try units_put_clip_table.column("units_put_clip")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_put_clip);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 6 }, units_put_clip);
+
     var active_and_table = try rounding_type_table.withColumnLogicalAndScalar("active_and", "active", false);
     defer active_and_table.deinit();
     const active_and = try (try active_and_table.column("active_and")).bool.toOwnedSlice(gpa);

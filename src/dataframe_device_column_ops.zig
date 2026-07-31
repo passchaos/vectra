@@ -1103,6 +1103,35 @@ pub fn putFlatWithDeviceScalar(self: anytype, row_indices: []const usize, value:
     };
 }
 
+pub fn putFlatScalarMode(self: anytype, row_indices: []const usize, comptime T: type, value: T, mode: array_mod.IndexMode) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;
+    const tag = comptime array_mod.DType.of(T);
+    return @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try @field(column, @tagName(tag)).putFlatScalarMode(row_indices, value, mode));
+}
+
+pub fn putFlatModeWithDeviceScalar(self: anytype, row_indices: []const usize, value: options_mod.DeviceScalar, mode: array_mod.IndexMode) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (value) {
+        .bool => |scalar| putFlatScalarMode(self, row_indices, bool, scalar, mode),
+        .i8 => |scalar| putFlatScalarMode(self, row_indices, i8, scalar, mode),
+        .i16 => |scalar| putFlatScalarMode(self, row_indices, i16, scalar, mode),
+        .i32 => |scalar| putFlatScalarMode(self, row_indices, i32, scalar, mode),
+        .i64 => |scalar| putFlatScalarMode(self, row_indices, i64, scalar, mode),
+        .u8 => |scalar| putFlatScalarMode(self, row_indices, u8, scalar, mode),
+        .u16 => |scalar| putFlatScalarMode(self, row_indices, u16, scalar, mode),
+        .u32 => |scalar| putFlatScalarMode(self, row_indices, u32, scalar, mode),
+        .u64 => |scalar| putFlatScalarMode(self, row_indices, u64, scalar, mode),
+        .usize => |scalar| putFlatScalarMode(self, row_indices, usize, scalar, mode),
+        .isize => |scalar| putFlatScalarMode(self, row_indices, isize, scalar, mode),
+        .f16 => |scalar| putFlatScalarMode(self, row_indices, f16, scalar, mode),
+        .f32 => |scalar| putFlatScalarMode(self, row_indices, f32, scalar, mode),
+        .f64 => |scalar| putFlatScalarMode(self, row_indices, f64, scalar, mode),
+        .bf16 => |scalar| putFlatScalarMode(self, row_indices, array_mod.BFloat16, scalar, mode),
+        .c64 => |scalar| putFlatScalarMode(self, row_indices, array_mod.Complex64, scalar, mode),
+        .c128 => |scalar| putFlatScalarMode(self, row_indices, array_mod.Complex128, scalar, mode),
+    };
+}
+
 pub fn putFlatScalarSigned(self: anytype, row_indices: []const isize, comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const column = columnValue(self);
     if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;

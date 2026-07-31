@@ -3454,19 +3454,24 @@ test "device lazy frame collects row slice operations" {
     defer put_flat_plan.deinit();
     try put_flat_plan.withColumnPutFlatScalar("sales_put", "sales", &.{ 1, 3 }, f64, 9.0);
     try put_flat_plan.withColumnPutFlatScalarSigned("sales_put_signed", "sales", &.{-1}, f64, -5.0);
-    try put_flat_plan.select(&.{ "sales", "sales_put", "sales_put_signed" });
+    try put_flat_plan.withColumnPutFlatScalarMode("sales_put_wrap", "sales", &.{5}, f64, 11.0, .wrap);
+    try put_flat_plan.select(&.{ "sales", "sales_put", "sales_put_signed", "sales_put_wrap" });
     const put_flat_explain = try put_flat_plan.explain(gpa);
     defer gpa.free(put_flat_explain);
     try std.testing.expect(std.mem.indexOf(u8, put_flat_explain, "with_column_put_flat_scalar(sales_put=put_flat(sales, indices=[1,3], scalar:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, put_flat_explain, "with_column_put_flat_scalar_signed(sales_put_signed=put_flat_signed(sales, indices=[-1], scalar:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, put_flat_explain, "with_column_put_flat_scalar_mode(sales_put_wrap=put_flat(sales, indices=[5], scalar:f64, mode:wrap))") != null);
     var put_flat_result = try put_flat_plan.collect();
     defer put_flat_result.deinit();
     const put_flat_sales = try (try put_flat_result.column("sales_put")).f64.toOwnedSlice(gpa);
     defer gpa.free(put_flat_sales);
     const put_flat_signed_sales = try (try put_flat_result.column("sales_put_signed")).f64.toOwnedSlice(gpa);
     defer gpa.free(put_flat_signed_sales);
+    const put_flat_wrap_sales = try (try put_flat_result.column("sales_put_wrap")).f64.toOwnedSlice(gpa);
+    defer gpa.free(put_flat_wrap_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 5.0, 9.0 }, put_flat_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, -5.0 }, put_flat_signed_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 11.0, 5.0, 7.0 }, put_flat_wrap_sales);
 
     var repeat_plan = try DeviceLazyFrame.init(gpa, table);
     defer repeat_plan.deinit();

@@ -238,6 +238,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_where_scalar: Payloads.WithColumnWhereScalar,
         with_column_masked_put_scalar: Payloads.WithColumnWhereScalar,
         with_column_put_flat_scalar: Payloads.WithColumnPutFlatScalar,
+        with_column_put_flat_scalar_mode: Payloads.WithColumnPutFlatScalarMode,
         with_column_put_flat_scalar_signed: Payloads.WithColumnPutFlatScalarSigned,
         with_column_isclose_scalar: Payloads.WithColumnIsCloseScalar,
         with_column_logical: Payloads.WithColumnLogical,

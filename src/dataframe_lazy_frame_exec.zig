@@ -595,6 +595,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_put_flat_scalar_mode => |expr| blk: {
+                var column_value = try current.putFlatColumnModeWithDeviceScalar(expr.input_name, expr.row_indices, expr.scalar, expr.mode);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_put_flat_scalar_signed => |expr| blk: {
                 var column_value = try current.putFlatColumnSignedWithDeviceScalar(expr.input_name, expr.row_indices, expr.scalar);
                 defer column_value.deinit();

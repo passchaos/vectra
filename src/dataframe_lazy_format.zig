@@ -336,6 +336,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], scalar:{s}))", .{@tagName(expr.scalar)});
         },
+        .with_column_put_flat_scalar_mode => |expr| {
+            try writer.print("with_column_put_flat_scalar_mode({s}=put_flat({s}, indices=[", .{ expr.name, expr.input_name });
+            for (expr.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], scalar:{s}, mode:{s}))", .{ @tagName(expr.scalar), @tagName(expr.mode) });
+        },
         .with_column_put_flat_scalar_signed => |expr| {
             try writer.print("with_column_put_flat_scalar_signed({s}=put_flat_signed({s}, indices=[", .{ expr.name, expr.input_name });
             for (expr.row_indices, 0..) |row_index, i| {

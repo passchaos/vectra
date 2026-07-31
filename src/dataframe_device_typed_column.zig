@@ -1121,6 +1121,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn putFlatScalarMode(self: Self, row_indices: []const usize, value: T, mode: array_mod.IndexMode) array_mod.ArrayError!Self {
+            var indices = try array_mod.Array(usize).fromSliceOn(self.values.allocator, row_indices, &.{row_indices.len}, self.device());
+            defer indices.deinit();
+            var values = try self.values.putFlatScalarMode(indices, value, mode);
+            errdefer values.deinit();
+
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| {
+                if (self.len() == 0 and row_indices.len != 0) return error.IndexOutOfBounds;
+                const validity_values = try mask.toOwnedSlice(self.values.allocator);
+                defer self.values.allocator.free(validity_values);
+                for (row_indices) |row_index| {
+                    const normalized = switch (mode) {
+                        .raise => if (row_index >= self.len()) return error.IndexOutOfBounds else row_index,
+                        .wrap => row_index % self.len(),
+                        .clip => @min(row_index, self.len() - 1),
+                    };
+                    validity_values[normalized] = true;
+                }
+                validity = try array_mod.Array(bool).fromSliceOn(self.values.allocator, validity_values, &.{validity_values.len}, self.device());
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn putFlatScalarSigned(self: Self, row_indices: []const isize, value: T) array_mod.ArrayError!Self {
             var indices = try array_mod.Array(isize).fromSliceOn(self.values.allocator, row_indices, &.{row_indices.len}, self.device());
             defer indices.deinit();

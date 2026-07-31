@@ -500,6 +500,11 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.input_name);
             allocator.free(expr.row_indices);
         },
+        .with_column_put_flat_scalar_mode => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+            allocator.free(expr.row_indices);
+        },
         .with_column_put_flat_scalar_signed => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.input_name);

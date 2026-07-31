@@ -1782,6 +1782,26 @@ pub fn withColumnPutFlatWithDeviceScalar(frame: anytype, name: []const u8, input
     } });
 }
 
+pub fn withColumnPutFlatScalarMode(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T, mode: array_mod.IndexMode) DeviceDataError!void {
+    return withColumnPutFlatModeWithDeviceScalar(frame, name, input_name, row_indices, DeviceScalar.init(T, value), mode);
+}
+
+pub fn withColumnPutFlatModeWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, value: DeviceScalar, mode: array_mod.IndexMode) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_indices = try frame.allocator.dupe(usize, row_indices);
+    errdefer frame.allocator.free(owned_indices);
+    try frame.ops.append(frame.allocator, .{ .with_column_put_flat_scalar_mode = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .row_indices = owned_indices,
+        .scalar = value,
+        .mode = mode,
+    } });
+}
+
 pub fn withColumnIndexPutScalar(frame: anytype, name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!void {
     return withColumnPutFlatScalar(frame, name, input_name, row_indices, T, value);
 }
