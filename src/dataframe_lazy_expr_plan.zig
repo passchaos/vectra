@@ -2539,7 +2539,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, min, max },
+    comptime reduction: enum { sum, mean, prod, min, max, ptp },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2557,11 +2557,19 @@ fn withRowNumericReduction(
             .names = owned_names,
             .output_name = owned_output,
         } }),
+        .prod => try frame.ops.append(frame.allocator, .{ .row_prod = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
         .min => try frame.ops.append(frame.allocator, .{ .row_min = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
         .max => try frame.ops.append(frame.allocator, .{ .row_max = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .ptp => try frame.ops.append(frame.allocator, .{ .row_ptp = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2576,12 +2584,20 @@ pub fn withRowMean(frame: anytype, names: []const []const u8, output_name: []con
     return withRowNumericReduction(frame, names, output_name, .mean);
 }
 
+pub fn withRowProd(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .prod);
+}
+
 pub fn withRowMin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .min);
 }
 
 pub fn withRowMax(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .max);
+}
+
+pub fn withRowPtp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .ptp);
 }
 
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {

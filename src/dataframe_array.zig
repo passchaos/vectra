@@ -1868,7 +1868,7 @@ pub fn withRowLastNullIndex(
     return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
 }
 
-const RowNumericReduction = enum { sum, mean, min, max };
+const RowNumericReduction = enum { sum, prod, mean, min, max, ptp };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -1895,9 +1895,12 @@ fn withRowNumericReduction(
     defer input.allocator.free(validity);
     const counts = try input.allocator.alloc(usize, input.rows);
     defer input.allocator.free(counts);
+    const maxima = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(maxima);
     @memset(values, 0.0);
     @memset(validity, false);
     @memset(counts, 0);
+    @memset(maxima, 0.0);
 
     for (check_names) |name| {
         const source = try input.column(name);
@@ -1916,6 +1919,9 @@ fn withRowNumericReduction(
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
                     switch (reduction) {
                         .sum, .mean => values[row] += value,
+                        .prod => {
+                            values[row] = if (validity[row]) values[row] * value else value;
+                        },
                         .min => {
                             if (!validity[row] or std.math.isNan(value) or (!std.math.isNan(values[row]) and value < values[row])) {
                                 values[row] = value;
@@ -1926,6 +1932,22 @@ fn withRowNumericReduction(
                                 values[row] = value;
                             }
                         },
+                        .ptp => {
+                            if (!validity[row]) {
+                                values[row] = value;
+                                maxima[row] = value;
+                            } else if (std.math.isNan(value)) {
+                                // Preserve NaN evidence for range diagnostics:
+                                // a row containing NaN has an undefined
+                                // peak-to-peak span even if other values are
+                                // finite.
+                                values[row] = value;
+                                maxima[row] = value;
+                            } else if (!std.math.isNan(values[row])) {
+                                if (value < values[row]) values[row] = value;
+                                if (value > maxima[row]) maxima[row] = value;
+                            }
+                        },
                     }
                     counts[row] += 1;
                     validity[row] = true;
@@ -1934,11 +1956,13 @@ fn withRowNumericReduction(
         }
     }
 
-    for (values, validity, counts) |*value, valid, count| {
+    for (values, validity, counts, maxima) |*value, valid, count, max_value| {
         if (!valid) {
             value.* = 0.0;
         } else if (reduction == .mean) {
             value.* /= @floatFromInt(count);
+        } else if (reduction == .ptp) {
+            value.* = max_value - value.*;
         }
     }
 
@@ -1966,6 +1990,15 @@ pub fn withRowMean(
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .mean);
 }
 
+pub fn withRowProd(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .prod);
+}
+
 pub fn withRowMin(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -1982,6 +2015,15 @@ pub fn withRowMax(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .max);
+}
+
+pub fn withRowPtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
 }
 
 fn withRowBoolPredicateCount(

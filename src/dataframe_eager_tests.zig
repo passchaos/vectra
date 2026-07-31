@@ -417,6 +417,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
 
+    var row_prod_table = try validity_table.withRowProd(&.{ "a", "b" }, "row_prod");
+    defer row_prod_table.deinit();
+    const row_prod_column = try row_prod_table.column("row_prod");
+    const row_prod = try row_prod_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_prod);
+    const row_prod_validity = try row_prod_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_prod_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 160.0 }, row_prod);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_prod_validity);
+
     var row_min_table = try validity_table.withRowMin(&.{ "a", "b" }, "row_min");
     defer row_min_table.deinit();
     const row_min_column = try row_min_table.column("row_min");
@@ -436,6 +446,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_max_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 40.0 }, row_max);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_max_validity);
+
+    var row_ptp_table = try validity_table.withRowPtp(&.{ "a", "b" }, "row_ptp");
+    defer row_ptp_table.deinit();
+    const row_ptp_column = try row_ptp_table.column("row_ptp");
+    const row_ptp = try row_ptp_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_ptp);
+    const row_ptp_validity = try row_ptp_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_ptp_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_ptp);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_ptp_validity);
     try std.testing.expectError(error.TypeMismatch, validity_table.withRowSum(&.{"c"}, "bad_row_sum"));
 
     var row_first_valid_table = try validity_table.withRowFirstValidIndex(&.{ "a", "b", "c" }, "first_valid");

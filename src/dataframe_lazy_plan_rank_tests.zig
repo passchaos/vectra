@@ -1406,20 +1406,24 @@ test "device lazy frame derives row numeric reduction columns" {
     defer plan.deinit();
     try plan.withRowSum(&.{ "a", "b" }, "row_sum");
     try plan.withRowMean(&.{ "a", "b" }, "row_mean");
+    try plan.withRowProd(&.{ "a", "b" }, "row_prod");
     try plan.withRowMin(&.{ "a", "b" }, "row_min");
     try plan.withRowMax(&.{ "a", "b" }, "row_max");
-    try plan.select(&.{ "row_sum", "row_mean", "row_min", "row_max" });
+    try plan.withRowPtp(&.{ "a", "b" }, "row_ptp");
+    try plan.select(&.{ "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean([a,b]->row_mean)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_prod([a,b]->row_prod)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_min([a,b]->row_min)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_max([a,b]->row_max)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_ptp([a,b]->row_ptp)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 4), result.width());
+    try std.testing.expectEqual(@as(usize, 6), result.width());
     const row_sum_column = try result.column("row_sum");
     try std.testing.expect(row_sum_column.f64.nullable());
     const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
@@ -1432,6 +1436,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_mean);
     const row_mean_validity = try row_mean_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_mean_validity);
+    const row_prod_column = try result.column("row_prod");
+    try std.testing.expect(row_prod_column.f64.nullable());
+    const row_prod = try row_prod_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_prod);
+    const row_prod_validity = try row_prod_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_prod_validity);
     const row_min_column = try result.column("row_min");
     try std.testing.expect(row_min_column.f64.nullable());
     const row_min = try row_min_column.f64.toOwnedSlice(gpa);
@@ -1444,15 +1454,25 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_max);
     const row_max_validity = try row_max_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_max_validity);
+    const row_ptp_column = try result.column("row_ptp");
+    try std.testing.expect(row_ptp_column.f64.nullable());
+    const row_ptp = try row_ptp_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_ptp);
+    const row_ptp_validity = try row_ptp_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_ptp_validity);
 
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 160.0 }, row_prod);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_prod_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_min);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_min_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 40.0 }, row_max);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_max_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_ptp);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_ptp_validity);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

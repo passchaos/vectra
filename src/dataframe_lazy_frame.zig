@@ -1742,12 +1742,20 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMean(self, names, output_name);
             }
 
+            pub fn withRowProd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowProd(self, names, output_name);
+            }
+
             pub fn withRowMin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMin(self, names, output_name);
             }
 
             pub fn withRowMax(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMax(self, names, output_name);
+            }
+
+            pub fn withRowPtp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPtp(self, names, output_name);
             }
 
             pub fn withRowTrueCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -561,6 +561,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_prod => |row_count| {
+            try writer.print("row_prod([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_min => |row_count| {
             try writer.print("row_min([", .{});
             for (row_count.names, 0..) |name, i| {
@@ -571,6 +579,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .row_max => |row_count| {
             try writer.print("row_max([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_ptp => |row_count| {
+            try writer.print("row_ptp([", .{});
             for (row_count.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
