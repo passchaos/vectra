@@ -362,6 +362,44 @@ pub fn filterNegativeInfsColumn(frame: anytype, name: []const u8) DeviceDataErro
     try frame.ops.append(frame.allocator, .{ .filter_negative_infs_column = owned_name });
 }
 
+pub fn dropZeros(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_zeros = owned });
+}
+
+pub fn dropZerosColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropZeros(frame, &.{name});
+}
+
+pub fn filterZerosColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_zeros_column = owned_name });
+}
+
+pub fn dropNonZeros(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_non_zeros = owned });
+}
+
+pub fn dropNonZerosColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropNonZeros(frame, &.{name});
+}
+
+pub fn filterNonZerosColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_non_zeros_column = owned_name });
+}
+
 pub fn dropFinites(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try cloneNameList(frame.allocator, names);
     errdefer {

@@ -837,7 +837,7 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite };
+const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, zero, non_zero, finite, normal, subnormal, non_finite };
 
 fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: SpecialFloatPredicate) bool {
     return switch (predicate) {
@@ -845,6 +845,8 @@ fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: 
         .inf => isInfValue(T, value),
         .positive_inf => isPositiveInfValue(T, value),
         .negative_inf => isNegativeInfValue(T, value),
+        .zero => isZeroValue(T, value),
+        .non_zero => isNonZeroValue(T, value),
         .finite => isFiniteValue(T, value),
         .normal => isNormalValue(T, value),
         .subnormal => isSubnormalValue(T, value),
@@ -1938,6 +1940,22 @@ pub fn dropNegativeInfs(
     return dropSpecialFloats(DeviceDataFrame, input, names, .negative_inf);
 }
 
+pub fn dropZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .zero);
+}
+
+pub fn dropNonZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .non_zero);
+}
+
 pub fn dropFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -2026,6 +2044,22 @@ pub fn filterNegativeInfsColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .negative_inf);
+}
+
+pub fn filterZerosColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .zero);
+}
+
+pub fn filterNonZerosColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .non_zero);
 }
 
 pub fn filterFinitesColumn(

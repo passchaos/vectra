@@ -737,9 +737,40 @@ test "device dataframe derives zero predicate columns" {
     defer gpa.free(row_non_zero_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 3, 3, 0 }, row_non_zero_count);
 
+    var dropped_zero_rows = try table.dropZerosColumn("metric");
+    defer dropped_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_zero_rows.height());
+    const dropped_zero_metric = try (try dropped_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_zero_metric);
+    const dropped_zero_validity = try (try dropped_zero_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_zero_validity);
+    try std.testing.expectEqual(@as(f64, 3.0), dropped_zero_metric[0]);
+    try std.testing.expect(std.math.isNan(dropped_zero_metric[1]));
+    try std.testing.expect(std.math.isPositiveInf(dropped_zero_metric[2]));
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_zero_metric[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, dropped_zero_validity);
+
+    var filtered_zero_rows = try table.filterZerosColumn("metric");
+    defer filtered_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_zero_rows.height());
+    const filtered_zero_metric = try (try filtered_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_zero_metric);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, -0.0 }, filtered_zero_metric);
+
+    var filtered_non_zero_rows = try table.filterNonZerosColumn("metric");
+    defer filtered_non_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), filtered_non_zero_rows.height());
+    const filtered_non_zero_metric = try (try filtered_non_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_non_zero_metric);
+    try std.testing.expectEqual(@as(f64, 3.0), filtered_non_zero_metric[0]);
+    try std.testing.expect(std.math.isNan(filtered_non_zero_metric[1]));
+    try std.testing.expect(std.math.isPositiveInf(filtered_non_zero_metric[2]));
+
     try std.testing.expectError(error.ColumnNotFound, table.isZeroColumn("missing", "missing_is_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowZeroCount(&.{"missing"}, "bad_zero_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterZerosColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNonZerosColumn("missing"));
 }
 
 test "device dataframe derives NaN and finite predicate columns" {

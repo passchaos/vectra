@@ -744,6 +744,35 @@ test "device lazy frame derives zero predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 3, 1, 2, 0, 0, 2 }, row_zero_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 3, 3, 0 }, row_non_zero_count);
 
+    var filter_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_zero_plan.deinit();
+    try filter_zero_plan.filterZerosColumn("metric");
+    const filter_zero_explain = try filter_zero_plan.explain(gpa);
+    defer gpa.free(filter_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_zero_explain, "filter_zeros_column(metric)") != null);
+    var filtered_zero_rows = try filter_zero_plan.collect();
+    defer filtered_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 2), filtered_zero_rows.height());
+    const filtered_zero_metric = try (try filtered_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_zero_metric);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, -0.0 }, filtered_zero_metric);
+
+    var drop_non_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_non_zero_plan.deinit();
+    try drop_non_zero_plan.dropNonZerosColumn("metric");
+    const drop_non_zero_explain = try drop_non_zero_plan.explain(gpa);
+    defer gpa.free(drop_non_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_zero_explain, "drop_non_zeros[metric]") != null);
+    var dropped_non_zero_rows = try drop_non_zero_plan.collect();
+    defer dropped_non_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped_non_zero_rows.height());
+    const dropped_non_zero_metric = try (try dropped_non_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_non_zero_metric);
+    const dropped_non_zero_validity = try (try dropped_non_zero_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_non_zero_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, -0.0, -2.0 }, dropped_non_zero_metric);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, dropped_non_zero_validity);
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isZeroColumn("missing", "missing_is_zero");
