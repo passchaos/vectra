@@ -1930,6 +1930,46 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.lastMatchingIndex(isSignBitValue);
         }
 
+        pub fn firstNanIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isNanValue);
+        }
+
+        pub fn lastNanIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isNanValue);
+        }
+
+        pub fn firstInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isInfValue);
+        }
+
+        pub fn lastInfIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isInfValue);
+        }
+
+        pub fn firstFiniteIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isFiniteValue);
+        }
+
+        pub fn lastFiniteIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isFiniteValue);
+        }
+
+        pub fn firstNonFiniteIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !isFiniteValue(value);
+                }
+            }.f);
+        }
+
+        pub fn lastNonFiniteIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(struct {
+                fn f(value: T) bool {
+                    return !isFiniteValue(value);
+                }
+            }.f);
+        }
+
         pub fn firstValidIndex(self: Self) array_mod.ArrayError!?usize {
             if (!self.nullable()) return if (self.len() == 0) null else 0;
             const validity = try validityValues(self, self.values.allocator);

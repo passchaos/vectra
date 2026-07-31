@@ -2679,6 +2679,16 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.finiteRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try anomaly_metric_table.nonFiniteRatioColumn("metric")).f64, 1e-12);
     try std.testing.expect(std.math.isNan((try all_null_metric_table.nanRatioColumn("metric")).f64));
+    try std.testing.expectEqual(@as(?usize, 2), try anomaly_metric_table.firstNanIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 2), try anomaly_metric_table.lastNanIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.firstInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.lastInfIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 3), try anomaly_metric_table.firstFiniteIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 3), try anomaly_metric_table.lastFiniteIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 0), try anomaly_metric_table.firstNonFiniteIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, 2), try anomaly_metric_table.lastNonFiniteIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstNanIndexColumn("metric"));
+    try std.testing.expectEqual(@as(?usize, null), try all_null_metric_table.firstFiniteIndexColumn("metric"));
     try std.testing.expectError(error.ColumnNotFound, table.nanCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 0), try table.nullCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 3), try table.validCountColumn("sales"));

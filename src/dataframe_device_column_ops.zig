@@ -1503,6 +1503,62 @@ pub fn lastSignBitIndex(self: anytype) array_mod.ArrayError!?usize {
     };
 }
 
+pub fn firstNanIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNanIndex(),
+    };
+}
+
+pub fn lastNanIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNanIndex(),
+    };
+}
+
+pub fn firstInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstInfIndex(),
+    };
+}
+
+pub fn lastInfIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastInfIndex(),
+    };
+}
+
+pub fn firstFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstFiniteIndex(),
+    };
+}
+
+pub fn lastFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastFiniteIndex(),
+    };
+}
+
+pub fn firstNonFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNonFiniteIndex(),
+    };
+}
+
+pub fn lastNonFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNonFiniteIndex(),
+    };
+}
+
 pub fn firstValidIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {

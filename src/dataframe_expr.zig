@@ -963,6 +963,46 @@ pub fn lastSignBitIndexColumn(frame: anytype, name: []const u8) DeviceDataError!
     return col.lastSignBitIndex();
 }
 
+pub fn firstNanIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNanIndex();
+}
+
+pub fn lastNanIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNanIndex();
+}
+
+pub fn firstInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstInfIndex();
+}
+
+pub fn lastInfIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastInfIndex();
+}
+
+pub fn firstFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstFiniteIndex();
+}
+
+pub fn lastFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastFiniteIndex();
+}
+
+pub fn firstNonFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNonFiniteIndex();
+}
+
+pub fn lastNonFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNonFiniteIndex();
+}
+
 pub fn firstValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstValidIndex();

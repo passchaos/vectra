@@ -1595,6 +1595,46 @@ pub fn lastSignBitIndexColumn(self: anytype, name: []const u8) DeviceDataError!?
     return expr_mod.lastSignBitIndexColumn(frameValue(self), name);
 }
 
+pub fn firstNanIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNanIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNaNIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return firstNanIndexColumn(self, name);
+}
+
+pub fn lastNanIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNanIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNaNIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return lastNanIndexColumn(self, name);
+}
+
+pub fn firstInfIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstInfIndexColumn(frameValue(self), name);
+}
+
+pub fn lastInfIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastInfIndexColumn(frameValue(self), name);
+}
+
+pub fn firstFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstFiniteIndexColumn(frameValue(self), name);
+}
+
+pub fn lastFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastFiniteIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNonFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNonFiniteIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNonFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNonFiniteIndexColumn(frameValue(self), name);
+}
+
 pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstValidIndexColumn(frameValue(self), name);
 }
