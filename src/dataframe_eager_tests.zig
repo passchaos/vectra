@@ -2291,6 +2291,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(f64, &.{ -2.0, -3.0, -5.0 }, sales_neg);
     try std.testing.expectError(error.ColumnNotFound, table.withColumnNeg("bad_neg", "missing"));
 
+    var square_sales_table = try table.withColumnSquare("sales_square", "sales");
+    defer square_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try square_sales_table.columnDType("sales_square"));
+    const sales_square = try (try square_sales_table.column("sales_square")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_square);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 9.0, 25.0 }, sales_square);
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnSquare("bad_square", "missing"));
+
     var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
     defer mask.deinit();
     try std.testing.expectEqual(DeviceDType.bool, mask.dtype());

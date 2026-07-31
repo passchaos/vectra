@@ -154,6 +154,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         filter_non_finites_column: Payloads.FilterColumn,
         with_column_abs: Payloads.WithColumnUnary,
         with_column_neg: Payloads.WithColumnUnary,
+        with_column_square: Payloads.WithColumnUnary,
         with_column_binary: Payloads.WithColumnBinary,
         with_column_scalar: Payloads.WithColumnScalar,
         with_column_literal: Payloads.WithColumnLiteral,

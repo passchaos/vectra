@@ -55,6 +55,16 @@ pub fn withColumnNegative(self: anytype, output_name: []const u8, input_name: []
     return withColumnNeg(self, output_name, input_name);
 }
 
+pub fn unaryColumnSquare(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnSquare(frameValue(self), name);
+}
+
+pub fn withColumnSquare(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnSquare(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn binaryColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnBinaryOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.binaryColumns(frameValue(self), lhs_name, rhs_name, op);
 }
