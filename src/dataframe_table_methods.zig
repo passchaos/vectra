@@ -2537,6 +2537,18 @@ pub fn take(self: anytype, row_indices: []const usize) DeviceDataError!FrameType
     return dataframe_array_mod.takeRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }
 
+pub fn takeMode(self: anytype, row_indices: []const usize, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeRowsMode(FrameType(@TypeOf(self)), frameValue(self), row_indices, mode);
+}
+
+pub fn takeSigned(self: anytype, row_indices: []const isize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeRowsSigned(FrameType(@TypeOf(self)), frameValue(self), row_indices);
+}
+
+pub fn takeSignedMode(self: anytype, row_indices: []const isize, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeRowsSignedMode(FrameType(@TypeOf(self)), frameValue(self), row_indices, mode);
+}
+
 pub fn repeatRows(self: anytype, repeat_count: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.repeatRows(FrameType(@TypeOf(self)), frameValue(self), repeat_count);
 }

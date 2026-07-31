@@ -1903,6 +1903,30 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .take_rows = owned });
             }
 
+            pub fn takeMode(self: *DeviceLazyFrame, row_indices: []const usize, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_mode = .{
+                    .row_indices = owned,
+                    .mode = mode,
+                } });
+            }
+
+            pub fn takeSigned(self: *DeviceLazyFrame, row_indices: []const isize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(isize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_signed = owned });
+            }
+
+            pub fn takeSignedMode(self: *DeviceLazyFrame, row_indices: []const isize, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(isize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_signed_mode = .{
+                    .row_indices = owned,
+                    .mode = mode,
+                } });
+            }
+
             pub fn repeatRows(self: *DeviceLazyFrame, repeat_count: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
             }

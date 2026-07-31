@@ -743,6 +743,30 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
+        .take_rows_mode => |take_mode| {
+            try writer.print("take_rows_mode([", .{});
+            for (take_mode.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], mode:{s})", .{@tagName(take_mode.mode)});
+        },
+        .take_rows_signed => |row_indices| {
+            try writer.print("take_rows_signed([", .{});
+            for (row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("])", .{});
+        },
+        .take_rows_signed_mode => |take_mode| {
+            try writer.print("take_rows_signed_mode([", .{});
+            for (take_mode.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], mode:{s})", .{@tagName(take_mode.mode)});
+        },
         .repeat_rows => |repeat_count| try writer.print("repeat_rows({d})", .{repeat_count}),
         .repeat_rows_by => |count_name| try writer.print("repeat_rows_by({s})", .{count_name}),
         .sample_rows => |sample| try writer.print("sample_rows(count={d}, seed={d})", .{ sample.count, sample.seed }),

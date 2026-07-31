@@ -2639,6 +2639,63 @@ pub fn takeRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, row_indices.len, input.device);
 }
 
+fn normalizeRowIndexMode(index: usize, rows: usize, mode: array_mod.IndexMode) DeviceFrameArrayError!usize {
+    if (rows == 0) return error.IndexOutOfBounds;
+    return switch (mode) {
+        .raise => if (index >= rows) error.IndexOutOfBounds else index,
+        .wrap => index % rows,
+        .clip => @min(index, rows - 1),
+    };
+}
+
+fn normalizeSignedRowIndexMode(index: isize, rows: usize, mode: array_mod.IndexMode) DeviceFrameArrayError!usize {
+    if (rows == 0) return error.IndexOutOfBounds;
+    const signed_rows = std.math.cast(isize, rows) orelse return error.InvalidShape;
+    const normalized = switch (mode) {
+        .raise => if (index < 0) signed_rows + index else index,
+        .wrap => @mod(index, signed_rows),
+        .clip => @min(@max(index, 0), signed_rows - 1),
+    };
+    if (normalized < 0 or normalized >= signed_rows) return error.IndexOutOfBounds;
+    return @intCast(normalized);
+}
+
+pub fn takeRowsMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const usize,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const normalized = try input.allocator.alloc(usize, row_indices.len);
+    defer input.allocator.free(normalized);
+    for (row_indices, normalized) |row_index, *slot| {
+        slot.* = try normalizeRowIndexMode(row_index, input.rows, mode);
+    }
+    return takeRows(DeviceDataFrame, input, normalized);
+}
+
+pub fn takeRowsSigned(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const isize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return takeRowsSignedMode(DeviceDataFrame, input, row_indices, .raise);
+}
+
+pub fn takeRowsSignedMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const isize,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const normalized = try input.allocator.alloc(usize, row_indices.len);
+    defer input.allocator.free(normalized);
+    for (row_indices, normalized) |row_index, *slot| {
+        slot.* = try normalizeSignedRowIndexMode(row_index, input.rows, mode);
+    }
+    return takeRows(DeviceDataFrame, input, normalized);
+}
+
 pub fn repeatRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

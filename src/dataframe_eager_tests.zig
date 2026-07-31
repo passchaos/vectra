@@ -538,6 +538,32 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, last_row_dropped_sales);
     try std.testing.expectError(error.IndexOutOfBounds, table.dropRows(&.{table.height()}));
 
+    var taken_signed = try table.takeSigned(&.{ -1, 0 });
+    defer taken_signed.deinit();
+    const taken_signed_sales = try (try taken_signed.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_signed_sales);
+    const taken_signed_units_validity = try (try taken_signed.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_signed_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 2.0 }, taken_signed_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, taken_signed_units_validity);
+    try std.testing.expectError(error.IndexOutOfBounds, table.takeSigned(&.{-4}));
+
+    var taken_wrap = try table.takeMode(&.{ table.height() + 1, 0 }, .wrap);
+    defer taken_wrap.deinit();
+    const taken_wrap_sales = try (try taken_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_wrap_sales);
+    const taken_wrap_units_validity = try (try taken_wrap.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_wrap_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0 }, taken_wrap_sales);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, taken_wrap_units_validity);
+    try std.testing.expectError(error.IndexOutOfBounds, table.takeMode(&.{table.height()}, .raise));
+
+    var taken_signed_clip = try table.takeSignedMode(&.{ -9, 9 }, .clip);
+    defer taken_signed_clip.deinit();
+    const taken_signed_clip_sales = try (try taken_signed_clip.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_signed_clip_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, taken_signed_clip_sales);
+
     var repeated_rows = try table.repeatRows(2);
     defer repeated_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), repeated_rows.height());

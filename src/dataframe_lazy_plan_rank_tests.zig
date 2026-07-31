@@ -3529,6 +3529,24 @@ test "device lazy frame collects row slice operations" {
     defer invalid_take_plan.deinit();
     try invalid_take_plan.take(&.{4});
     try std.testing.expectError(error.IndexOutOfBounds, invalid_take_plan.collect());
+
+    var take_mode_plan = try DeviceLazyFrame.init(gpa, table);
+    defer take_mode_plan.deinit();
+    try take_mode_plan.takeMode(&.{ 5, 0 }, .wrap);
+    try take_mode_plan.takeSignedMode(&.{ -9, 9 }, .clip);
+    try take_mode_plan.takeSigned(&.{ -1, 0 });
+    try take_mode_plan.select(&.{ "sales", "units" });
+    const take_mode_explain = try take_mode_plan.explain(gpa);
+    defer gpa.free(take_mode_explain);
+    try std.testing.expect(std.mem.indexOf(u8, take_mode_explain, "take_rows_mode([5,0], mode:wrap)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, take_mode_explain, "take_rows_signed_mode([-9,9], mode:clip)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, take_mode_explain, "take_rows_signed([-1,0])") != null);
+    var taken_mode = try take_mode_plan.collect();
+    defer taken_mode.deinit();
+    try std.testing.expectEqual(@as(usize, 2), taken_mode.height());
+    const taken_mode_sales = try (try taken_mode.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_mode_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, taken_mode_sales);
 }
 
 test "device lazy frame reverses rows" {

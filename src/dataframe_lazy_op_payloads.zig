@@ -305,6 +305,15 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             seed: u64,
         };
         pub const RowTake = []usize;
+        pub const RowTakeMode = struct {
+            row_indices: []usize,
+            mode: array_mod.IndexMode,
+        };
+        pub const RowTakeSigned = []isize;
+        pub const RowTakeSignedMode = struct {
+            row_indices: []isize,
+            mode: array_mod.IndexMode,
+        };
         pub const RankProfileBy = profile_payloads.RankProfileBy;
         pub const RollingProfile = profile_payloads.RollingProfile;
         pub const ExpandingProfile = profile_payloads.ExpandingProfile;

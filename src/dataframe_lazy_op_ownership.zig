@@ -1829,6 +1829,23 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .slice_rows_step => |slice| .{ .slice_rows_step = slice },
         .stride_rows => |stride| .{ .stride_rows = stride },
         .take_rows => |row_indices| .{ .take_rows = try allocator.dupe(usize, row_indices) },
+        .take_rows_mode => |take_mode| blk: {
+            const row_indices = try allocator.dupe(usize, take_mode.row_indices);
+            errdefer allocator.free(row_indices);
+            break :blk .{ .take_rows_mode = .{
+                .row_indices = row_indices,
+                .mode = take_mode.mode,
+            } };
+        },
+        .take_rows_signed => |row_indices| .{ .take_rows_signed = try allocator.dupe(isize, row_indices) },
+        .take_rows_signed_mode => |take_mode| blk: {
+            const row_indices = try allocator.dupe(isize, take_mode.row_indices);
+            errdefer allocator.free(row_indices);
+            break :blk .{ .take_rows_signed_mode = .{
+                .row_indices = row_indices,
+                .mode = take_mode.mode,
+            } };
+        },
         .repeat_rows => |repeat_count| .{ .repeat_rows = repeat_count },
         .repeat_rows_by => |count_name| .{ .repeat_rows_by = try allocator.dupe(u8, count_name) },
         .sample_rows => |sample| .{ .sample_rows = sample },
