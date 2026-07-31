@@ -114,6 +114,16 @@ pub fn unaryColumnSoftsign(frame: anytype, name: []const u8) DeviceDataError!@Ty
     return col.softsign();
 }
 
+pub fn unaryColumnHardsigmoid(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardsigmoid();
+}
+
+pub fn unaryColumnHardswish(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardswish();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

@@ -2496,6 +2496,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnSoftsign("bad_softsign", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnSoftsign("missing_softsign", "missing"));
 
+    var hardsigmoid_ratio_table = try inverse_trig_table.withColumnHardsigmoid("ratio_hardsigmoid", "ratio");
+    defer hardsigmoid_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try hardsigmoid_ratio_table.columnDType("ratio_hardsigmoid"));
+    const ratio_hardsigmoid = try (try hardsigmoid_ratio_table.column("ratio_hardsigmoid")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_hardsigmoid);
+    try std.testing.expectApproxEqAbs((@as(f64, -0.5) + @as(f64, 3.0)) / @as(f64, 6.0), ratio_hardsigmoid[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_hardsigmoid[1], 1e-12);
+    try std.testing.expectApproxEqAbs((@as(f64, 0.5) + @as(f64, 3.0)) / @as(f64, 6.0), ratio_hardsigmoid[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHardsigmoid("bad_hardsigmoid", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHardsigmoid("missing_hardsigmoid", "missing"));
+
+    var hardswish_ratio_table = try inverse_trig_table.withColumnHardswish("ratio_hardswish", "ratio");
+    defer hardswish_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try hardswish_ratio_table.columnDType("ratio_hardswish"));
+    const ratio_hardswish = try (try hardswish_ratio_table.column("ratio_hardswish")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_hardswish);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5) * ((@as(f64, -0.5) + @as(f64, 3.0)) / @as(f64, 6.0)), ratio_hardswish[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_hardswish[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5) * ((@as(f64, 0.5) + @as(f64, 3.0)) / @as(f64, 6.0)), ratio_hardswish[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHardswish("bad_hardswish", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHardswish("missing_hardswish", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));
