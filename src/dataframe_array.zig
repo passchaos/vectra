@@ -1815,6 +1815,94 @@ pub fn withRowFalseCount(
     return withRowBoolPredicateCount(DeviceDataFrame, input, names, output_name, false);
 }
 
+const RowBoolReduction = enum { any_true, all_true, any_false, all_false };
+
+fn withRowBoolReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowBoolReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const values = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(validity, false);
+    @memset(values, switch (reduction) {
+        .any_true, .any_false => false,
+        .all_true, .all_false => true,
+    });
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+        for (host_values, 0..) |value, row| {
+            const valid = if (maybe_validity) |mask| mask[row] else true;
+            if (!valid) continue;
+            validity[row] = true;
+            switch (reduction) {
+                .any_true => values[row] = values[row] or value,
+                .all_true => values[row] = values[row] and value,
+                .any_false => values[row] = values[row] or !value,
+                .all_false => values[row] = values[row] and !value,
+            }
+        }
+    }
+
+    for (values, validity) |*value, valid| {
+        if (!valid) value.* = false;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(bool, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowAnyTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .any_true);
+}
+
+pub fn withRowAllTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .all_true);
+}
+
+pub fn withRowAnyFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .any_false);
+}
+
+pub fn withRowAllFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .all_false);
+}
+
 fn withRowBoolPredicateRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

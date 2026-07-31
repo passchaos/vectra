@@ -2515,6 +2515,55 @@ pub fn withRowFalseCount(frame: anytype, names: []const []const u8, output_name:
     return withRowBoolPredicateCount(frame, names, output_name, false);
 }
 
+fn withRowBoolReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { any_true, all_true, any_false, all_false },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .any_true => try frame.ops.append(frame.allocator, .{ .row_any_true = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .all_true => try frame.ops.append(frame.allocator, .{ .row_all_true = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .any_false => try frame.ops.append(frame.allocator, .{ .row_any_false = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .all_false => try frame.ops.append(frame.allocator, .{ .row_all_false = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowAnyTrue(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolReduction(frame, names, output_name, .any_true);
+}
+
+pub fn withRowAllTrue(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolReduction(frame, names, output_name, .all_true);
+}
+
+pub fn withRowAnyFalse(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolReduction(frame, names, output_name, .any_false);
+}
+
+pub fn withRowAllFalse(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolReduction(frame, names, output_name, .all_false);
+}
+
 fn withRowBoolPredicateRatio(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

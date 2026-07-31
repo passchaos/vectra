@@ -409,6 +409,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_false_ratio = try row_false_ratio_column.f64.toOwnedSlice(gpa);
     defer gpa.free(row_false_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0 }, row_false_ratio);
+
+    var row_any_true_table = try table.withRowAnyTrue(&.{"active"}, "row_any_true");
+    defer row_any_true_table.deinit();
+    const row_any_true = try (try row_any_true_table.column("row_any_true")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, row_any_true);
+
+    var row_all_true_table = try table.withRowAllTrue(&.{"active"}, "row_all_true");
+    defer row_all_true_table.deinit();
+    const row_all_true = try (try row_all_true_table.column("row_all_true")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, row_all_true);
+
+    var row_any_false_table = try table.withRowAnyFalse(&.{"active"}, "row_any_false");
+    defer row_any_false_table.deinit();
+    const row_any_false = try (try row_any_false_table.column("row_any_false")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_false);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, row_any_false);
+
+    var row_all_false_table = try table.withRowAllFalse(&.{"active"}, "row_all_false");
+    defer row_all_false_table.deinit();
+    const row_all_false = try (try row_all_false_table.column("row_all_false")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_false);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, row_all_false);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNullCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.TypeMismatch, table.withRowTrueCount(&.{"sales"}, "bad_bool_count"));
     try std.testing.expectError(error.TypeMismatch, table.withRowTrueRatio(&.{"sales"}, "bad_bool_ratio"));
@@ -3064,6 +3088,15 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(?usize, null), try nullable_bool_table.lastTrueIndexColumn("flag"));
     try std.testing.expectEqual(@as(?usize, 0), try nullable_bool_table.firstFalseIndexColumn("flag"));
     try std.testing.expectEqual(@as(?usize, 2), try nullable_bool_table.lastFalseIndexColumn("flag"));
+
+    var nullable_any_false_table = try nullable_bool_table.withRowAnyFalse(&.{"flag"}, "row_any_false");
+    defer nullable_any_false_table.deinit();
+    const nullable_any_false = try (try nullable_any_false_table.column("row_any_false")).bool.toOwnedSlice(gpa);
+    defer gpa.free(nullable_any_false);
+    const nullable_any_false_validity = try (try nullable_any_false_table.column("row_any_false")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(nullable_any_false_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, nullable_any_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, nullable_any_false_validity);
 
     var all_null_bool = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false }, &.{ false, false }, .cpu);
     defer all_null_bool.deinit();

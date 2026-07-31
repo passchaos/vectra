@@ -2615,6 +2615,22 @@ pub fn withRowFalseCount(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowFalseCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowAnyTrue(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAnyTrue(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAllTrue(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAllTrue(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAnyFalse(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAnyFalse(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAllFalse(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAllFalse(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowTrueRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTrueRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
