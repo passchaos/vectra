@@ -69,6 +69,16 @@ pub fn unaryColumnTrunc(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.trunc();
 }
 
+pub fn unaryColumnDeg2rad(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.deg2rad();
+}
+
+pub fn unaryColumnRad2deg(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.rad2deg();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

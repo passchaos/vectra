@@ -897,6 +897,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnTrunc(self, name, input_name);
             }
 
+            pub fn withColumnDeg2rad(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnDeg2rad(self, name, input_name);
+            }
+
+            pub fn withColumnRad2deg(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnRad2deg(self, name, input_name);
+            }
+
             pub fn withColumnExp(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnExp(self, name, input_name);
             }

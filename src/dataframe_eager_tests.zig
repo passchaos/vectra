@@ -2391,6 +2391,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(units_floor);
     try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, units_floor);
 
+    var deg2rad_cost_table = try table.withColumnDeg2rad("cost_rad", "cost");
+    defer deg2rad_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try deg2rad_cost_table.columnDType("cost_rad"));
+    const cost_rad = try (try deg2rad_cost_table.column("cost_rad")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_rad);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) * std.math.pi / @as(f64, 180.0), cost_rad[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5) * std.math.pi / @as(f64, 180.0), cost_rad[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) * std.math.pi / @as(f64, 180.0), cost_rad[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnDeg2rad("bad_deg2rad", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnDeg2rad("missing_deg2rad", "missing"));
+
+    var rad2deg_cost_table = try deg2rad_cost_table.withColumnRad2deg("cost_deg", "cost_rad");
+    defer rad2deg_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try rad2deg_cost_table.columnDType("cost_deg"));
+    const cost_deg = try (try rad2deg_cost_table.column("cost_deg")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_deg);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), cost_deg[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), cost_deg[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), cost_deg[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnRad2deg("bad_rad2deg", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnRad2deg("missing_rad2deg", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));

@@ -715,6 +715,28 @@ pub fn withColumnTrunc(frame: anytype, name: []const u8, input_name: []const u8)
     } });
 }
 
+pub fn withColumnDeg2rad(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_deg2rad = .{
+        .name = owned_name,
+        .input_name = owned_input,
+    } });
+}
+
+pub fn withColumnRad2deg(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_rad2deg = .{
+        .name = owned_name,
+        .input_name = owned_input,
+    } });
+}
+
 pub fn withColumnExp(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

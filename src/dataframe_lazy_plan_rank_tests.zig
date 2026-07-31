@@ -25,6 +25,8 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnCeil("sales_recip_ceil", "sales_recip");
     try plan.withColumnRound("sales_recip_round", "sales_recip");
     try plan.withColumnTrunc("sales_recip_trunc", "sales_recip");
+    try plan.withColumnDeg2rad("sales_deg2rad", "sales");
+    try plan.withColumnRad2deg("sales_roundtrip_deg", "sales_deg2rad");
     try plan.withColumnExp("sales_exp", "sales");
     try plan.withColumnExp2("sales_exp2", "sales");
     try plan.withColumnExpm1("sales_expm1", "sales");
@@ -49,15 +51,15 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=40") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=38") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=42") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=40") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_neg(sales_neg=neg(sales))") != null);
@@ -70,6 +72,8 @@ test "device lazy frame collects plan operations" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_ceil(sales_recip_ceil=ceil(sales_recip))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_round(sales_recip_round=round(sales_recip))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_trunc(sales_recip_trunc=trunc(sales_recip))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_deg2rad(sales_deg2rad=deg2rad(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_rad2deg(sales_roundtrip_deg=rad2deg(sales_deg2rad))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_exp(sales_exp=exp(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_exp2(sales_exp2=exp2(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_expm1(sales_expm1=expm1(sales))") != null);
@@ -97,7 +101,7 @@ test "device lazy frame collects plan operations" {
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 36), result.width());
+    try std.testing.expectEqual(@as(usize, 38), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
@@ -126,6 +130,10 @@ test "device lazy frame collects plan operations" {
     defer gpa.free(result_sales_recip_round);
     const result_sales_recip_trunc = try (try result.column("sales_recip_trunc")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_recip_trunc);
+    const result_sales_deg2rad = try (try result.column("sales_deg2rad")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_deg2rad);
+    const result_sales_roundtrip_deg = try (try result.column("sales_roundtrip_deg")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_roundtrip_deg);
     const result_sales_exp = try (try result.column("sales_exp")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_exp);
     const result_sales_exp2 = try (try result.column("sales_exp2")).f64.toOwnedSlice(gpa);
@@ -188,6 +196,10 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0 }, result_sales_recip_ceil);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0 }, result_sales_recip_round);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0 }, result_sales_recip_trunc);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0) * std.math.pi / @as(f64, 180.0), result_sales_deg2rad[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0) * std.math.pi / @as(f64, 180.0), result_sales_deg2rad[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), result_sales_roundtrip_deg[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), result_sales_roundtrip_deg[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, 7.0)), result_sales_exp[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, 5.0)), result_sales_exp[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 7.0)), result_sales_exp2[0], 1e-12);
