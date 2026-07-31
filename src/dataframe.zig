@@ -425,6 +425,7 @@ pub const DeviceDataFrame = struct {
     pub const withColumnLogicalXor = table_methods_mod.withColumnLogicalXor;
     pub const filterColumnMask = table_methods_mod.filterColumnMask;
     pub const filterColumn = table_methods_mod.filterColumn;
+    pub const dropRowsByColumnMask = table_methods_mod.dropRowsByColumnMask;
     pub const toArrowSchema = arrow_methods_mod.toArrowSchema;
     pub const toArrowRecordBatch = arrow_methods_mod.toArrowRecordBatch;
     pub const toArrowTable = arrow_methods_mod.toArrowTable;

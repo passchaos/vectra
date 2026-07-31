@@ -591,6 +591,12 @@ pub fn filterColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_column = owned_name });
 }
 
+pub fn dropRowsByColumnMask(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .drop_rows_by_mask_column = owned_name });
+}
+
 pub fn withColumnAbs(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

@@ -563,6 +563,20 @@ test "device lazy frame filters by named boolean columns" {
     const active_sales = try (try active_result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(active_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
+
+    var drop_mask_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_mask_plan.deinit();
+    try drop_mask_plan.dropRowsByColumnMask("active");
+    try drop_mask_plan.select(&.{ "sales", "active" });
+    const drop_mask_explain = try drop_mask_plan.explain(gpa);
+    defer gpa.free(drop_mask_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_mask_explain, "drop_rows_by_mask_column(active)") != null);
+    var drop_mask_result = try drop_mask_plan.collect();
+    defer drop_mask_result.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_mask_result.height());
+    const drop_mask_sales = try (try drop_mask_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_mask_sales);
+    try std.testing.expectEqualSlices(f64, &.{3.0}, drop_mask_sales);
 }
 
 test "device lazy frame selects and drops columns by dtype" {

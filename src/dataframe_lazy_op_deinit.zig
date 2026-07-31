@@ -565,6 +565,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         },
         .filter_mask => |*mask| mask.deinit(),
         .filter_column => |name| allocator.free(name),
+        .drop_rows_by_mask_column => |name| allocator.free(name),
         .filter_scalar => |filter_op| allocator.free(filter_op.name),
         .group_by_count => |group| {
             allocator.free(group.key_name);

@@ -3614,5 +3614,13 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     const named_mask_sales = try (try named_mask_filtered.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(named_mask_sales);
     try std.testing.expectEqualSlices(f64, &.{5.0}, named_mask_sales);
+
+    var named_mask_dropped = try mask_table.dropRowsByColumnMask("units_gt_one");
+    defer named_mask_dropped.deinit();
+    try std.testing.expectEqual(@as(usize, 2), named_mask_dropped.height());
+    const named_mask_dropped_sales = try (try named_mask_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(named_mask_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, named_mask_dropped_sales);
+    try std.testing.expectError(error.TypeMismatch, mask_table.dropRowsByColumnMask("sales"));
     try std.testing.expectError(error.TypeMismatch, mask_table.filterColumn("sales"));
 }
