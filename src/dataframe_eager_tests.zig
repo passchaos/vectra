@@ -2429,6 +2429,24 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnMaskedPutScalar("bad_masked", "sales", "cost", f64, 9.0));
     try std.testing.expectError(error.ColumnNotFound, where_table.withColumnMaskedPutScalar("missing_masked", "metric", "missing", f64, 9.0));
 
+    var unit_replacements = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 4, 5, 6 }, &.{ true, true, false }, .cpu);
+    defer unit_replacements.deinit();
+    var put_values_source = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "units", .data = units },
+        .{ .name = "unit_replacements", .data = unit_replacements },
+    });
+    defer put_values_source.deinit();
+    var units_put_values_table = try put_values_source.withColumnPutFlat("units_put_values", "units", &.{ 2, 0, 2 }, "unit_replacements");
+    defer units_put_values_table.deinit();
+    const units_put_values = try (try units_put_values_table.column("units_put_values")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_put_values);
+    const units_put_values_validity = try (try units_put_values_table.column("units_put_values")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(units_put_values_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 5, 2, 6 }, units_put_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, units_put_values_validity);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnPutFlat("bad_put_values", "sales", &.{ 0, 1, 2 }, "units"));
+    try std.testing.expectError(error.ShapeMismatch, put_values_source.withColumnPutFlat("bad_put_values_shape", "units", &.{ 0, 1 }, "unit_replacements"));
+
     var units_put_flat_table = try table.withColumnPutFlatScalar("units_put", "units", &.{1}, i64, 9);
     defer units_put_flat_table.deinit();
     const units_put = try (try units_put_flat_table.column("units_put")).i64.toOwnedSlice(gpa);

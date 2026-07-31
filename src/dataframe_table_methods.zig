@@ -1270,6 +1270,20 @@ pub fn withColumnPutFlatWithDeviceScalar(self: anytype, output_name: []const u8,
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn putFlatColumns(self: anytype, input_name: []const u8, row_indices: []const usize, value_name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.putFlatColumns(frameValue(self), input_name, row_indices, value_name);
+}
+
+pub fn withColumnPutFlat(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, value_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try putFlatColumns(self, input_name, row_indices, value_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnIndexPut(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, value_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnPutFlat(self, output_name, input_name, row_indices, value_name);
+}
+
 pub fn withColumnIndexPutScalar(self: anytype, output_name: []const u8, input_name: []const u8, row_indices: []const usize, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return withColumnPutFlatScalar(self, output_name, input_name, row_indices, T, value);
 }

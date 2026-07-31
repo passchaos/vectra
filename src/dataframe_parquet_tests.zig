@@ -1452,6 +1452,44 @@ test "device lazy frame pushes coalesce dependencies into parquet scan source" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 5.0 }, filled);
 }
 
+test "device lazy frame pushes put-flat value dependencies into parquet scan source" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+    var replacements = try DeviceColumn.fromSlice(f64, gpa, &.{ -2.0, -3.0, -5.0 }, .cpu);
+    defer replacements.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "replacements", .data = replacements },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var lazy_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_scan.deinit();
+    try lazy_scan.withColumnPutFlat("sales_put_values", "sales", &.{ 2, 0, 1 }, "replacements");
+    try lazy_scan.select(&.{"sales_put_values"});
+
+    const explain = try lazy_scan.explain(gpa);
+    defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "scan_pushdown: projection=[sales,replacements]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_put_flat(sales_put_values=put_flat(sales, indices=[2,0,1], values:replacements))") != null);
+
+    var result = try lazy_scan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 1), result.width());
+    const values = try (try result.column("sales_put_values")).f64.toOwnedSlice(gpa);
+    defer gpa.free(values);
+    try std.testing.expectEqualSlices(f64, &.{ -3.0, -5.0, -2.0 }, values);
+}
+
 test "device lazy frame keeps schema-derived and schema-rewrite ops out of parquet projection pushdown" {
     const gpa = std.testing.allocator;
 

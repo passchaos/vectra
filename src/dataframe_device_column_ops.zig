@@ -1074,6 +1074,15 @@ pub fn maskedPutWithDeviceScalar(self: anytype, mask: ColumnType(@TypeOf(self)),
     };
 }
 
+pub fn putFlat(self: anytype, row_indices: []const usize, values: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != values.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(values.device())) return error.InvalidDevice;
+    return switch (column) {
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.putFlat(row_indices, @field(values, @tagName(tag)))),
+    };
+}
+
 pub fn putFlatScalar(self: anytype, row_indices: []const usize, comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const column = columnValue(self);
     if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;

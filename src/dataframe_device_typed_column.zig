@@ -1100,6 +1100,45 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn putFlat(self: Self, row_indices: []const usize, value_column: Self) array_mod.ArrayError!Self {
+            if (!self.device().sameDevice(value_column.device())) return error.InvalidDevice;
+            if (value_column.len() != 1 and value_column.len() != row_indices.len) return error.ShapeMismatch;
+            var indices = try array_mod.Array(usize).fromSliceOn(self.values.allocator, row_indices, &.{row_indices.len}, self.device());
+            defer indices.deinit();
+            var values = try self.values.putFlat(indices, value_column.values);
+            errdefer values.deinit();
+
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity != null or value_column.validity != null) {
+                const allocator = self.values.allocator;
+                const validity_values = try allocator.alloc(bool, self.len());
+                defer allocator.free(validity_values);
+                if (self.validity) |mask| {
+                    const existing = try mask.toOwnedSlice(allocator);
+                    defer allocator.free(existing);
+                    @memcpy(validity_values, existing);
+                } else {
+                    @memset(validity_values, true);
+                }
+
+                const value_validity = if (value_column.validity) |mask| try mask.toOwnedSlice(allocator) else null;
+                defer if (value_validity) |mask| allocator.free(mask);
+                const scalar_value_column = value_column.len() == 1;
+                // Mirror Array.putFlat's sequential write contract for null
+                // metadata as well as values. Duplicate indices are therefore
+                // resolved by the last incoming value, matching the data write.
+                for (row_indices, 0..) |row_index, i| {
+                    if (row_index >= self.len()) return error.IndexOutOfBounds;
+                    const value_index = if (scalar_value_column) 0 else i;
+                    validity_values[row_index] = if (value_validity) |mask| mask[value_index] else true;
+                }
+                validity = try array_mod.Array(bool).fromSliceOn(allocator, validity_values, &.{validity_values.len}, self.device());
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn putFlatScalar(self: Self, row_indices: []const usize, value: T) array_mod.ArrayError!Self {
             var indices = try array_mod.Array(usize).fromSliceOn(self.values.allocator, row_indices, &.{row_indices.len}, self.device());
             defer indices.deinit();

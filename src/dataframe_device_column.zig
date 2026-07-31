@@ -324,6 +324,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const whereWithDeviceScalar = column_ops_mod.whereWithDeviceScalar;
     pub const maskedPutScalar = column_ops_mod.maskedPutScalar;
     pub const maskedPutWithDeviceScalar = column_ops_mod.maskedPutWithDeviceScalar;
+    pub const putFlat = column_ops_mod.putFlat;
     pub const putFlatScalar = column_ops_mod.putFlatScalar;
     pub const putFlatWithDeviceScalar = column_ops_mod.putFlatWithDeviceScalar;
     pub const putFlatScalarMode = column_ops_mod.putFlatScalarMode;
