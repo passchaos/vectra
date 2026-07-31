@@ -689,6 +689,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_zero_ratio => |row_count| try current.withRowZeroRatio(row_count.names, row_count.output_name),
             .row_positive_zero_count => |row_count| try current.withRowPositiveZeroCount(row_count.names, row_count.output_name),
             .row_negative_zero_count => |row_count| try current.withRowNegativeZeroCount(row_count.names, row_count.output_name),
+            .row_positive_zero_ratio => |row_count| try current.withRowPositiveZeroRatio(row_count.names, row_count.output_name),
+            .row_negative_zero_ratio => |row_count| try current.withRowNegativeZeroRatio(row_count.names, row_count.output_name),
             .row_non_zero_count => |row_count| try current.withRowNonZeroCount(row_count.names, row_count.output_name),
             .row_non_zero_ratio => |row_count| try current.withRowNonZeroRatio(row_count.names, row_count.output_name),
             .row_positive_count => |row_count| try current.withRowPositiveCount(row_count.names, row_count.output_name),

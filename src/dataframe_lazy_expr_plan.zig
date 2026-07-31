@@ -2629,7 +2629,7 @@ fn withRowNumericPredicateRatio(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, non_zero, finite, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, finite, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2656,6 +2656,14 @@ fn withRowNumericPredicateRatio(
             .output_name = owned_output,
         } }),
         .zero => try frame.ops.append(frame.allocator, .{ .row_zero_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .positive_zero => try frame.ops.append(frame.allocator, .{ .row_positive_zero_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .negative_zero => try frame.ops.append(frame.allocator, .{ .row_negative_zero_ratio = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2720,6 +2728,14 @@ pub fn withRowPositiveZeroCount(frame: anytype, names: []const []const u8, outpu
 
 pub fn withRowNegativeZeroCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .negative_zero);
+}
+
+pub fn withRowPositiveZeroRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .positive_zero);
+}
+
+pub fn withRowNegativeZeroRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .negative_zero);
 }
 
 pub fn withRowNonZeroCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
