@@ -319,6 +319,20 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .fill_zero_column => |fill| blk: {
+            const name = try allocator.dupe(u8, fill.name);
+            break :blk .{ .fill_zero_column = .{
+                .name = name,
+                .scalar = fill.scalar,
+            } };
+        },
+        .fill_non_zero_column => |fill| blk: {
+            const name = try allocator.dupe(u8, fill.name);
+            break :blk .{ .fill_non_zero_column = .{
+                .name = name,
+                .scalar = fill.scalar,
+            } };
+        },
         .fill_finite_column => |fill| blk: {
             const name = try allocator.dupe(u8, fill.name);
             break :blk .{ .fill_finite_column = .{

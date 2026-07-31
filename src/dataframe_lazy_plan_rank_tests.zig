@@ -1739,6 +1739,57 @@ test "device lazy frame fills signed Inf values" {
     try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
 }
 
+test "device lazy frame fills zero values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, -0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer zero_plan.deinit();
+    try zero_plan.fillZeroColumn("metric", f64, 42.0);
+    const zero_explain = try zero_plan.explain(gpa);
+    defer gpa.free(zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, zero_explain, "fill_zero_column(metric=scalar:f64)") != null);
+    var filled_zero = try zero_plan.collect();
+    defer filled_zero.deinit();
+    const zero_values = try (try filled_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_values);
+    try std.testing.expectEqual(@as(f64, 42.0), zero_values[0]);
+    try std.testing.expectEqual(@as(f64, 42.0), zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 3.0), zero_values[2]);
+    try std.testing.expect(std.math.isNan(zero_values[3]));
+    try std.testing.expect(std.math.isPositiveInf(zero_values[4]));
+    try std.testing.expectEqual(@as(f64, -2.0), zero_values[5]);
+
+    var non_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer non_zero_plan.deinit();
+    try non_zero_plan.fillNonZeroColumn("metric", f64, -7.0);
+    const non_zero_explain = try non_zero_plan.explain(gpa);
+    defer gpa.free(non_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, non_zero_explain, "fill_non_zero_column(metric=scalar:f64)") != null);
+    var filled_non_zero = try non_zero_plan.collect();
+    defer filled_non_zero.deinit();
+    const non_zero_values = try (try filled_non_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(non_zero_values);
+    try std.testing.expectEqual(@as(f64, 0.0), non_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), non_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[3]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[4]);
+    try std.testing.expectEqual(@as(f64, -2.0), non_zero_values[5]);
+
+    var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer mismatch_plan.deinit();
+    try mismatch_plan.fillZeroColumn("metric", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
+}
+
 test "device lazy frame fills finite values" {
     const gpa = std.testing.allocator;
 

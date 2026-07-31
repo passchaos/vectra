@@ -151,6 +151,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .fill_inf_column => |fill| try current.fillInfColumnWithScalar(fill.name, fill.scalar),
             .fill_positive_inf_column => |fill| try current.fillPositiveInfColumnWithScalar(fill.name, fill.scalar),
             .fill_negative_inf_column => |fill| try current.fillNegativeInfColumnWithScalar(fill.name, fill.scalar),
+            .fill_zero_column => |fill| try current.fillZeroColumnWithScalar(fill.name, fill.scalar),
+            .fill_non_zero_column => |fill| try current.fillNonZeroColumnWithScalar(fill.name, fill.scalar),
             .fill_finite_column => |fill| try current.fillFiniteColumnWithScalar(fill.name, fill.scalar),
             .fill_normal_column => |fill| try current.fillNormalColumnWithScalar(fill.name, fill.scalar),
             .fill_subnormal_column => |fill| try current.fillSubnormalColumnWithScalar(fill.name, fill.scalar),

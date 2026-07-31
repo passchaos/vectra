@@ -1320,6 +1320,46 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.filterSubnormalsColumn("missing"));
 }
 
+test "device dataframe fills zero values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 0.0, -0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var filled_zero = try table.fillZeroColumn("metric", f64, 42.0);
+    defer filled_zero.deinit();
+    const zero_values = try (try filled_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_values);
+    const zero_validity = try (try filled_zero.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(zero_validity);
+    try std.testing.expectEqual(@as(f64, 42.0), zero_values[0]);
+    try std.testing.expectEqual(@as(f64, 42.0), zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 3.0), zero_values[2]);
+    try std.testing.expect(std.math.isNan(zero_values[3]));
+    try std.testing.expect(std.math.isPositiveInf(zero_values[4]));
+    try std.testing.expectEqual(@as(f64, -2.0), zero_values[5]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, false }, zero_validity);
+
+    var filled_non_zero = try table.fillNonZeroColumn("metric", f64, -7.0);
+    defer filled_non_zero.deinit();
+    const non_zero_values = try (try filled_non_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(non_zero_values);
+    try std.testing.expectEqual(@as(f64, 0.0), non_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), non_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[3]);
+    try std.testing.expectEqual(@as(f64, -7.0), non_zero_values[4]);
+    try std.testing.expectEqual(@as(f64, -2.0), non_zero_values[5]);
+
+    try std.testing.expectError(error.TypeUnsupported, table.fillZeroColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillZeroColumn("missing", f64, 0.0));
+}
+
 test "device dataframe fills finite values" {
     const gpa = std.testing.allocator;
 
