@@ -683,6 +683,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_squared_euclidean_distance => |row_paired| try current.withRowSquaredEuclideanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_euclidean_distance => |row_paired| try current.withRowEuclideanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_manhattan_distance => |row_paired| try current.withRowManhattanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
+            .row_mean_error => |row_paired| try current.withRowMeanError(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_mae => |row_paired| try current.withRowMae(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_mse => |row_paired| try current.withRowMse(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_rmse => |row_paired| try current.withRowRmse(row_paired.value_names, row_paired.weight_names, row_paired.output_name),

@@ -1933,7 +1933,7 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
-const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mae, mse, rmse, mape, smape };
+const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape };
 
 fn quietNanF64() f64 {
     return @bitCast(@as(u64, 0x7ff8_0000_0000_0000));
@@ -1961,6 +1961,8 @@ fn withRowPairedNumericReduction(
     defer input.allocator.free(mape_sum);
     const smape_sum = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(smape_sum);
+    const signed_error_sum = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(signed_error_sum);
     const pair_counts = try input.allocator.alloc(usize, input.rows);
     defer input.allocator.free(pair_counts);
     const validity = try input.allocator.alloc(bool, input.rows);
@@ -1971,6 +1973,7 @@ fn withRowPairedNumericReduction(
     @memset(manhattan, 0.0);
     @memset(mape_sum, 0.0);
     @memset(smape_sum, 0.0);
+    @memset(signed_error_sum, 0.0);
     @memset(pair_counts, 0);
     @memset(validity, false);
 
@@ -1999,10 +2002,12 @@ fn withRowPairedNumericReduction(
                             if (!lhs_valid or !rhs_valid) continue;
                             const lhs = realValueAsF64(@TypeOf(raw_lhs), raw_lhs);
                             const rhs = realValueAsF64(@TypeOf(raw_rhs), raw_rhs);
+                            const signed_error = lhs - rhs;
                             dots[row] += lhs * rhs;
                             lhs_norm2[row] += lhs * lhs;
                             rhs_norm2[row] += rhs * rhs;
-                            const abs_error = @abs(lhs - rhs);
+                            signed_error_sum[row] += signed_error;
+                            const abs_error = @abs(signed_error);
                             manhattan[row] += abs_error;
                             mape_sum[row] += if (lhs == 0.0) quietNanF64() else abs_error / @abs(lhs);
                             const smape_denominator = @abs(lhs) + @abs(rhs);
@@ -2018,7 +2023,7 @@ fn withRowPairedNumericReduction(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, dots, lhs_norm2, rhs_norm2, manhattan, mape_sum, smape_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, l1, ape_sum, symmetric_ape_sum, pair_count| {
+    for (values, validity, dots, lhs_norm2, rhs_norm2, manhattan, mape_sum, smape_sum, signed_error_sum, pair_counts) |*value, valid, dot, lhs2, rhs2, l1, ape_sum, symmetric_ape_sum, signed_error, pair_count| {
         if (!valid) {
             value.* = 0.0;
         } else {
@@ -2030,6 +2035,7 @@ fn withRowPairedNumericReduction(
                 .squared_euclidean => squared_distance,
                 .euclidean => std.math.sqrt(squared_distance),
                 .manhattan => l1,
+                .mean_error => signed_error / count_f64,
                 .mae => l1 / count_f64,
                 .mse => squared_distance / count_f64,
                 .rmse => std.math.sqrt(squared_distance / count_f64),
@@ -2103,6 +2109,26 @@ pub fn withRowManhattanDistance(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .manhattan);
+}
+
+pub fn withRowMeanError(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    actual_names: []const []const u8,
+    predicted_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, actual_names, predicted_names, output_name, .mean_error);
+}
+
+pub fn withRowBias(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    actual_names: []const []const u8,
+    predicted_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMeanError(DeviceDataFrame, input, actual_names, predicted_names, output_name);
 }
 
 pub fn withRowMae(

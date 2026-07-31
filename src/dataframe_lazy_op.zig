@@ -298,6 +298,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_squared_euclidean_distance: Payloads.RowWeightedMean,
         row_euclidean_distance: Payloads.RowWeightedMean,
         row_manhattan_distance: Payloads.RowWeightedMean,
+        row_mean_error: Payloads.RowWeightedMean,
         row_mae: Payloads.RowWeightedMean,
         row_mse: Payloads.RowWeightedMean,
         row_rmse: Payloads.RowWeightedMean,

@@ -541,6 +541,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_manhattan);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
 
+    var row_mean_error_table = try validity_table.withRowMeanError(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mean_error");
+    defer row_mean_error_table.deinit();
+    const row_mean_error_column = try row_mean_error_table.column("row_mean_error");
+    try std.testing.expect(row_mean_error_column.f64.nullable());
+    const row_mean_error = try row_mean_error_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_error);
+    const row_mean_error_validity = try row_mean_error_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_error_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 19.5 }, row_mean_error);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_error_validity);
+
     var row_mae_table = try validity_table.withRowMae(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mae");
     defer row_mae_table.deinit();
     const row_mae = try (try row_mae_table.column("row_mae")).f64.toOwnedSlice(gpa);

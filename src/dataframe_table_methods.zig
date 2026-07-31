@@ -2651,6 +2651,14 @@ pub fn withRowManhattanDistance(self: anytype, lhs_names: []const []const u8, rh
     return dataframe_array_mod.withRowManhattanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
 
+pub fn withRowMeanError(self: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMeanError(FrameType(@TypeOf(self)), frameValue(self), actual_names, predicted_names, output_name);
+}
+
+pub fn withRowBias(self: anytype, actual_names: []const []const u8, predicted_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowBias(FrameType(@TypeOf(self)), frameValue(self), actual_names, predicted_names, output_name);
+}
+
 pub fn withRowMae(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMae(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
