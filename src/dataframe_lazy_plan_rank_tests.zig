@@ -1195,6 +1195,35 @@ test "device lazy frame derives normal predicate columns" {
     defer gpa.free(filtered_normal_metric);
     try std.testing.expectEqual(@as(f64, 1.0), filtered_normal_metric[0]);
 
+    var drop_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_subnormal_plan.deinit();
+    try drop_subnormal_plan.dropSubnormalsColumn("metric");
+    const drop_subnormal_explain = try drop_subnormal_plan.explain(gpa);
+    defer gpa.free(drop_subnormal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_subnormal_explain, "drop_subnormals[metric]") != null);
+    var dropped_subnormal = try drop_subnormal_plan.collect();
+    defer dropped_subnormal.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_subnormal.height());
+    const dropped_subnormal_metric = try (try dropped_subnormal.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_subnormal_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_subnormal_metric[0]);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_subnormal_metric[1]);
+    try std.testing.expect(std.math.isPositiveInf(dropped_subnormal_metric[2]));
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_subnormal_metric[3]);
+
+    var filter_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_subnormal_plan.deinit();
+    try filter_subnormal_plan.filterSubnormalsColumn("metric");
+    const filter_subnormal_explain = try filter_subnormal_plan.explain(gpa);
+    defer gpa.free(filter_subnormal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_subnormal_explain, "filter_subnormals_column(metric)") != null);
+    var filtered_subnormal = try filter_subnormal_plan.collect();
+    defer filtered_subnormal.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_subnormal.height());
+    const filtered_subnormal_metric = try (try filtered_subnormal.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_subnormal_metric);
+    try std.testing.expectEqual(@as(f64, std.math.floatTrueMin(f64)), filtered_subnormal_metric[0]);
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isNormalColumn("missing", "missing_is_normal");
@@ -1219,6 +1248,11 @@ test "device lazy frame derives normal predicate columns" {
     defer invalid_filter_plan.deinit();
     try invalid_filter_plan.filterNormalsColumn("missing");
     try std.testing.expectError(error.ColumnNotFound, invalid_filter_plan.collect());
+
+    var invalid_subnormal_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_subnormal_filter_plan.deinit();
+    try invalid_subnormal_filter_plan.filterSubnormalsColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_subnormal_filter_plan.collect());
 }
 
 test "device lazy frame selects normal columns" {

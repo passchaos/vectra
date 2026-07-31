@@ -669,6 +669,22 @@ pub fn filterNormalsColumn(self: anytype, name: []const u8) DeviceDataError!Fram
     return dataframe_array_mod.filterNormalsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropSubnormals(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropSubnormals(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropSubnormalsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropSubnormals(self, names);
+}
+
+pub fn dropSubnormalsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropSubnormals(self, &.{name});
+}
+
+pub fn filterSubnormalsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterSubnormalsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn dropNonFinites(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropNonFinites(FrameType(@TypeOf(self)), frameValue(self), names);
 }

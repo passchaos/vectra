@@ -504,6 +504,25 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, filter_normal_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_normal_explain, "filter_normals_column(sales)") != null);
 
+    var drop_subnormal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_subnormal_scan.deinit();
+    try drop_subnormal_scan.dropSubnormalsColumn("sales");
+    try drop_subnormal_scan.select(&.{"id"});
+
+    const drop_subnormal_explain = try drop_subnormal_scan.explain(gpa);
+    defer gpa.free(drop_subnormal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_subnormal_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_subnormal_explain, "drop_subnormals[sales]") != null);
+
+    var filter_subnormal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_subnormal_scan.deinit();
+    try filter_subnormal_scan.filterSubnormalsColumn("sales");
+
+    const filter_subnormal_explain = try filter_subnormal_scan.explain(gpa);
+    defer gpa.free(filter_subnormal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_subnormal_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_subnormal_explain, "filter_subnormals_column(sales)") != null);
+
     var drop_non_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer drop_non_finite_scan.deinit();
     try drop_non_finite_scan.dropNonFinitesColumn("sales");

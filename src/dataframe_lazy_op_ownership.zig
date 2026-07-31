@@ -188,6 +188,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .filter_negative_infs_column => |name| .{ .filter_negative_infs_column = try allocator.dupe(u8, name) },
         .drop_normals => |names| .{ .drop_normals = try cloneNameList(allocator, names) },
         .filter_normals_column => |name| .{ .filter_normals_column = try allocator.dupe(u8, name) },
+        .drop_subnormals => |names| .{ .drop_subnormals = try cloneNameList(allocator, names) },
+        .filter_subnormals_column => |name| .{ .filter_subnormals_column = try allocator.dupe(u8, name) },
         .drop_non_finites => |names| .{ .drop_non_finites = try cloneNameList(allocator, names) },
         .filter_non_finites_column => |name| .{ .filter_non_finites_column = try allocator.dupe(u8, name) },
         .with_column_binary => |expr| blk: {

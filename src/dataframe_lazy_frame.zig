@@ -537,6 +537,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterNormalsColumn(self, name);
             }
 
+            pub fn dropSubnormals(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropSubnormals(self, names);
+            }
+
+            pub fn dropSubnormalsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropSubnormals(names);
+            }
+
+            pub fn dropSubnormalsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropSubnormalsColumn(self, name);
+            }
+
+            pub fn filterSubnormalsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterSubnormalsColumn(self, name);
+            }
+
             pub fn dropNonFinites(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropNonFinites(self, names);
             }

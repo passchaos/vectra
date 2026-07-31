@@ -96,6 +96,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         filter_negative_infs_column: Payloads.FilterColumn,
         drop_normals: Payloads.DropNulls,
         filter_normals_column: Payloads.FilterColumn,
+        drop_subnormals: Payloads.DropNulls,
+        filter_subnormals_column: Payloads.FilterColumn,
         drop_non_finites: Payloads.DropNulls,
         filter_non_finites_column: Payloads.FilterColumn,
         with_column_binary: Payloads.WithColumnBinary,

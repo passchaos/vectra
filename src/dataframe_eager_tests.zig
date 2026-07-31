@@ -1052,12 +1052,34 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(filtered_normal_metric);
     try std.testing.expectEqual(@as(f64, 1.0), filtered_normal_metric[0]);
 
+    var dropped_subnormal_rows = try table.dropSubnormalsColumn("metric");
+    defer dropped_subnormal_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_subnormal_rows.height());
+    const dropped_subnormal_metric = try (try dropped_subnormal_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_subnormal_metric);
+    const dropped_subnormal_validity = try (try dropped_subnormal_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_subnormal_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), dropped_subnormal_metric[0]);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_subnormal_metric[1]);
+    try std.testing.expect(std.math.isPositiveInf(dropped_subnormal_metric[2]));
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_subnormal_metric[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, dropped_subnormal_validity);
+
+    var filtered_subnormal_rows = try table.filterSubnormalsColumn("metric");
+    defer filtered_subnormal_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_subnormal_rows.height());
+    const filtered_subnormal_metric = try (try filtered_subnormal_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_subnormal_metric);
+    try std.testing.expectEqual(@as(f64, std.math.floatTrueMin(f64)), filtered_subnormal_metric[0]);
+
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
     try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropSubnormalsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterSubnormalsColumn("missing"));
 }
 
 test "device dataframe selects normal columns" {

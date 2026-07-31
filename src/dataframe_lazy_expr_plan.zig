@@ -381,6 +381,25 @@ pub fn filterNormalsColumn(frame: anytype, name: []const u8) DeviceDataError!voi
     try frame.ops.append(frame.allocator, .{ .filter_normals_column = owned_name });
 }
 
+pub fn dropSubnormals(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_subnormals = owned });
+}
+
+pub fn dropSubnormalsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropSubnormals(frame, &.{name});
+}
+
+pub fn filterSubnormalsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_subnormals_column = owned_name });
+}
+
 pub fn dropNonFinites(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try cloneNameList(frame.allocator, names);
     errdefer {
