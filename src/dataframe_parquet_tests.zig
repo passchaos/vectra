@@ -538,6 +538,21 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, row_finite_count_explain, "scan_pushdown: projection=[sales,active]") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_finite_count_explain, "row_finite_count([sales,active]->row_finite_count)") != null);
 
+    var row_normal_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_normal_count_scan.deinit();
+    try row_normal_count_scan.withRowNormalCount(&.{ "sales", "active" }, "row_normal_count");
+    try row_normal_count_scan.select(&.{"row_normal_count"});
+
+    const row_normal_count_explain = try row_normal_count_scan.explain(gpa);
+    defer gpa.free(row_normal_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_count_explain, "row_normal_count([sales,active]->row_normal_count)") != null);
+    var row_normal_count_result = try row_normal_count_scan.collect();
+    defer row_normal_count_result.deinit();
+    const row_normal_count = try (try row_normal_count_result.column("row_normal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_normal_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1 }, row_normal_count);
+
     var row_non_finite_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_non_finite_count_scan.deinit();
     try row_non_finite_count_scan.withRowNonFiniteCount(&.{}, "row_non_finite_count");

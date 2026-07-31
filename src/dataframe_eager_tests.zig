@@ -1006,7 +1006,14 @@ test "device dataframe derives normal predicate columns" {
     const id_is_normal = try (try integer_flags.column("id_is_normal")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_normal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
+
+    var row_normal_counts = try table.withRowNormalCount(&.{ "metric", "id" }, "row_normal_count");
+    defer row_normal_counts.deinit();
+    const row_normal_count = try (try row_normal_counts.column("row_normal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_normal_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
 }
 
 test "device dataframe selects signed Inf columns" {

@@ -1131,10 +1131,28 @@ test "device lazy frame derives normal predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, metric_is_normal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
 
+    var row_normal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer row_normal_plan.deinit();
+    try row_normal_plan.withRowNormalCount(&.{ "metric", "id" }, "row_normal_count");
+    try row_normal_plan.select(&.{"row_normal_count"});
+    const row_normal_explain = try row_normal_plan.explain(gpa);
+    defer gpa.free(row_normal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_count([metric,id]->row_normal_count)") != null);
+    var row_normal = try row_normal_plan.collect();
+    defer row_normal.deinit();
+    const row_normal_count = try (try row_normal.column("row_normal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_normal_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isNormalColumn("missing", "missing_is_normal");
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+
+    var invalid_count_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_count_plan.deinit();
+    try invalid_count_plan.withRowNormalCount(&.{"missing"}, "bad_count");
+    try std.testing.expectError(error.ColumnNotFound, invalid_count_plan.collect());
 }
 
 test "device lazy frame selects signed Inf columns" {

@@ -705,7 +705,7 @@ fn withRowNumericPredicateCount(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, normal, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -735,6 +735,10 @@ fn withRowNumericPredicateCount(
             .names = owned_names,
             .output_name = owned_output,
         } }),
+        .normal => try frame.ops.append(frame.allocator, .{ .row_normal_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
         .non_finite => try frame.ops.append(frame.allocator, .{ .row_non_finite_count = .{
             .names = owned_names,
             .output_name = owned_output,
@@ -760,6 +764,10 @@ pub fn withRowNegativeInfCount(frame: anytype, names: []const []const u8, output
 
 pub fn withRowFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .finite);
+}
+
+pub fn withRowNormalCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateCount(frame, names, output_name, .normal);
 }
 
 pub fn withRowNonFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

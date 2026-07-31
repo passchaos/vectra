@@ -138,6 +138,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_positive_inf_count => |row_count| try current.withRowPositiveInfCount(row_count.names, row_count.output_name),
             .row_negative_inf_count => |row_count| try current.withRowNegativeInfCount(row_count.names, row_count.output_name),
             .row_finite_count => |row_count| try current.withRowFiniteCount(row_count.names, row_count.output_name),
+            .row_normal_count => |row_count| try current.withRowNormalCount(row_count.names, row_count.output_name),
             .row_non_finite_count => |row_count| try current.withRowNonFiniteCount(row_count.names, row_count.output_name),
             .with_column_compare => |expr| blk: {
                 var column_value = try current.compareColumns(expr.lhs_name, expr.rhs_name, expr.op);
