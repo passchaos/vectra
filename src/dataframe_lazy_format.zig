@@ -760,6 +760,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .drop_row_range => |range| try writer.print("drop_row_range({d}..{d})", .{ range.start, range.stop }),
         .drop_last_rows => |n| try writer.print("drop_last_rows({d})", .{n}),
         .slice_rows_step => |slice| try writer.print("slice_rows_step({d}..{d}, step={d})", .{ slice.start, slice.stop, slice.step }),
+        .slice_rows_signed_step => |slice| try writer.print("slice_rows_signed_step({d}..{d}, step={d})", .{ slice.start, slice.stop, slice.step }),
         .stride_rows => |stride| try writer.print("stride_rows(start={d}, step={d})", .{ stride.start, stride.step }),
         .take_rows => |row_indices| {
             try writer.print("take_rows([", .{});

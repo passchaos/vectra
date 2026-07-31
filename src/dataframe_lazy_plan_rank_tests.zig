@@ -3305,6 +3305,24 @@ test "device lazy frame collects row slice operations" {
     try invalid_signed_slice_plan.sliceRowsSigned(-1, 2);
     try std.testing.expectError(error.IndexOutOfBounds, invalid_signed_slice_plan.collect());
 
+    var signed_step_plan = try DeviceLazyFrame.init(gpa, table);
+    defer signed_step_plan.deinit();
+    try signed_step_plan.sliceRowsSignedStep(-4, 4, 2);
+    try signed_step_plan.select(&.{"sales"});
+    const signed_step_explain = try signed_step_plan.explain(gpa);
+    defer gpa.free(signed_step_explain);
+    try std.testing.expect(std.mem.indexOf(u8, signed_step_explain, "slice_rows_signed_step(-4..4, step=2)") != null);
+    var signed_stepped = try signed_step_plan.collect();
+    defer signed_stepped.deinit();
+    const signed_stepped_sales = try (try signed_stepped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signed_stepped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, signed_stepped_sales);
+
+    var invalid_signed_step_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_signed_step_plan.deinit();
+    try invalid_signed_step_plan.sliceRowsSignedStep(-4, 4, 0);
+    try std.testing.expectError(error.InvalidShape, invalid_signed_step_plan.collect());
+
     var len_plan = try DeviceLazyFrame.init(gpa, table);
     defer len_plan.deinit();
     try len_plan.slice(2, 8);

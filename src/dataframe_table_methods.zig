@@ -2519,6 +2519,14 @@ pub fn sliceSigned(self: anytype, start: isize, length: usize) DeviceDataError!F
     return sliceRowsSigned(self, start, length);
 }
 
+pub fn sliceRowsSignedStep(self: anytype, start: isize, stop: isize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.sliceRowsSignedStep(FrameType(@TypeOf(self)), frameValue(self), start, stop, step);
+}
+
+pub fn sliceSignedStep(self: anytype, start: isize, stop: isize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return sliceRowsSignedStep(self, start, stop, step);
+}
+
 pub fn dropRows(self: anytype, row_indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }

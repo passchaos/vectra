@@ -773,6 +773,13 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ false, true }, signed_slice_units_validity);
     try std.testing.expectError(error.IndexOutOfBounds, table.sliceRowsSigned(-1, 2));
 
+    var signed_stepped_slice = try table.sliceRowsSignedStep(-3, 3, 2);
+    defer signed_stepped_slice.deinit();
+    const signed_stepped_sales = try (try signed_stepped_slice.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signed_stepped_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, signed_stepped_sales);
+    try std.testing.expectError(error.InvalidShape, table.sliceRowsSignedStep(-3, 3, 0));
+
     var stepped_inner = try table.sliceRowsStep(1, table.height(), 2);
     defer stepped_inner.deinit();
     try std.testing.expectEqual(@as(usize, 1), stepped_inner.height());

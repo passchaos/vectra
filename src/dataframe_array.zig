@@ -2632,6 +2632,28 @@ pub fn sliceRowsSigned(
     return sliceRows(DeviceDataFrame, input, begin, stop);
 }
 
+fn normalizeSignedSliceEndpoint(index: isize, rows: usize) DeviceFrameArrayError!usize {
+    const signed_rows = std.math.cast(isize, rows) orelse return error.InvalidShape;
+    var normalized = if (index < 0) signed_rows + index else index;
+    if (normalized < 0) normalized = 0;
+    if (normalized > signed_rows) normalized = signed_rows;
+    return @intCast(normalized);
+}
+
+pub fn sliceRowsSignedStep(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: isize,
+    stop: isize,
+    step: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (step == 0) return error.InvalidShape;
+    const begin = try normalizeSignedSliceEndpoint(start, input.rows);
+    const end = try normalizeSignedSliceEndpoint(stop, input.rows);
+    if (begin >= end) return takeRows(DeviceDataFrame, input, &.{});
+    return sliceRowsStep(DeviceDataFrame, input, begin, end, step);
+}
+
 pub fn takeRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -792,6 +792,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .drop_row_range => |range| try current.dropRowRange(range.start, range.stop),
             .drop_last_rows => |n| try current.dropLastRows(n),
             .slice_rows_step => |slice| try current.sliceRowsStep(slice.start, slice.stop, slice.step),
+            .slice_rows_signed_step => |slice| try current.sliceRowsSignedStep(slice.start, slice.stop, slice.step),
             .stride_rows => |stride| try current.strideRows(stride.start, stride.step),
             .take_rows => |row_indices| try current.take(row_indices),
             .take_rows_optional => |row_indices| try current.takeOptional(row_indices),

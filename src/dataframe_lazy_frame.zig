@@ -1931,6 +1931,18 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sliceRowsSignedStep(self: *DeviceLazyFrame, start: isize, stop: isize, step: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .slice_rows_signed_step = .{
+                    .start = start,
+                    .stop = stop,
+                    .step = step,
+                } });
+            }
+
+            pub fn sliceSignedStep(self: *DeviceLazyFrame, start: isize, stop: isize, step: usize) DeviceDataError!void {
+                return self.sliceRowsSignedStep(start, stop, step);
+            }
+
             pub fn sliceStep(self: *DeviceLazyFrame, start: usize, len: usize, step: usize) DeviceDataError!void {
                 const stop = std.math.add(usize, start, len) catch return error.InvalidShape;
                 return self.sliceRowsStep(start, stop, step);
