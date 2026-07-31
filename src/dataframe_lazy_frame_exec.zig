@@ -725,6 +725,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_trimean => |row_count| try current.withRowTrimean(row_count.names, row_count.output_name),
             .row_bowley_skewness => |row_count| try current.withRowBowleySkewness(row_count.names, row_count.output_name),
             .row_quartile_coeff_dispersion => |row_count| try current.withRowQuartileCoeffDispersion(row_count.names, row_count.output_name),
+            .row_kelley_skewness => |row_count| try current.withRowKelleySkewness(row_count.names, row_count.output_name),
             .row_mad => |row_count| try current.withRowMad(row_count.names, row_count.output_name),
             .row_mode => |row_count| try current.withRowMode(row_count.names, row_count.output_name),
             .row_entropy => |row_count| try current.withRowEntropy(row_count.names, row_count.output_name),

@@ -2839,6 +2839,14 @@ pub fn withRowQcd(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowQcd(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowKelleySkewness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowKelleySkewness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowKelleySkew(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowKelleySkew(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMad(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMad(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

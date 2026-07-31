@@ -3208,7 +3208,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, mad, mode, count_distinct, n_unique },
+    comptime reduction: enum { median, iqr, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness, mad, mode, count_distinct, n_unique },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3239,6 +3239,10 @@ fn withRowQuantileAlias(
             .output_name = owned_output,
         } }),
         .quartile_coeff_dispersion => try frame.ops.append(frame.allocator, .{ .row_quartile_coeff_dispersion = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .kelley_skewness => try frame.ops.append(frame.allocator, .{ .row_kelley_skewness = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3291,6 +3295,14 @@ pub fn withRowQuartileCoeffDispersion(frame: anytype, names: []const []const u8,
 
 pub fn withRowQcd(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuartileCoeffDispersion(frame, names, output_name);
+}
+
+pub fn withRowKelleySkewness(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .kelley_skewness);
+}
+
+pub fn withRowKelleySkew(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowKelleySkewness(frame, names, output_name);
 }
 
 pub fn withRowMad(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
