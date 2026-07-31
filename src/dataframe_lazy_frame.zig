@@ -1013,6 +1013,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnFminWithDeviceScalar(self, name, input_name, scalar);
             }
 
+            pub fn withColumnHypotScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHypotScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnHypotWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHypotWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnAtan2Scalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAtan2Scalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnAtan2WithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAtan2WithDeviceScalar(self, name, input_name, scalar);
+            }
+
             pub fn withColumnThreshold(
                 self: *DeviceLazyFrame,
                 name: []const u8,

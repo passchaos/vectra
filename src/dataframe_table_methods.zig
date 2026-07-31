@@ -435,6 +435,46 @@ pub fn withColumnFminWithDeviceScalar(self: anytype, output_name: []const u8, in
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnHypotScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHypotScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnHypotWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHypotWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnHypotScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHypotScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnHypotWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHypotWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnAtan2Scalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnAtan2Scalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnAtan2WithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnAtan2WithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnAtan2Scalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnAtan2Scalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnAtan2WithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnAtan2WithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnThreshold(
     self: anytype,
     name: []const u8,

@@ -2646,6 +2646,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnFminScalar("bad_fmin", "active", f64, 0.25));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnFminScalar("missing_fmin", "missing", f64, 0.25));
 
+    var hypot_ratio_table = try inverse_trig_table.withColumnHypotWithDeviceScalar("ratio_hypot", "ratio", .{ .f32 = 0.5 });
+    defer hypot_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try hypot_ratio_table.columnDType("ratio_hypot"));
+    const ratio_hypot = try (try hypot_ratio_table.column("ratio_hypot")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_hypot);
+    try std.testing.expectApproxEqAbs(std.math.hypot(@as(f64, -0.5), @as(f64, 0.5)), ratio_hypot[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_hypot[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.hypot(@as(f64, 0.5), @as(f64, 0.5)), ratio_hypot[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHypotScalar("bad_hypot", "units", f64, 0.5));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHypotScalar("missing_hypot", "missing", f64, 0.5));
+
+    var atan2_ratio_table = try inverse_trig_table.withColumnAtan2Scalar("ratio_atan2", "ratio", f64, 0.5);
+    defer atan2_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try atan2_ratio_table.columnDType("ratio_atan2"));
+    const ratio_atan2 = try (try atan2_ratio_table.column("ratio_atan2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_atan2);
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, -0.5), @as(f64, 0.5)), ratio_atan2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_atan2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atan2(@as(f64, 0.5), @as(f64, 0.5)), ratio_atan2[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAtan2WithDeviceScalar("bad_atan2", "units", .{ .f64 = 0.5 }));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAtan2Scalar("missing_atan2", "missing", f64, 0.5));
+
     var nan_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), -1.0, 2.0 }, .cpu);
     defer nan_metric.deinit();
     var nan_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_metric }});

@@ -214,6 +214,26 @@ pub fn unaryColumnFminWithDeviceScalar(frame: anytype, name: []const u8, scalar:
     return col.fminWithDeviceScalar(scalar);
 }
 
+pub fn unaryColumnHypotScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hypotScalar(T, scalar);
+}
+
+pub fn unaryColumnHypotWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hypotWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnAtan2Scalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.atan2Scalar(T, scalar);
+}
+
+pub fn unaryColumnAtan2WithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.atan2WithDeviceScalar(scalar);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

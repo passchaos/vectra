@@ -380,6 +380,38 @@ pub fn fminWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) arr
     };
 }
 
+pub fn hypotScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.hypotScalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn hypotWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.hypotScalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn atan2Scalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.atan2Scalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn atan2WithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.atan2Scalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
 pub fn threshold(self: anytype, comptime T: type, threshold_value: T, replacement_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {
