@@ -354,7 +354,7 @@ const HasNullsColumnPredicate = struct {
     }
 };
 
-fn columnHasNaN(column: anytype, allocator: std.mem.Allocator) DeviceFrameArrayError!bool {
+fn columnHasSpecialFloat(column: anytype, allocator: std.mem.Allocator, comptime predicate: SpecialFloatPredicate) DeviceFrameArrayError!bool {
     return switch (column) {
         inline else => |typed| {
             const host_values = try typed.toOwnedSlice(allocator);
@@ -363,35 +363,41 @@ fn columnHasNaN(column: anytype, allocator: std.mem.Allocator) DeviceFrameArrayE
             defer if (maybe_validity) |validity| allocator.free(validity);
             for (host_values, 0..) |value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                if (valid and isNanValue(@TypeOf(value), value)) return true;
+                if (valid and switch (predicate) {
+                    .nan => isNanValue(@TypeOf(value), value),
+                    .inf => isInfValue(@TypeOf(value), value),
+                    .non_finite => !isFiniteValue(@TypeOf(value), value),
+                }) return true;
             }
             return false;
         },
     };
 }
 
-fn selectColumnsByNaNPresence(
+fn selectColumnsBySpecialFloatPresence(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     wanted: bool,
+    comptime predicate: SpecialFloatPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     var selected_names: std.ArrayList([]const u8) = .empty;
     defer selected_names.deinit(input.allocator);
     for (input.names, input.columns) |name, column| {
-        if ((try columnHasNaN(column, input.allocator)) == wanted) try selected_names.append(input.allocator, name);
+        if ((try columnHasSpecialFloat(column, input.allocator, predicate)) == wanted) try selected_names.append(input.allocator, name);
     }
     return select(DeviceDataFrame, input, selected_names.items);
 }
 
-fn dropColumnsByNaNPresence(
+fn dropColumnsBySpecialFloatPresence(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     wanted: bool,
+    comptime predicate: SpecialFloatPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     var kept_names: std.ArrayList([]const u8) = .empty;
     defer kept_names.deinit(input.allocator);
     for (input.names, input.columns) |name, column| {
-        if ((try columnHasNaN(column, input.allocator)) != wanted) try kept_names.append(input.allocator, name);
+        if ((try columnHasSpecialFloat(column, input.allocator, predicate)) != wanted) try kept_names.append(input.allocator, name);
     }
     return select(DeviceDataFrame, input, kept_names.items);
 }
@@ -456,28 +462,56 @@ pub fn selectColumnsWithNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsByNaNPresence(DeviceDataFrame, input, true);
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .nan);
 }
 
 pub fn selectColumnsWithoutNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return selectColumnsByNaNPresence(DeviceDataFrame, input, false);
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .nan);
 }
 
 pub fn dropColumnsWithNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsByNaNPresence(DeviceDataFrame, input, true);
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .nan);
 }
 
 pub fn dropColumnsWithoutNaNs(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return dropColumnsByNaNPresence(DeviceDataFrame, input, false);
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .nan);
+}
+
+pub fn selectColumnsWithInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .inf);
+}
+
+pub fn selectColumnsWithoutInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
+}
+
+pub fn dropColumnsWithInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .inf);
+}
+
+pub fn dropColumnsWithoutInfs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
 }
 
 pub fn withColumn(

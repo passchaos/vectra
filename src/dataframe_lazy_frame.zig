@@ -305,6 +305,22 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_nans = {} });
             }
 
+            pub fn selectColumnsWithInfs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_infs = {} });
+            }
+
+            pub fn selectColumnsWithoutInfs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_infs = {} });
+            }
+
+            pub fn dropColumnsWithInfs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_infs = {} });
+            }
+
+            pub fn dropColumnsWithoutInfs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_infs = {} });
+            }
+
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
                 return lazy_expr_mod.withRowIndex(self, name, offset);
             }

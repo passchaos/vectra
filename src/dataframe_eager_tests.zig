@@ -782,6 +782,26 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqual(@as(usize, 1), drop_non_nan_columns.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_non_nan_columns.columnIndex("metric"));
 
+    var columns_with_infs = try table.selectColumnsWithInfs();
+    defer columns_with_infs.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_with_infs.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_with_infs.columnIndex("metric"));
+
+    var columns_without_infs = try table.selectColumnsWithoutInfs();
+    defer columns_without_infs.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_without_infs.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_without_infs.columnIndex("id"));
+
+    var drop_inf_columns = try table.dropColumnsWithInfs();
+    defer drop_inf_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_inf_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_inf_columns.columnIndex("id"));
+
+    var drop_non_inf_columns = try table.dropColumnsWithoutInfs();
+    defer drop_non_inf_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_non_inf_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_inf_columns.columnIndex("metric"));
+
     var dropped_nan_rows = try table.dropNaNsColumn("metric");
     defer dropped_nan_rows.deinit();
     try std.testing.expectEqual(@as(usize, 3), dropped_nan_rows.height());
