@@ -907,6 +907,15 @@ pub fn fillNegativeInfColumn(
     return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .negative_inf);
 }
 
+pub fn fillSubnormalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .subnormal);
+}
+
 pub fn fillNonFiniteColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

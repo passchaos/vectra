@@ -677,6 +677,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.fillNegativeInfColumnWithScalar(self, name, scalar);
             }
 
+            pub fn fillSubnormalColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillSubnormalColumn(self, name, T, value);
+            }
+
+            pub fn fillSubnormalColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillSubnormalColumnWithScalar(self, name, scalar);
+            }
+
             pub fn fillNonFiniteColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.fillNonFiniteColumn(self, name, T, value);
             }

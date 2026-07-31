@@ -604,6 +604,19 @@ pub fn fillNegativeInfColumnWithScalar(frame: anytype, name: []const u8, scalar:
     } });
 }
 
+pub fn fillSubnormalColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillSubnormalColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillSubnormalColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_subnormal_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn fillNonFiniteColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return fillNonFiniteColumnWithScalar(frame, name, DeviceScalar.init(T, value));
 }
