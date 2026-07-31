@@ -2580,6 +2580,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer nan_close_column.deinit();
     var nan_close_source = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_close_column }});
     defer nan_close_source.deinit();
+    var anomaly_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 4.0 }, &.{ true, false, true, true }, .cpu);
+    defer anomaly_metric.deinit();
+    var anomaly_metric_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = anomaly_metric }});
+    defer anomaly_metric_table.deinit();
     var nan_close_table = try nan_close_source.withColumnIscloseScalarEqualNan("metric_nan_close", "metric", f64, std.math.nan(f64), 0.0, 0.0, true);
     defer nan_close_table.deinit();
     const nan_close = try (try nan_close_table.column("metric_nan_close")).bool.toOwnedSlice(gpa);
@@ -2596,6 +2600,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 3), try table.countNonzeroColumn("sales"));
     try std.testing.expectEqual(@as(usize, 2), try table.countNonzeroColumn("units"));
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
+    try std.testing.expectEqual(@as(usize, 0), try table.nanCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.infCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 3), try table.finiteCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.nonFiniteCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 2), try table.finiteCountColumn("units"));
+    try std.testing.expectEqual(@as(usize, 1), try nan_close_source.nanCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.nanCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.infCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.finiteCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 2), try anomaly_metric_table.nonFiniteCountColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.nanCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 0), try table.nullCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 3), try table.validCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 1), try table.nullCountColumn("units"));

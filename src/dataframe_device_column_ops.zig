@@ -1342,6 +1342,34 @@ pub fn countNonzero(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countNan(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNan(),
+    };
+}
+
+pub fn countInf(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countInf(),
+    };
+}
+
+pub fn countFinite(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countFinite(),
+    };
+}
+
+pub fn countNonFinite(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNonFinite(),
+    };
+}
+
 pub fn countDistinct(self: anytype) array_mod.ArrayError!usize {
     const value = columnValue(self);
     return switch (value) {

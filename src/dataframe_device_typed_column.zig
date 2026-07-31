@@ -1364,6 +1364,33 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return value == zeroValue(T);
         }
 
+        fn isNanValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isNan(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNan(value.re) or std.math.isNan(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNan(value),
+                else => false,
+            };
+        }
+
+        fn isInfValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isInf(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isInf(value.re) or std.math.isInf(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isInf(value),
+                else => false,
+            };
+        }
+
+        fn isFiniteValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isFinite(value),
+                else => true,
+            };
+        }
+
         fn floatKeyEqual(comptime F: type, lhs: F, rhs: F) bool {
             const lhs_nan = std.math.isNan(lhs);
             const rhs_nan = std.math.isNan(rhs);
@@ -1654,6 +1681,41 @@ pub fn DeviceTypedColumn(comptime T: type) type {
                 if (!isZeroValue(value)) count += 1;
             }
             return count;
+        }
+
+        fn countMatching(self: Self, comptime predicate: fn (T) bool) array_mod.ArrayError!usize {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (predicate(value)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn countNan(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isNanValue);
+        }
+
+        pub fn countInf(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isInfValue);
+        }
+
+        pub fn countFinite(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isFiniteValue);
+        }
+
+        pub fn countNonFinite(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(struct {
+                fn f(value: T) bool {
+                    return !isFiniteValue(value);
+                }
+            }.f);
         }
 
         pub fn countDistinct(self: Self) array_mod.ArrayError!usize {

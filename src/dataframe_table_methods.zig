@@ -1431,6 +1431,22 @@ pub fn countNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!usize
     return expr_mod.countNonzeroColumn(frameValue(self), name);
 }
 
+pub fn nanCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.nanCountColumn(frameValue(self), name);
+}
+
+pub fn infCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.infCountColumn(frameValue(self), name);
+}
+
+pub fn finiteCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.finiteCountColumn(frameValue(self), name);
+}
+
+pub fn nonFiniteCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.nonFiniteCountColumn(frameValue(self), name);
+}
+
 pub fn countDistinctColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.countDistinctColumn(frameValue(self), name);
 }

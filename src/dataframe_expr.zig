@@ -758,6 +758,26 @@ pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usiz
     return col.countNonzero();
 }
 
+pub fn nanCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNan();
+}
+
+pub fn infCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countInf();
+}
+
+pub fn finiteCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countFinite();
+}
+
+pub fn nonFiniteCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNonFinite();
+}
+
 pub fn countDistinctColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countDistinct();
