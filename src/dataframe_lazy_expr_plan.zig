@@ -7,6 +7,7 @@ const series_mod = @import("series.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 
@@ -1656,6 +1657,31 @@ pub fn withColumnIscloseWithDeviceScalarsEqualNan(frame: anytype, name: []const 
         .atol = atol,
         .equal_nan = equal_nan,
     } });
+}
+
+pub fn withColumnLogicalScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_logical_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .op = op,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnLogicalAndScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!void {
+    return withColumnLogicalScalar(frame, name, input_name, scalar, .@"and");
+}
+
+pub fn withColumnLogicalOrScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!void {
+    return withColumnLogicalScalar(frame, name, input_name, scalar, .@"or");
+}
+
+pub fn withColumnLogicalXorScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!void {
+    return withColumnLogicalScalar(frame, name, input_name, scalar, .xor);
 }
 
 pub fn withColumnLiteral(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {

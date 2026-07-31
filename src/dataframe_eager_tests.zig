@@ -2329,6 +2329,26 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
 
+    var active_and_table = try rounding_type_table.withColumnLogicalAndScalar("active_and", "active", false);
+    defer active_and_table.deinit();
+    const active_and = try (try active_and_table.column("active_and")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_and);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, active_and);
+
+    var active_or_table = try rounding_type_table.withColumnLogicalOrScalar("active_or", "active", false);
+    defer active_or_table.deinit();
+    const active_or = try (try active_or_table.column("active_or")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_or);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_or);
+
+    var active_xor_table = try rounding_type_table.withColumnLogicalXorScalar("active_xor", "active", true);
+    defer active_xor_table.deinit();
+    const active_xor = try (try active_xor_table.column("active_xor")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_xor);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, active_xor);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLogicalAndScalar("bad_logical", "sales", true));
+    try std.testing.expectError(error.ColumnNotFound, rounding_type_table.withColumnLogicalXorScalar("missing_logical", "missing", true));
+
     var neg_sales_table = try table.withColumnNeg("sales_neg", "sales");
     defer neg_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try neg_sales_table.columnDType("sales_neg"));

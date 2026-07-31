@@ -1044,3 +1044,27 @@ pub fn iscloseWithDeviceScalars(
         ) },
     };
 }
+
+pub fn logicalAndScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| .{ .bool = try typed.logicalScalar(scalar, .@"and") },
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn logicalOrScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| .{ .bool = try typed.logicalScalar(scalar, .@"or") },
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn logicalXorScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| .{ .bool = try typed.logicalScalar(scalar, .xor) },
+        else => error.TypeUnsupported,
+    };
+}

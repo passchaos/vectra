@@ -91,6 +91,7 @@ pub const DeviceScalar = dataframe_mod.DeviceScalar;
 pub const Range = dataframe_mod.Range;
 pub const DeviceColumnBinaryOp = dataframe_mod.DeviceColumnBinaryOp;
 pub const DeviceColumnCompareOp = dataframe_mod.DeviceColumnCompareOp;
+pub const DeviceColumnLogicalOp = dataframe_mod.DeviceColumnLogicalOp;
 pub const DeviceGroupByAggregation = dataframe_mod.DeviceGroupByAggregation;
 pub const DeviceSortOptions = dataframe_mod.DeviceSortOptions;
 pub const DeviceClipOptions = dataframe_mod.DeviceClipOptions;

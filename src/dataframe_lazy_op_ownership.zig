@@ -1010,6 +1010,18 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .equal_nan = expr.equal_nan,
             } };
         },
+        .with_column_logical_scalar => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            errdefer allocator.free(input_name);
+            break :blk .{ .with_column_logical_scalar = .{
+                .name = name,
+                .input_name = input_name,
+                .op = expr.op,
+                .scalar = expr.scalar,
+            } };
+        },
         .with_column_literal => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             break :blk .{ .with_column_literal = .{

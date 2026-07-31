@@ -10,6 +10,7 @@ const array_mod = @import("array.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 const DeviceDTypeClass = options_mod.DeviceDTypeClass;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
@@ -126,6 +127,12 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             rtol: DeviceScalar,
             atol: DeviceScalar,
             equal_nan: bool,
+        };
+        pub const WithColumnLogicalScalar = struct {
+            name: []const u8,
+            input_name: []const u8,
+            op: DeviceColumnLogicalOp,
+            scalar: bool,
         };
         pub const WithColumnLdexpScalar = struct {
             name: []const u8,

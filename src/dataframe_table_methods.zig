@@ -13,6 +13,7 @@ const series_mod = @import("series.zig");
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 const DeviceDTypeClass = options_mod.DeviceDTypeClass;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
@@ -1191,6 +1192,28 @@ pub fn withColumnIscloseWithDeviceScalarsEqualNan(self: anytype, output_name: []
     var column = try iscloseColumnWithDeviceScalarsEqualNan(self, input_name, scalar, rtol, atol, equal_nan);
     defer column.deinit();
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
+}
+
+pub fn withColumnLogicalScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try logicalColumnScalar(self, input_name, scalar, op);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnLogicalAndScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogicalScalar(self, output_name, input_name, scalar, .@"and");
+}
+
+pub fn withColumnLogicalOrScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogicalScalar(self, output_name, input_name, scalar, .@"or");
+}
+
+pub fn withColumnLogicalXorScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogicalScalar(self, output_name, input_name, scalar, .xor);
 }
 
 pub fn filterColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {

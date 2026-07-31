@@ -11,6 +11,7 @@ const series_mod = @import("series.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 const DeviceScalar = options_mod.DeviceScalar;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 
@@ -617,6 +618,15 @@ pub fn iscloseColumnWithDeviceScalars(
 ) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.iscloseWithDeviceScalars(scalar, rtol, atol, equal_nan);
+}
+
+pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return switch (op) {
+        .@"and" => col.logicalAndScalar(scalar),
+        .@"or" => col.logicalOrScalar(scalar),
+        .xor => col.logicalXorScalar(scalar),
+    };
 }
 
 pub fn filterColumnMask(

@@ -1020,6 +1020,20 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn logicalScalar(self: Self, scalar: bool, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
+            if (comptime T != bool) return error.TypeUnsupported;
+            var values = switch (op) {
+                .@"and" => try self.values.logicalAndScalar(scalar),
+                .@"or" => try self.values.logicalOrScalar(scalar),
+                .xor => try self.values.logicalXorScalar(scalar),
+            };
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn compare(self: Self, other: Self, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
             try requireCompatibleColumnArrays(T, self.values, other.values);
             if (comptime !isOrderedColumnType(T)) {
