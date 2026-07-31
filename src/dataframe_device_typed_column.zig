@@ -1806,6 +1806,45 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return n * stats.m4 / (stats.m2 * stats.m2) - 3.0;
         }
 
+        pub fn meanAbs(self: Self) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var total: f64 = 0.0;
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                total += @abs(realValueToF64(value));
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            return total / @as(f64, @floatFromInt(count));
+        }
+
+        pub fn rms(self: Self) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var total: f64 = 0.0;
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                const x = realValueToF64(value);
+                total += x * x;
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            return std.math.sqrt(total / @as(f64, @floatFromInt(count)));
+        }
+
         pub fn any(self: Self) array_mod.ArrayError!bool {
             if (comptime T != bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);

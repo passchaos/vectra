@@ -828,6 +828,16 @@ pub fn kurtosisColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceSc
     return col.kurtosis();
 }
 
+pub fn meanAbsColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.meanAbs();
+}
+
+pub fn rmsColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.rms();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

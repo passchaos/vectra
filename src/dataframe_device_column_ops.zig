@@ -1447,6 +1447,22 @@ pub fn kurtosis(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     };
 }
 
+pub fn meanAbs(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.meanAbs() },
+    };
+}
+
+pub fn rms(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.rms() },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

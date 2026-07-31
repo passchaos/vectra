@@ -1503,6 +1503,14 @@ pub fn kurtColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar 
     return kurtosisColumn(self, name);
 }
 
+pub fn meanAbsColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.meanAbsColumn(frameValue(self), name);
+}
+
+pub fn rmsColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.rmsColumn(frameValue(self), name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }

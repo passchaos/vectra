@@ -2644,9 +2644,15 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.5), (try table.kurtosisColumn("sales")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), (try nullable_sales_table.skewColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -2.0), (try nullable_sales_table.kurtColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 3.0), (try table.meanAbsColumn("sales")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 38.0 / 3.0)), (try table.rmsColumn("sales")).f64, 1e-12);
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.meanAbsColumn("metric"));
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5.0)), (try nullable_sales_table.rmsColumn("metric")).f64, 1e-12);
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.varianceColumn("metric", 0.0));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.skewnessColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.kurtosisColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.meanAbsColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.rmsColumn("metric"));
     try std.testing.expectError(error.InvalidShape, table.varianceColumn("sales", -1.0));
     try std.testing.expectError(error.InvalidShape, table.semColumn("sales", -1.0));
     try std.testing.expectError(error.InvalidShape, table.cvColumn("sales", -1.0));
@@ -2696,6 +2702,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.cvColumn("active", 0.0));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.skewnessColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.kurtosisColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.meanAbsColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.rmsColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.ptpColumn("active"));
