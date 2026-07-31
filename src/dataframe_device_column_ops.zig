@@ -929,6 +929,66 @@ pub fn lerpWithDeviceScalar(self: anytype, end: ColumnType(@TypeOf(self)), weigh
     };
 }
 
+pub fn addcmulScalar(self: anytype, input1: ColumnType(@TypeOf(self)), input2: ColumnType(@TypeOf(self)), comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != input1.dtype() or column.dtype() != input2.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(input1.device()) or !column.device().sameDevice(input2.device())) return error.InvalidDevice;
+    return switch (column) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.fusedTernaryScalar(
+            @field(input1, @tagName(tag)),
+            @field(input2, @tagName(tag)),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, value),
+            .addcmul,
+        )),
+    };
+}
+
+pub fn addcmulWithDeviceScalar(self: anytype, input1: ColumnType(@TypeOf(self)), input2: ColumnType(@TypeOf(self)), value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != input1.dtype() or column.dtype() != input2.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(input1.device()) or !column.device().sameDevice(input2.device())) return error.InvalidDevice;
+    return switch (column) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.fusedTernaryScalar(
+            @field(input1, @tagName(tag)),
+            @field(input2, @tagName(tag)),
+            try castDeviceScalar(@TypeOf(typed).Scalar, value),
+            .addcmul,
+        )),
+    };
+}
+
+pub fn addcdivScalar(self: anytype, input1: ColumnType(@TypeOf(self)), input2: ColumnType(@TypeOf(self)), comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != input1.dtype() or column.dtype() != input2.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(input1.device()) or !column.device().sameDevice(input2.device())) return error.InvalidDevice;
+    return switch (column) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.fusedTernaryScalar(
+            @field(input1, @tagName(tag)),
+            @field(input2, @tagName(tag)),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, value),
+            .addcdiv,
+        )),
+    };
+}
+
+pub fn addcdivWithDeviceScalar(self: anytype, input1: ColumnType(@TypeOf(self)), input2: ColumnType(@TypeOf(self)), value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != input1.dtype() or column.dtype() != input2.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(input1.device()) or !column.device().sameDevice(input2.device())) return error.InvalidDevice;
+    return switch (column) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.fusedTernaryScalar(
+            @field(input1, @tagName(tag)),
+            @field(input2, @tagName(tag)),
+            try castDeviceScalar(@TypeOf(typed).Scalar, value),
+            .addcdiv,
+        )),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

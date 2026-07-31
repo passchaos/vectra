@@ -2278,6 +2278,20 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnLerpScalar("bad_lerp", "sales", "units", f64, 0.5));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnLerpScalar("missing_lerp", "sales", "missing", f64, 0.5));
 
+    var sales_addcmul_table = try table.withColumnAddcmulScalar("sales_addcmul", "sales", "cost", "cost", f64, 2.0);
+    defer sales_addcmul_table.deinit();
+    const sales_addcmul = try (try sales_addcmul_table.column("sales_addcmul")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_addcmul);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 7.5, 13.0 }, sales_addcmul);
+
+    var sales_addcdiv_table = try table.withColumnAddcdivScalar("sales_addcdiv", "sales", "sales", "cost", f64, 0.5);
+    defer sales_addcdiv_table.deinit();
+    const sales_addcdiv = try (try sales_addcdiv_table.column("sales_addcdiv")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_addcdiv);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 4.0, 6.25 }, sales_addcdiv);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnAddcdivScalar("bad_addcdiv", "units", "units", "units", i64, 1));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnAddcmulScalar("missing_addcmul", "sales", "missing", "cost", f64, 1.0));
+
     var doubled = try table.binaryColumnScalar("sales", f64, 2.0, .mul);
     defer doubled.deinit();
     const doubled_values = try doubled.f64.toOwnedSlice(gpa);

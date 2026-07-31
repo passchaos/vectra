@@ -1020,6 +1020,28 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn fusedTernaryScalar(self: Self, input1: Self, input2: Self, value: T, comptime op: enum { addcmul, addcdiv }) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            if (comptime op == .addcdiv and isIntegerColumnType(T)) return error.TypeUnsupported;
+            try requireCompatibleColumnArrays(T, self.values, input1.values);
+            try requireCompatibleColumnArrays(T, self.values, input2.values);
+            var values = switch (op) {
+                .addcmul => try self.values.addcmul(input1.values, input2.values, value),
+                .addcdiv => try self.values.addcdiv(input1.values, input2.values, value),
+            };
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, input1.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            if (input2.validity) |mask| {
+                var combined = try combineValidityMasks(self.values.allocator, validity, mask, self.len(), self.device());
+                errdefer if (combined) |*combined_mask| combined_mask.deinit();
+                if (validity) |*old_mask| old_mask.deinit();
+                validity = combined;
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn logicalScalar(self: Self, scalar: bool, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
             if (comptime T != bool) return error.TypeUnsupported;
             var values = switch (op) {

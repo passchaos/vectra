@@ -563,6 +563,34 @@ pub fn lerpColumnsWithDeviceScalar(frame: anytype, lhs_name: []const u8, rhs_nam
     return lhs.lerpWithDeviceScalar(rhs.*, weight);
 }
 
+pub fn addcmulColumnsScalar(frame: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const base = try frame.column(base_name);
+    const input1 = try frame.column(input1_name);
+    const input2 = try frame.column(input2_name);
+    return base.addcmulScalar(input1.*, input2.*, T, value);
+}
+
+pub fn addcmulColumnsWithDeviceScalar(frame: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const base = try frame.column(base_name);
+    const input1 = try frame.column(input1_name);
+    const input2 = try frame.column(input2_name);
+    return base.addcmulWithDeviceScalar(input1.*, input2.*, value);
+}
+
+pub fn addcdivColumnsScalar(frame: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const base = try frame.column(base_name);
+    const input1 = try frame.column(input1_name);
+    const input2 = try frame.column(input2_name);
+    return base.addcdivScalar(input1.*, input2.*, T, value);
+}
+
+pub fn addcdivColumnsWithDeviceScalar(frame: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const base = try frame.column(base_name);
+    const input1 = try frame.column(input1_name);
+    const input2 = try frame.column(input2_name);
+    return base.addcdivWithDeviceScalar(input1.*, input2.*, value);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

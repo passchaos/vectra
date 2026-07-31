@@ -1142,6 +1142,46 @@ pub fn withColumnLerpWithDeviceScalar(self: anytype, output_name: []const u8, lh
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn addcmulColumnsScalar(self: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.addcmulColumnsScalar(frameValue(self), base_name, input1_name, input2_name, T, value);
+}
+
+pub fn addcmulColumnsWithDeviceScalar(self: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.addcmulColumnsWithDeviceScalar(frameValue(self), base_name, input1_name, input2_name, value);
+}
+
+pub fn withColumnAddcmulScalar(self: anytype, output_name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try addcmulColumnsScalar(self, base_name, input1_name, input2_name, T, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnAddcmulWithDeviceScalar(self: anytype, output_name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try addcmulColumnsWithDeviceScalar(self, base_name, input1_name, input2_name, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn addcdivColumnsScalar(self: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.addcdivColumnsScalar(frameValue(self), base_name, input1_name, input2_name, T, value);
+}
+
+pub fn addcdivColumnsWithDeviceScalar(self: anytype, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.addcdivColumnsWithDeviceScalar(frameValue(self), base_name, input1_name, input2_name, value);
+}
+
+pub fn withColumnAddcdivScalar(self: anytype, output_name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try addcdivColumnsScalar(self, base_name, input1_name, input2_name, T, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnAddcdivWithDeviceScalar(self: anytype, output_name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try addcdivColumnsWithDeviceScalar(self, base_name, input1_name, input2_name, value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn compareColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.compareColumns(frameValue(self), lhs_name, rhs_name, op);
 }

@@ -1299,6 +1299,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnLerpWithDeviceScalar(self, name, lhs_name, rhs_name, weight);
             }
 
+            pub fn withColumnAddcmulScalar(self: *DeviceLazyFrame, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAddcmulScalar(self, name, base_name, input1_name, input2_name, T, value);
+            }
+
+            pub fn withColumnAddcmulWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAddcmulWithDeviceScalar(self, name, base_name, input1_name, input2_name, value);
+            }
+
+            pub fn withColumnAddcdivScalar(self: *DeviceLazyFrame, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAddcdivScalar(self, name, base_name, input1_name, input2_name, T, value);
+            }
+
+            pub fn withColumnAddcdivWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAddcdivWithDeviceScalar(self, name, base_name, input1_name, input2_name, value);
+            }
+
             pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
             }

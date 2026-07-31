@@ -322,6 +322,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_binary => |expr| try writer.print("with_column_binary({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
         .with_column_scalar => |expr| try writer.print("with_column_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .with_column_lerp_scalar => |expr| try writer.print("with_column_lerp_scalar({s}=lerp({s}, {s}, weight:{s}))", .{ expr.name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
+        .with_column_addcmul_scalar => |expr| try writer.print("with_column_addcmul_scalar({s}=addcmul({s}, {s}, {s}, value:{s}))", .{ expr.name, expr.base_name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
+        .with_column_addcdiv_scalar => |expr| try writer.print("with_column_addcdiv_scalar({s}=addcdiv({s}, {s}, {s}, value:{s}))", .{ expr.name, expr.base_name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),
         .with_column_isclose_scalar => |expr| try writer.print("with_column_isclose_scalar({s}=isclose({s}, scalar:{s}, rtol:{s}, atol:{s}, equal_nan={any}))", .{ expr.name, expr.input_name, @tagName(expr.scalar), @tagName(expr.rtol), @tagName(expr.atol), expr.equal_nan }),
         .with_column_logical => |expr| try writer.print("with_column_logical({s}=logical_{s}({s}, {s}))", .{ expr.name, @tagName(expr.op), expr.lhs_name, expr.rhs_name }),
         .with_column_logical_scalar => |expr| try writer.print("with_column_logical_scalar({s}=logical_{s}({s}, scalar:{any}))", .{ expr.name, @tagName(expr.op), expr.input_name, expr.scalar }),

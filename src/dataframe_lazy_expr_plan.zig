@@ -1632,6 +1632,57 @@ pub fn withColumnLerpWithDeviceScalar(frame: anytype, name: []const u8, lhs_name
     } });
 }
 
+fn appendTernaryParamOp(
+    frame: anytype,
+    name: []const u8,
+    base_name: []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    scalar: DeviceScalar,
+    comptime tag: enum { addcmul, addcdiv },
+) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_base = try frame.allocator.dupe(u8, base_name);
+    errdefer frame.allocator.free(owned_base);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    try frame.ops.append(frame.allocator, switch (tag) {
+        .addcmul => .{ .with_column_addcmul_scalar = .{
+            .name = owned_name,
+            .base_name = owned_base,
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .scalar = scalar,
+        } },
+        .addcdiv => .{ .with_column_addcdiv_scalar = .{
+            .name = owned_name,
+            .base_name = owned_base,
+            .lhs_name = owned_lhs,
+            .rhs_name = owned_rhs,
+            .scalar = scalar,
+        } },
+    });
+}
+
+pub fn withColumnAddcmulScalar(frame: anytype, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnAddcmulWithDeviceScalar(frame, name, base_name, input1_name, input2_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnAddcmulWithDeviceScalar(frame: anytype, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+    return appendTernaryParamOp(frame, name, base_name, input1_name, input2_name, value, .addcmul);
+}
+
+pub fn withColumnAddcdivScalar(frame: anytype, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnAddcdivWithDeviceScalar(frame, name, base_name, input1_name, input2_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnAddcdivWithDeviceScalar(frame: anytype, name: []const u8, base_name: []const u8, input1_name: []const u8, input2_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+    return appendTernaryParamOp(frame, name, base_name, input1_name, input2_name, value, .addcdiv);
+}
+
 pub fn withColumnIscloseScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
     return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), false);
 }
