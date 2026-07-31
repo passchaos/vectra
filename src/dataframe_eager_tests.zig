@@ -2332,6 +2332,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnExp("bad_exp", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnExp("missing_exp", "missing"));
 
+    var exp2_cost_table = try table.withColumnExp2("cost_exp2", "cost");
+    defer exp2_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try exp2_cost_table.columnDType("cost_exp2"));
+    const cost_exp2 = try (try exp2_cost_table.column("cost_exp2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_exp2);
+    try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 1.0)), cost_exp2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 1.5)), cost_exp2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 2.0)), cost_exp2[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnExp2("bad_exp2", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnExp2("missing_exp2", "missing"));
+
+    var expm1_cost_table = try table.withColumnExpm1("cost_expm1", "cost");
+    defer expm1_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try expm1_cost_table.columnDType("cost_expm1"));
+    const cost_expm1 = try (try expm1_cost_table.column("cost_expm1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_expm1);
+    try std.testing.expectApproxEqAbs(std.math.expm1(@as(f64, 1.0)), cost_expm1[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.expm1(@as(f64, 1.5)), cost_expm1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.expm1(@as(f64, 2.0)), cost_expm1[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnExpm1("bad_expm1", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnExpm1("missing_expm1", "missing"));
+
     var log_sales_table = try table.withColumnLog("sales_log", "sales");
     defer log_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try log_sales_table.columnDType("sales_log"));

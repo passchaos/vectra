@@ -349,6 +349,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_reciprocal => |expr| try writer.print("with_column_reciprocal({s}=reciprocal({s}))", .{ expr.name, expr.input_name }),
         .with_column_sqrt => |expr| try writer.print("with_column_sqrt({s}=sqrt({s}))", .{ expr.name, expr.input_name }),
         .with_column_exp => |expr| try writer.print("with_column_exp({s}=exp({s}))", .{ expr.name, expr.input_name }),
+        .with_column_exp2 => |expr| try writer.print("with_column_exp2({s}=exp2({s}))", .{ expr.name, expr.input_name }),
+        .with_column_expm1 => |expr| try writer.print("with_column_expm1({s}=expm1({s}))", .{ expr.name, expr.input_name }),
         .with_column_log => |expr| try writer.print("with_column_log({s}=log({s}))", .{ expr.name, expr.input_name }),
         .with_column_log1p => |expr| try writer.print("with_column_log1p({s}=log1p({s}))", .{ expr.name, expr.input_name }),
         .with_column_log2 => |expr| try writer.print("with_column_log2({s}=log2({s}))", .{ expr.name, expr.input_name }),

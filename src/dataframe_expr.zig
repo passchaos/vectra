@@ -44,6 +44,16 @@ pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(
     return col.exp();
 }
 
+pub fn unaryColumnExp2(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.exp2();
+}
+
+pub fn unaryColumnExpm1(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.expm1();
+}
+
 pub fn unaryColumnLog(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log();

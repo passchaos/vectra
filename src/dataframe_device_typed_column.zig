@@ -30,6 +30,10 @@ const takeArray1d = array_helpers_mod.takeArray1d;
 const isIntegerColumnType = numeric_mod.isIntegerColumnType;
 const isOrderedColumnType = numeric_mod.isOrderedColumnType;
 
+fn isComplexColumnType(comptime T: type) bool {
+    return T == array_mod.Complex64 or T == array_mod.Complex128;
+}
+
 pub fn DeviceTypedColumn(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -285,6 +289,26 @@ pub fn DeviceTypedColumn(comptime T: type) type {
         pub fn exp(self: Self) array_mod.ArrayError!Self {
             if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.exp();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn exp2(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.exp2();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn expm1(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.expm1();
             errdefer values.deinit();
             var validity: ?array_mod.Array(bool) = null;
             errdefer if (validity) |*mask| mask.deinit();
