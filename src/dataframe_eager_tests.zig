@@ -485,6 +485,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mode_validity);
 
+    var row_entropy_table = try validity_table.withRowEntropy(&.{ "a", "b", "wa" }, "row_entropy");
+    defer row_entropy_table.deinit();
+    const row_entropy_column = try row_entropy_table.column("row_entropy");
+    try std.testing.expect(row_entropy_column.f64.nullable());
+    const row_entropy = try row_entropy_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_entropy);
+    const row_entropy_validity = try row_entropy_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_entropy_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_entropy[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 2.0)), row_entropy[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_entropy[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))), row_entropy[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_entropy_validity);
+
+    var row_gini_table = try validity_table.withRowGiniImpurity(&.{ "a", "b", "wa" }, "row_gini");
+    defer row_gini_table.deinit();
+    const row_gini_column = try row_gini_table.column("row_gini");
+    try std.testing.expect(row_gini_column.f64.nullable());
+    const row_gini = try row_gini_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_gini);
+    const row_gini_validity = try row_gini_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_gini_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_gini[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), row_gini[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_gini[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 9.0), row_gini[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_gini_validity);
+
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
     const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");

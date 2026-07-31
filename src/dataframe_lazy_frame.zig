@@ -1898,6 +1898,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMode(self, names, output_name);
             }
 
+            pub fn withRowEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowEntropy(self, names, output_name);
+            }
+
+            pub fn withRowGiniImpurity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowGiniImpurity(self, names, output_name);
+            }
+
             pub fn withRowCountDistinct(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCountDistinct(self, names, output_name);
             }

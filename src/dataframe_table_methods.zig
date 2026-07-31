@@ -2787,6 +2787,14 @@ pub fn withRowMode(self: anytype, names: []const []const u8, output_name: []cons
     return dataframe_array_mod.withRowMode(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowEntropy(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowGiniImpurity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowCountDistinct(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCountDistinct(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
