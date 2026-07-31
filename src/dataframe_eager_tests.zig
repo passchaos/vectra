@@ -408,6 +408,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 1 }, reversed_units);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, reversed_units_validity);
 
+    var rolled = try table.rollRows(1);
+    defer rolled.deinit();
+    const rolled_sales = try (try rolled.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolled_sales);
+    const rolled_units = try (try rolled.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolled_units);
+    const rolled_units_validity = try (try rolled.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(rolled_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 2.0, 3.0 }, rolled_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 1, 2 }, rolled_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, rolled_units_validity);
+
+    var rolled_negative = try table.rollRows(-1);
+    defer rolled_negative.deinit();
+    const rolled_negative_sales = try (try rolled_negative.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolled_negative_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0, 2.0 }, rolled_negative_sales);
+
     var cast_active = try table.castColumn("active", .i8);
     defer cast_active.deinit();
     try std.testing.expectEqual(DeviceDType.i8, try cast_active.columnDType("active"));

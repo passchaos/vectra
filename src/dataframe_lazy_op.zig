@@ -395,6 +395,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         repeat_rows_by: []const u8,
         sample_rows: Payloads.RowSample,
         sample_rows_with_replacement: Payloads.RowSample,
+        roll_rows: isize,
         reverse_rows,
         head: Payloads.HeadTail,
         tail: Payloads.HeadTail,

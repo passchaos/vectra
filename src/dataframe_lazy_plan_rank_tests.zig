@@ -3643,6 +3643,25 @@ test "device lazy frame reverses rows" {
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0, 3.0, 2.0 }, sales);
     try std.testing.expectEqualSlices(i64, &.{ 4, 3, 2, 1 }, units);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, active);
+
+    var roll_plan = try DeviceLazyFrame.init(gpa, table);
+    defer roll_plan.deinit();
+    try roll_plan.rollRows(1);
+    try roll_plan.select(&.{ "sales", "units", "active" });
+    const roll_explain = try roll_plan.explain(gpa);
+    defer gpa.free(roll_explain);
+    try std.testing.expect(std.mem.indexOf(u8, roll_explain, "roll_rows(1)") != null);
+    var rolled = try roll_plan.collect();
+    defer rolled.deinit();
+    const rolled_sales = try (try rolled.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rolled_sales);
+    const rolled_units = try (try rolled.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(rolled_units);
+    const rolled_active = try (try rolled.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(rolled_active);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 2.0, 3.0, 5.0 }, rolled_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 1, 2, 3 }, rolled_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, rolled_active);
 }
 
 test "device lazy frame collects rank operations" {

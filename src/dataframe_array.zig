@@ -2997,6 +2997,24 @@ pub fn reverseRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+pub fn rollRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    shift: isize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (input.rows == 0) return takeRows(DeviceDataFrame, input, &.{});
+    const signed_rows = std.math.cast(isize, input.rows) orelse return error.InvalidShape;
+    const normalized_shift: usize = @intCast(@mod(shift, signed_rows));
+    const row_indices = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(row_indices);
+    // Match Array.roll(axis=0): a positive shift moves later rows toward the
+    // front, so output row i reads source row i - shift modulo the row count.
+    for (row_indices, 0..) |*slot, out_row| {
+        slot.* = (out_row + input.rows - normalized_shift) % input.rows;
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn filterRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

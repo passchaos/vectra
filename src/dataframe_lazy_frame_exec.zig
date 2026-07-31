@@ -799,6 +799,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .repeat_rows_by => |count_name| try current.repeatRowsByColumn(count_name),
             .sample_rows => |sample| try current.sampleRows(sample.count, sample.seed),
             .sample_rows_with_replacement => |sample| try current.sampleRowsWithReplacement(sample.count, sample.seed),
+            .roll_rows => |shift| try current.rollRows(shift),
             .reverse_rows => try current.reverseRows(),
             .head => |n| try current.head(n),
             .tail => |n| try current.tail(n),

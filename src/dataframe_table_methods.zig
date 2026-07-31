@@ -2597,6 +2597,10 @@ pub fn reverseRows(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.reverseRows(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn rollRows(self: anytype, shift: isize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.rollRows(FrameType(@TypeOf(self)), frameValue(self), shift);
+}
+
 pub fn reverse(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return reverseRows(self);
 }
