@@ -853,6 +853,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.fillNonZeroColumnWithScalar(self, name, scalar);
             }
 
+            pub fn fillPositiveColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillPositiveColumn(self, name, T, value);
+            }
+
+            pub fn fillPositiveColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillPositiveColumnWithScalar(self, name, scalar);
+            }
+
+            pub fn fillNegativeColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.fillNegativeColumn(self, name, T, value);
+            }
+
+            pub fn fillNegativeColumnWithScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.fillNegativeColumnWithScalar(self, name, scalar);
+            }
+
             pub fn fillFiniteColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.fillFiniteColumn(self, name, T, value);
             }

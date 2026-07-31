@@ -949,29 +949,12 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, zero, non_zero, finite, normal, subnormal, non_finite };
-
-fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: SpecialFloatPredicate) bool {
-    return switch (predicate) {
-        .nan => isNanValue(T, value),
-        .inf => isInfValue(T, value),
-        .positive_inf => isPositiveInfValue(T, value),
-        .negative_inf => isNegativeInfValue(T, value),
-        .zero => isZeroValue(T, value),
-        .non_zero => isNonZeroValue(T, value),
-        .finite => isFiniteValue(T, value),
-        .normal => isNormalValue(T, value),
-        .subnormal => isSubnormalValue(T, value),
-        .non_finite => !isFiniteValue(T, value),
-    };
-}
-
-fn fillSpecialFloatsTyped(
+fn fillNumericPredicateTyped(
     comptime T: type,
     allocator: std.mem.Allocator,
     column: anytype,
     replacement: T,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) array_mod.ArrayError!@TypeOf(column) {
     const ColumnType = @TypeOf(column);
     const values = try column.toOwnedSlice(allocator);
@@ -981,7 +964,7 @@ fn fillSpecialFloatsTyped(
 
     for (values, 0..) |*slot, row| {
         const valid = if (maybe_validity) |validity| validity[row] else true;
-        if (valid and specialFloatPredicateMatches(T, slot.*, predicate)) slot.* = replacement;
+        if (valid and rowNumericPredicateMatches(T, slot.*, predicate)) slot.* = replacement;
     }
 
     if (maybe_validity) |validity| {
@@ -990,12 +973,12 @@ fn fillSpecialFloatsTyped(
     return ColumnType.fromSlice(allocator, values, column.device());
 }
 
-fn fillSpecialFloatColumn(
+fn fillNumericPredicateColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     name: []const u8,
     scalar: DeviceScalar,
-    comptime predicate: SpecialFloatPredicate,
+    comptime predicate: RowNumericPredicate,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     return switch (scalar) {
@@ -1006,7 +989,7 @@ fn fillSpecialFloatColumn(
             var filled: DeviceColumn = @unionInit(
                 DeviceColumn,
                 @tagName(tag),
-                try fillSpecialFloatsTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement, predicate),
+                try fillNumericPredicateTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement, predicate),
             );
             defer filled.deinit();
             break :blk try withColumn(DeviceDataFrame, input, name, filled);
@@ -1020,7 +1003,7 @@ pub fn fillNaNColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .nan);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .nan);
 }
 
 pub fn fillInfColumn(
@@ -1029,7 +1012,7 @@ pub fn fillInfColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .inf);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .inf);
 }
 
 pub fn fillPositiveInfColumn(
@@ -1038,7 +1021,7 @@ pub fn fillPositiveInfColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .positive_inf);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .positive_inf);
 }
 
 pub fn fillNegativeInfColumn(
@@ -1047,7 +1030,7 @@ pub fn fillNegativeInfColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .negative_inf);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .negative_inf);
 }
 
 pub fn fillZeroColumn(
@@ -1056,7 +1039,7 @@ pub fn fillZeroColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .zero);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .zero);
 }
 
 pub fn fillNonZeroColumn(
@@ -1065,7 +1048,25 @@ pub fn fillNonZeroColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .non_zero);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .non_zero);
+}
+
+pub fn fillPositiveColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .positive);
+}
+
+pub fn fillNegativeColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .negative);
 }
 
 pub fn fillFiniteColumn(
@@ -1074,7 +1075,7 @@ pub fn fillFiniteColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .finite);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .finite);
 }
 
 pub fn fillNormalColumn(
@@ -1083,7 +1084,7 @@ pub fn fillNormalColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .normal);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .normal);
 }
 
 pub fn fillSubnormalColumn(
@@ -1092,7 +1093,7 @@ pub fn fillSubnormalColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .subnormal);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .subnormal);
 }
 
 pub fn fillNonFiniteColumn(
@@ -1101,7 +1102,7 @@ pub fn fillNonFiniteColumn(
     name: []const u8,
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .non_finite);
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .non_finite);
 }
 
 pub fn coalesceColumns(

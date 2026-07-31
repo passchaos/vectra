@@ -725,6 +725,32 @@ pub fn fillNonZeroColumnWithScalar(frame: anytype, name: []const u8, scalar: Dev
     } });
 }
 
+pub fn fillPositiveColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillPositiveColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillPositiveColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_positive_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
+pub fn fillNegativeColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return fillNegativeColumnWithScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn fillNegativeColumnWithScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .fill_negative_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
 pub fn fillFiniteColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return fillFiniteColumnWithScalar(frame, name, DeviceScalar.init(T, value));
 }
