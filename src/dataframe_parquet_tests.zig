@@ -588,6 +588,21 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(row_normal_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1 }, row_normal_count);
 
+    var row_subnormal_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_subnormal_count_scan.deinit();
+    try row_subnormal_count_scan.withRowSubnormalCount(&.{ "sales", "active" }, "row_subnormal_count");
+    try row_subnormal_count_scan.select(&.{"row_subnormal_count"});
+
+    const row_subnormal_count_explain = try row_subnormal_count_scan.explain(gpa);
+    defer gpa.free(row_subnormal_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_subnormal_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_subnormal_count_explain, "row_subnormal_count([sales,active]->row_subnormal_count)") != null);
+    var row_subnormal_count_result = try row_subnormal_count_scan.collect();
+    defer row_subnormal_count_result.deinit();
+    const row_subnormal_count = try (try row_subnormal_count_result.column("row_subnormal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_subnormal_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, row_subnormal_count);
+
     var row_non_finite_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_non_finite_count_scan.deinit();
     try row_non_finite_count_scan.withRowNonFiniteCount(&.{}, "row_non_finite_count");

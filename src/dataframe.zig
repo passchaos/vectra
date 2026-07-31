@@ -302,6 +302,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowNegativeInfCount = table_methods_mod.withRowNegativeInfCount;
     pub const withRowFiniteCount = table_methods_mod.withRowFiniteCount;
     pub const withRowNormalCount = table_methods_mod.withRowNormalCount;
+    pub const withRowSubnormalCount = table_methods_mod.withRowSubnormalCount;
     pub const withRowNonFiniteCount = table_methods_mod.withRowNonFiniteCount;
     pub const withColumnLiteral = table_methods_mod.withColumnLiteral;
     pub const withColumnLiteralScalar = table_methods_mod.withColumnLiteralScalar;

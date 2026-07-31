@@ -1210,7 +1210,7 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
-const RowNumericPredicate = enum { nan, inf, positive_inf, negative_inf, finite, normal, non_finite };
+const RowNumericPredicate = enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite };
 
 fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: RowNumericPredicate) bool {
     return switch (predicate) {
@@ -1220,6 +1220,7 @@ fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: Ro
         .negative_inf => isNegativeInfValue(T, value),
         .finite => isFiniteValue(T, value),
         .normal => isNormalValue(T, value),
+        .subnormal => isSubnormalValue(T, value),
         .non_finite => !isFiniteValue(T, value),
     };
 }
@@ -1310,6 +1311,15 @@ pub fn withRowNormalCount(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .normal);
+}
+
+pub fn withRowSubnormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .subnormal);
 }
 
 pub fn withRowNonFiniteCount(

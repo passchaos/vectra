@@ -493,6 +493,10 @@ pub fn withRowNormalCount(self: anytype, names: []const []const u8, output_name:
     return dataframe_array_mod.withRowNormalCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSubnormalCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSubnormalCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowNonFiniteCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNonFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

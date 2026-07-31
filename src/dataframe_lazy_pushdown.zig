@@ -324,7 +324,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, predicate.name);
                 }
             },
-            .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count, .row_positive_inf_count, .row_negative_inf_count, .row_finite_count, .row_normal_count, .row_non_finite_count => |row_count| {
+            .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count, .row_positive_inf_count, .row_negative_inf_count, .row_finite_count, .row_normal_count, .row_subnormal_count, .row_non_finite_count => |row_count| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
                 if (row_count.names.len == 0) {
                     // Empty row-count input means "all columns visible at this

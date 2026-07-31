@@ -1026,6 +1026,12 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(row_normal_count);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
 
+    var row_subnormal_counts = try table.withRowSubnormalCount(&.{ "metric", "id" }, "row_subnormal_count");
+    defer row_subnormal_counts.deinit();
+    const row_subnormal_count = try (try row_subnormal_counts.column("row_subnormal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_subnormal_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_subnormal_count);
+
     var dropped_normal_rows = try table.dropNormalsColumn("metric");
     defer dropped_normal_rows.deinit();
     try std.testing.expectEqual(@as(usize, 4), dropped_normal_rows.height());
@@ -1049,6 +1055,7 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
     try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));
 }

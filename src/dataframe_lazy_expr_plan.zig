@@ -732,7 +732,7 @@ fn withRowNumericPredicateCount(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, normal, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -766,6 +766,10 @@ fn withRowNumericPredicateCount(
             .names = owned_names,
             .output_name = owned_output,
         } }),
+        .subnormal => try frame.ops.append(frame.allocator, .{ .row_subnormal_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
         .non_finite => try frame.ops.append(frame.allocator, .{ .row_non_finite_count = .{
             .names = owned_names,
             .output_name = owned_output,
@@ -795,6 +799,10 @@ pub fn withRowFiniteCount(frame: anytype, names: []const []const u8, output_name
 
 pub fn withRowNormalCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .normal);
+}
+
+pub fn withRowSubnormalCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateCount(frame, names, output_name, .subnormal);
 }
 
 pub fn withRowNonFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
