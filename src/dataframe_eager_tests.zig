@@ -426,6 +426,36 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(rolled_negative_sales);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0, 2.0 }, rolled_negative_sales);
 
+    var shifted = try table.shiftRows(1);
+    defer shifted.deinit();
+    const shifted_sales = try (try shifted.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(shifted_sales);
+    const shifted_sales_validity = try (try shifted.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(shifted_sales_validity);
+    const shifted_units = try (try shifted.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(shifted_units);
+    const shifted_units_validity = try (try shifted.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(shifted_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0, 3.0 }, shifted_sales);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, shifted_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2 }, shifted_units);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, shifted_units_validity);
+
+    var shifted_negative = try table.shiftRows(-1);
+    defer shifted_negative.deinit();
+    const shifted_negative_sales = try (try shifted_negative.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(shifted_negative_sales);
+    const shifted_negative_sales_validity = try (try shifted_negative.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(shifted_negative_sales_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0, 0.0 }, shifted_negative_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, shifted_negative_sales_validity);
+
+    var shifted_all = try table.shiftRows(10);
+    defer shifted_all.deinit();
+    const shifted_all_sales_validity = try (try shifted_all.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(shifted_all_sales_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, shifted_all_sales_validity);
+
     var cast_active = try table.castColumn("active", .i8);
     defer cast_active.deinit();
     try std.testing.expectEqual(DeviceDType.i8, try cast_active.columnDType("active"));

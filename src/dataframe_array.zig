@@ -3015,6 +3015,34 @@ pub fn rollRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+pub fn shiftRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    shift: isize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (input.rows == 0) return takeOptionalRows(DeviceDataFrame, input, &.{});
+    const signed_rows = std.math.cast(isize, input.rows) orelse return error.InvalidShape;
+    const row_indices = try input.allocator.alloc(?usize, input.rows);
+    defer input.allocator.free(row_indices);
+
+    if (shift >= signed_rows or shift <= -signed_rows) {
+        @memset(row_indices, null);
+    } else if (shift > 0) {
+        const offset: usize = @intCast(shift);
+        for (row_indices, 0..) |*slot, out_row| {
+            slot.* = if (out_row < offset) null else out_row - offset;
+        }
+    } else if (shift < 0) {
+        const offset: usize = @intCast(-shift);
+        for (row_indices, 0..) |*slot, out_row| {
+            slot.* = if (out_row >= input.rows - offset) null else out_row + offset;
+        }
+    } else {
+        for (row_indices, 0..) |*slot, out_row| slot.* = out_row;
+    }
+    return takeOptionalRows(DeviceDataFrame, input, row_indices);
+}
+
 pub fn filterRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

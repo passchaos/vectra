@@ -1861,6 +1861,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .sample_rows => |sample| .{ .sample_rows = sample },
         .sample_rows_with_replacement => |sample| .{ .sample_rows_with_replacement = sample },
         .roll_rows => |shift| .{ .roll_rows = shift },
+        .shift_rows => |shift| .{ .shift_rows = shift },
         .reverse_rows => .{ .reverse_rows = {} },
         .head => |n| .{ .head = n },
         .tail => |n| .{ .tail = n },

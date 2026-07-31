@@ -3662,6 +3662,25 @@ test "device lazy frame reverses rows" {
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 2.0, 3.0, 5.0 }, rolled_sales);
     try std.testing.expectEqualSlices(i64, &.{ 4, 1, 2, 3 }, rolled_units);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, rolled_active);
+
+    var shift_plan = try DeviceLazyFrame.init(gpa, table);
+    defer shift_plan.deinit();
+    try shift_plan.shiftRows(1);
+    try shift_plan.select(&.{ "sales", "units", "active" });
+    const shift_explain = try shift_plan.explain(gpa);
+    defer gpa.free(shift_explain);
+    try std.testing.expect(std.mem.indexOf(u8, shift_explain, "shift_rows(1)") != null);
+    var shifted = try shift_plan.collect();
+    defer shifted.deinit();
+    const shifted_sales = try (try shifted.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(shifted_sales);
+    const shifted_sales_validity = try (try shifted.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(shifted_sales_validity);
+    const shifted_units = try (try shifted.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(shifted_units);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0, 3.0, 5.0 }, shifted_sales);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, shifted_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, shifted_units);
 }
 
 test "device lazy frame collects rank operations" {

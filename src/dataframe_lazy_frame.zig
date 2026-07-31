@@ -1999,6 +1999,10 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .roll_rows = shift });
             }
 
+            pub fn shiftRows(self: *DeviceLazyFrame, shift: isize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .shift_rows = shift });
+            }
+
             pub fn reverse(self: *DeviceLazyFrame) DeviceDataError!void {
                 return self.reverseRows();
             }

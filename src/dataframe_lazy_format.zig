@@ -786,6 +786,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .sample_rows => |sample| try writer.print("sample_rows(count={d}, seed={d})", .{ sample.count, sample.seed }),
         .sample_rows_with_replacement => |sample| try writer.print("sample_rows_with_replacement(count={d}, seed={d})", .{ sample.count, sample.seed }),
         .roll_rows => |shift| try writer.print("roll_rows({d})", .{shift}),
+        .shift_rows => |shift| try writer.print("shift_rows({d})", .{shift}),
         .reverse_rows => try writer.print("reverse_rows", .{}),
         .head => |n| try writer.print("head({d})", .{n}),
         .tail => |n| try writer.print("tail({d})", .{n}),
