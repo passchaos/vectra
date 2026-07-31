@@ -2654,6 +2654,66 @@ pub fn withRowWeightedModeRatio(
     return withRowWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_name, .ratio);
 }
 
+pub fn withRowWeightedModeMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+    for (0..flat.rows) |row| {
+        var best: f64 = 0.0;
+        var second: f64 = 0.0;
+        var row_weight: f64 = 0.0;
+        var found = false;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            row_weight += flat.weights[offset];
+            const candidate = flat.values[offset];
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * flat.width + previous_index;
+                if (!flat.validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) continue;
+            var candidate_weight: f64 = 0.0;
+            for (col_index..flat.width) |candidate_index| {
+                const candidate_offset = row * flat.width + candidate_index;
+                if (!flat.validity[candidate_offset]) continue;
+                if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
+            }
+            found = true;
+            if (candidate_weight > best) {
+                second = best;
+                best = candidate_weight;
+            } else if (candidate_weight > second) {
+                second = candidate_weight;
+            }
+        }
+        if (found and row_weight > 0.0) {
+            values[row] = best - second;
+            validity[row] = true;
+        }
+    }
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 const RowWeightedDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
 fn withRowWeightedDistributionReduction(
@@ -4045,6 +4105,92 @@ pub fn withRowModeRatio(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowModeFrequency(DeviceDataFrame, input, names, output_name, .ratio);
+}
+
+pub fn withRowModeMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0);
+    @memset(validity, false);
+
+    for (0..input.rows) |row| {
+        var best: usize = 0;
+        var second: usize = 0;
+        var found = false;
+        for (0..check_names.len) |col_index| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            const candidate = flat_values[offset];
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * check_names.len + previous_index;
+                if (!flat_validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat_values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) continue;
+            var count: usize = 0;
+            for (col_index..check_names.len) |candidate_index| {
+                const candidate_offset = row * check_names.len + candidate_index;
+                if (!flat_validity[candidate_offset]) continue;
+                if (rowModeValueEqual(candidate, flat_values[candidate_offset])) count += 1;
+            }
+            found = true;
+            if (count > best) {
+                second = best;
+                best = count;
+            } else if (count > second) {
+                second = count;
+            }
+        }
+        if (found) {
+            values[row] = @intCast(best - second);
+            validity[row] = true;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
 fn withRowModeCore(

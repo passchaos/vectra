@@ -2687,6 +2687,10 @@ pub fn withRowWeightedModeRatio(self: anytype, value_names: []const []const u8, 
     return dataframe_array_mod.withRowWeightedModeRatio(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowWeightedModeMargin(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedModeMargin(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
 pub fn withRowWeightedEntropy(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedEntropy(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
@@ -2849,6 +2853,10 @@ pub fn withRowModeCount(self: anytype, names: []const []const u8, output_name: [
 
 pub fn withRowModeRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowModeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowModeMargin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowModeMargin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
 pub fn withRowCountDistinct(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

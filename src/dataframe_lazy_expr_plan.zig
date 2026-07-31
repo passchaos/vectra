@@ -2815,6 +2815,22 @@ pub fn withRowWeightedModeRatio(frame: anytype, value_names: []const []const u8,
     } });
 }
 
+pub fn withRowWeightedModeMargin(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer {
+        for (owned_values) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_values);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_weighted_mode_margin = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } });
+}
+
 pub fn withRowWeightedEntropy(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer {
@@ -3340,6 +3356,20 @@ pub fn withRowModeRatio(frame: anytype, names: []const []const u8, output_name: 
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     try frame.ops.append(frame.allocator, .{ .row_mode_ratio = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
+pub fn withRowModeMargin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_mode_margin = .{
         .names = owned_names,
         .output_name = owned_output,
     } });
