@@ -1098,6 +1098,80 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame selects finite columns" {
+    const gpa = std.testing.allocator;
+
+    var finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0 }, .cpu);
+    defer finite_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), 4.0, std.math.inf(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var non_finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64) }, .cpu);
+    defer non_finite_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 8.0, 9.0, 10.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "finite_metric", .data = finite_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "non_finite_metric", .data = non_finite_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var select_finites_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_finites_plan.deinit();
+    try select_finites_plan.selectColumnsWithFinites();
+    const select_finites_explain = try select_finites_plan.explain(gpa);
+    defer gpa.free(select_finites_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_finites_explain, "select_columns_with_finites") != null);
+    var finite_columns = try select_finites_plan.collect();
+    defer finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), finite_columns.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), finite_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), finite_columns.columnIndex("id"));
+
+    var select_without_finites_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_without_finites_plan.deinit();
+    try select_without_finites_plan.selectColumnsWithoutFinites();
+    const select_without_finites_explain = try select_without_finites_plan.explain(gpa);
+    defer gpa.free(select_without_finites_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_without_finites_explain, "select_columns_without_finites") != null);
+    var non_finite_columns = try select_without_finites_plan.collect();
+    defer non_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), non_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_finite_columns.columnIndex("non_finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), non_finite_columns.columnIndex("null_metric"));
+
+    var drop_with_finites_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_with_finites_plan.deinit();
+    try drop_with_finites_plan.dropColumnsWithFinites();
+    const drop_with_finites_explain = try drop_with_finites_plan.explain(gpa);
+    defer gpa.free(drop_with_finites_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_with_finites_explain, "drop_columns_with_finites") != null);
+    var drop_finite_columns = try drop_with_finites_plan.collect();
+    defer drop_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_finite_columns.columnIndex("non_finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_finite_columns.columnIndex("null_metric"));
+
+    var drop_without_finites_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_finites_plan.deinit();
+    try drop_without_finites_plan.dropColumnsWithoutFinites();
+    const drop_without_finites_explain = try drop_without_finites_plan.explain(gpa);
+    defer gpa.free(drop_without_finites_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_finites_explain, "drop_columns_without_finites") != null);
+    var only_finite_columns = try drop_without_finites_plan.collect();
+    defer only_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), only_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_finite_columns.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), only_finite_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), only_finite_columns.columnIndex("id"));
+}
+
 test "device lazy frame derives signed Inf predicate columns" {
     const gpa = std.testing.allocator;
 

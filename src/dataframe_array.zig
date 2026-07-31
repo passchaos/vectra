@@ -566,6 +566,34 @@ pub fn dropColumnsWithoutNegativeInfs(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
 }
 
+pub fn selectColumnsWithFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .finite);
+}
+
+pub fn selectColumnsWithoutFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .finite);
+}
+
+pub fn dropColumnsWithFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .finite);
+}
+
+pub fn dropColumnsWithoutFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .finite);
+}
+
 pub fn selectColumnsWithNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

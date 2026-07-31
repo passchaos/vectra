@@ -933,6 +933,57 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
 }
 
+test "device dataframe selects finite columns" {
+    const gpa = std.testing.allocator;
+
+    var finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0 }, .cpu);
+    defer finite_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), 4.0, std.math.inf(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var non_finite_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64) }, .cpu);
+    defer non_finite_metric.deinit();
+    var null_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 8.0, 9.0, 10.0 }, &.{ false, false, false }, .cpu);
+    defer null_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "finite_metric", .data = finite_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "non_finite_metric", .data = non_finite_metric },
+        .{ .name = "null_metric", .data = null_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var with_finites = try table.selectColumnsWithFinites();
+    defer with_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 3), with_finites.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_finites.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_finites.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_finites.columnIndex("id"));
+
+    var without_finites = try table.selectColumnsWithoutFinites();
+    defer without_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 2), without_finites.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_finites.columnIndex("non_finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_finites.columnIndex("null_metric"));
+
+    var drop_with_finites = try table.dropColumnsWithFinites();
+    defer drop_with_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_with_finites.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_finites.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, null), drop_with_finites.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, null), drop_with_finites.columnIndex("id"));
+
+    var drop_without_finites = try table.dropColumnsWithoutFinites();
+    defer drop_without_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_without_finites.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_finites.columnIndex("finite_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_finites.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_without_finites.columnIndex("id"));
+}
+
 test "device dataframe derives signed Inf predicate columns" {
     const gpa = std.testing.allocator;
     const BF16 = vectra.BFloat16;
