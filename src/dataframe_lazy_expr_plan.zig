@@ -1065,7 +1065,7 @@ fn withRowNumericPredicateCount(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -1108,6 +1108,10 @@ fn withRowNumericPredicateCount(
             .output_name = owned_output,
         } }),
         .positive => try frame.ops.append(frame.allocator, .{ .row_positive_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .signbit => try frame.ops.append(frame.allocator, .{ .row_signbit_count = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -1168,6 +1172,10 @@ pub fn withRowNonZeroCount(frame: anytype, names: []const []const u8, output_nam
 
 pub fn withRowPositiveCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .positive);
+}
+
+pub fn withRowSignBitCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateCount(frame, names, output_name, .signbit);
 }
 
 pub fn withRowNegativeCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

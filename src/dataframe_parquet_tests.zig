@@ -815,6 +815,21 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(row_positive_count);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, row_positive_count);
 
+    var row_signbit_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_signbit_count_scan.deinit();
+    try row_signbit_count_scan.withRowSignBitCount(&.{ "sales", "active" }, "row_signbit_count");
+    try row_signbit_count_scan.select(&.{"row_signbit_count"});
+
+    const row_signbit_count_explain = try row_signbit_count_scan.explain(gpa);
+    defer gpa.free(row_signbit_count_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_signbit_count_explain, "scan_pushdown: projection=[sales,active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_signbit_count_explain, "row_signbit_count([sales,active]->row_signbit_count)") != null);
+    var row_signbit_count_result = try row_signbit_count_scan.collect();
+    defer row_signbit_count_result.deinit();
+    const row_signbit_count = try (try row_signbit_count_result.column("row_signbit_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_signbit_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, row_signbit_count);
+
     var row_zero_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer row_zero_count_scan.deinit();
     try row_zero_count_scan.withRowZeroCount(&.{ "sales", "active" }, "row_zero_count");

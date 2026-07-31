@@ -737,6 +737,10 @@ pub fn withRowPositiveCount(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowPositiveCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSignBitCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSignBitCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowNegativeCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNegativeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -1667,7 +1667,7 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
-const RowNumericPredicate = enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite };
+const RowNumericPredicate = enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite };
 
 fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: RowNumericPredicate) bool {
     return switch (predicate) {
@@ -1680,6 +1680,7 @@ fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: Ro
         .negative_zero => isNegativeZeroValue(T, value),
         .non_zero => isNonZeroValue(T, value),
         .positive => isPositiveValue(T, value),
+        .signbit => isSignBitValue(T, value),
         .negative => isNegativeValue(T, value),
         .finite => isFiniteValue(T, value),
         .normal => isNormalValue(T, value),
@@ -1801,6 +1802,15 @@ pub fn withRowPositiveCount(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .positive);
+}
+
+pub fn withRowSignBitCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .signbit);
 }
 
 pub fn withRowNegativeCount(

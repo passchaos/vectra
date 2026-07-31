@@ -197,6 +197,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_negative_zero_count: Payloads.RowValidityCount,
         row_non_zero_count: Payloads.RowValidityCount,
         row_positive_count: Payloads.RowValidityCount,
+        row_signbit_count: Payloads.RowValidityCount,
         row_negative_count: Payloads.RowValidityCount,
         row_finite_count: Payloads.RowValidityCount,
         row_normal_count: Payloads.RowValidityCount,
