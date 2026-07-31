@@ -1754,6 +1754,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowIqr(self, names, output_name);
             }
 
+            pub fn withRowMad(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMad(self, names, output_name);
+            }
+
+            pub fn withRowMedianAbsDev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMedianAbsDev(self, names, output_name);
+            }
+
             pub fn withRowSum(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSum(self, names, output_name);
             }

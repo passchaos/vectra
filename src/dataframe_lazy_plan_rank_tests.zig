@@ -1409,6 +1409,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowQuantile(&.{ "a", "b" }, "row_quantile", 0.25);
     try plan.withRowMedian(&.{ "a", "b" }, "row_median");
     try plan.withRowIqr(&.{ "a", "b" }, "row_iqr");
+    try plan.withRowMad(&.{ "a", "b" }, "row_mad");
     try plan.withRowSum(&.{ "a", "b" }, "row_sum");
     try plan.withRowMean(&.{ "a", "b" }, "row_mean");
     try plan.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -1427,7 +1428,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1436,6 +1437,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_quantile([a,b]->row_quantile, q=0.25)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_median([a,b]->row_median)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr([a,b]->row_iqr)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_mad([a,b]->row_mad)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean([a,b]->row_mean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_geometric_mean([a,b]->row_geo)") != null);
@@ -1457,7 +1459,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 23), result.width());
+    try std.testing.expectEqual(@as(usize, 24), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1488,6 +1490,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_iqr);
     const row_iqr_validity = try row_iqr_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_iqr_validity);
+    const row_mad_column = try result.column("row_mad");
+    try std.testing.expect(row_mad_column.f64.nullable());
+    const row_mad = try row_mad_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mad);
+    const row_mad_validity = try row_mad_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mad_validity);
     const row_sum_column = try result.column("row_sum");
     try std.testing.expect(row_sum_column.f64.nullable());
     const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
@@ -1607,6 +1615,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_iqr);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_iqr_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_mad);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mad_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);

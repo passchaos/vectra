@@ -2643,6 +2643,14 @@ pub fn withRowIqr(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowIqr(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMad(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMad(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowMedianAbsDev(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMedianAbsDev(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowSum(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSum(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
