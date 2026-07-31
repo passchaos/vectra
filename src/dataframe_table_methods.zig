@@ -2647,6 +2647,22 @@ pub fn withRowPtp(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowPtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMeanAbs(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMeanAbs(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowRms(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRms(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowL1Norm(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowL1Norm(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowL2Norm(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowL2Norm(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowVariance(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowVariance(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }

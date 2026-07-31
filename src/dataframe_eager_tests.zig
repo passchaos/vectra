@@ -457,6 +457,54 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_ptp);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_ptp_validity);
 
+    var row_mean_abs_table = try validity_table.withRowMeanAbs(&.{ "a", "b" }, "row_mean_abs");
+    defer row_mean_abs_table.deinit();
+    const row_mean_abs_column = try row_mean_abs_table.column("row_mean_abs");
+    try std.testing.expect(row_mean_abs_column.f64.nullable());
+    const row_mean_abs = try row_mean_abs_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_abs);
+    const row_mean_abs_validity = try row_mean_abs_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_abs_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean_abs);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_abs_validity);
+
+    var row_rms_table = try validity_table.withRowRms(&.{ "a", "b" }, "row_rms");
+    defer row_rms_table.deinit();
+    const row_rms_column = try row_rms_table.column("row_rms");
+    try std.testing.expect(row_rms_column.f64.nullable());
+    const row_rms = try row_rms_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_rms);
+    const row_rms_validity = try row_rms_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_rms_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_rms[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_rms[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rms[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 808.0)), row_rms[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_rms_validity);
+
+    var row_l1_table = try validity_table.withRowL1Norm(&.{ "a", "b" }, "row_l1");
+    defer row_l1_table.deinit();
+    const row_l1_column = try row_l1_table.column("row_l1");
+    const row_l1 = try row_l1_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_l1);
+    const row_l1_validity = try row_l1_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_l1_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_l1);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_l1_validity);
+
+    var row_l2_table = try validity_table.withRowL2Norm(&.{ "a", "b" }, "row_l2");
+    defer row_l2_table.deinit();
+    const row_l2_column = try row_l2_table.column("row_l2");
+    const row_l2 = try row_l2_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_l2);
+    const row_l2_validity = try row_l2_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_l2_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_l2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_l2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_l2[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1616.0)), row_l2[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_l2_validity);
+
     var row_variance_table = try validity_table.withRowVariance(&.{ "a", "b" }, "row_variance", 0.0);
     defer row_variance_table.deinit();
     const row_variance_column = try row_variance_table.column("row_variance");

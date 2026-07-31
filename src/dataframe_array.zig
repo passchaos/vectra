@@ -1868,7 +1868,7 @@ pub fn withRowLastNullIndex(
     return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
 }
 
-const RowNumericReduction = enum { sum, prod, mean, min, max, ptp };
+const RowNumericReduction = enum { sum, prod, mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -1919,6 +1919,8 @@ fn withRowNumericReduction(
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
                     switch (reduction) {
                         .sum, .mean => values[row] += value,
+                        .mean_abs, .l1_norm => values[row] += @abs(value),
+                        .rms, .l2_norm => values[row] += value * value,
                         .prod => {
                             values[row] = if (validity[row]) values[row] * value else value;
                         },
@@ -1961,6 +1963,12 @@ fn withRowNumericReduction(
             value.* = 0.0;
         } else if (reduction == .mean) {
             value.* /= @floatFromInt(count);
+        } else if (reduction == .mean_abs) {
+            value.* /= @floatFromInt(count);
+        } else if (reduction == .rms) {
+            value.* = std.math.sqrt(value.* / @as(f64, @floatFromInt(count)));
+        } else if (reduction == .l2_norm) {
+            value.* = std.math.sqrt(value.*);
         } else if (reduction == .ptp) {
             value.* = max_value - value.*;
         }
@@ -2024,6 +2032,42 @@ pub fn withRowPtp(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
+}
+
+pub fn withRowMeanAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .mean_abs);
+}
+
+pub fn withRowRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .rms);
+}
+
+pub fn withRowL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .l1_norm);
+}
+
+pub fn withRowL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .l2_norm);
 }
 
 const RowNumericDispersion = enum { variance, stddev, sem, cv };

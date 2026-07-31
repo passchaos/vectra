@@ -2539,7 +2539,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, prod, min, max, ptp },
+    comptime reduction: enum { sum, mean, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2573,6 +2573,22 @@ fn withRowNumericReduction(
             .names = owned_names,
             .output_name = owned_output,
         } }),
+        .mean_abs => try frame.ops.append(frame.allocator, .{ .row_mean_abs = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .rms => try frame.ops.append(frame.allocator, .{ .row_rms = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .l1_norm => try frame.ops.append(frame.allocator, .{ .row_l1_norm = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .l2_norm => try frame.ops.append(frame.allocator, .{ .row_l2_norm = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2598,6 +2614,22 @@ pub fn withRowMax(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowPtp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .ptp);
+}
+
+pub fn withRowMeanAbs(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .mean_abs);
+}
+
+pub fn withRowRms(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .rms);
+}
+
+pub fn withRowL1Norm(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .l1_norm);
+}
+
+pub fn withRowL2Norm(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .l2_norm);
 }
 
 fn withRowNumericDispersion(
