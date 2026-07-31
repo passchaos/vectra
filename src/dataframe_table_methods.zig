@@ -2815,6 +2815,10 @@ pub fn withRowIqr(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowIqr(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMidhinge(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMidhinge(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMad(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMad(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
@@ -2913,6 +2917,10 @@ pub fn withRowMax(self: anytype, names: []const []const u8, output_name: []const
 
 pub fn withRowPtp(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowPtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowMidrange(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMidrange(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
 pub fn withRowMeanAbs(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

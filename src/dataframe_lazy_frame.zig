@@ -1926,6 +1926,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowIqr(self, names, output_name);
             }
 
+            pub fn withRowMidhinge(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMidhinge(self, names, output_name);
+            }
+
             pub fn withRowMad(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMad(self, names, output_name);
             }
@@ -2040,6 +2044,10 @@ pub fn DeviceLazyTypes(
 
             pub fn withRowPtp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPtp(self, names, output_name);
+            }
+
+            pub fn withRowMidrange(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMidrange(self, names, output_name);
             }
 
             pub fn withRowMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

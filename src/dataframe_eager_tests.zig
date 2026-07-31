@@ -452,6 +452,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_median);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
 
+    var row_midhinge_table = try validity_table.withRowMidhinge(&.{ "a", "b" }, "row_midhinge");
+    defer row_midhinge_table.deinit();
+    const row_midhinge = try (try row_midhinge_table.column("row_midhinge")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_midhinge);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_midhinge);
+
     var row_iqr_table = try validity_table.withRowIqr(&.{ "a", "b" }, "row_iqr");
     defer row_iqr_table.deinit();
     const row_iqr_column = try row_iqr_table.column("row_iqr");
@@ -1145,6 +1151,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_ptp_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_ptp);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_ptp_validity);
+
+    var row_midrange_table = try validity_table.withRowMidrange(&.{ "a", "b" }, "row_midrange");
+    defer row_midrange_table.deinit();
+    const row_midrange = try (try row_midrange_table.column("row_midrange")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_midrange);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_midrange);
 
     var row_mean_abs_table = try validity_table.withRowMeanAbs(&.{ "a", "b" }, "row_mean_abs");
     defer row_mean_abs_table.deinit();

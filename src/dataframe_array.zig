@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, mean_abs, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3385,7 +3385,7 @@ fn withRowNumericReduction(
                                 values[row] = value;
                             }
                         },
-                        .ptp => {
+                        .ptp, .midrange => {
                             if (!validity[row]) {
                                 values[row] = value;
                                 maxima[row] = value;
@@ -3428,6 +3428,8 @@ fn withRowNumericReduction(
             value.* = std.math.sqrt(value.*);
         } else if (reduction == .ptp) {
             value.* = aux_value - value.*;
+        } else if (reduction == .midrange) {
+            value.* = (value.* + aux_value) / 2.0;
         }
     }
 
@@ -3525,6 +3527,15 @@ pub fn withRowPtp(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
+}
+
+pub fn withRowMidrange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .midrange);
 }
 
 pub fn withRowMeanAbs(
@@ -3726,6 +3737,30 @@ pub fn withRowIqr(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowIqrCore(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMidhinge(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const q3 = try withRowQuantileValues(DeviceDataFrame, input, check_names, 0.75, null);
+    defer {
+        input.allocator.free(q3.values);
+        input.allocator.free(q3.validity);
+    }
+    const q1 = try withRowQuantileValues(DeviceDataFrame, input, check_names, 0.25, null);
+    defer {
+        input.allocator.free(q1.values);
+        input.allocator.free(q1.validity);
+    }
+    for (q3.values, q1.values) |*hi, lo| hi.* = (hi.* + lo) / 2.0;
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, q3.values, q3.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
 fn withRowMadCore(

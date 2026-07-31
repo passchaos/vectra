@@ -3208,7 +3208,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, mad, mode, count_distinct, n_unique },
+    comptime reduction: enum { median, iqr, midhinge, mad, mode, count_distinct, n_unique },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3223,6 +3223,10 @@ fn withRowQuantileAlias(
             .output_name = owned_output,
         } }),
         .iqr => try frame.ops.append(frame.allocator, .{ .row_iqr = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .midhinge => try frame.ops.append(frame.allocator, .{ .row_midhinge = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3251,6 +3255,10 @@ pub fn withRowMedian(frame: anytype, names: []const []const u8, output_name: []c
 
 pub fn withRowIqr(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuantileAlias(frame, names, output_name, .iqr);
+}
+
+pub fn withRowMidhinge(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .midhinge);
 }
 
 pub fn withRowMad(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
@@ -3414,7 +3422,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, mean_abs, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3461,6 +3469,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .ptp => try frame.ops.append(frame.allocator, .{ .row_ptp = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .midrange => try frame.ops.append(frame.allocator, .{ .row_midrange = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3537,6 +3549,10 @@ pub fn withRowMax(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowPtp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .ptp);
+}
+
+pub fn withRowMidrange(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .midrange);
 }
 
 pub fn withRowMeanAbs(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
