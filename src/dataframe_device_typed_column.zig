@@ -1367,6 +1367,11 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return value / @as(T, @floatFromInt(count));
         }
 
+        fn lessValue(lhs: T, rhs: T) bool {
+            if (comptime T == array_mod.BFloat16) return lhs.lt(rhs);
+            return lhs < rhs;
+        }
+
         pub fn sum(self: Self) array_mod.ArrayError!T {
             if (comptime T == bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);
@@ -1400,6 +1405,48 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             }
             if (count == 0) return error.EmptyArray;
             return divByCount(total, count);
+        }
+
+        pub fn min(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var found = false;
+            var best = zeroValue(T);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!found or lessValue(value, best)) {
+                    best = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best;
+        }
+
+        pub fn max(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var found = false;
+            var best = zeroValue(T);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!found or lessValue(best, value)) {
+                    best = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best;
         }
 
         pub fn countNonzero(self: Self) array_mod.ArrayError!usize {
