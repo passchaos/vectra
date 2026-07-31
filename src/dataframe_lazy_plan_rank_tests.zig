@@ -1417,6 +1417,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowIqr(&.{ "a", "b" }, "row_iqr");
     try plan.withRowMad(&.{ "a", "b" }, "row_mad");
     try plan.withRowMode(&.{ "a", "b" }, "row_mode");
+    try plan.withRowPairCount(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_pair_count");
     try plan.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     try plan.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     try plan.withRowCosineSimilarity(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_cosine");
@@ -1452,7 +1453,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_pair_count", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1463,6 +1464,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr([a,b]->row_iqr)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mad([a,b]->row_mad)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode([a,b]->row_mode)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_pair_count(lhs=[a,b], rhs=[wa,wb]->row_pair_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mean(values=[a,b], weights=[wa,wb]->row_weighted_mean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_dot(lhs=[a,b], rhs=[wa,wb]->row_dot)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cosine_similarity(lhs=[a,b], rhs=[wa,wb]->row_cosine)") != null);
@@ -1501,7 +1503,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 42), result.width());
+    try std.testing.expectEqual(@as(usize, 43), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1544,6 +1546,8 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_mode);
     const row_mode_validity = try row_mode_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_mode_validity);
+    const row_pair_count = try (try result.column("row_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_pair_count);
     const row_weighted_mean_column = try result.column("row_weighted_mean");
     try std.testing.expect(row_weighted_mean_column.f64.nullable());
     const row_weighted_mean = try row_weighted_mean_column.f64.toOwnedSlice(gpa);
@@ -1739,6 +1743,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mad_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mode_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_pair_count);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mean[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_weighted_mean[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_mean[2], 1e-12);
@@ -1859,6 +1864,11 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 18.0 / 22.0), row_cv[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cv_validity);
+
+    var invalid_pair_count_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_pair_count_plan.deinit();
+    try invalid_pair_count_plan.withRowPairCount(&.{"a"}, &.{ "wa", "wb" }, "bad_row_pair_count");
+    try std.testing.expectError(error.LengthMismatch, invalid_pair_count_plan.collect());
 
     var invalid_weighted_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_weighted_plan.deinit();

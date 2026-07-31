@@ -1764,6 +1764,50 @@ pub fn withRowValidRatio(
     return withRowValidityRatio(DeviceDataFrame, input, names, output_name, true);
 }
 
+pub fn withRowPairCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len) return error.LengthMismatch;
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    for (lhs_names, rhs_names) |lhs_name, rhs_name| {
+        const lhs_source = try input.column(lhs_name);
+        const rhs_source = try input.column(rhs_name);
+
+        switch (lhs_source.*) {
+            inline else => |lhs_typed| {
+                const maybe_lhs_validity = try validityValues(lhs_typed, input.allocator);
+                defer if (maybe_lhs_validity) |mask| input.allocator.free(mask);
+
+                switch (rhs_source.*) {
+                    inline else => |rhs_typed| {
+                        const maybe_rhs_validity = try validityValues(rhs_typed, input.allocator);
+                        defer if (maybe_rhs_validity) |mask| input.allocator.free(mask);
+
+                        for (counts, 0..) |*count, row| {
+                            const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
+                            const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
+                            if (lhs_valid and rhs_valid) count.* += 1;
+                        }
+                    },
+                }
+            },
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 
 fn withRowValidityMatchIndex(

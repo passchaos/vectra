@@ -757,6 +757,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowValidCount = table_methods_mod.withRowValidCount;
     pub const withRowNullRatio = table_methods_mod.withRowNullRatio;
     pub const withRowValidRatio = table_methods_mod.withRowValidRatio;
+    pub const withRowPairCount = table_methods_mod.withRowPairCount;
     pub const withRowFirstValidIndex = table_methods_mod.withRowFirstValidIndex;
     pub const withRowLastValidIndex = table_methods_mod.withRowLastValidIndex;
     pub const withRowFirstNullIndex = table_methods_mod.withRowFirstNullIndex;

@@ -2607,6 +2607,10 @@ pub fn withRowValidRatio(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowValidRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowPairCount(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPairCount(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

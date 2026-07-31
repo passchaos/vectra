@@ -401,6 +401,13 @@ test "device dataframe owns fixed-width columns on a shared device" {
     });
     defer validity_table.deinit();
 
+    var row_pair_count_table = try validity_table.withRowPairCount(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_pair_count");
+    defer row_pair_count_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try row_pair_count_table.columnDType("row_pair_count"));
+    const row_pair_count = try (try row_pair_count_table.column("row_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_pair_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_pair_count);
+
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
     defer row_argmin_table.deinit();
     const row_argmin_column = try row_argmin_table.column("row_argmin");
@@ -641,6 +648,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_beta[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 12.0), row_beta[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_beta_validity);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPairCount(&.{"a"}, &.{ "wa", "wb" }, "bad_row_pair_count"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCovariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_covariance"));
