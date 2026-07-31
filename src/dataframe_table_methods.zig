@@ -1451,6 +1451,10 @@ pub fn maxColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.maxColumn(frameValue(self), name);
 }
 
+pub fn ptpColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.ptpColumn(frameValue(self), name);
+}
+
 pub fn anyColumn(self: anytype, name: []const u8) DeviceDataError!bool {
     return expr_mod.anyColumn(frameValue(self), name);
 }

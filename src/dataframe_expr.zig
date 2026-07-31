@@ -783,6 +783,11 @@ pub fn maxColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar 
     return col.max();
 }
 
+pub fn ptpColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.ptp();
+}
+
 pub fn anyColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
     const col = try frame.column(name);
     return col.any();

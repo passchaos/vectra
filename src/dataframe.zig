@@ -424,6 +424,7 @@ pub const DeviceDataFrame = struct {
     pub const meanColumn = table_methods_mod.meanColumn;
     pub const minColumn = table_methods_mod.minColumn;
     pub const maxColumn = table_methods_mod.maxColumn;
+    pub const ptpColumn = table_methods_mod.ptpColumn;
     pub const anyColumn = table_methods_mod.anyColumn;
     pub const allColumn = table_methods_mod.allColumn;
     pub const countTrueColumn = table_methods_mod.countTrueColumn;

@@ -1369,6 +1369,12 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return lhs * rhs;
         }
 
+        fn subValue(lhs: T, rhs: T) T {
+            if (comptime T == array_mod.BFloat16) return lhs.sub(rhs);
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.sub(rhs);
+            return lhs - rhs;
+        }
+
         fn divByCount(value: T, count: usize) T {
             if (comptime T == array_mod.BFloat16) return value.div(array_mod.BFloat16.fromF64(@floatFromInt(count)));
             return value / @as(T, @floatFromInt(count));
@@ -1473,6 +1479,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             }
             if (!found) return error.EmptyArray;
             return best;
+        }
+
+        pub fn ptp(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var found = false;
+            var low = zeroValue(T);
+            var high = zeroValue(T);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!found) {
+                    low = value;
+                    high = value;
+                    found = true;
+                    continue;
+                }
+                if (lessValue(value, low)) low = value;
+                if (lessValue(high, value)) high = value;
+            }
+            if (!found) return error.EmptyArray;
+            return subValue(high, low);
         }
 
         pub fn countNonzero(self: Self) array_mod.ArrayError!usize {

@@ -2603,6 +2603,11 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(DeviceScalar{ .f64 = 5.0 }, try table.maxColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 1 }, try table.minColumn("units"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 3 }, try table.maxColumn("units"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 3.0 }, try table.ptpColumn("sales"));
+    try std.testing.expectEqual(DeviceScalar{ .i64 = 2 }, try table.ptpColumn("units"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.ptpColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.ptpColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.ptpColumn("missing"));
 
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
@@ -2620,6 +2625,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.prodColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.ptpColumn("active"));
     try std.testing.expect(try rounding_type_table.anyColumn("active"));
     try std.testing.expect(!try rounding_type_table.allColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));

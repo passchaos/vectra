@@ -356,6 +356,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const mean = column_ops_mod.mean;
     pub const min = column_ops_mod.min;
     pub const max = column_ops_mod.max;
+    pub const ptp = column_ops_mod.ptp;
     pub const any = column_ops_mod.any;
     pub const all = column_ops_mod.all;
     pub const countTrue = column_ops_mod.countTrue;
