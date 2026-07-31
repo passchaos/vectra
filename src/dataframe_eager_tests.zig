@@ -837,6 +837,18 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(flag_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, flag_is_positive);
 
+    var row_positive_zero_counts = try table.withRowPositiveZeroCount(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_zero_count");
+    defer row_positive_zero_counts.deinit();
+    const row_positive_zero_count = try (try row_positive_zero_counts.column("row_positive_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_zero_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0, 0 }, row_positive_zero_count);
+
+    var row_negative_zero_counts = try table.withRowNegativeZeroCount(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_zero_count");
+    defer row_negative_zero_counts.deinit();
+    const row_negative_zero_count = try (try row_negative_zero_counts.column("row_negative_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_zero_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0, 0, 0, 0 }, row_negative_zero_count);
+
     var row_positive_counts = try table.withRowPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_count");
     defer row_positive_counts.deinit();
     const row_positive_count = try (try row_positive_counts.column("row_positive_count")).i64.toOwnedSlice(gpa);
@@ -883,6 +895,7 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveZeroColumn("missing", "missing_is_positive_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositivesColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativesColumn("missing"));

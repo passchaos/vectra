@@ -195,6 +195,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_positive_inf_count => |row_count| try current.withRowPositiveInfCount(row_count.names, row_count.output_name),
             .row_negative_inf_count => |row_count| try current.withRowNegativeInfCount(row_count.names, row_count.output_name),
             .row_zero_count => |row_count| try current.withRowZeroCount(row_count.names, row_count.output_name),
+            .row_positive_zero_count => |row_count| try current.withRowPositiveZeroCount(row_count.names, row_count.output_name),
+            .row_negative_zero_count => |row_count| try current.withRowNegativeZeroCount(row_count.names, row_count.output_name),
             .row_non_zero_count => |row_count| try current.withRowNonZeroCount(row_count.names, row_count.output_name),
             .row_positive_count => |row_count| try current.withRowPositiveCount(row_count.names, row_count.output_name),
             .row_negative_count => |row_count| try current.withRowNegativeCount(row_count.names, row_count.output_name),
