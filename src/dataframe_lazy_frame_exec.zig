@@ -103,6 +103,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .filter_positive_infs_column => |name| try current.filterPositiveInfsColumn(name),
             .drop_negative_infs => |names| try current.dropNegativeInfs(names),
             .filter_negative_infs_column => |name| try current.filterNegativeInfsColumn(name),
+            .drop_normals => |names| try current.dropNormals(names),
+            .filter_normals_column => |name| try current.filterNormalsColumn(name),
             .drop_non_finites => |names| try current.dropNonFinites(names),
             .filter_non_finites_column => |name| try current.filterNonFinitesColumn(name),
             .with_column_binary => |expr| blk: {

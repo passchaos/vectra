@@ -1012,8 +1012,31 @@ test "device dataframe derives normal predicate columns" {
     const row_normal_count = try (try row_normal_counts.column("row_normal_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_normal_count);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
+
+    var dropped_normal_rows = try table.dropNormalsColumn("metric");
+    defer dropped_normal_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_normal_rows.height());
+    const dropped_normal_metric = try (try dropped_normal_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_normal_metric);
+    const dropped_normal_validity = try (try dropped_normal_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_normal_validity);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_normal_metric[0]);
+    try std.testing.expectEqual(@as(f64, std.math.floatTrueMin(f64)), dropped_normal_metric[1]);
+    try std.testing.expect(std.math.isPositiveInf(dropped_normal_metric[2]));
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_normal_metric[3]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, dropped_normal_validity);
+
+    var filtered_normal_rows = try table.filterNormalsColumn("metric");
+    defer filtered_normal_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_normal_rows.height());
+    const filtered_normal_metric = try (try filtered_normal_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_normal_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), filtered_normal_metric[0]);
+
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));
 }
 
 test "device dataframe selects normal columns" {

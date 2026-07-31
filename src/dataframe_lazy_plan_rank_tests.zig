@@ -1144,6 +1144,35 @@ test "device lazy frame derives normal predicate columns" {
     defer gpa.free(row_normal_count);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
 
+    var drop_normal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_normal_plan.deinit();
+    try drop_normal_plan.dropNormalsColumn("metric");
+    const drop_normal_explain = try drop_normal_plan.explain(gpa);
+    defer gpa.free(drop_normal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_normal_explain, "drop_normals[metric]") != null);
+    var dropped_normal = try drop_normal_plan.collect();
+    defer dropped_normal.deinit();
+    try std.testing.expectEqual(@as(usize, 4), dropped_normal.height());
+    const dropped_normal_metric = try (try dropped_normal.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_normal_metric);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_normal_metric[0]);
+    try std.testing.expectEqual(@as(f64, std.math.floatTrueMin(f64)), dropped_normal_metric[1]);
+    try std.testing.expect(std.math.isPositiveInf(dropped_normal_metric[2]));
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_normal_metric[3]);
+
+    var filter_normal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_normal_plan.deinit();
+    try filter_normal_plan.filterNormalsColumn("metric");
+    const filter_normal_explain = try filter_normal_plan.explain(gpa);
+    defer gpa.free(filter_normal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_normal_explain, "filter_normals_column(metric)") != null);
+    var filtered_normal = try filter_normal_plan.collect();
+    defer filtered_normal.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_normal.height());
+    const filtered_normal_metric = try (try filtered_normal.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_normal_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), filtered_normal_metric[0]);
+
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.isNormalColumn("missing", "missing_is_normal");
@@ -1153,6 +1182,11 @@ test "device lazy frame derives normal predicate columns" {
     defer invalid_count_plan.deinit();
     try invalid_count_plan.withRowNormalCount(&.{"missing"}, "bad_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_count_plan.collect());
+
+    var invalid_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_filter_plan.deinit();
+    try invalid_filter_plan.filterNormalsColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_filter_plan.collect());
 }
 
 test "device lazy frame selects normal columns" {
