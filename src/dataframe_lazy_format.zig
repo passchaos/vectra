@@ -781,6 +781,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .take_rows_by_column => |name| try writer.print("take_rows_by_column({s})", .{name}),
         .take_rows_by_column_mode => |take_mode| try writer.print("take_rows_by_column_mode({s}, mode:{s})", .{ take_mode.name, @tagName(take_mode.mode) }),
+        .drop_rows_by_column => |name| try writer.print("drop_rows_by_column({s})", .{name}),
+        .drop_rows_by_column_mode => |take_mode| try writer.print("drop_rows_by_column_mode({s}, mode:{s})", .{ take_mode.name, @tagName(take_mode.mode) }),
         .repeat_rows => |repeat_count| try writer.print("repeat_rows({d})", .{repeat_count}),
         .tile_rows => |tile_count| try writer.print("tile_rows({d})", .{tile_count}),
         .repeat_rows_by => |count_name| try writer.print("repeat_rows_by({s})", .{count_name}),

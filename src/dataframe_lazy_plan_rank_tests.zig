@@ -3612,6 +3612,47 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(taken_by_wrap_sales);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0, 7.0, 5.0 }, taken_by_wrap_sales);
 
+    var drop_pick = try DeviceColumn.fromSliceWithValidity(isize, gpa, &.{ 1, -1, 0, 2 }, &.{ true, false, true, true }, .cpu);
+    defer drop_pick.deinit();
+    var drop_by_source = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = (try table.column("sales")).* },
+        .{ .name = "units", .data = (try table.column("units")).* },
+        .{ .name = "drop_pick", .data = drop_pick },
+    });
+    defer drop_by_source.deinit();
+    var drop_by_plan = try DeviceLazyFrame.init(gpa, drop_by_source);
+    defer drop_by_plan.deinit();
+    try drop_by_plan.dropRowsByColumn("drop_pick");
+    try drop_by_plan.select(&.{ "sales", "units" });
+    const drop_by_explain = try drop_by_plan.explain(gpa);
+    defer gpa.free(drop_by_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_by_explain, "drop_rows_by_column(drop_pick)") != null);
+    var dropped_by = try drop_by_plan.collect();
+    defer dropped_by.deinit();
+    const dropped_by_sales = try (try dropped_by.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_by_sales);
+    try std.testing.expectEqualSlices(f64, &.{7.0}, dropped_by_sales);
+
+    var drop_pick_wrap = try DeviceColumn.fromSlice(usize, gpa, &.{ 5, 5, 5, 5 }, .cpu);
+    defer drop_pick_wrap.deinit();
+    var drop_by_wrap_source = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = (try table.column("sales")).* },
+        .{ .name = "drop_pick", .data = drop_pick_wrap },
+    });
+    defer drop_by_wrap_source.deinit();
+    var drop_by_wrap_plan = try DeviceLazyFrame.init(gpa, drop_by_wrap_source);
+    defer drop_by_wrap_plan.deinit();
+    try drop_by_wrap_plan.dropRowsByColumnMode("drop_pick", .wrap);
+    try drop_by_wrap_plan.select(&.{"sales"});
+    const drop_by_wrap_explain = try drop_by_wrap_plan.explain(gpa);
+    defer gpa.free(drop_by_wrap_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_by_wrap_explain, "drop_rows_by_column_mode(drop_pick, mode:wrap)") != null);
+    var dropped_by_wrap = try drop_by_wrap_plan.collect();
+    defer dropped_by_wrap.deinit();
+    const dropped_by_wrap_sales = try (try dropped_by_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_by_wrap_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, dropped_by_wrap_sales);
+
     var take_mode_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_mode_plan.deinit();
     try take_mode_plan.takeMode(&.{ 5, 0 }, .wrap);

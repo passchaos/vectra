@@ -664,6 +664,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer take_by_bad_source.deinit();
     try std.testing.expectError(error.IndexOutOfBounds, take_by_bad_source.takeByColumn("row_pick"));
 
+    var drop_pick = try DeviceColumn.fromSliceWithValidity(isize, gpa, &.{ 1, -1, 0 }, &.{ true, false, true }, .cpu);
+    defer drop_pick.deinit();
+    var drop_by_source = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "units", .data = units }, .{ .name = "drop_pick", .data = drop_pick } });
+    defer drop_by_source.deinit();
+    var dropped_by_column = try drop_by_source.dropRowsByColumn("drop_pick");
+    defer dropped_by_column.deinit();
+    const dropped_by_sales = try (try dropped_by_column.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_by_sales);
+    const dropped_by_units_validity = try (try dropped_by_column.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_by_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{5.0}, dropped_by_sales);
+    try std.testing.expectEqualSlices(bool, &.{true}, dropped_by_units_validity);
+
+    var drop_pick_wrap = try DeviceColumn.fromSlice(usize, gpa, &.{ table.height() + 1, table.height() + 1, table.height() + 1 }, .cpu);
+    defer drop_pick_wrap.deinit();
+    var drop_by_wrap_source = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "drop_pick", .data = drop_pick_wrap } });
+    defer drop_by_wrap_source.deinit();
+    var dropped_by_wrap = try drop_by_wrap_source.dropRowsByColumnMode("drop_pick", .wrap);
+    defer dropped_by_wrap.deinit();
+    const dropped_by_wrap_sales = try (try dropped_by_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_by_wrap_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, dropped_by_wrap_sales);
+    try std.testing.expectError(error.TypeMismatch, table.dropRowsByColumn("sales"));
+    try std.testing.expectError(error.IndexOutOfBounds, take_by_bad_source.dropRowsByColumn("row_pick"));
+
     var repeated_rows = try table.repeatRows(2);
     defer repeated_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), repeated_rows.height());

@@ -678,6 +678,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .take_rows_signed_mode => |take_mode| allocator.free(take_mode.row_indices),
         .take_rows_by_column => |name| allocator.free(name),
         .take_rows_by_column_mode => |take_mode| allocator.free(take_mode.name),
+        .drop_rows_by_column => |name| allocator.free(name),
+        .drop_rows_by_column_mode => |take_mode| allocator.free(take_mode.name),
         .repeat_rows_by => |count_name| allocator.free(count_name),
         .distinct_rows, .slice_rows, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
     }

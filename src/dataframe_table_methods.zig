@@ -2573,6 +2573,14 @@ pub fn takeRowsByColumnMode(self: anytype, index_name: []const u8, mode: array_m
     return takeByColumnMode(self, index_name, mode);
 }
 
+pub fn dropRowsByColumn(self: anytype, index_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowsByColumn(FrameType(@TypeOf(self)), frameValue(self), index_name);
+}
+
+pub fn dropRowsByColumnMode(self: anytype, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowsByColumnMode(FrameType(@TypeOf(self)), frameValue(self), index_name, mode);
+}
+
 pub fn repeatRows(self: anytype, repeat_count: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.repeatRows(FrameType(@TypeOf(self)), frameValue(self), repeat_count);
 }

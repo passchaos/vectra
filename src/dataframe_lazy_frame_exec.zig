@@ -795,6 +795,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .take_rows_signed_mode => |take_mode| try current.takeSignedMode(take_mode.row_indices, take_mode.mode),
             .take_rows_by_column => |name| try current.takeByColumn(name),
             .take_rows_by_column_mode => |take_mode| try current.takeByColumnMode(take_mode.name, take_mode.mode),
+            .drop_rows_by_column => |name| try current.dropRowsByColumn(name),
+            .drop_rows_by_column_mode => |take_mode| try current.dropRowsByColumnMode(take_mode.name, take_mode.mode),
             .repeat_rows => |repeat_count| try current.repeatRows(repeat_count),
             .tile_rows => |tile_count| try current.tileRows(tile_count),
             .repeat_rows_by => |count_name| try current.repeatRowsByColumn(count_name),

@@ -1856,6 +1856,15 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .mode = take_mode.mode,
             } };
         },
+        .drop_rows_by_column => |name| .{ .drop_rows_by_column = try allocator.dupe(u8, name) },
+        .drop_rows_by_column_mode => |take_mode| blk: {
+            const name = try allocator.dupe(u8, take_mode.name);
+            errdefer allocator.free(name);
+            break :blk .{ .drop_rows_by_column_mode = .{
+                .name = name,
+                .mode = take_mode.mode,
+            } };
+        },
         .repeat_rows => |repeat_count| .{ .repeat_rows = repeat_count },
         .tile_rows => |tile_count| .{ .tile_rows = tile_count },
         .repeat_rows_by => |count_name| .{ .repeat_rows_by = try allocator.dupe(u8, count_name) },

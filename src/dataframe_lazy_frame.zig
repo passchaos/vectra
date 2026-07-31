@@ -1960,6 +1960,21 @@ pub fn DeviceLazyTypes(
                 return self.takeByColumnMode(index_name, mode);
             }
 
+            pub fn dropRowsByColumn(self: *DeviceLazyFrame, index_name: []const u8) DeviceDataError!void {
+                const owned = try self.allocator.dupe(u8, index_name);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows_by_column = owned });
+            }
+
+            pub fn dropRowsByColumnMode(self: *DeviceLazyFrame, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(u8, index_name);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows_by_column_mode = .{
+                    .name = owned,
+                    .mode = mode,
+                } });
+            }
+
             pub fn repeatRows(self: *DeviceLazyFrame, repeat_count: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
             }

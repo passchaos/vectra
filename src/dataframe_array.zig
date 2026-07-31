@@ -2768,6 +2768,59 @@ pub fn takeRowsByColumnMode(
     };
 }
 
+fn appendDropRowsByIndexColumnTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    row_indices: *std.ArrayList(usize),
+    index_column: anytype,
+    rows: usize,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!void {
+    const values = try index_column.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(index_column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+    for (values, 0..) |value, i| {
+        if (maybe_validity) |validity| {
+            if (!validity[i]) continue;
+        }
+        try row_indices.append(allocator, try normalizeRowIndexValue(T, value, rows, mode));
+    }
+}
+
+pub fn dropRowsByColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    index_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByColumnMode(DeviceDataFrame, input, index_name, .raise);
+}
+
+pub fn dropRowsByColumnMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    index_name: []const u8,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const index_column = try input.column(index_name);
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(input.allocator);
+    switch (index_column.*) {
+        .i8 => |typed| try appendDropRowsByIndexColumnTyped(i8, input.allocator, &row_indices, typed, input.rows, mode),
+        .i16 => |typed| try appendDropRowsByIndexColumnTyped(i16, input.allocator, &row_indices, typed, input.rows, mode),
+        .i32 => |typed| try appendDropRowsByIndexColumnTyped(i32, input.allocator, &row_indices, typed, input.rows, mode),
+        .i64 => |typed| try appendDropRowsByIndexColumnTyped(i64, input.allocator, &row_indices, typed, input.rows, mode),
+        .isize => |typed| try appendDropRowsByIndexColumnTyped(isize, input.allocator, &row_indices, typed, input.rows, mode),
+        .u8 => |typed| try appendDropRowsByIndexColumnTyped(u8, input.allocator, &row_indices, typed, input.rows, mode),
+        .u16 => |typed| try appendDropRowsByIndexColumnTyped(u16, input.allocator, &row_indices, typed, input.rows, mode),
+        .u32 => |typed| try appendDropRowsByIndexColumnTyped(u32, input.allocator, &row_indices, typed, input.rows, mode),
+        .u64 => |typed| try appendDropRowsByIndexColumnTyped(u64, input.allocator, &row_indices, typed, input.rows, mode),
+        .usize => |typed| try appendDropRowsByIndexColumnTyped(usize, input.allocator, &row_indices, typed, input.rows, mode),
+        else => return error.TypeMismatch,
+    }
+    return dropRows(DeviceDataFrame, input, row_indices.items);
+}
+
 pub fn repeatRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
