@@ -22,6 +22,9 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnExp("sales_exp", "sales");
     try plan.withColumnExp2("sales_exp2", "sales");
     try plan.withColumnExpm1("sales_expm1", "sales");
+    try plan.withColumnSin("sales_sin", "sales");
+    try plan.withColumnCos("sales_cos", "sales");
+    try plan.withColumnTan("sales_tan", "sales");
     try plan.withColumnLog("sales_log", "sales");
     try plan.withColumnLog1p("sales_log1p", "sales");
     try plan.withColumnLog2("sales_log2", "sales");
@@ -29,15 +32,15 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale", "active" });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_square", "sales_recip", "sales_sqrt", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_log", "sales_log1p", "sales_log2", "sales_log10", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=20") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=18") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=23") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=21") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_neg(sales_neg=neg(sales))") != null);
@@ -47,6 +50,9 @@ test "device lazy frame collects plan operations" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_exp(sales_exp=exp(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_exp2(sales_exp2=exp2(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_expm1(sales_expm1=expm1(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_sin(sales_sin=sin(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_cos(sales_cos=cos(sales))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_tan(sales_tan=tan(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log(sales_log=log(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log1p(sales_log1p=log1p(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_log2(sales_log2=log2(sales))") != null);
@@ -57,7 +63,7 @@ test "device lazy frame collects plan operations" {
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 16), result.width());
+    try std.testing.expectEqual(@as(usize, 19), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
@@ -80,6 +86,12 @@ test "device lazy frame collects plan operations" {
     defer gpa.free(result_sales_exp2);
     const result_sales_expm1 = try (try result.column("sales_expm1")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_expm1);
+    const result_sales_sin = try (try result.column("sales_sin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_sin);
+    const result_sales_cos = try (try result.column("sales_cos")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_cos);
+    const result_sales_tan = try (try result.column("sales_tan")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_tan);
     const result_sales_log = try (try result.column("sales_log")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_log);
     const result_sales_log1p = try (try result.column("sales_log1p")).f64.toOwnedSlice(gpa);
@@ -106,6 +118,12 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 5.0)), result_sales_exp2[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.expm1(@as(f64, 7.0)), result_sales_expm1[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.expm1(@as(f64, 5.0)), result_sales_expm1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sin(@as(f64, 7.0)), result_sales_sin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sin(@as(f64, 5.0)), result_sales_sin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cos(@as(f64, 7.0)), result_sales_cos[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cos(@as(f64, 5.0)), result_sales_cos[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.tan(@as(f64, 7.0)), result_sales_tan[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.tan(@as(f64, 5.0)), result_sales_tan[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 7.0)), result_sales_log[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, @as(f64, 5.0)), result_sales_log[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log1p(@as(f64, 7.0)), result_sales_log1p[0], 1e-12);

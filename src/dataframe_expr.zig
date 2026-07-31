@@ -54,6 +54,21 @@ pub fn unaryColumnExpm1(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.expm1();
 }
 
+pub fn unaryColumnSin(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.sin();
+}
+
+pub fn unaryColumnCos(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.cos();
+}
+
+pub fn unaryColumnTan(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.tan();
+}
+
 pub fn unaryColumnLog(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log();
