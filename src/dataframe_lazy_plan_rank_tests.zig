@@ -3530,6 +3530,26 @@ test "device lazy frame collects row slice operations" {
     try invalid_take_plan.take(&.{4});
     try std.testing.expectError(error.IndexOutOfBounds, invalid_take_plan.collect());
 
+    var optional_take_plan = try DeviceLazyFrame.init(gpa, table);
+    defer optional_take_plan.deinit();
+    try optional_take_plan.takeOptional(&.{ 2, null, 1 });
+    try optional_take_plan.select(&.{ "sales", "units" });
+    const optional_take_explain = try optional_take_plan.explain(gpa);
+    defer gpa.free(optional_take_explain);
+    try std.testing.expect(std.mem.indexOf(u8, optional_take_explain, "take_rows_optional([2,null,1])") != null);
+    var taken_optional = try optional_take_plan.collect();
+    defer taken_optional.deinit();
+    try std.testing.expectEqual(@as(usize, 3), taken_optional.height());
+    const taken_optional_sales = try (try taken_optional.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_sales);
+    const taken_optional_sales_validity = try (try taken_optional.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_sales_validity);
+    const taken_optional_units = try (try taken_optional.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_units);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 0.0, 3.0 }, taken_optional_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, taken_optional_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 2 }, taken_optional_units);
+
     var take_mode_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_mode_plan.deinit();
     try take_mode_plan.takeMode(&.{ 5, 0 }, .wrap);

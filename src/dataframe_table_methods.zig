@@ -2549,6 +2549,14 @@ pub fn takeSignedMode(self: anytype, row_indices: []const isize, mode: array_mod
     return dataframe_array_mod.takeRowsSignedMode(FrameType(@TypeOf(self)), frameValue(self), row_indices, mode);
 }
 
+pub fn takeOptional(self: anytype, row_indices: []const ?usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeOptionalRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
+}
+
+pub fn takeOptionalRows(self: anytype, row_indices: []const ?usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return takeOptional(self, row_indices);
+}
+
 pub fn repeatRows(self: anytype, repeat_count: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.repeatRows(FrameType(@TypeOf(self)), frameValue(self), repeat_count);
 }

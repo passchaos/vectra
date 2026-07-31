@@ -1903,6 +1903,16 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .take_rows = owned });
             }
 
+            pub fn takeOptional(self: *DeviceLazyFrame, row_indices: []const ?usize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(?usize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_optional = owned });
+            }
+
+            pub fn takeOptionalRows(self: *DeviceLazyFrame, row_indices: []const ?usize) DeviceDataError!void {
+                return self.takeOptional(row_indices);
+            }
+
             pub fn takeMode(self: *DeviceLazyFrame, row_indices: []const usize, mode: array_mod.IndexMode) DeviceDataError!void {
                 const owned = try self.allocator.dupe(usize, row_indices);
                 errdefer self.allocator.free(owned);

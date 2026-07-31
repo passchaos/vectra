@@ -672,6 +672,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .rolling_validity_profile => |payload| freeNameOutput(allocator, payload),
         .expanding_validity_profile => |payload| freeNameOutput(allocator, payload),
         .drop_rows, .take_rows => |row_indices| allocator.free(row_indices),
+        .take_rows_optional => |row_indices| allocator.free(row_indices),
         .take_rows_mode => |take_mode| allocator.free(take_mode.row_indices),
         .take_rows_signed => |row_indices| allocator.free(row_indices),
         .take_rows_signed_mode => |take_mode| allocator.free(take_mode.row_indices),

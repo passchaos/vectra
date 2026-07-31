@@ -789,6 +789,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .slice_rows_step => |slice| try current.sliceRowsStep(slice.start, slice.stop, slice.step),
             .stride_rows => |stride| try current.strideRows(stride.start, stride.step),
             .take_rows => |row_indices| try current.take(row_indices),
+            .take_rows_optional => |row_indices| try current.takeOptional(row_indices),
             .take_rows_mode => |take_mode| try current.takeMode(take_mode.row_indices, take_mode.mode),
             .take_rows_signed => |row_indices| try current.takeSigned(row_indices),
             .take_rows_signed_mode => |take_mode| try current.takeSignedMode(take_mode.row_indices, take_mode.mode),

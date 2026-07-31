@@ -743,6 +743,18 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
+        .take_rows_optional => |row_indices| {
+            try writer.print("take_rows_optional([", .{});
+            for (row_indices, 0..) |maybe_row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                if (maybe_row_index) |row_index| {
+                    try writer.print("{d}", .{row_index});
+                } else {
+                    try writer.print("null", .{});
+                }
+            }
+            try writer.print("])", .{});
+        },
         .take_rows_mode => |take_mode| {
             try writer.print("take_rows_mode([", .{});
             for (take_mode.row_indices, 0..) |row_index, i| {

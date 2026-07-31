@@ -305,6 +305,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             seed: u64,
         };
         pub const RowTake = []usize;
+        pub const RowTakeOptional = []?usize;
         pub const RowTakeMode = struct {
             row_indices: []usize,
             mode: array_mod.IndexMode,

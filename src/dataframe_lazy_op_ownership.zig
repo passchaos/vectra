@@ -1829,6 +1829,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .slice_rows_step => |slice| .{ .slice_rows_step = slice },
         .stride_rows => |stride| .{ .stride_rows = stride },
         .take_rows => |row_indices| .{ .take_rows = try allocator.dupe(usize, row_indices) },
+        .take_rows_optional => |row_indices| .{ .take_rows_optional = try allocator.dupe(?usize, row_indices) },
         .take_rows_mode => |take_mode| blk: {
             const row_indices = try allocator.dupe(usize, take_mode.row_indices);
             errdefer allocator.free(row_indices);

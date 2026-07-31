@@ -564,6 +564,22 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(taken_signed_clip_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, taken_signed_clip_sales);
 
+    var taken_optional = try table.takeOptional(&.{ 2, null, 1 });
+    defer taken_optional.deinit();
+    const taken_optional_sales = try (try taken_optional.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_sales);
+    const taken_optional_sales_validity = try (try taken_optional.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_sales_validity);
+    const taken_optional_units = try (try taken_optional.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_units);
+    const taken_optional_units_validity = try (try taken_optional.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_optional_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 0.0, 3.0 }, taken_optional_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, taken_optional_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 2 }, taken_optional_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, taken_optional_units_validity);
+    try std.testing.expectError(error.IndexOutOfBounds, table.takeOptional(&.{table.height()}));
+
     var repeated_rows = try table.repeatRows(2);
     defer repeated_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), repeated_rows.height());
