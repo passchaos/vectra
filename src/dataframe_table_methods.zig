@@ -475,6 +475,66 @@ pub fn withColumnAtan2WithDeviceScalar(self: anytype, output_name: []const u8, i
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnNextAfterScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnNextAfterScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnNextAfterWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnNextAfterWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnNextAfterScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnNextAfterScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnNextAfterWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnNextAfterWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnCopysignScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnCopysignScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnCopysignWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnCopysignWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnCopysignScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnCopysignScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnCopysignWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnCopysignWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnHeavisideScalar(self: anytype, name: []const u8, comptime T: type, value_at_zero: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHeavisideScalar(frameValue(self), name, T, value_at_zero);
+}
+
+pub fn unaryColumnHeavisideWithDeviceScalar(self: anytype, name: []const u8, value_at_zero: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHeavisideWithDeviceScalar(frameValue(self), name, value_at_zero);
+}
+
+pub fn withColumnHeavisideScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value_at_zero: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHeavisideScalar(self, input_name, T, value_at_zero);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnHeavisideWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, value_at_zero: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHeavisideWithDeviceScalar(self, input_name, value_at_zero);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnThreshold(
     self: anytype,
     name: []const u8,

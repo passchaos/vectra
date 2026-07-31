@@ -550,6 +550,36 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn nextAfterScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.nextAfterScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn copysignScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.copysignScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn heavisideScalar(self: Self, value_at_zero: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == array_mod.BFloat16 or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.heavisideScalar(value_at_zero);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) array_mod.ArrayError!Self {
             if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.threshold(threshold_value, replacement_value);

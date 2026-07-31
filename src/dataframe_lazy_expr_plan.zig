@@ -1006,6 +1006,54 @@ pub fn withColumnAtan2WithDeviceScalar(frame: anytype, name: []const u8, input_n
     } });
 }
 
+pub fn withColumnNextAfterScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+    return withColumnNextAfterWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
+}
+
+pub fn withColumnNextAfterWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_next_after_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnCopysignScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+    return withColumnCopysignWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
+}
+
+pub fn withColumnCopysignWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_copysign_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnHeavisideScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, value_at_zero: T) DeviceDataError!void {
+    return withColumnHeavisideWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, value_at_zero));
+}
+
+pub fn withColumnHeavisideWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, value_at_zero: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_heaviside_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = value_at_zero,
+    } });
+}
+
 pub fn withColumnThreshold(
     frame: anytype,
     name: []const u8,

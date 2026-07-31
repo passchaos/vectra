@@ -2668,6 +2668,46 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAtan2WithDeviceScalar("bad_atan2", "units", .{ .f64 = 0.5 }));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAtan2Scalar("missing_atan2", "missing", f64, 0.5));
 
+    var next_after_ratio_table = try inverse_trig_table.withColumnNextAfterScalar("ratio_next_after", "ratio", f64, 1.0);
+    defer next_after_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try next_after_ratio_table.columnDType("ratio_next_after"));
+    const ratio_next_after = try (try next_after_ratio_table.column("ratio_next_after")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_next_after);
+    try std.testing.expectEqual(std.math.nextAfter(f64, @as(f64, -0.5), @as(f64, 1.0)), ratio_next_after[0]);
+    try std.testing.expectEqual(std.math.nextAfter(f64, @as(f64, 0.0), @as(f64, 1.0)), ratio_next_after[1]);
+    try std.testing.expectEqual(std.math.nextAfter(f64, @as(f64, 0.5), @as(f64, 1.0)), ratio_next_after[2]);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnNextAfterScalar("bad_next_after", "units", f64, 1.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnNextAfterScalar("missing_next_after", "missing", f64, 1.0));
+
+    var copysign_ratio_table = try inverse_trig_table.withColumnCopysignWithDeviceScalar("ratio_copysign", "ratio", .{ .f64 = -1.0 });
+    defer copysign_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try copysign_ratio_table.columnDType("ratio_copysign"));
+    const ratio_copysign = try (try copysign_ratio_table.column("ratio_copysign")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_copysign);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), ratio_copysign[0], 1e-12);
+    try std.testing.expectEqual(@as(f64, -0.0), ratio_copysign[1]);
+    try std.testing.expect(std.math.signbit(ratio_copysign[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), ratio_copysign[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnCopysignScalar("bad_copysign", "units", f64, -1.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnCopysignScalar("missing_copysign", "missing", f64, -1.0));
+
+    var heaviside_ratio_table = try inverse_trig_table.withColumnHeavisideScalar("ratio_heaviside", "ratio", f64, 0.25);
+    defer heaviside_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try heaviside_ratio_table.columnDType("ratio_heaviside"));
+    const ratio_heaviside = try (try heaviside_ratio_table.column("ratio_heaviside")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_heaviside);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.25, 1.0 }, ratio_heaviside);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnHeavisideScalar("bad_heaviside", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHeavisideScalar("missing_heaviside", "missing", f64, 0.25));
+
+    var heaviside_units_table = try inverse_trig_table.withColumnHeavisideWithDeviceScalar("units_heaviside", "units", .{ .i64 = 9 });
+    defer heaviside_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try heaviside_units_table.columnDType("units_heaviside"));
+    const units_heaviside = try (try heaviside_units_table.column("units_heaviside")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_heaviside);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, units_heaviside);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHeavisideWithDeviceScalar("bad_fractional_heaviside", "units", .{ .f64 = 0.5 }));
+
     var nan_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), -1.0, 2.0 }, .cpu);
     defer nan_metric.deinit();
     var nan_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_metric }});

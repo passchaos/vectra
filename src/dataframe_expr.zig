@@ -234,6 +234,36 @@ pub fn unaryColumnAtan2WithDeviceScalar(frame: anytype, name: []const u8, scalar
     return col.atan2WithDeviceScalar(scalar);
 }
 
+pub fn unaryColumnNextAfterScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.nextAfterScalar(T, scalar);
+}
+
+pub fn unaryColumnNextAfterWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.nextAfterWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnCopysignScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.copysignScalar(T, scalar);
+}
+
+pub fn unaryColumnCopysignWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.copysignWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnHeavisideScalar(frame: anytype, name: []const u8, comptime T: type, value_at_zero: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.heavisideScalar(T, value_at_zero);
+}
+
+pub fn unaryColumnHeavisideWithDeviceScalar(frame: anytype, name: []const u8, value_at_zero: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.heavisideWithDeviceScalar(value_at_zero);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

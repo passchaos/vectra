@@ -1029,6 +1029,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnAtan2WithDeviceScalar(self, name, input_name, scalar);
             }
 
+            pub fn withColumnNextAfterScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNextAfterScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnNextAfterWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNextAfterWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnCopysignScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnCopysignScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnCopysignWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnCopysignWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnHeavisideScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, value_at_zero: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHeavisideScalar(self, name, input_name, T, value_at_zero);
+            }
+
+            pub fn withColumnHeavisideWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, value_at_zero: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHeavisideWithDeviceScalar(self, name, input_name, value_at_zero);
+            }
+
             pub fn withColumnThreshold(
                 self: *DeviceLazyFrame,
                 name: []const u8,
