@@ -255,6 +255,56 @@ pub fn withColumnRelu6(self: anytype, output_name: []const u8, input_name: []con
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnHardshrink(self: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHardshrink(frameValue(self), name, T, lambd);
+}
+
+pub fn unaryColumnHardshrinkWithDeviceScalar(self: anytype, name: []const u8, lambd: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnHardshrinkWithDeviceScalar(frameValue(self), name, lambd);
+}
+
+pub fn withColumnHardshrink(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHardshrink(self, input_name, T, lambd);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnHardshrinkWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, lambd: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnHardshrinkWithDeviceScalar(self, input_name, lambd);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnSoftshrink(self: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnSoftshrink(frameValue(self), name, T, lambd);
+}
+
+pub fn unaryColumnSoftshrinkWithDeviceScalar(self: anytype, name: []const u8, lambd: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnSoftshrinkWithDeviceScalar(frameValue(self), name, lambd);
+}
+
+pub fn withColumnSoftshrink(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnSoftshrink(self, input_name, T, lambd);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnSoftshrinkWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, lambd: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnSoftshrinkWithDeviceScalar(self, input_name, lambd);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnTanhshrink(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnTanhshrink(frameValue(self), name);
+}
+
+pub fn withColumnTanhshrink(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnTanhshrink(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnSoftsign(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnSoftsign(frameValue(self), name);
 }

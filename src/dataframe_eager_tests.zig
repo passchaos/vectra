@@ -2545,6 +2545,35 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu6("bad_relu6", "active"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnRelu6("missing_relu6", "missing"));
 
+    var hardshrink_ratio_table = try inverse_trig_table.withColumnHardshrink("ratio_hardshrink", "ratio", f64, 0.25);
+    defer hardshrink_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try hardshrink_ratio_table.columnDType("ratio_hardshrink"));
+    const ratio_hardshrink = try (try hardshrink_ratio_table.column("ratio_hardshrink")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_hardshrink);
+    try std.testing.expectEqualSlices(f64, &.{ -0.5, 0.0, 0.5 }, ratio_hardshrink);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHardshrink("bad_hardshrink", "units", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnHardshrink("missing_hardshrink", "missing", f64, 0.25));
+
+    var softshrink_ratio_table = try inverse_trig_table.withColumnSoftshrink("ratio_softshrink", "ratio", f64, 0.25);
+    defer softshrink_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try softshrink_ratio_table.columnDType("ratio_softshrink"));
+    const ratio_softshrink = try (try softshrink_ratio_table.column("ratio_softshrink")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_softshrink);
+    try std.testing.expectEqualSlices(f64, &.{ -0.25, 0.0, 0.25 }, ratio_softshrink);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnSoftshrink("bad_softshrink", "units", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnSoftshrink("missing_softshrink", "missing", f64, 0.25));
+
+    var tanhshrink_ratio_table = try inverse_trig_table.withColumnTanhshrink("ratio_tanhshrink", "ratio");
+    defer tanhshrink_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try tanhshrink_ratio_table.columnDType("ratio_tanhshrink"));
+    const ratio_tanhshrink = try (try tanhshrink_ratio_table.column("ratio_tanhshrink")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_tanhshrink);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5) - std.math.tanh(@as(f64, -0.5)), ratio_tanhshrink[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_tanhshrink[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5) - std.math.tanh(@as(f64, 0.5)), ratio_tanhshrink[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnTanhshrink("bad_tanhshrink", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnTanhshrink("missing_tanhshrink", "missing"));
+
     var softsign_ratio_table = try inverse_trig_table.withColumnSoftsign("ratio_softsign", "ratio");
     defer softsign_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try softsign_ratio_table.columnDType("ratio_softsign"));

@@ -24,7 +24,7 @@ fn ColumnType(comptime Self: type) type {
     };
 }
 
-fn castFloatLeakyReluSlopeToInt(comptime Dst: type, value: anytype) array_mod.ArrayError!Dst {
+fn castFloatScalarToInt(comptime Dst: type, value: anytype) array_mod.ArrayError!Dst {
     const as_f128: f128 = @floatCast(value);
     if (!std.math.isFinite(as_f128) or @trunc(as_f128) != as_f128) return error.TypeUnsupported;
     const min_value: f128 = @floatFromInt(std.math.minInt(Dst));
@@ -33,7 +33,7 @@ fn castFloatLeakyReluSlopeToInt(comptime Dst: type, value: anytype) array_mod.Ar
     return @intFromFloat(as_f128);
 }
 
-fn castLeakyReluSlope(comptime Src: type, comptime Dst: type, value: Src) array_mod.ArrayError!Dst {
+fn castNumericScalar(comptime Src: type, comptime Dst: type, value: Src) array_mod.ArrayError!Dst {
     if (comptime Dst == array_mod.BFloat16) {
         return switch (@typeInfo(Src)) {
             .int, .comptime_int => array_mod.BFloat16.fromF32(@floatFromInt(value)),
@@ -45,11 +45,12 @@ fn castLeakyReluSlope(comptime Src: type, comptime Dst: type, value: Src) array_
     return switch (@typeInfo(Dst)) {
         .int => switch (@typeInfo(Src)) {
             .int, .comptime_int => std.math.cast(Dst, value) orelse error.TypeUnsupported,
-            // Integer leaky-ReLU columns keep their dtype.  Accept a float slope
-            // only when it is exactly representable as that integer type so a
-            // lazy DeviceScalar cannot silently truncate a fractional slope.
-            .float, .comptime_float => castFloatLeakyReluSlopeToInt(Dst, value),
-            .@"struct" => if (comptime Src == array_mod.BFloat16) castFloatLeakyReluSlopeToInt(Dst, value.toF32()) else error.TypeUnsupported,
+            // Parameterized dataframe ops keep the column dtype.  Accept a
+            // float scalar for an integer column only when it is exactly
+            // representable as that integer type so a lazy DeviceScalar cannot
+            // silently truncate fractional parameters.
+            .float, .comptime_float => castFloatScalarToInt(Dst, value),
+            .@"struct" => if (comptime Src == array_mod.BFloat16) castFloatScalarToInt(Dst, value.toF32()) else error.TypeUnsupported,
             else => error.TypeUnsupported,
         },
         .float => switch (@typeInfo(Src)) {
@@ -217,7 +218,7 @@ pub fn leakyRelu(self: anytype, comptime T: type, negative_slope: T) array_mod.A
     const value = columnValue(self);
     return switch (value) {
         .bool, .c64, .c128 => error.TypeUnsupported,
-        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.leakyRelu(try castLeakyReluSlope(T, @TypeOf(typed).Scalar, negative_slope))),
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.leakyRelu(try castNumericScalar(T, @TypeOf(typed).Scalar, negative_slope))),
     };
 }
 
@@ -233,6 +234,44 @@ pub fn relu6(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     return switch (value) {
         .bool, .c64, .c128 => error.TypeUnsupported,
         inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.relu6()),
+    };
+}
+
+pub fn hardshrink(self: anytype, comptime T: type, lambd: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.hardshrink(try castNumericScalar(T, @TypeOf(typed).Scalar, lambd))),
+    };
+}
+
+pub fn hardshrinkWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (scalar) {
+        inline .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .bf16, .f16, .f32, .f64 => |value| hardshrink(self, @TypeOf(value), value),
+        .bool, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn softshrink(self: anytype, comptime T: type, lambd: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.softshrink(try castNumericScalar(T, @TypeOf(typed).Scalar, lambd))),
+    };
+}
+
+pub fn softshrinkWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (scalar) {
+        inline .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .bf16, .f16, .f32, .f64 => |value| softshrink(self, @TypeOf(value), value),
+        .bool, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn tanhshrink(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.tanhshrink()),
     };
 }
 

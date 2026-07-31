@@ -941,6 +941,26 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnRelu6(self, name, input_name);
             }
 
+            pub fn withColumnHardshrink(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHardshrink(self, name, input_name, T, lambd);
+            }
+
+            pub fn withColumnHardshrinkWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, lambd: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnHardshrinkWithDeviceScalar(self, name, input_name, lambd);
+            }
+
+            pub fn withColumnSoftshrink(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnSoftshrink(self, name, input_name, T, lambd);
+            }
+
+            pub fn withColumnSoftshrinkWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, lambd: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnSoftshrinkWithDeviceScalar(self, name, input_name, lambd);
+            }
+
+            pub fn withColumnTanhshrink(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnTanhshrink(self, name, input_name);
+            }
+
             pub fn withColumnSoftsign(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnSoftsign(self, name, input_name);
             }

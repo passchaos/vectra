@@ -124,6 +124,31 @@ pub fn unaryColumnRelu6(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.relu6();
 }
 
+pub fn unaryColumnHardshrink(frame: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardshrink(T, lambd);
+}
+
+pub fn unaryColumnHardshrinkWithDeviceScalar(frame: anytype, name: []const u8, lambd: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.hardshrinkWithDeviceScalar(lambd);
+}
+
+pub fn unaryColumnSoftshrink(frame: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.softshrink(T, lambd);
+}
+
+pub fn unaryColumnSoftshrinkWithDeviceScalar(frame: anytype, name: []const u8, lambd: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.softshrinkWithDeviceScalar(lambd);
+}
+
+pub fn unaryColumnTanhshrink(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.tanhshrink();
+}
+
 pub fn unaryColumnSoftsign(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.softsign();

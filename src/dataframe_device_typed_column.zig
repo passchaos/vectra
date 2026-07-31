@@ -446,6 +446,36 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn hardshrink(self: Self, lambd: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.hardshrink(lambd);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn softshrink(self: Self, lambd: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.softshrink(lambd);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn tanhshrink(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.tanhshrink();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn softsign(self: Self) array_mod.ArrayError!Self {
             if (comptime T == bool or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.softsign();
