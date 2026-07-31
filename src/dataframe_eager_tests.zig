@@ -2578,6 +2578,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnGelu("bad_gelu", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnGelu("missing_gelu", "missing"));
 
+    var selu_ratio_table = try inverse_trig_table.withColumnSelu("ratio_selu", "ratio");
+    defer selu_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try selu_ratio_table.columnDType("ratio_selu"));
+    const ratio_selu = try (try selu_ratio_table.column("ratio_selu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_selu);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0507009873554805) * @as(f64, 1.6732632423543772) * std.math.expm1(@as(f64, -0.5)), ratio_selu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_selu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0507009873554805) * @as(f64, 0.5), ratio_selu[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnSelu("bad_selu", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnSelu("missing_selu", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));

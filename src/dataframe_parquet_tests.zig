@@ -201,6 +201,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try lazy_scan.withColumnSwish("sales_neg_swish", "sales_neg");
     try lazy_scan.withColumnMish("sales_neg_mish", "sales_neg");
     try lazy_scan.withColumnGelu("sales_neg_gelu", "sales_neg");
+    try lazy_scan.withColumnSelu("sales_neg_selu", "sales_neg");
     try lazy_scan.withColumnExp("sales_exp", "sales");
     try lazy_scan.withColumnExp2("sales_exp2", "sales");
     try lazy_scan.withColumnExpm1("sales_expm1", "sales");
@@ -223,7 +224,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try lazy_scan.withColumnLog2("sales_log2", "sales");
     try lazy_scan.withColumnLog10("sales_log10", "sales");
     try lazy_scan.filterColumnScalar("sales", f64, 2.5, .gt);
-    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "ratio_expit", "ratio_logit", "ratio_softplus", "ratio_logsigmoid", "sales_neg_relu", "sales_relu6", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "ratio_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "id" });
+    try lazy_scan.select(&.{ "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "ratio_expit", "ratio_logit", "ratio_softplus", "ratio_logsigmoid", "sales_neg_relu", "sales_relu6", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "ratio_asin", "ratio_acos", "ratio_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "ratio_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "id" });
 
     const explain = try lazy_scan.explain(gpa);
     defer gpa.free(explain);
@@ -256,6 +257,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_swish(sales_neg_swish=swish(sales_neg))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_mish(sales_neg_mish=mish(sales_neg))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_gelu(sales_neg_gelu=gelu(sales_neg))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_selu(sales_neg_selu=selu(sales_neg))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_exp(sales_exp=exp(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_exp2(sales_exp2=exp2(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "with_column_expm1(sales_expm1=expm1(sales))") != null);
@@ -282,7 +284,7 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     var result = try lazy_scan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 50), result.width());
+    try std.testing.expectEqual(@as(usize, 51), result.width());
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("ratio"));
@@ -342,6 +344,8 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     defer gpa.free(result_sales_neg_mish);
     const result_sales_neg_gelu = try (try result.column("sales_neg_gelu")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_neg_gelu);
+    const result_sales_neg_selu = try (try result.column("sales_neg_selu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_neg_selu);
     const result_sales_exp = try (try result.column("sales_exp")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_exp);
     const result_sales_exp2 = try (try result.column("sales_exp2")).f64.toOwnedSlice(gpa);
@@ -427,6 +431,8 @@ test "device lazy frame pushes scalar filters and projection into parquet scan s
     try std.testing.expectApproxEqAbs(@as(f64, -5.0) * std.math.tanh(@max(@as(f64, -5.0), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, -5.0))))), result_sales_neg_mish[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -3.0) * @as(f64, 0.5) * (@as(f64, 1.0) + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, -3.0) + @as(f64, 0.044715) * @as(f64, -27.0)))), result_sales_neg_gelu[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -5.0) * @as(f64, 0.5) * (@as(f64, 1.0) + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, -5.0) + @as(f64, 0.044715) * @as(f64, -125.0)))), result_sales_neg_gelu[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0507009873554805) * @as(f64, 1.6732632423543772) * std.math.expm1(@as(f64, -3.0)), result_sales_neg_selu[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0507009873554805) * @as(f64, 1.6732632423543772) * std.math.expm1(@as(f64, -5.0)), result_sales_neg_selu[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, 3.0)), result_sales_exp[0], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp(@as(f64, 5.0)), result_sales_exp[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp2(@as(f64, 3.0)), result_sales_exp2[0], 1e-12);

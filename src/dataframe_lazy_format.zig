@@ -370,6 +370,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_swish => |expr| try writer.print("with_column_swish({s}=swish({s}))", .{ expr.name, expr.input_name }),
         .with_column_mish => |expr| try writer.print("with_column_mish({s}=mish({s}))", .{ expr.name, expr.input_name }),
         .with_column_gelu => |expr| try writer.print("with_column_gelu({s}=gelu({s}))", .{ expr.name, expr.input_name }),
+        .with_column_selu => |expr| try writer.print("with_column_selu({s}=selu({s}))", .{ expr.name, expr.input_name }),
         .with_column_exp => |expr| try writer.print("with_column_exp({s}=exp({s}))", .{ expr.name, expr.input_name }),
         .with_column_exp2 => |expr| try writer.print("with_column_exp2({s}=exp2({s}))", .{ expr.name, expr.input_name }),
         .with_column_expm1 => |expr| try writer.print("with_column_expm1({s}=expm1({s}))", .{ expr.name, expr.input_name }),

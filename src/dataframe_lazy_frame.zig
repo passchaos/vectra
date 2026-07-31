@@ -961,6 +961,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnGelu(self, name, input_name);
             }
 
+            pub fn withColumnSelu(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnSelu(self, name, input_name);
+            }
+
             pub fn withColumnExp(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnExp(self, name, input_name);
             }

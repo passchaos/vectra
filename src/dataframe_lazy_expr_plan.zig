@@ -891,6 +891,17 @@ pub fn withColumnGelu(frame: anytype, name: []const u8, input_name: []const u8) 
     } });
 }
 
+pub fn withColumnSelu(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_selu = .{
+        .name = owned_name,
+        .input_name = owned_input,
+    } });
+}
+
 pub fn withColumnExp(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

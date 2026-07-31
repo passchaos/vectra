@@ -149,6 +149,11 @@ pub fn unaryColumnGelu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.gelu();
 }
 
+pub fn unaryColumnSelu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.selu();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

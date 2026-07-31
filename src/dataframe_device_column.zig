@@ -228,6 +228,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const swish = column_ops_mod.swish;
     pub const mish = column_ops_mod.mish;
     pub const gelu = column_ops_mod.gelu;
+    pub const selu = column_ops_mod.selu;
     pub const exp = column_ops_mod.exp;
     pub const exp2 = column_ops_mod.exp2;
     pub const expm1 = column_ops_mod.expm1;
