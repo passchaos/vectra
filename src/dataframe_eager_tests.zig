@@ -460,6 +460,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_mad_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_mad);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mad_validity);
+
+    var row_mode_table = try validity_table.withRowMode(&.{ "a", "b" }, "row_mode");
+    defer row_mode_table.deinit();
+    const row_mode_column = try row_mode_table.column("row_mode");
+    try std.testing.expect(row_mode_column.f64.nullable());
+    const row_mode = try row_mode_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mode);
+    const row_mode_validity = try row_mode_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mode_validity);
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
 
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");

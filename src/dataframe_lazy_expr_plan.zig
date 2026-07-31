@@ -2587,7 +2587,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, mad },
+    comptime reduction: enum { median, iqr, mad, mode },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2609,6 +2609,10 @@ fn withRowQuantileAlias(
             .names = owned_names,
             .output_name = owned_output,
         } }),
+        .mode => try frame.ops.append(frame.allocator, .{ .row_mode = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2626,6 +2630,10 @@ pub fn withRowMad(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowMedianAbsDev(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowMad(frame, names, output_name);
+}
+
+pub fn withRowMode(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .mode);
 }
 
 fn withRowNumericReduction(
