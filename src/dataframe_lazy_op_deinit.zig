@@ -34,6 +34,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .select_non_nullable_columns,
         .select_columns_with_nulls,
         .select_columns_without_nulls,
+        .select_columns_with_nans,
+        .select_columns_without_nans,
         => {},
         .drop_dtypes => |dtypes| allocator.free(dtypes),
         .drop_dtype_class,
@@ -41,6 +43,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .drop_non_nullable_columns,
         .drop_columns_with_nulls,
         .drop_columns_without_nulls,
+        .drop_columns_with_nans,
+        .drop_columns_without_nans,
         => {},
         .with_row_index => |row_index| allocator.free(row_index.name),
         .rename_column => |rename| {

@@ -762,6 +762,26 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_is_finite);
     try std.testing.expectError(error.ColumnNotFound, table.isNanColumn("missing", "missing_is_nan"));
 
+    var columns_with_nans = try table.selectColumnsWithNaNs();
+    defer columns_with_nans.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_with_nans.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_with_nans.columnIndex("metric"));
+
+    var columns_without_nans = try table.selectColumnsWithoutNaNs();
+    defer columns_without_nans.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_without_nans.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_without_nans.columnIndex("id"));
+
+    var drop_nan_columns = try table.dropColumnsWithNaNs();
+    defer drop_nan_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_nan_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_nan_columns.columnIndex("id"));
+
+    var drop_non_nan_columns = try table.dropColumnsWithoutNaNs();
+    defer drop_non_nan_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_non_nan_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_nan_columns.columnIndex("metric"));
+
     var dropped_nan_rows = try table.dropNaNsColumn("metric");
     defer dropped_nan_rows.deinit();
     try std.testing.expectEqual(@as(usize, 3), dropped_nan_rows.height());

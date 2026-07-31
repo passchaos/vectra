@@ -354,6 +354,48 @@ const HasNullsColumnPredicate = struct {
     }
 };
 
+fn columnHasNaN(column: anytype, allocator: std.mem.Allocator) DeviceFrameArrayError!bool {
+    return switch (column) {
+        inline else => |typed| {
+            const host_values = try typed.toOwnedSlice(allocator);
+            defer allocator.free(host_values);
+            const maybe_validity = try validityValues(typed, allocator);
+            defer if (maybe_validity) |validity| allocator.free(validity);
+            for (host_values, 0..) |value, row| {
+                const valid = if (maybe_validity) |validity| validity[row] else true;
+                if (valid and isNanValue(@TypeOf(value), value)) return true;
+            }
+            return false;
+        },
+    };
+}
+
+fn selectColumnsByNaNPresence(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    wanted: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var selected_names: std.ArrayList([]const u8) = .empty;
+    defer selected_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if ((try columnHasNaN(column, input.allocator)) == wanted) try selected_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, selected_names.items);
+}
+
+fn dropColumnsByNaNPresence(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    wanted: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var kept_names: std.ArrayList([]const u8) = .empty;
+    defer kept_names.deinit(input.allocator);
+    for (input.names, input.columns) |name, column| {
+        if ((try columnHasNaN(column, input.allocator)) != wanted) try kept_names.append(input.allocator, name);
+    }
+    return select(DeviceDataFrame, input, kept_names.items);
+}
+
 pub fn selectNullableColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -408,6 +450,34 @@ pub fn dropColumnsWithoutNulls(
     input: DeviceDataFrame,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return dropByColumnPredicate(DeviceDataFrame, input, HasNullsColumnPredicate{ .wanted = false });
+}
+
+pub fn selectColumnsWithNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNaNPresence(DeviceDataFrame, input, true);
+}
+
+pub fn selectColumnsWithoutNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNaNPresence(DeviceDataFrame, input, false);
+}
+
+pub fn dropColumnsWithNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNaNPresence(DeviceDataFrame, input, true);
+}
+
+pub fn dropColumnsWithoutNaNs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNaNPresence(DeviceDataFrame, input, false);
 }
 
 pub fn withColumn(

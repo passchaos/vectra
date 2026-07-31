@@ -241,6 +241,22 @@ pub fn dropColumnsWithoutNulls(self: anytype) DeviceDataError!FrameType(@TypeOf(
     return dataframe_array_mod.dropColumnsWithoutNulls(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithNaNs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNaNs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNaNs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNaNs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNaNs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNaNs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNaNs(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNaNs(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }

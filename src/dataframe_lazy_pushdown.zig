@@ -72,10 +72,14 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .select_non_nullable_columns,
             .select_columns_with_nulls,
             .select_columns_without_nulls,
+            .select_columns_with_nans,
+            .select_columns_without_nans,
             .drop_nullable_columns,
             .drop_non_nullable_columns,
             .drop_columns_with_nulls,
             .drop_columns_without_nulls,
+            .drop_columns_with_nans,
+            .drop_columns_without_nans,
             => {
                 // Schema-derived selectors require the full source schema
                 // before they can be expanded into exact column names.  This

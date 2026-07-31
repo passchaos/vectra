@@ -289,6 +289,22 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_nulls = {} });
             }
 
+            pub fn selectColumnsWithNaNs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_nans = {} });
+            }
+
+            pub fn selectColumnsWithoutNaNs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_nans = {} });
+            }
+
+            pub fn dropColumnsWithNaNs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_nans = {} });
+            }
+
+            pub fn dropColumnsWithoutNaNs(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_nans = {} });
+            }
+
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
                 return lazy_expr_mod.withRowIndex(self, name, offset);
             }

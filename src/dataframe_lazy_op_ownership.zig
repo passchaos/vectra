@@ -48,6 +48,10 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .drop_non_nullable_columns => .{ .drop_non_nullable_columns = {} },
         .drop_columns_with_nulls => .{ .drop_columns_with_nulls = {} },
         .drop_columns_without_nulls => .{ .drop_columns_without_nulls = {} },
+        .select_columns_with_nans => .{ .select_columns_with_nans = {} },
+        .select_columns_without_nans => .{ .select_columns_without_nans = {} },
+        .drop_columns_with_nans => .{ .drop_columns_with_nans = {} },
+        .drop_columns_without_nans => .{ .drop_columns_without_nans = {} },
         .with_row_index => |row_index| blk: {
             const name = try allocator.dupe(u8, row_index.name);
             break :blk .{ .with_row_index = .{
