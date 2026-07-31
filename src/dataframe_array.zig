@@ -1870,7 +1870,7 @@ pub fn withRowLastNullIndex(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -2001,6 +2001,33 @@ fn withRowNumericReduction(
                         .sum, .mean => values[row] += value,
                         .mean_abs, .l1_norm => values[row] += @abs(value),
                         .rms, .l2_norm => values[row] += value * value,
+                        .geometric_mean => {
+                            if (value < 0.0) {
+                                values[row] = std.math.nan(f64);
+                            } else if (value == 0.0 and !std.math.isNan(values[row])) {
+                                // `values` stores the running log-sum, where a
+                                // legitimate product of ones also has value 0.
+                                // Use the auxiliary `maxima` slot as a
+                                // row-local zero-seen flag for geometric mean
+                                // so finalization can distinguish log_sum=0
+                                // from a true zero product.
+                                maxima[row] = 1.0;
+                                values[row] = 0.0;
+                            } else if (!validity[row] and maxima[row] == 0.0) {
+                                values[row] = std.math.log(f64, std.math.e, value);
+                            } else if (!std.math.isNan(values[row]) and maxima[row] == 0.0) {
+                                values[row] += std.math.log(f64, std.math.e, value);
+                            }
+                        },
+                        .harmonic_mean => {
+                            if (value == 0.0 and !std.math.isNan(values[row])) {
+                                values[row] = std.math.inf(f64);
+                            } else if (!validity[row]) {
+                                values[row] = 1.0 / value;
+                            } else if (!std.math.isInf(values[row])) {
+                                values[row] += 1.0 / value;
+                            }
+                        },
                         .prod => {
                             values[row] = if (validity[row]) values[row] * value else value;
                         },
@@ -2038,11 +2065,17 @@ fn withRowNumericReduction(
         }
     }
 
-    for (values, validity, counts, maxima) |*value, valid, count, max_value| {
+    for (values, validity, counts, maxima) |*value, valid, count, aux_value| {
         if (!valid) {
             value.* = 0.0;
         } else if (reduction == .mean) {
             value.* /= @floatFromInt(count);
+        } else if (reduction == .geometric_mean) {
+            if (!std.math.isNan(value.*)) {
+                value.* = if (aux_value != 0.0) 0.0 else std.math.exp(value.* / @as(f64, @floatFromInt(count)));
+            }
+        } else if (reduction == .harmonic_mean) {
+            value.* = if (std.math.isInf(value.*)) 0.0 else @as(f64, @floatFromInt(count)) / value.*;
         } else if (reduction == .mean_abs) {
             value.* /= @floatFromInt(count);
         } else if (reduction == .rms) {
@@ -2050,7 +2083,7 @@ fn withRowNumericReduction(
         } else if (reduction == .l2_norm) {
             value.* = std.math.sqrt(value.*);
         } else if (reduction == .ptp) {
-            value.* = max_value - value.*;
+            value.* = aux_value - value.*;
         }
     }
 
@@ -2076,6 +2109,42 @@ pub fn withRowMean(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .mean);
+}
+
+pub fn withRowGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .geometric_mean);
+}
+
+pub fn withRowGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowGeometricMean(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .harmonic_mean);
+}
+
+pub fn withRowHarmMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowHarmonicMean(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowProd(

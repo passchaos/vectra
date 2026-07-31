@@ -2620,7 +2620,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, prod, min, max, ptp, mean_abs, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2635,6 +2635,14 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .mean => try frame.ops.append(frame.allocator, .{ .row_mean = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .geometric_mean => try frame.ops.append(frame.allocator, .{ .row_geometric_mean = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .harmonic_mean => try frame.ops.append(frame.allocator, .{ .row_harmonic_mean = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2679,6 +2687,22 @@ pub fn withRowSum(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .mean);
+}
+
+pub fn withRowGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .geometric_mean);
+}
+
+pub fn withRowGeoMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowGeometricMean(frame, names, output_name);
+}
+
+pub fn withRowHarmonicMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .harmonic_mean);
+}
+
+pub fn withRowHarmMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowHarmonicMean(frame, names, output_name);
 }
 
 pub fn withRowProd(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

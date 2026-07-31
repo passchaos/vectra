@@ -684,6 +684,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_iqr => |row_count| try current.withRowIqr(row_count.names, row_count.output_name),
             .row_sum => |row_count| try current.withRowSum(row_count.names, row_count.output_name),
             .row_mean => |row_count| try current.withRowMean(row_count.names, row_count.output_name),
+            .row_geometric_mean => |row_count| try current.withRowGeometricMean(row_count.names, row_count.output_name),
+            .row_harmonic_mean => |row_count| try current.withRowHarmonicMean(row_count.names, row_count.output_name),
             .row_prod => |row_count| try current.withRowProd(row_count.names, row_count.output_name),
             .row_min => |row_count| try current.withRowMin(row_count.names, row_count.output_name),
             .row_max => |row_count| try current.withRowMax(row_count.names, row_count.output_name),

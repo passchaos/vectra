@@ -1762,6 +1762,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMean(self, names, output_name);
             }
 
+            pub fn withRowGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowGeometricMean(self, names, output_name);
+            }
+
+            pub fn withRowGeoMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowGeoMean(self, names, output_name);
+            }
+
+            pub fn withRowHarmonicMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowHarmonicMean(self, names, output_name);
+            }
+
+            pub fn withRowHarmMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowHarmMean(self, names, output_name);
+            }
+
             pub fn withRowProd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowProd(self, names, output_name);
             }

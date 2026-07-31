@@ -1411,6 +1411,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowIqr(&.{ "a", "b" }, "row_iqr");
     try plan.withRowSum(&.{ "a", "b" }, "row_sum");
     try plan.withRowMean(&.{ "a", "b" }, "row_mean");
+    try plan.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
+    try plan.withRowHarmonicMean(&.{ "a", "b" }, "row_harm");
     try plan.withRowProd(&.{ "a", "b" }, "row_prod");
     try plan.withRowMin(&.{ "a", "b" }, "row_min");
     try plan.withRowMax(&.{ "a", "b" }, "row_max");
@@ -1423,7 +1425,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_sum", "row_mean", "row_geo", "row_harm", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1434,6 +1436,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr([a,b]->row_iqr)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean([a,b]->row_mean)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_geometric_mean([a,b]->row_geo)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_harmonic_mean([a,b]->row_harm)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_prod([a,b]->row_prod)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_min([a,b]->row_min)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_max([a,b]->row_max)") != null);
@@ -1449,7 +1453,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 19), result.width());
+    try std.testing.expectEqual(@as(usize, 21), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1492,6 +1496,18 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_mean);
     const row_mean_validity = try row_mean_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_mean_validity);
+    const row_geo_column = try result.column("row_geo");
+    try std.testing.expect(row_geo_column.f64.nullable());
+    const row_geo = try row_geo_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_geo);
+    const row_geo_validity = try row_geo_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_geo_validity);
+    const row_harm_column = try result.column("row_harm");
+    try std.testing.expect(row_harm_column.f64.nullable());
+    const row_harm = try row_harm_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_harm);
+    const row_harm_validity = try row_harm_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_harm_validity);
     const row_prod_column = try result.column("row_prod");
     try std.testing.expect(row_prod_column.f64.nullable());
     const row_prod = try row_prod_column.f64.toOwnedSlice(gpa);
@@ -1579,6 +1595,16 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_geo[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_geo[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_geo[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 160.0)), row_geo[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_geo_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_harm[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_harm[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_harm[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 80.0 / 11.0), row_harm[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_harm_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 160.0 }, row_prod);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_prod_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_min);

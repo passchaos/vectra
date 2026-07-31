@@ -473,6 +473,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
 
+    var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
+    defer row_geo_table.deinit();
+    const row_geo_column = try row_geo_table.column("row_geo");
+    try std.testing.expect(row_geo_column.f64.nullable());
+    const row_geo = try row_geo_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_geo);
+    const row_geo_validity = try row_geo_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_geo_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_geo[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_geo[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_geo[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 160.0)), row_geo[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_geo_validity);
+
+    var row_harm_table = try validity_table.withRowHarmonicMean(&.{ "a", "b" }, "row_harm");
+    defer row_harm_table.deinit();
+    const row_harm_column = try row_harm_table.column("row_harm");
+    try std.testing.expect(row_harm_column.f64.nullable());
+    const row_harm = try row_harm_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_harm);
+    const row_harm_validity = try row_harm_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_harm_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_harm[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_harm[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_harm[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 80.0 / 11.0), row_harm[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_harm_validity);
+
     var row_prod_table = try validity_table.withRowProd(&.{ "a", "b" }, "row_prod");
     defer row_prod_table.deinit();
     const row_prod_column = try row_prod_table.column("row_prod");
