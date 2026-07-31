@@ -650,6 +650,25 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, filter_zero_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_zero_explain, "filter_zeros_column(active)") != null);
 
+    var drop_positive_zero_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_positive_zero_scan.deinit();
+    try drop_positive_zero_scan.dropPositiveZerosColumn("sales");
+    try drop_positive_zero_scan.select(&.{"id"});
+
+    const drop_positive_zero_explain = try drop_positive_zero_scan.explain(gpa);
+    defer gpa.free(drop_positive_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_positive_zero_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_positive_zero_explain, "drop_positive_zeros[sales]") != null);
+
+    var filter_negative_zero_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_negative_zero_scan.deinit();
+    try filter_negative_zero_scan.filterNegativeZerosColumn("sales");
+
+    const filter_negative_zero_explain = try filter_negative_zero_scan.explain(gpa);
+    defer gpa.free(filter_negative_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_negative_zero_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_negative_zero_explain, "filter_negative_zeros_column(sales)") != null);
+
     var drop_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer drop_finite_scan.deinit();
     try drop_finite_scan.dropFinitesColumn("sales");

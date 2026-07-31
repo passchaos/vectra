@@ -884,6 +884,26 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
     try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
 
+    var filtered_positive_zero_rows = try table.filterPositiveZerosColumn("metric");
+    defer filtered_positive_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_positive_zero_rows.height());
+    const filtered_positive_zero_metric = try (try filtered_positive_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_positive_zero_metric);
+    try std.testing.expectEqual(@as(f64, 0.0), filtered_positive_zero_metric[0]);
+
+    var dropped_negative_zero_rows = try table.dropNegativeZerosColumn("metric");
+    defer dropped_negative_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 7), dropped_negative_zero_rows.height());
+    const dropped_negative_zero_metric = try (try dropped_negative_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_negative_zero_metric);
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_negative_zero_metric[0]);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_negative_zero_metric[1]);
+    try std.testing.expectEqual(@as(f64, 3.0), dropped_negative_zero_metric[2]);
+    try std.testing.expect(std.math.isNan(dropped_negative_zero_metric[3]));
+    try std.testing.expect(std.math.isPositiveInf(dropped_negative_zero_metric[4]));
+    try std.testing.expect(std.math.isNegativeInf(dropped_negative_zero_metric[5]));
+    try std.testing.expectEqual(@as(f64, 9.0), dropped_negative_zero_metric[6]);
+
     var filtered_negative_rows = try table.filterNegativesColumn("id");
     defer filtered_negative_rows.deinit();
     try std.testing.expectEqual(@as(usize, 3), filtered_negative_rows.height());
@@ -897,6 +917,8 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterPositiveZerosColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropNegativeZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositivesColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativesColumn("missing"));
 }

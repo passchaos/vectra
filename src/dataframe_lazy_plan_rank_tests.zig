@@ -876,6 +876,38 @@ test "device lazy frame derives sign predicate columns" {
     try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
     try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
 
+    var filter_positive_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_positive_zero_plan.deinit();
+    try filter_positive_zero_plan.filterPositiveZerosColumn("metric");
+    const filter_positive_zero_explain = try filter_positive_zero_plan.explain(gpa);
+    defer gpa.free(filter_positive_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_positive_zero_explain, "filter_positive_zeros_column(metric)") != null);
+    var filtered_positive_zero_rows = try filter_positive_zero_plan.collect();
+    defer filtered_positive_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_positive_zero_rows.height());
+    const filtered_positive_zero_metric = try (try filtered_positive_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_positive_zero_metric);
+    try std.testing.expectEqual(@as(f64, 0.0), filtered_positive_zero_metric[0]);
+
+    var drop_negative_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_negative_zero_plan.deinit();
+    try drop_negative_zero_plan.dropNegativeZerosColumn("metric");
+    const drop_negative_zero_explain = try drop_negative_zero_plan.explain(gpa);
+    defer gpa.free(drop_negative_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_negative_zero_explain, "drop_negative_zeros[metric]") != null);
+    var dropped_negative_zero_rows = try drop_negative_zero_plan.collect();
+    defer dropped_negative_zero_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 7), dropped_negative_zero_rows.height());
+    const dropped_negative_zero_metric = try (try dropped_negative_zero_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_negative_zero_metric);
+    try std.testing.expectEqual(@as(f64, -2.0), dropped_negative_zero_metric[0]);
+    try std.testing.expectEqual(@as(f64, 0.0), dropped_negative_zero_metric[1]);
+    try std.testing.expectEqual(@as(f64, 3.0), dropped_negative_zero_metric[2]);
+    try std.testing.expect(std.math.isNan(dropped_negative_zero_metric[3]));
+    try std.testing.expect(std.math.isPositiveInf(dropped_negative_zero_metric[4]));
+    try std.testing.expect(std.math.isNegativeInf(dropped_negative_zero_metric[5]));
+    try std.testing.expectEqual(@as(f64, 9.0), dropped_negative_zero_metric[6]);
+
     var drop_negative_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_negative_plan.deinit();
     try drop_negative_plan.dropNegativesColumn("id");
@@ -898,6 +930,11 @@ test "device lazy frame derives sign predicate columns" {
     defer invalid_filter_plan.deinit();
     try invalid_filter_plan.filterNegativesColumn("missing");
     try std.testing.expectError(error.ColumnNotFound, invalid_filter_plan.collect());
+
+    var invalid_signed_zero_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_signed_zero_filter_plan.deinit();
+    try invalid_signed_zero_filter_plan.filterPositiveZerosColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_signed_zero_filter_plan.collect());
 }
 
 test "device lazy frame derives NaN and finite predicate columns" {

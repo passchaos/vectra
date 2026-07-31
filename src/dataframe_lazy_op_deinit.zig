@@ -129,8 +129,8 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(copy.anchor_name);
         },
         .drop_columns => |names| freeNameList(allocator, names),
-        .drop_nulls, .drop_nans, .drop_infs, .drop_positive_infs, .drop_negative_infs, .drop_zeros, .drop_non_zeros, .drop_positives, .drop_negatives, .drop_finites, .drop_normals, .drop_subnormals, .drop_non_finites => |names| freeNameList(allocator, names),
-        .filter_nulls_column, .filter_nans_column, .filter_infs_column, .filter_positive_infs_column, .filter_negative_infs_column, .filter_zeros_column, .filter_non_zeros_column, .filter_positives_column, .filter_negatives_column, .filter_finites_column, .filter_normals_column, .filter_subnormals_column, .filter_non_finites_column => |name| allocator.free(name),
+        .drop_nulls, .drop_nans, .drop_infs, .drop_positive_infs, .drop_negative_infs, .drop_zeros, .drop_positive_zeros, .drop_negative_zeros, .drop_non_zeros, .drop_positives, .drop_negatives, .drop_finites, .drop_normals, .drop_subnormals, .drop_non_finites => |names| freeNameList(allocator, names),
+        .filter_nulls_column, .filter_nans_column, .filter_infs_column, .filter_positive_infs_column, .filter_negative_infs_column, .filter_zeros_column, .filter_positive_zeros_column, .filter_negative_zeros_column, .filter_non_zeros_column, .filter_positives_column, .filter_negatives_column, .filter_finites_column, .filter_normals_column, .filter_subnormals_column, .filter_non_finites_column => |name| allocator.free(name),
         .with_column_binary => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.lhs_name);

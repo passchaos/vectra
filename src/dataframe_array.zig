@@ -2214,6 +2214,22 @@ pub fn dropZeros(
     return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .zero);
 }
 
+pub fn dropPositiveZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .positive_zero);
+}
+
+pub fn dropNegativeZeros(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .negative_zero);
+}
+
 pub fn dropNonZeros(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -2334,6 +2350,22 @@ pub fn filterZerosColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .zero);
+}
+
+pub fn filterPositiveZerosColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .positive_zero);
+}
+
+pub fn filterNegativeZerosColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .negative_zero);
 }
 
 pub fn filterNonZerosColumn(

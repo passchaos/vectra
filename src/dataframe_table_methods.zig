@@ -873,6 +873,38 @@ pub fn filterZerosColumn(self: anytype, name: []const u8) DeviceDataError!FrameT
     return dataframe_array_mod.filterZerosColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropPositiveZeros(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropPositiveZeros(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropPositiveZerosOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropPositiveZeros(self, names);
+}
+
+pub fn dropPositiveZerosColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropPositiveZeros(self, &.{name});
+}
+
+pub fn filterPositiveZerosColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterPositiveZerosColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn dropNegativeZeros(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropNegativeZeros(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropNegativeZerosOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNegativeZeros(self, names);
+}
+
+pub fn dropNegativeZerosColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropNegativeZeros(self, &.{name});
+}
+
+pub fn filterNegativeZerosColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterNegativeZerosColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn dropNonZeros(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropNonZeros(FrameType(@TypeOf(self)), frameValue(self), names);
 }

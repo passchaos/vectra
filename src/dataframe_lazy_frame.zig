@@ -633,6 +633,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterZerosColumn(self, name);
             }
 
+            pub fn dropPositiveZeros(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropPositiveZeros(self, names);
+            }
+
+            pub fn dropPositiveZerosOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropPositiveZeros(names);
+            }
+
+            pub fn dropPositiveZerosColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropPositiveZerosColumn(self, name);
+            }
+
+            pub fn filterPositiveZerosColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterPositiveZerosColumn(self, name);
+            }
+
+            pub fn dropNegativeZeros(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNegativeZeros(self, names);
+            }
+
+            pub fn dropNegativeZerosOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropNegativeZeros(names);
+            }
+
+            pub fn dropNegativeZerosColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNegativeZerosColumn(self, name);
+            }
+
+            pub fn filterNegativeZerosColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterNegativeZerosColumn(self, name);
+            }
+
             pub fn dropNonZeros(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropNonZeros(self, names);
             }
