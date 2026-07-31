@@ -176,6 +176,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .is_valid_column => |predicate| try current.isValidColumn(predicate.name, predicate.output_name),
             .is_nan_column => |predicate| try current.isNanColumn(predicate.name, predicate.output_name),
             .is_zero_column => |predicate| try current.isZeroColumn(predicate.name, predicate.output_name),
+            .is_positive_zero_column => |predicate| try current.isPositiveZeroColumn(predicate.name, predicate.output_name),
+            .is_negative_zero_column => |predicate| try current.isNegativeZeroColumn(predicate.name, predicate.output_name),
             .is_non_zero_column => |predicate| try current.isNonZeroColumn(predicate.name, predicate.output_name),
             .is_positive_column => |predicate| try current.isPositiveColumn(predicate.name, predicate.output_name),
             .is_negative_column => |predicate| try current.isNegativeColumn(predicate.name, predicate.output_name),

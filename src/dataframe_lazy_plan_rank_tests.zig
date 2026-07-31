@@ -803,27 +803,35 @@ test "device lazy frame derives sign predicate columns" {
     defer plan.deinit();
     try plan.isPositiveColumn("metric", "metric_is_positive");
     try plan.isNegativeColumn("metric", "metric_is_negative");
+    try plan.isPositiveZeroColumn("metric", "metric_is_positive_zero");
+    try plan.isNegativeZeroColumn("metric", "metric_is_negative_zero");
     try plan.isPositiveColumn("id", "id_is_positive");
     try plan.isNegativeColumn("unsigned", "unsigned_is_negative");
     try plan.isPositiveColumn("flag", "flag_is_positive");
     try plan.withRowPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_count");
     try plan.withRowNegativeCount(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_count");
-    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_count", "row_negative_count" });
+    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "metric_is_positive_zero", "metric_is_negative_zero", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_count", "row_negative_count" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_column(metric->metric_is_positive)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_column(metric->metric_is_negative)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_zero_column(metric->metric_is_positive_zero)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_zero_column(metric->metric_is_negative_zero)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_positive_count([metric,id,unsigned,flag]->row_positive_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_negative_count([metric,id,unsigned,flag]->row_negative_count)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 7), result.width());
+    try std.testing.expectEqual(@as(usize, 9), result.width());
     const metric_is_positive = try (try result.column("metric_is_positive")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_positive);
     const metric_is_negative = try (try result.column("metric_is_negative")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_negative);
+    const metric_is_positive_zero = try (try result.column("metric_is_positive_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_positive_zero);
+    const metric_is_negative_zero = try (try result.column("metric_is_negative_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_negative_zero);
     const id_is_positive = try (try result.column("id_is_positive")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_positive);
     const unsigned_is_negative = try (try result.column("unsigned_is_negative")).bool.toOwnedSlice(gpa);
@@ -836,6 +844,8 @@ test "device lazy frame derives sign predicate columns" {
     defer gpa.free(row_negative_count);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, false, false, false }, metric_is_positive_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false, false, false, false }, metric_is_negative_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false, true }, id_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, unsigned_is_negative);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, flag_is_positive);

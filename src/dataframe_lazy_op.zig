@@ -159,6 +159,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         is_valid_column: Payloads.NullPredicateColumn,
         is_nan_column: Payloads.NullPredicateColumn,
         is_zero_column: Payloads.NullPredicateColumn,
+        is_positive_zero_column: Payloads.NullPredicateColumn,
+        is_negative_zero_column: Payloads.NullPredicateColumn,
         is_non_zero_column: Payloads.NullPredicateColumn,
         is_positive_column: Payloads.NullPredicateColumn,
         is_negative_column: Payloads.NullPredicateColumn,

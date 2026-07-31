@@ -1251,6 +1251,41 @@ fn isZeroValue(comptime T: type, value: T) bool {
     };
 }
 
+fn isPositiveZeroValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) {
+        const widened = value.toF32();
+        return widened == 0 and !std.math.signbit(widened);
+    }
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) {
+        // A complex value has no single sign bit.  Treat it as positive zero
+        // only when the whole value is zero and neither component carries the
+        // IEEE negative-zero bit; `isNegativeZeroValue` flags the mixed-sign
+        // zero cases so they remain visible to data-quality checks.
+        return value.re == 0 and value.im == 0 and !std.math.signbit(value.re) and !std.math.signbit(value.im);
+    }
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float => value == 0 and !std.math.signbit(value),
+        else => false,
+    };
+}
+
+fn isNegativeZeroValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) {
+        const widened = value.toF32();
+        return widened == 0 and std.math.signbit(widened);
+    }
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) {
+        // Flag complex zeros when either component explicitly carries a
+        // negative-zero sign.  Non-zero complex values are excluded even if one
+        // component happens to be -0, matching the scalar "signed zero" intent.
+        return value.re == 0 and value.im == 0 and (std.math.signbit(value.re) or std.math.signbit(value.im));
+    }
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float => value == 0 and std.math.signbit(value),
+        else => false,
+    };
+}
+
 fn isNonZeroValue(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return value.toF32() != 0;
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return value.re != 0 or value.im != 0;
@@ -1314,7 +1349,7 @@ fn withNumericPredicateColumn(
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, non_zero, positive, negative, finite, normal, subnormal, non_finite },
+    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -1339,6 +1374,8 @@ fn withNumericPredicateColumn(
                     .positive_inf => isPositiveInfValue(@TypeOf(value), value),
                     .negative_inf => isNegativeInfValue(@TypeOf(value), value),
                     .zero => isZeroValue(@TypeOf(value), value),
+                    .positive_zero => isPositiveZeroValue(@TypeOf(value), value),
+                    .negative_zero => isNegativeZeroValue(@TypeOf(value), value),
                     .non_zero => isNonZeroValue(@TypeOf(value), value),
                     .positive => isPositiveValue(@TypeOf(value), value),
                     .negative => isNegativeValue(@TypeOf(value), value),
@@ -1373,6 +1410,24 @@ pub fn isZeroColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .zero);
+}
+
+pub fn isPositiveZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .positive_zero);
+}
+
+pub fn isNegativeZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .negative_zero);
 }
 
 pub fn isNonZeroColumn(

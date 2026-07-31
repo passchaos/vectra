@@ -921,6 +921,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.isZeroColumn(self, name, output_name);
             }
 
+            pub fn isPositiveZeroColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.isPositiveZeroColumn(self, name, output_name);
+            }
+
+            pub fn isNegativeZeroColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.isNegativeZeroColumn(self, name, output_name);
+            }
+
             pub fn isNonZeroColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.isNonZeroColumn(self, name, output_name);
             }

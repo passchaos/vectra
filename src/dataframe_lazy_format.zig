@@ -305,6 +305,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_zero_column => |predicate| try writer.print("is_zero_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_positive_zero_column => |predicate| try writer.print("is_positive_zero_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_negative_zero_column => |predicate| try writer.print("is_negative_zero_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_non_zero_column => |predicate| try writer.print("is_non_zero_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_positive_column => |predicate| try writer.print("is_positive_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_negative_column => |predicate| try writer.print("is_negative_column({s}->{s})", .{ predicate.name, predicate.output_name }),

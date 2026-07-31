@@ -593,6 +593,14 @@ pub fn isZeroColumn(self: anytype, name: []const u8, output_name: []const u8) De
     return dataframe_array_mod.isZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isPositiveZeroColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isPositiveZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
+pub fn isNegativeZeroColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNegativeZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn isNonZeroColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isNonZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

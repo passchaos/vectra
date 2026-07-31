@@ -806,6 +806,19 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(metric_is_negative);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
 
+    var positive_zero_flags = try table.isPositiveZeroColumn("metric", "metric_is_positive_zero");
+    defer positive_zero_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try positive_zero_flags.columnDType("metric_is_positive_zero"));
+    const metric_is_positive_zero = try (try positive_zero_flags.column("metric_is_positive_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_positive_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, false, false, false }, metric_is_positive_zero);
+
+    var negative_zero_flags = try table.isNegativeZeroColumn("metric", "metric_is_negative_zero");
+    defer negative_zero_flags.deinit();
+    const metric_is_negative_zero = try (try negative_zero_flags.column("metric_is_negative_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_negative_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false, false, false, false }, metric_is_negative_zero);
+
     var id_positive_flags = try table.isPositiveColumn("id", "id_is_positive");
     defer id_positive_flags.deinit();
     const id_is_positive = try (try id_positive_flags.column("id_is_positive")).bool.toOwnedSlice(gpa);
@@ -868,6 +881,8 @@ test "device dataframe derives sign predicate columns" {
 
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveColumn("missing", "missing_is_positive"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
+    try std.testing.expectError(error.ColumnNotFound, table.isPositiveZeroColumn("missing", "missing_is_positive_zero"));
+    try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositivesColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativesColumn("missing"));

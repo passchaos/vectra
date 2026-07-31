@@ -234,22 +234,32 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     var zero_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer zero_scan.deinit();
     try zero_scan.isZeroColumn("active", "active_is_zero");
+    try zero_scan.isPositiveZeroColumn("sales", "sales_is_positive_zero");
+    try zero_scan.isNegativeZeroColumn("sales", "sales_is_negative_zero");
     try zero_scan.isNonZeroColumn("active", "active_is_non_zero");
-    try zero_scan.select(&.{ "active_is_zero", "active_is_non_zero" });
+    try zero_scan.select(&.{ "active_is_zero", "sales_is_positive_zero", "sales_is_negative_zero", "active_is_non_zero" });
 
     const zero_explain = try zero_scan.explain(gpa);
     defer gpa.free(zero_explain);
-    try std.testing.expect(std.mem.indexOf(u8, zero_explain, "scan_pushdown: projection=[active]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, zero_explain, "scan_pushdown: projection=[active,sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, zero_explain, "is_zero_column(active->active_is_zero)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, zero_explain, "is_positive_zero_column(sales->sales_is_positive_zero)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, zero_explain, "is_negative_zero_column(sales->sales_is_negative_zero)") != null);
     try std.testing.expect(std.mem.indexOf(u8, zero_explain, "is_non_zero_column(active->active_is_non_zero)") != null);
 
     var zero_result = try zero_scan.collect();
     defer zero_result.deinit();
     const active_is_zero = try (try zero_result.column("active_is_zero")).bool.toOwnedSlice(gpa);
     defer gpa.free(active_is_zero);
+    const sales_is_positive_zero = try (try zero_result.column("sales_is_positive_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_positive_zero);
+    const sales_is_negative_zero = try (try zero_result.column("sales_is_negative_zero")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_negative_zero);
     const active_is_non_zero = try (try zero_result.column("active_is_non_zero")).bool.toOwnedSlice(gpa);
     defer gpa.free(active_is_non_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, active_is_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_positive_zero);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_negative_zero);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_is_non_zero);
 
     var row_count_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);

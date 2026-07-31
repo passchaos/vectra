@@ -157,7 +157,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(coalesce.fallback_name);
             allocator.free(coalesce.output_name);
         },
-        .is_null_column, .is_valid_column, .is_nan_column, .is_zero_column, .is_non_zero_column, .is_positive_column, .is_negative_column, .is_finite_column, .is_normal_column, .is_subnormal_column, .is_non_finite_column, .is_inf_column, .is_positive_inf_column, .is_negative_inf_column => |predicate| {
+        .is_null_column, .is_valid_column, .is_nan_column, .is_zero_column, .is_positive_zero_column, .is_negative_zero_column, .is_non_zero_column, .is_positive_column, .is_negative_column, .is_finite_column, .is_normal_column, .is_subnormal_column, .is_non_finite_column, .is_inf_column, .is_positive_inf_column, .is_negative_inf_column => |predicate| {
             allocator.free(predicate.name);
             allocator.free(predicate.output_name);
         },

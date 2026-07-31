@@ -839,7 +839,7 @@ pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) 
     } });
 }
 
-fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, zero, non_zero, positive, negative, finite, normal, subnormal, non_finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
+fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     const owned_output = try frame.allocator.dupe(u8, output_name);
@@ -850,6 +850,14 @@ fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const
             .output_name = owned_output,
         } }),
         .zero => try frame.ops.append(frame.allocator, .{ .is_zero_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
+        .positive_zero => try frame.ops.append(frame.allocator, .{ .is_positive_zero_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
+        .negative_zero => try frame.ops.append(frame.allocator, .{ .is_negative_zero_column = .{
             .name = owned_name,
             .output_name = owned_output,
         } }),
@@ -902,6 +910,14 @@ pub fn isNanColumn(frame: anytype, name: []const u8, output_name: []const u8) De
 
 pub fn isZeroColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     return numericPredicateColumn(frame, name, output_name, .zero);
+}
+
+pub fn isPositiveZeroColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .positive_zero);
+}
+
+pub fn isNegativeZeroColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .negative_zero);
 }
 
 pub fn isNonZeroColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
