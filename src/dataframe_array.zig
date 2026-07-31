@@ -706,6 +706,34 @@ pub fn dropColumnsWithoutPositives(
     return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .positive);
 }
 
+pub fn selectColumnsWithSignBits(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .signbit);
+}
+
+pub fn selectColumnsWithoutSignBits(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .signbit);
+}
+
+pub fn dropColumnsWithSignBits(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, true, .signbit);
+}
+
+pub fn dropColumnsWithoutSignBits(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsByNumericPredicatePresence(DeviceDataFrame, input, false, .signbit);
+}
+
 pub fn selectColumnsWithNegatives(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

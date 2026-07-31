@@ -433,6 +433,22 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_positives = {} });
             }
 
+            pub fn selectColumnsWithSignBits(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_signbits = {} });
+            }
+
+            pub fn selectColumnsWithoutSignBits(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_signbits = {} });
+            }
+
+            pub fn dropColumnsWithSignBits(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_signbits = {} });
+            }
+
+            pub fn dropColumnsWithoutSignBits(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_signbits = {} });
+            }
+
             pub fn selectColumnsWithNegatives(self: *DeviceLazyFrame) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .select_columns_with_negatives = {} });
             }

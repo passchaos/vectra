@@ -385,6 +385,22 @@ pub fn dropColumnsWithoutPositives(self: anytype) DeviceDataError!FrameType(@Typ
     return dataframe_array_mod.dropColumnsWithoutPositives(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithSignBits(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithSignBits(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutSignBits(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutSignBits(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithSignBits(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithSignBits(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutSignBits(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutSignBits(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithNegatives(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithNegatives(FrameType(@TypeOf(self)), frameValue(self));
 }

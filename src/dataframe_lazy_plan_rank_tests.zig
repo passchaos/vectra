@@ -1520,6 +1520,20 @@ test "device lazy frame selects sign columns" {
     try std.testing.expectEqual(@as(?usize, 2), positive_columns.columnIndex("id"));
     try std.testing.expectEqual(@as(?usize, 3), positive_columns.columnIndex("unsigned"));
 
+    var select_signbits_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_signbits_plan.deinit();
+    try select_signbits_plan.selectColumnsWithSignBits();
+    const select_signbits_explain = try select_signbits_plan.explain(gpa);
+    defer gpa.free(select_signbits_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_signbits_explain, "select_columns_with_signbits") != null);
+    var signbit_columns = try select_signbits_plan.collect();
+    defer signbit_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 4), signbit_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), signbit_columns.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), signbit_columns.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), signbit_columns.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), signbit_columns.columnIndex("id"));
+
     var select_negatives_plan = try DeviceLazyFrame.init(gpa, table);
     defer select_negatives_plan.deinit();
     try select_negatives_plan.selectColumnsWithNegatives();

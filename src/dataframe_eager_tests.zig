@@ -1332,6 +1332,14 @@ test "device dataframe selects sign columns" {
     try std.testing.expectEqual(@as(?usize, 2), without_positives.columnIndex("null_metric"));
     try std.testing.expectEqual(@as(?usize, 3), without_positives.columnIndex("flag"));
 
+    var with_signbits = try table.selectColumnsWithSignBits();
+    defer with_signbits.deinit();
+    try std.testing.expectEqual(@as(usize, 4), with_signbits.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_signbits.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_signbits.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), with_signbits.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), with_signbits.columnIndex("id"));
+
     var with_negatives = try table.selectColumnsWithNegatives();
     defer with_negatives.deinit();
     try std.testing.expectEqual(@as(usize, 3), with_negatives.width());
@@ -1355,6 +1363,14 @@ test "device dataframe selects sign columns" {
     try std.testing.expectEqual(@as(?usize, 1), drop_with_positives.columnIndex("zero_metric"));
     try std.testing.expectEqual(@as(?usize, 2), drop_with_positives.columnIndex("null_metric"));
     try std.testing.expectEqual(@as(?usize, 3), drop_with_positives.columnIndex("flag"));
+
+    var drop_without_signbits = try table.dropColumnsWithoutSignBits();
+    defer drop_without_signbits.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drop_without_signbits.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_signbits.columnIndex("negative_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_signbits.columnIndex("mixed_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), drop_without_signbits.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 3), drop_without_signbits.columnIndex("id"));
 
     var drop_without_negatives = try table.dropColumnsWithoutNegatives();
     defer drop_without_negatives.deinit();
