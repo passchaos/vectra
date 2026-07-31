@@ -305,6 +305,22 @@ pub fn dropColumnsWithoutNegativeInfs(self: anytype) DeviceDataError!FrameType(@
     return dataframe_array_mod.dropColumnsWithoutNegativeInfs(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithNormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNormals(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNormals(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn selectColumnsWithNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.selectColumnsWithNonFinites(FrameType(@TypeOf(self)), frameValue(self));
 }

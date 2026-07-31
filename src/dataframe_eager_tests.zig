@@ -1016,6 +1016,55 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
 }
 
+test "device dataframe selects normal columns" {
+    const gpa = std.testing.allocator;
+
+    var normal_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0 }, .cpu);
+    defer normal_metric.deinit();
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.floatTrueMin(f64), -4.0, std.math.nan(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var special_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.inf(f64), std.math.nan(f64), 0.0 }, .cpu);
+    defer special_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "normal_metric", .data = normal_metric },
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "special_metric", .data = special_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var with_normals = try table.selectColumnsWithNormals();
+    defer with_normals.deinit();
+    try std.testing.expectEqual(@as(usize, 2), with_normals.width());
+    try std.testing.expectEqual(@as(?usize, 0), with_normals.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), with_normals.columnIndex("mixed_metric"));
+
+    var without_normals = try table.selectColumnsWithoutNormals();
+    defer without_normals.deinit();
+    try std.testing.expectEqual(@as(usize, 3), without_normals.width());
+    try std.testing.expectEqual(@as(?usize, 0), without_normals.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), without_normals.columnIndex("special_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), without_normals.columnIndex("id"));
+
+    var drop_with_normals = try table.dropColumnsWithNormals();
+    defer drop_with_normals.deinit();
+    try std.testing.expectEqual(@as(usize, 3), drop_with_normals.width());
+    try std.testing.expectEqual(@as(?usize, null), drop_with_normals.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, null), drop_with_normals.columnIndex("mixed_metric"));
+
+    var drop_without_normals = try table.dropColumnsWithoutNormals();
+    defer drop_without_normals.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_without_normals.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_without_normals.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_without_normals.columnIndex("mixed_metric"));
+}
+
 test "device dataframe selects signed Inf columns" {
     const gpa = std.testing.allocator;
 

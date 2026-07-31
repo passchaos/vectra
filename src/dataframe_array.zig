@@ -566,6 +566,34 @@ pub fn dropColumnsWithoutNegativeInfs(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .negative_inf);
 }
 
+pub fn selectColumnsWithNormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .normal);
+}
+
+pub fn selectColumnsWithoutNormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .normal);
+}
+
+pub fn dropColumnsWithNormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .normal);
+}
+
+pub fn dropColumnsWithoutNormals(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .normal);
+}
+
 pub fn selectColumnsWithNonFinites(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -753,7 +781,7 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, non_finite };
+const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, normal, non_finite };
 
 fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: SpecialFloatPredicate) bool {
     return switch (predicate) {
@@ -761,6 +789,7 @@ fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: 
         .inf => isInfValue(T, value),
         .positive_inf => isPositiveInfValue(T, value),
         .negative_inf => isNegativeInfValue(T, value),
+        .normal => isNormalValue(T, value),
         .non_finite => !isFiniteValue(T, value),
     };
 }

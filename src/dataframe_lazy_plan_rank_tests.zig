@@ -1155,6 +1155,67 @@ test "device lazy frame derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_count_plan.collect());
 }
 
+test "device lazy frame selects normal columns" {
+    const gpa = std.testing.allocator;
+
+    var normal_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0 }, .cpu);
+    defer normal_metric.deinit();
+    var zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 0.0 }, .cpu);
+    defer zero_metric.deinit();
+    var mixed_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.floatTrueMin(f64), -4.0, std.math.nan(f64) }, .cpu);
+    defer mixed_metric.deinit();
+    var special_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.inf(f64), std.math.nan(f64), 0.0 }, .cpu);
+    defer special_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "normal_metric", .data = normal_metric },
+        .{ .name = "zero_metric", .data = zero_metric },
+        .{ .name = "mixed_metric", .data = mixed_metric },
+        .{ .name = "special_metric", .data = special_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var select_normals_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_normals_plan.deinit();
+    try select_normals_plan.selectColumnsWithNormals();
+    const select_normals_explain = try select_normals_plan.explain(gpa);
+    defer gpa.free(select_normals_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_normals_explain, "select_columns_with_normals") != null);
+    var normal_columns = try select_normals_plan.collect();
+    defer normal_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), normal_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), normal_columns.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), normal_columns.columnIndex("mixed_metric"));
+
+    var drop_without_normals_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_without_normals_plan.deinit();
+    try drop_without_normals_plan.dropColumnsWithoutNormals();
+    const drop_without_normals_explain = try drop_without_normals_plan.explain(gpa);
+    defer gpa.free(drop_without_normals_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_without_normals_explain, "drop_columns_without_normals") != null);
+    var only_normal_columns = try drop_without_normals_plan.collect();
+    defer only_normal_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 2), only_normal_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), only_normal_columns.columnIndex("normal_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), only_normal_columns.columnIndex("mixed_metric"));
+
+    var drop_with_normals_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_with_normals_plan.deinit();
+    try drop_with_normals_plan.dropColumnsWithNormals();
+    const drop_with_normals_explain = try drop_with_normals_plan.explain(gpa);
+    defer gpa.free(drop_with_normals_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_with_normals_explain, "drop_columns_with_normals") != null);
+    var non_normal_columns = try drop_with_normals_plan.collect();
+    defer non_normal_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 3), non_normal_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_normal_columns.columnIndex("zero_metric"));
+    try std.testing.expectEqual(@as(?usize, 1), non_normal_columns.columnIndex("special_metric"));
+    try std.testing.expectEqual(@as(?usize, 2), non_normal_columns.columnIndex("id"));
+}
+
 test "device lazy frame selects signed Inf columns" {
     const gpa = std.testing.allocator;
 
