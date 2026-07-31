@@ -134,6 +134,16 @@ pub fn unaryColumnLog1p(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.log1p();
 }
 
+pub fn unaryColumnLgamma(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.lgamma();
+}
+
+pub fn unaryColumnSinc(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.sinc();
+}
+
 pub fn unaryColumnLog2(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log2();

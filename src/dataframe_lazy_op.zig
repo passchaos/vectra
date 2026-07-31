@@ -176,6 +176,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_atanh: Payloads.WithColumnUnary,
         with_column_log: Payloads.WithColumnUnary,
         with_column_log1p: Payloads.WithColumnUnary,
+        with_column_lgamma: Payloads.WithColumnUnary,
+        with_column_sinc: Payloads.WithColumnUnary,
         with_column_log2: Payloads.WithColumnUnary,
         with_column_log10: Payloads.WithColumnUnary,
         with_column_binary: Payloads.WithColumnBinary,

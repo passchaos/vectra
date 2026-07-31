@@ -2540,6 +2540,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnLog1p("bad_log1p", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnLog1p("missing_log1p", "missing"));
 
+    var lgamma_sales_table = try table.withColumnLgamma("sales_lgamma", "sales");
+    defer lgamma_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try lgamma_sales_table.columnDType("sales_lgamma"));
+    const sales_lgamma = try (try lgamma_sales_table.column("sales_lgamma")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_lgamma);
+    try std.testing.expectApproxEqAbs(std.math.lgamma(f64, @as(f64, 2.0)), sales_lgamma[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.lgamma(f64, @as(f64, 3.0)), sales_lgamma[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.lgamma(f64, @as(f64, 5.0)), sales_lgamma[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLgamma("bad_lgamma", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnLgamma("missing_lgamma", "missing"));
+
+    var sinc_cost_table = try table.withColumnSinc("cost_sinc", "cost");
+    defer sinc_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try sinc_cost_table.columnDType("cost_sinc"));
+    const cost_sinc = try (try sinc_cost_table.column("cost_sinc")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_sinc);
+    try std.testing.expectApproxEqAbs(std.math.sin(std.math.pi * @as(f64, 1.0)) / (std.math.pi * @as(f64, 1.0)), cost_sinc[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sin(std.math.pi * @as(f64, 1.5)) / (std.math.pi * @as(f64, 1.5)), cost_sinc[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sin(std.math.pi * @as(f64, 2.0)) / (std.math.pi * @as(f64, 2.0)), cost_sinc[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnSinc("bad_sinc", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnSinc("missing_sinc", "missing"));
+
     var log2_sales_table = try table.withColumnLog2("sales_log2", "sales");
     defer log2_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try log2_sales_table.columnDType("sales_log2"));
