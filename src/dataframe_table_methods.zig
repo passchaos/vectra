@@ -1867,6 +1867,14 @@ pub fn countFalseColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.countFalseColumn(frameValue(self), name);
 }
 
+pub fn trueRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.trueRatioColumn(frameValue(self), name);
+}
+
+pub fn falseRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.falseRatioColumn(frameValue(self), name);
+}
+
 pub fn firstTrueIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstTrueIndexColumn(frameValue(self), name);
 }

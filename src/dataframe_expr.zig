@@ -1258,6 +1258,16 @@ pub fn countFalseColumn(frame: anytype, name: []const u8) DeviceDataError!usize 
     return col.countFalse();
 }
 
+pub fn trueRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countTrue(), col.validCount());
+}
+
+pub fn falseRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countFalse(), col.validCount());
+}
+
 pub fn firstTrueIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstTrueIndex();
