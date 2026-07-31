@@ -425,6 +425,10 @@ pub fn isFiniteColumn(self: anytype, name: []const u8, output_name: []const u8) 
     return dataframe_array_mod.isFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isNormalColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNormalColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn isInfColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

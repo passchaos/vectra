@@ -980,6 +980,35 @@ test "device dataframe derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeInfColumn("missing", "missing_is_neg_inf"));
 }
 
+test "device dataframe derives normal predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 0.0, std.math.floatTrueMin(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var metric_flags = try table.isNormalColumn("metric", "metric_is_normal");
+    defer metric_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try metric_flags.columnDType("metric_is_normal"));
+    const metric_is_normal = try (try metric_flags.column("metric_is_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, metric_is_normal);
+
+    var integer_flags = try table.isNormalColumn("id", "id_is_normal");
+    defer integer_flags.deinit();
+    const id_is_normal = try (try integer_flags.column("id_is_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
+    try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
+}
+
 test "device dataframe selects signed Inf columns" {
     const gpa = std.testing.allocator;
 

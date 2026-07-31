@@ -1098,6 +1098,45 @@ test "device lazy frame derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives normal predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 0.0, std.math.floatTrueMin(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isNormalColumn("metric", "metric_is_normal");
+    try plan.isNormalColumn("id", "id_is_normal");
+    try plan.select(&.{ "metric_is_normal", "id_is_normal" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_normal_column(metric->metric_is_normal)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    const metric_is_normal = try (try result.column("metric_is_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_normal);
+    const id_is_normal = try (try result.column("id_is_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, metric_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isNormalColumn("missing", "missing_is_normal");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame selects signed Inf columns" {
     const gpa = std.testing.allocator;
 
