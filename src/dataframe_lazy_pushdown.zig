@@ -890,7 +890,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, predicate.name);
                 }
             },
-            .row_null_count, .row_valid_count, .row_null_ratio, .row_valid_ratio, .row_true_count, .row_false_count, .row_true_ratio, .row_false_ratio, .row_nan_count, .row_nan_ratio, .row_inf_count, .row_inf_ratio, .row_positive_inf_count, .row_negative_inf_count, .row_positive_inf_ratio, .row_negative_inf_ratio, .row_zero_count, .row_positive_zero_count, .row_negative_zero_count, .row_non_zero_count, .row_positive_count, .row_signbit_count, .row_negative_count, .row_finite_count, .row_finite_ratio, .row_normal_count, .row_subnormal_count, .row_non_finite_count, .row_non_finite_ratio => |row_count| {
+            .row_null_count, .row_valid_count, .row_null_ratio, .row_valid_ratio, .row_true_count, .row_false_count, .row_true_ratio, .row_false_ratio, .row_nan_count, .row_nan_ratio, .row_inf_count, .row_inf_ratio, .row_positive_inf_count, .row_negative_inf_count, .row_positive_inf_ratio, .row_negative_inf_ratio, .row_zero_count, .row_zero_ratio, .row_positive_zero_count, .row_negative_zero_count, .row_non_zero_count, .row_non_zero_ratio, .row_positive_count, .row_signbit_count, .row_negative_count, .row_finite_count, .row_finite_ratio, .row_normal_count, .row_subnormal_count, .row_non_finite_count, .row_non_finite_ratio => |row_count| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
                 if (row_count.names.len == 0) {
                     // Empty row-count input means "all columns visible at this

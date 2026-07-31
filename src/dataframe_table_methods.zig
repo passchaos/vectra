@@ -2663,6 +2663,10 @@ pub fn withRowZeroCount(self: anytype, names: []const []const u8, output_name: [
     return dataframe_array_mod.withRowZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowZeroRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowPositiveZeroCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowPositiveZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
@@ -2673,6 +2677,10 @@ pub fn withRowNegativeZeroCount(self: anytype, names: []const []const u8, output
 
 pub fn withRowNonZeroCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowNonZeroRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
 pub fn withRowPositiveCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

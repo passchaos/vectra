@@ -1015,6 +1015,29 @@ test "device dataframe derives zero predicate columns" {
     defer gpa.free(row_non_zero_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 3, 3, 0 }, row_non_zero_count);
 
+    var row_zero_ratios = try table.withRowZeroRatio(&.{ "metric", "id", "flag" }, "row_zero_ratio");
+    defer row_zero_ratios.deinit();
+    const row_zero_ratio = try (try row_zero_ratios.column("row_zero_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_zero_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0 / 3.0, 2.0 / 3.0, 0.0, 0.0, 1.0 }, row_zero_ratio);
+
+    var row_non_zero_ratios = try table.withRowNonZeroRatio(&.{ "metric", "id", "flag" }, "row_non_zero_ratio");
+    defer row_non_zero_ratios.deinit();
+    const row_non_zero_ratio = try (try row_non_zero_ratios.column("row_non_zero_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_non_zero_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 0.0 }, row_non_zero_ratio);
+
+    var metric_zero_ratios = try table.withRowZeroRatio(&.{"metric"}, "metric_zero_ratio");
+    defer metric_zero_ratios.deinit();
+    const metric_zero_ratio_column = try metric_zero_ratios.column("metric_zero_ratio");
+    try std.testing.expect(metric_zero_ratio_column.f64.nullable());
+    const metric_zero_ratio = try metric_zero_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_zero_ratio);
+    const metric_zero_ratio_validity = try metric_zero_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_zero_ratio_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 0.0, 0.0, 0.0, 0.0 }, metric_zero_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, false }, metric_zero_ratio_validity);
+
     var dropped_zero_rows = try table.dropZerosColumn("metric");
     defer dropped_zero_rows.deinit();
     try std.testing.expectEqual(@as(usize, 4), dropped_zero_rows.height());

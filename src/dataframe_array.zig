@@ -2168,6 +2168,24 @@ pub fn withRowNegativeInfRatio(
     return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .negative_inf);
 }
 
+pub fn withRowZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .zero);
+}
+
+pub fn withRowNonZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .non_zero);
+}
+
 pub fn withRowFiniteRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
