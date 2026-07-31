@@ -17,14 +17,18 @@ const planLazyScanPushdown = lazy_mod.planLazyScanPushdown;
 const formatLazyScanPushdown = lazy_mod.formatLazyScanPushdown;
 const formatLazyOp = lazy_mod.formatLazyOp;
 
-fn deinitLazyOps(comptime DeviceLazyOp: type, allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)) void {
+// Let Zig infer the concrete ArrayList type at each call site.  Naming
+// `std.ArrayList(DeviceLazyOp)` here forces the compiler to re-evaluate the
+// large lazy-op union in this helper signature, which can exceed Zig 0.16's
+// default comptime branch quota as new lazy expression tags are added.
+fn deinitLazyOps(allocator: std.mem.Allocator, ops: anytype) void {
     for (ops.items) |*op| op.deinit(allocator);
     ops.deinit(allocator);
 }
 
 pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self: anytype) ParquetInteropError!DeviceDataFrame {
     var optimized = try optimizedOps(DeviceLazyOp, self);
-    defer deinitLazyOps(DeviceLazyOp, self.allocator, &optimized);
+    defer deinitLazyOps(self.allocator, &optimized);
     var current = try collectSource(DeviceDataFrame, DeviceLazyOp, self, optimized.items);
     errdefer current.deinit();
     for (optimized.items) |op| {
@@ -213,6 +217,21 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .with_column_tan => |expr| blk: {
                 var column_value = try current.unaryColumnTan(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_asin => |expr| blk: {
+                var column_value = try current.unaryColumnAsin(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_acos => |expr| blk: {
+                var column_value = try current.unaryColumnAcos(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_atan => |expr| blk: {
+                var column_value = try current.unaryColumnAtan(expr.input_name);
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
@@ -424,7 +443,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
 
 pub fn explain(comptime DeviceLazyOp: type, self: anytype, allocator: std.mem.Allocator) DeviceDataError![]u8 {
     var optimized = try optimizedOps(DeviceLazyOp, self);
-    defer deinitLazyOps(DeviceLazyOp, self.allocator, &optimized);
+    defer deinitLazyOps(self.allocator, &optimized);
     var aw: std.Io.Writer.Allocating = .init(allocator);
     errdefer aw.deinit();
     try aw.writer.print("DeviceLazyFrame(raw_ops={d}, optimized_ops={d}, source={s})\n", .{ self.ops.items.len, optimized.items.len, self.source.name() });
@@ -445,7 +464,7 @@ pub fn explain(comptime DeviceLazyOp: type, self: anytype, allocator: std.mem.Al
 
 fn optimizedOps(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!std.ArrayList(DeviceLazyOp) {
     var optimized: std.ArrayList(DeviceLazyOp) = .empty;
-    errdefer deinitLazyOps(DeviceLazyOp, self.allocator, &optimized);
+    errdefer deinitLazyOps(self.allocator, &optimized);
     for (self.ops.items) |op| {
         switch (op) {
             .select => |names| {

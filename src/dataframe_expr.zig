@@ -69,6 +69,21 @@ pub fn unaryColumnTan(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(
     return col.tan();
 }
 
+pub fn unaryColumnAsin(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.asin();
+}
+
+pub fn unaryColumnAcos(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.acos();
+}
+
+pub fn unaryColumnAtan(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.atan();
+}
+
 pub fn unaryColumnLog(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log();

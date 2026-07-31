@@ -110,6 +110,30 @@ pub fn tan(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     };
 }
 
+pub fn asin(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.asin()),
+    };
+}
+
+pub fn acos(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.acos()),
+    };
+}
+
+pub fn atan(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.atan()),
+    };
+}
+
 pub fn log(self: anytype) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

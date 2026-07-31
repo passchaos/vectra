@@ -145,6 +145,36 @@ pub fn withColumnTan(self: anytype, output_name: []const u8, input_name: []const
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnAsin(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnAsin(frameValue(self), name);
+}
+
+pub fn withColumnAsin(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnAsin(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnAcos(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnAcos(frameValue(self), name);
+}
+
+pub fn withColumnAcos(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnAcos(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnAtan(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnAtan(frameValue(self), name);
+}
+
+pub fn withColumnAtan(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnAtan(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnLog(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnLog(frameValue(self), name);
 }

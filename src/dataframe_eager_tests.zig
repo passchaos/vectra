@@ -2387,6 +2387,49 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnTan("bad_tan", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnTan("missing_tan", "missing"));
 
+    var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ -0.5, 0.0, 0.5 }, .cpu);
+    defer ratio.deinit();
+    var inverse_units = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer inverse_units.deinit();
+    var inverse_trig_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "ratio", .data = ratio },
+        .{ .name = "units", .data = inverse_units },
+    });
+    defer inverse_trig_table.deinit();
+
+    var asin_ratio_table = try inverse_trig_table.withColumnAsin("ratio_asin", "ratio");
+    defer asin_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try asin_ratio_table.columnDType("ratio_asin"));
+    const ratio_asin = try (try asin_ratio_table.column("ratio_asin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_asin);
+    try std.testing.expectApproxEqAbs(std.math.asin(@as(f64, -0.5)), ratio_asin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asin(@as(f64, 0.0)), ratio_asin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.asin(@as(f64, 0.5)), ratio_asin[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAsin("bad_asin", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAsin("missing_asin", "missing"));
+
+    var acos_ratio_table = try inverse_trig_table.withColumnAcos("ratio_acos", "ratio");
+    defer acos_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try acos_ratio_table.columnDType("ratio_acos"));
+    const ratio_acos = try (try acos_ratio_table.column("ratio_acos")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_acos);
+    try std.testing.expectApproxEqAbs(std.math.acos(@as(f64, -0.5)), ratio_acos[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acos(@as(f64, 0.0)), ratio_acos[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.acos(@as(f64, 0.5)), ratio_acos[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAcos("bad_acos", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAcos("missing_acos", "missing"));
+
+    var atan_ratio_table = try inverse_trig_table.withColumnAtan("ratio_atan", "ratio");
+    defer atan_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try atan_ratio_table.columnDType("ratio_atan"));
+    const ratio_atan = try (try atan_ratio_table.column("ratio_atan")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_atan);
+    try std.testing.expectApproxEqAbs(std.math.atan(@as(f64, -0.5)), ratio_atan[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atan(@as(f64, 0.0)), ratio_atan[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.atan(@as(f64, 0.5)), ratio_atan[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAtan("bad_atan", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAtan("missing_atan", "missing"));
+
     var log_sales_table = try table.withColumnLog("sales_log", "sales");
     defer log_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try log_sales_table.columnDType("sales_log"));

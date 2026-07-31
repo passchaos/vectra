@@ -346,6 +346,36 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn asin(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.asin();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn acos(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.acos();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn atan(self: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.atan();
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn log(self: Self) array_mod.ArrayError!Self {
             if (comptime T == bool or isIntegerColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.log();

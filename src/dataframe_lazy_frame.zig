@@ -897,6 +897,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnTan(self, name, input_name);
             }
 
+            pub fn withColumnAsin(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAsin(self, name, input_name);
+            }
+
+            pub fn withColumnAcos(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAcos(self, name, input_name);
+            }
+
+            pub fn withColumnAtan(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnAtan(self, name, input_name);
+            }
+
             pub fn withColumnLog(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnLog(self, name, input_name);
             }
