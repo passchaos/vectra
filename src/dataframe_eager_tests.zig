@@ -484,6 +484,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 648.0)), row_stddev[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_stddev_validity);
+
+    var row_sem_table = try validity_table.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
+    defer row_sem_table.deinit();
+    const row_sem_column = try row_sem_table.column("row_sem");
+    try std.testing.expect(row_sem_column.f64.nullable());
+    const row_sem = try row_sem_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_sem);
+    const row_sem_validity = try row_sem_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_sem_validity);
+    try std.testing.expect(std.math.isNan(row_sem[0]));
+    try std.testing.expect(std.math.isNan(row_sem[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_sem[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 18.0), row_sem[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sem_validity);
+
+    var row_cv_table = try validity_table.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
+    defer row_cv_table.deinit();
+    const row_cv_column = try row_cv_table.column("row_cv");
+    try std.testing.expect(row_cv_column.f64.nullable());
+    const row_cv = try row_cv_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_cv);
+    const row_cv_validity = try row_cv_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_cv_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 18.0 / 22.0), row_cv[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cv_validity);
     try std.testing.expectError(error.InvalidShape, validity_table.withRowVariance(&.{ "a", "b" }, "bad_row_variance", -1.0));
     try std.testing.expectError(error.TypeMismatch, validity_table.withRowSum(&.{"c"}, "bad_row_sum"));
 

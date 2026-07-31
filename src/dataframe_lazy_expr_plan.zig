@@ -2605,7 +2605,7 @@ fn withRowNumericDispersion(
     names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { variance, stddev },
+    comptime reduction: enum { variance, stddev, sem, cv },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2621,6 +2621,16 @@ fn withRowNumericDispersion(
             .correction = correction,
         } }),
         .stddev => try frame.ops.append(frame.allocator, .{ .row_stddev = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .sem => try frame.ops.append(frame.allocator, .{ .row_sem = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .cv => try frame.ops.append(frame.allocator, .{ .row_cv = .{
             .names = owned_names,
             .output_name = owned_output,
             .correction = correction,
@@ -2642,6 +2652,14 @@ pub fn withRowStddev(frame: anytype, names: []const []const u8, output_name: []c
 
 pub fn withRowStd(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowStddev(frame, names, output_name, correction);
+}
+
+pub fn withRowSem(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .sem);
+}
+
+pub fn withRowCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .cv);
 }
 
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {

@@ -2663,6 +2663,14 @@ pub fn withRowStd(self: anytype, names: []const []const u8, output_name: []const
     return withRowStddev(self, names, output_name, correction);
 }
 
+pub fn withRowSem(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSem(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowCv(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCv(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
 pub fn withRowTrueCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTrueCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

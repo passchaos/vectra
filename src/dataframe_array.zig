@@ -2026,7 +2026,7 @@ pub fn withRowPtp(
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
 }
 
-const RowNumericDispersion = enum { variance, stddev };
+const RowNumericDispersion = enum { variance, stddev, sem, cv };
 
 fn withRowNumericDispersion(
     comptime DeviceDataFrame: type,
@@ -2086,16 +2086,19 @@ fn withRowNumericDispersion(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, counts, m2s) |*value, valid, count, m2| {
+    for (values, validity, counts, m2s, means) |*value, valid, count, m2, mean| {
         if (!valid) {
             value.* = 0.0;
             continue;
         }
         const denominator = @as(f64, @floatFromInt(count)) - correction;
         const variance = if (denominator <= 0.0) std.math.nan(f64) else m2 / denominator;
+        const stddev_value = std.math.sqrt(variance);
         value.* = switch (reduction) {
             .variance => variance,
-            .stddev => std.math.sqrt(variance),
+            .stddev => stddev_value,
+            .sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
+            .cv => stddev_value / mean,
         };
     }
 
@@ -2123,6 +2126,26 @@ pub fn withRowStddev(
     correction: f64,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .stddev);
+}
+
+pub fn withRowSem(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .sem);
+}
+
+pub fn withRowCv(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .cv);
 }
 
 fn withRowBoolPredicateCount(

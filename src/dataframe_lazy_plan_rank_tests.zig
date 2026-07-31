@@ -1412,7 +1412,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowPtp(&.{ "a", "b" }, "row_ptp");
     try plan.withRowVariance(&.{ "a", "b" }, "row_variance", 0.0);
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
-    try plan.select(&.{ "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp", "row_variance", "row_stddev" });
+    try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
+    try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
+    try plan.select(&.{ "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1424,10 +1426,12 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_ptp([a,b]->row_ptp)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_variance([a,b]->row_variance, correction=0)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_stddev([a,b]->row_stddev, correction=1)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_sem([a,b]->row_sem, correction=1)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cv([a,b]->row_cv, correction=0)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 8), result.width());
+    try std.testing.expectEqual(@as(usize, 10), result.width());
     const row_sum_column = try result.column("row_sum");
     try std.testing.expect(row_sum_column.f64.nullable());
     const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
@@ -1476,6 +1480,18 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_stddev);
     const row_stddev_validity = try row_stddev_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_stddev_validity);
+    const row_sem_column = try result.column("row_sem");
+    try std.testing.expect(row_sem_column.f64.nullable());
+    const row_sem = try row_sem_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_sem);
+    const row_sem_validity = try row_sem_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_sem_validity);
+    const row_cv_column = try result.column("row_cv");
+    try std.testing.expect(row_cv_column.f64.nullable());
+    const row_cv = try row_cv_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_cv);
+    const row_cv_validity = try row_cv_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_cv_validity);
 
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
@@ -1499,6 +1515,16 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 648.0)), row_stddev[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_stddev_validity);
+    try std.testing.expect(std.math.isNan(row_sem[0]));
+    try std.testing.expect(std.math.isNan(row_sem[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_sem[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 18.0), row_sem[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sem_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 18.0 / 22.0), row_cv[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cv_validity);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

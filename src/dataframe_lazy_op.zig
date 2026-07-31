@@ -300,6 +300,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_ptp: Payloads.RowValidityCount,
         row_variance: Payloads.RowNumericDispersion,
         row_stddev: Payloads.RowNumericDispersion,
+        row_sem: Payloads.RowNumericDispersion,
+        row_cv: Payloads.RowNumericDispersion,
         row_true_count: Payloads.RowValidityCount,
         row_false_count: Payloads.RowValidityCount,
         row_any_true: Payloads.RowValidityCount,
