@@ -2310,6 +2310,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnReciprocal("bad_recip", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnReciprocal("missing_recip", "missing"));
 
+    var sqrt_sales_table = try table.withColumnSqrt("sales_sqrt", "sales");
+    defer sqrt_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try sqrt_sales_table.columnDType("sales_sqrt"));
+    const sales_sqrt = try (try sqrt_sales_table.column("sales_sqrt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_sqrt);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0)), sales_sqrt[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 3.0)), sales_sqrt[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5.0)), sales_sqrt[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnSqrt("bad_sqrt", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnSqrt("missing_sqrt", "missing"));
+
     var mask = try table.compareColumnScalar("sales", f64, 2.5, .gt);
     defer mask.deinit();
     try std.testing.expectEqual(DeviceDType.bool, mask.dtype());

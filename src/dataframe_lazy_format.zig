@@ -347,6 +347,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_neg => |expr| try writer.print("with_column_neg({s}=neg({s}))", .{ expr.name, expr.input_name }),
         .with_column_square => |expr| try writer.print("with_column_square({s}=square({s}))", .{ expr.name, expr.input_name }),
         .with_column_reciprocal => |expr| try writer.print("with_column_reciprocal({s}=reciprocal({s}))", .{ expr.name, expr.input_name }),
+        .with_column_sqrt => |expr| try writer.print("with_column_sqrt({s}=sqrt({s}))", .{ expr.name, expr.input_name }),
         .is_null_column => |predicate| try writer.print("is_null_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_valid_column => |predicate| try writer.print("is_valid_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),
