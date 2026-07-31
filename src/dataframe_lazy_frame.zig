@@ -1718,6 +1718,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowValidRatio(self, names, output_name);
             }
 
+            pub fn withRowFirstValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstValidIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastValidIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNullIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNullIndex(self, names, output_name);
+            }
+
             pub fn withRowTrueCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowTrueCount(self, names, output_name);
             }

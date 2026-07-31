@@ -2486,6 +2486,55 @@ pub fn withRowValidRatio(frame: anytype, names: []const []const u8, output_name:
     return withRowValidityRatio(frame, names, output_name, true);
 }
 
+fn withRowValidityMatchIndex(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime search: enum { first_valid, last_valid, first_null, last_null },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (search) {
+        .first_valid => try frame.ops.append(frame.allocator, .{ .row_first_valid_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .last_valid => try frame.ops.append(frame.allocator, .{ .row_last_valid_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .first_null => try frame.ops.append(frame.allocator, .{ .row_first_null_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .last_null => try frame.ops.append(frame.allocator, .{ .row_last_null_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowFirstValidIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityMatchIndex(frame, names, output_name, .first_valid);
+}
+
+pub fn withRowLastValidIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityMatchIndex(frame, names, output_name, .last_valid);
+}
+
+pub fn withRowFirstNullIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityMatchIndex(frame, names, output_name, .first_null);
+}
+
+pub fn withRowLastNullIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityMatchIndex(frame, names, output_name, .last_null);
+}
+
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

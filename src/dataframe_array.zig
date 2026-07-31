@@ -1764,6 +1764,110 @@ pub fn withRowValidRatio(
     return withRowValidityRatio(DeviceDataFrame, input, names, output_name, true);
 }
 
+const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
+
+fn withRowValidityMatchIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime search: RowValidityMatchIndex,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const indices = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(indices);
+    const output_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(output_validity);
+    @memset(indices, 0);
+    @memset(output_validity, false);
+
+    const target_valid = switch (search) {
+        .first_valid, .last_valid => true,
+        .first_null, .last_null => false,
+    };
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        const output_index = std.math.cast(i64, col_index) orelse return error.InvalidShape;
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (validity, 0..) |valid, row| {
+                        if (valid != target_valid) continue;
+                        switch (search) {
+                            .first_valid, .first_null => if (!output_validity[row]) {
+                                indices[row] = output_index;
+                                output_validity[row] = true;
+                            },
+                            .last_valid, .last_null => {
+                                indices[row] = output_index;
+                                output_validity[row] = true;
+                            },
+                        }
+                    }
+                } else if (target_valid) {
+                    for (output_validity, 0..) |*found, row| {
+                        switch (search) {
+                            .first_valid => if (!found.*) {
+                                indices[row] = output_index;
+                                found.* = true;
+                            },
+                            .last_valid => {
+                                indices[row] = output_index;
+                                found.* = true;
+                            },
+                            .first_null, .last_null => unreachable,
+                        }
+                    }
+                }
+            },
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, indices, output_validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowFirstValidIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .first_valid);
+}
+
+pub fn withRowLastValidIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_valid);
+}
+
+pub fn withRowFirstNullIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .first_null);
+}
+
+pub fn withRowLastNullIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
+}
+
 fn withRowBoolPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

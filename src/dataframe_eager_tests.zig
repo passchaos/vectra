@@ -382,6 +382,61 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0 / 3.0, 1.0 }, row_valid_ratio);
 
+    var validity_a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer validity_a.deinit();
+    var validity_b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer validity_b.deinit();
+    var validity_c = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, true, false }, &.{ false, false, true, true }, .cpu);
+    defer validity_c.deinit();
+    var validity_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = validity_a },
+        .{ .name = "b", .data = validity_b },
+        .{ .name = "c", .data = validity_c },
+    });
+    defer validity_table.deinit();
+
+    var row_first_valid_table = try validity_table.withRowFirstValidIndex(&.{ "a", "b", "c" }, "first_valid");
+    defer row_first_valid_table.deinit();
+    const row_first_valid_column = try row_first_valid_table.column("first_valid");
+    try std.testing.expect(row_first_valid_column.i64.nullable());
+    const row_first_valid = try row_first_valid_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_valid);
+    const row_first_valid_validity = try row_first_valid_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_valid_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 0 }, row_first_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_first_valid_validity);
+
+    var row_last_valid_table = try validity_table.withRowLastValidIndex(&.{ "a", "b", "c" }, "last_valid");
+    defer row_last_valid_table.deinit();
+    const row_last_valid_column = try row_last_valid_table.column("last_valid");
+    const row_last_valid = try row_last_valid_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_valid);
+    const row_last_valid_validity = try row_last_valid_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_valid_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2 }, row_last_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_last_valid_validity);
+
+    var row_first_null_table = try validity_table.withRowFirstNullIndex(&.{ "a", "b", "c" }, "first_null");
+    defer row_first_null_table.deinit();
+    const row_first_null_column = try row_first_null_table.column("first_null");
+    try std.testing.expect(row_first_null_column.i64.nullable());
+    const row_first_null = try row_first_null_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_null);
+    const row_first_null_validity = try row_first_null_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_null_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, row_first_null);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, row_first_null_validity);
+
+    var row_last_null_table = try validity_table.withRowLastNullIndex(&.{ "a", "b", "c" }, "last_null");
+    defer row_last_null_table.deinit();
+    const row_last_null_column = try row_last_null_table.column("last_null");
+    const row_last_null = try row_last_null_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_null);
+    const row_last_null_validity = try row_last_null_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_null_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 1, 0 }, row_last_null);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, row_last_null_validity);
+
     var row_true_counts = try table.withRowTrueCount(&.{"active"}, "row_true_count");
     defer row_true_counts.deinit();
     const row_true_count = try (try row_true_counts.column("row_true_count")).i64.toOwnedSlice(gpa);
