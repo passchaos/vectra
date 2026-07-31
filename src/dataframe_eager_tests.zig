@@ -2595,6 +2595,39 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_mod[1], 1e-12);
     try std.testing.expectApproxEqAbs(@mod(@as(f64, 0.5), @as(f64, 0.4)), ratio_mod[2], 1e-12);
 
+    var logaddexp_ratio_table = try inverse_trig_table.withColumnLogAddExpScalar("ratio_logaddexp", "ratio", f64, 0.0);
+    defer logaddexp_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try logaddexp_ratio_table.columnDType("ratio_logaddexp"));
+    const ratio_logaddexp = try (try logaddexp_ratio_table.column("ratio_logaddexp")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_logaddexp);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, -0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, -0.5)))), ratio_logaddexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.ln2, ratio_logaddexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, 0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, 0.5)))), ratio_logaddexp[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogAddExpScalar("bad_logaddexp", "units", f64, 0.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogAddExpScalar("missing_logaddexp", "missing", f64, 0.0));
+
+    var logaddexp2_ratio_table = try inverse_trig_table.withColumnLogAddExp2Scalar("ratio_logaddexp2", "ratio", f64, 0.0);
+    defer logaddexp2_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try logaddexp2_ratio_table.columnDType("ratio_logaddexp2"));
+    const ratio_logaddexp2 = try (try logaddexp2_ratio_table.column("ratio_logaddexp2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_logaddexp2);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, -0.5), @as(f64, 0.0)) + std.math.log2(@as(f64, 1.0) + std.math.pow(f64, 2.0, -@abs(@as(f64, -0.5)))), ratio_logaddexp2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ratio_logaddexp2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, 0.5), @as(f64, 0.0)) + std.math.log2(@as(f64, 1.0) + std.math.pow(f64, 2.0, -@abs(@as(f64, 0.5)))), ratio_logaddexp2[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogAddExp2Scalar("bad_logaddexp2", "units", f64, 0.0));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogAddExp2Scalar("missing_logaddexp2", "missing", f64, 0.0));
+
+    var xlogy_ratio_table = try inverse_trig_table.withColumnXlogyScalar("ratio_xlogy", "ratio", f64, std.math.e);
+    defer xlogy_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try xlogy_ratio_table.columnDType("ratio_xlogy"));
+    const ratio_xlogy = try (try xlogy_ratio_table.column("ratio_xlogy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_xlogy);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), ratio_xlogy[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_xlogy[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ratio_xlogy[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnXlogyScalar("bad_xlogy", "units", f64, std.math.e));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnXlogyScalar("missing_xlogy", "missing", f64, std.math.e));
+
     var threshold_ratio_table = try inverse_trig_table.withColumnThreshold("ratio_threshold", "ratio", f64, -0.25, 1.0);
     defer threshold_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try threshold_ratio_table.columnDType("ratio_threshold"));

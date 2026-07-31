@@ -164,6 +164,36 @@ pub fn unaryColumnRemainderWithDeviceScalar(frame: anytype, name: []const u8, sc
     return col.remainderWithDeviceScalar(scalar);
 }
 
+pub fn unaryColumnLogAddExpScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.logAddExpScalar(T, scalar);
+}
+
+pub fn unaryColumnLogAddExpWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.logAddExpWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnLogAddExp2Scalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.logAddExp2Scalar(T, scalar);
+}
+
+pub fn unaryColumnLogAddExp2WithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.logAddExp2WithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnXlogyScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.xlogyScalar(T, scalar);
+}
+
+pub fn unaryColumnXlogyWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.xlogyWithDeviceScalar(scalar);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

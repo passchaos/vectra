@@ -290,6 +290,21 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_log_add_exp_scalar => |expr| blk: {
+                var column_value = try current.unaryColumnLogAddExpWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_log_add_exp2_scalar => |expr| blk: {
+                var column_value = try current.unaryColumnLogAddExp2WithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_xlogy_scalar => |expr| blk: {
+                var column_value = try current.unaryColumnXlogyWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_threshold => |expr| blk: {
                 var column_value = try current.unaryColumnThresholdWithDeviceScalars(expr.input_name, expr.lhs_scalar, expr.rhs_scalar);
                 defer column_value.deinit();

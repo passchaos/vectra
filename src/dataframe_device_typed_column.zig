@@ -480,6 +480,36 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.modScalar(scalar);
         }
 
+        pub fn logAddExpScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == f16 or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.logAddExpScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == f16 or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.logAddExp2Scalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == f16 or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.xlogyScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) array_mod.ArrayError!Self {
             if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.threshold(threshold_value, replacement_value);
