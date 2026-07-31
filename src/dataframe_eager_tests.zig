@@ -2577,6 +2577,50 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(units_hardtanh);
     try std.testing.expectEqualSlices(i64, &.{ 2, 2, 3 }, units_hardtanh);
 
+    var maximum_ratio_table = try inverse_trig_table.withColumnMaximumScalar("ratio_max", "ratio", f64, 0.25);
+    defer maximum_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try maximum_ratio_table.columnDType("ratio_max"));
+    const ratio_max = try (try maximum_ratio_table.column("ratio_max")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_max);
+    try std.testing.expectEqualSlices(f64, &.{ 0.25, 0.25, 0.5 }, ratio_max);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnMaximumScalar("bad_max", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnMaximumScalar("missing_max", "missing", f64, 0.25));
+
+    var minimum_ratio_table = try inverse_trig_table.withColumnMinimumScalar("ratio_min", "ratio", f64, 0.25);
+    defer minimum_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try minimum_ratio_table.columnDType("ratio_min"));
+    const ratio_min = try (try minimum_ratio_table.column("ratio_min")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_min);
+    try std.testing.expectEqualSlices(f64, &.{ -0.5, 0.0, 0.25 }, ratio_min);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnMinimumScalar("bad_min", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnMinimumScalar("missing_min", "missing", f64, 0.25));
+
+    var clip_min_ratio_table = try inverse_trig_table.withColumnClipMin("ratio_clip_min", "ratio", f64, -0.25);
+    defer clip_min_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try clip_min_ratio_table.columnDType("ratio_clip_min"));
+    const ratio_clip_min = try (try clip_min_ratio_table.column("ratio_clip_min")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_clip_min);
+    try std.testing.expectEqualSlices(f64, &.{ -0.25, 0.0, 0.5 }, ratio_clip_min);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnClipMin("bad_clip_min", "active", f64, -0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnClipMin("missing_clip_min", "missing", f64, -0.25));
+
+    var clip_max_ratio_table = try inverse_trig_table.withColumnClipMax("ratio_clip_max", "ratio", f64, 0.25);
+    defer clip_max_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try clip_max_ratio_table.columnDType("ratio_clip_max"));
+    const ratio_clip_max = try (try clip_max_ratio_table.column("ratio_clip_max")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_clip_max);
+    try std.testing.expectEqualSlices(f64, &.{ -0.5, 0.0, 0.25 }, ratio_clip_max);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnClipMax("bad_clip_max", "active", f64, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnClipMax("missing_clip_max", "missing", f64, 0.25));
+
+    var maximum_units_table = try table.withColumnMaximumWithDeviceScalar("units_max", "units", .{ .f64 = 2.0 });
+    defer maximum_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try maximum_units_table.columnDType("units_max"));
+    const units_max = try (try maximum_units_table.column("units_max")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_max);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 3 }, units_max);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnClipMinWithDeviceScalar("bad_fractional_clip_min", "units", .{ .f64 = 2.5 }));
+
     var hardshrink_ratio_table = try inverse_trig_table.withColumnHardshrink("ratio_hardshrink", "ratio", f64, 0.25);
     defer hardshrink_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try hardshrink_ratio_table.columnDType("ratio_hardshrink"));

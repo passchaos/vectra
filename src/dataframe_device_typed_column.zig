@@ -466,6 +466,34 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn maximumScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.maximumScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.minimumScalar(scalar);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
+        pub fn clipMin(self: Self, min_value: T) array_mod.ArrayError!Self {
+            return self.maximumScalar(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) array_mod.ArrayError!Self {
+            return self.minimumScalar(max_value);
+        }
+
         pub fn hardshrink(self: Self, lambd: T) array_mod.ArrayError!Self {
             if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.hardshrink(lambd);

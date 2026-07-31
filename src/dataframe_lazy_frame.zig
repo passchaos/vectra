@@ -983,6 +983,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnHardtanhWithDeviceScalars(self, name, input_name, min_value, max_value);
             }
 
+            pub fn withColumnMaximumScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMaximumScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnMaximumWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMaximumWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnMinimumScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMinimumScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnMinimumWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMinimumWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnClipMin(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, min_value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnClipMin(self, name, input_name, T, min_value);
+            }
+
+            pub fn withColumnClipMinWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, min_value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnClipMinWithDeviceScalar(self, name, input_name, min_value);
+            }
+
+            pub fn withColumnClipMax(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, max_value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnClipMax(self, name, input_name, T, max_value);
+            }
+
+            pub fn withColumnClipMaxWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, max_value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnClipMaxWithDeviceScalar(self, name, input_name, max_value);
+            }
+
             pub fn withColumnHardshrink(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnHardshrink(self, name, input_name, T, lambd);
             }

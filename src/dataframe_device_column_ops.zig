@@ -288,6 +288,54 @@ pub fn hardtanhWithDeviceScalars(self: anytype, min_value: options_mod.DeviceSca
     };
 }
 
+pub fn maximumScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.maximumScalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn maximumWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.maximumScalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn minimumScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.minimumScalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn minimumWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.minimumScalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn clipMin(self: anytype, comptime T: type, min_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return maximumScalar(self, T, min_value);
+}
+
+pub fn clipMinWithDeviceScalar(self: anytype, min_value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return maximumWithDeviceScalar(self, min_value);
+}
+
+pub fn clipMax(self: anytype, comptime T: type, max_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return minimumScalar(self, T, max_value);
+}
+
+pub fn clipMaxWithDeviceScalar(self: anytype, max_value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return minimumWithDeviceScalar(self, max_value);
+}
+
 pub fn hardshrink(self: anytype, comptime T: type, lambd: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

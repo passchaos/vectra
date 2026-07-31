@@ -280,6 +280,26 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_maximum_scalar => |expr| blk: {
+                var column_value = try current.unaryColumnMaximumWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_minimum_scalar => |expr| blk: {
+                var column_value = try current.unaryColumnMinimumWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_clip_min => |expr| blk: {
+                var column_value = try current.unaryColumnClipMinWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_clip_max => |expr| blk: {
+                var column_value = try current.unaryColumnClipMaxWithDeviceScalar(expr.input_name, expr.scalar);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_hardshrink => |expr| blk: {
                 var column_value = try current.unaryColumnHardshrinkWithDeviceScalar(expr.input_name, expr.scalar);
                 defer column_value.deinit();

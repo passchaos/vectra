@@ -235,6 +235,22 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.name);
             allocator.free(expr.input_name);
         },
+        .with_column_maximum_scalar => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+        },
+        .with_column_minimum_scalar => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+        },
+        .with_column_clip_min => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+        },
+        .with_column_clip_max => |expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+        },
         .with_column_hardshrink => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.input_name);

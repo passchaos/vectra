@@ -144,6 +144,46 @@ pub fn unaryColumnHardtanhWithDeviceScalars(frame: anytype, name: []const u8, mi
     return col.hardtanhWithDeviceScalars(min_value, max_value);
 }
 
+pub fn unaryColumnMaximumScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.maximumScalar(T, scalar);
+}
+
+pub fn unaryColumnMaximumWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.maximumWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnMinimumScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.minimumScalar(T, scalar);
+}
+
+pub fn unaryColumnMinimumWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.minimumWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnClipMin(frame: anytype, name: []const u8, comptime T: type, min_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.clipMin(T, min_value);
+}
+
+pub fn unaryColumnClipMinWithDeviceScalar(frame: anytype, name: []const u8, min_value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.clipMinWithDeviceScalar(min_value);
+}
+
+pub fn unaryColumnClipMax(frame: anytype, name: []const u8, comptime T: type, max_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.clipMax(T, max_value);
+}
+
+pub fn unaryColumnClipMaxWithDeviceScalar(frame: anytype, name: []const u8, max_value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.clipMaxWithDeviceScalar(max_value);
+}
+
 pub fn unaryColumnHardshrink(frame: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.hardshrink(T, lambd);

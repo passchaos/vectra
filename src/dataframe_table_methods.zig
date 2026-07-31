@@ -343,6 +343,86 @@ pub fn withColumnHardtanhWithDeviceScalars(
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnMaximumScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnMaximumScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnMaximumWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnMaximumWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnMaximumScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnMaximumScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnMaximumWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnMaximumWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnMinimumScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnMinimumScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnMinimumWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnMinimumWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnMinimumScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnMinimumScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnMinimumWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnMinimumWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnClipMin(self: anytype, name: []const u8, comptime T: type, min_value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnClipMin(frameValue(self), name, T, min_value);
+}
+
+pub fn unaryColumnClipMinWithDeviceScalar(self: anytype, name: []const u8, min_value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnClipMinWithDeviceScalar(frameValue(self), name, min_value);
+}
+
+pub fn withColumnClipMin(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, min_value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnClipMin(self, input_name, T, min_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnClipMinWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, min_value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnClipMinWithDeviceScalar(self, input_name, min_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnClipMax(self: anytype, name: []const u8, comptime T: type, max_value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnClipMax(frameValue(self), name, T, max_value);
+}
+
+pub fn unaryColumnClipMaxWithDeviceScalar(self: anytype, name: []const u8, max_value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnClipMaxWithDeviceScalar(frameValue(self), name, max_value);
+}
+
+pub fn withColumnClipMax(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, max_value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnClipMax(self, input_name, T, max_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnClipMaxWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, max_value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnClipMaxWithDeviceScalar(self, input_name, max_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnHardshrink(self: anytype, name: []const u8, comptime T: type, lambd: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.unaryColumnHardshrink(frameValue(self), name, T, lambd);
 }

@@ -890,6 +890,70 @@ pub fn withColumnHardtanhWithDeviceScalars(
     } });
 }
 
+pub fn withColumnMaximumScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+    return withColumnMaximumWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
+}
+
+pub fn withColumnMaximumWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_maximum_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnMinimumScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+    return withColumnMinimumWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
+}
+
+pub fn withColumnMinimumWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_minimum_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnClipMin(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, min_value: T) DeviceDataError!void {
+    return withColumnClipMinWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, min_value));
+}
+
+pub fn withColumnClipMinWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, min_value: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_clip_min = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = min_value,
+    } });
+}
+
+pub fn withColumnClipMax(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, max_value: T) DeviceDataError!void {
+    return withColumnClipMaxWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, max_value));
+}
+
+pub fn withColumnClipMaxWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, max_value: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_clip_max = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .scalar = max_value,
+    } });
+}
+
 pub fn withColumnHardshrink(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lambd: T) DeviceDataError!void {
     return withColumnHardshrinkWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, lambd));
 }
