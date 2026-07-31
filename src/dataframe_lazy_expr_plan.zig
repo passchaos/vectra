@@ -2535,6 +2535,26 @@ pub fn withRowLastNullIndex(frame: anytype, names: []const []const u8, output_na
     return withRowValidityMatchIndex(frame, names, output_name, .last_null);
 }
 
+pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer {
+        for (owned_values) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_values);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_weighted_mean = .{
+        .value_names = owned_values,
+        .weight_names = owned_weights,
+        .output_name = owned_output,
+    } });
+}
+
 fn withRowNumericArgReduction(
     frame: anytype,
     names: []const []const u8,

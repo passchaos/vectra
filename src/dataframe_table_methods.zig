@@ -2623,6 +2623,10 @@ pub fn withRowLastNullIndex(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowLastNullIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowWeightedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

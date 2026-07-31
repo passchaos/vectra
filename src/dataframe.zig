@@ -761,6 +761,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowLastValidIndex = table_methods_mod.withRowLastValidIndex;
     pub const withRowFirstNullIndex = table_methods_mod.withRowFirstNullIndex;
     pub const withRowLastNullIndex = table_methods_mod.withRowLastNullIndex;
+    pub const withRowWeightedMean = table_methods_mod.withRowWeightedMean;
     pub const withRowArgMin = table_methods_mod.withRowArgMin;
     pub const withRowArgMax = table_methods_mod.withRowArgMax;
     pub const withRowQuantile = table_methods_mod.withRowQuantile;

@@ -388,10 +388,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer validity_b.deinit();
     var validity_c = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, true, false }, &.{ false, false, true, true }, .cpu);
     defer validity_c.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
     var validity_table = try DeviceDataFrame.init(gpa, &.{
         .{ .name = "a", .data = validity_a },
         .{ .name = "b", .data = validity_b },
         .{ .name = "c", .data = validity_c },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
     });
     defer validity_table.deinit();
 
@@ -471,6 +477,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_mode_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mode_validity);
+
+    var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
+    defer row_weighted_mean_table.deinit();
+    const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");
+    try std.testing.expect(row_weighted_mean_column.f64.nullable());
+    const row_weighted_mean = try row_weighted_mean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mean);
+    const row_weighted_mean_validity = try row_weighted_mean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mean_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mean[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_weighted_mean[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_mean[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
 
     var row_distinct_table = try validity_table.withRowCountDistinct(&.{ "a", "b" }, "row_distinct");
     defer row_distinct_table.deinit();

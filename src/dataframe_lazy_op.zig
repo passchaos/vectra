@@ -292,6 +292,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_last_valid_index: Payloads.RowValidityCount,
         row_first_null_index: Payloads.RowValidityCount,
         row_last_null_index: Payloads.RowValidityCount,
+        row_weighted_mean: Payloads.RowWeightedMean,
         row_argmin: Payloads.RowValidityCount,
         row_argmax: Payloads.RowValidityCount,
         row_quantile: Payloads.RowQuantile,

@@ -930,6 +930,23 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .row_weighted_mean => |row_weighted| {
+                try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
+                if (row_weighted.value_names.len == 0 or row_weighted.weight_names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_weighted.value_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                for (row_weighted.weight_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .with_column_compare => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);

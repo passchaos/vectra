@@ -545,6 +545,19 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_weighted_mean => |row_weighted| {
+            try writer.print("row_weighted_mean(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
         .row_argmin => |row_count| {
             try writer.print("row_argmin([", .{});
             for (row_count.names, 0..) |name, i| {

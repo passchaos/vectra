@@ -1868,6 +1868,71 @@ pub fn withRowLastNullIndex(
     return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
 }
 
+pub fn withRowWeightedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (value_names.len == 0 or value_names.len != weight_names.len) return error.LengthMismatch;
+
+    const numerators = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(numerators);
+    const denominators = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(denominators);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(numerators, 0.0);
+    @memset(denominators, 0.0);
+    @memset(validity, false);
+
+    for (value_names, weight_names) |value_name, weight_name| {
+        const value_source = try input.column(value_name);
+        const weight_source = try input.column(weight_name);
+        if (!value_source.dtype().isReal() or !weight_source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (value_source.*) {
+            inline else => |value_typed| {
+                const value_values = try value_typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(value_values);
+                const maybe_value_validity = try validityValues(value_typed, input.allocator);
+                defer if (maybe_value_validity) |mask| input.allocator.free(mask);
+
+                switch (weight_source.*) {
+                    inline else => |weight_typed| {
+                        const weight_values = try weight_typed.toOwnedSlice(input.allocator);
+                        defer input.allocator.free(weight_values);
+                        const maybe_weight_validity = try validityValues(weight_typed, input.allocator);
+                        defer if (maybe_weight_validity) |mask| input.allocator.free(mask);
+
+                        for (value_values, weight_values, 0..) |raw_value, raw_weight, row| {
+                            const value_valid = if (maybe_value_validity) |mask| mask[row] else true;
+                            const weight_valid = if (maybe_weight_validity) |mask| mask[row] else true;
+                            if (!value_valid or !weight_valid) continue;
+                            const weight = realValueAsF64(@TypeOf(raw_weight), raw_weight);
+                            numerators[row] += realValueAsF64(@TypeOf(raw_value), raw_value) * weight;
+                            denominators[row] += weight;
+                        }
+                    },
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    for (values, validity, numerators, denominators) |*value, *valid, numerator, denominator| {
+        valid.* = denominator != 0.0;
+        value.* = if (denominator == 0.0) 0.0 else numerator / denominator;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 const RowNumericArgReduction = enum { argmin, argmax };
 
 const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
