@@ -3602,6 +3602,7 @@ const RowQuantileMeasure = union(enum) {
     difference: struct { hi: f64, lo: f64 },
     midhinge,
     trimean,
+    bowley_skewness,
 };
 
 fn validateRowQuantile(q: f64) DeviceFrameArrayError!void {
@@ -3620,7 +3621,7 @@ fn withRowQuantileValues(
             try validateRowQuantile(qs.hi);
             try validateRowQuantile(qs.lo);
         },
-        .midhinge, .trimean => {},
+        .midhinge, .trimean, .bowley_skewness => {},
     }
 
     const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
@@ -3681,6 +3682,13 @@ fn withRowQuantileValues(
             .difference => |qs| rowQuantileFromSorted(scratch[0..count], qs.hi) - rowQuantileFromSorted(scratch[0..count], qs.lo),
             .midhinge => (rowQuantileFromSorted(scratch[0..count], 0.25) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 2.0,
             .trimean => (rowQuantileFromSorted(scratch[0..count], 0.25) + 2.0 * rowQuantileFromSorted(scratch[0..count], 0.5) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 4.0,
+            .bowley_skewness => blk: {
+                const q1 = rowQuantileFromSorted(scratch[0..count], 0.25);
+                const median = rowQuantileFromSorted(scratch[0..count], 0.5);
+                const q3 = rowQuantileFromSorted(scratch[0..count], 0.75);
+                const iqr = q3 - q1;
+                break :blk if (iqr == 0.0) std.math.nan(f64) else (q3 + q1 - 2.0 * median) / iqr;
+            },
         };
         validity[row] = true;
     }
@@ -3791,6 +3799,33 @@ pub fn withRowTrimean(
     var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
     defer column.deinit();
     return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowBowleySkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .bowley_skewness);
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowBowleySkew(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBowleySkewness(DeviceDataFrame, input, names, output_name);
 }
 
 fn withRowMadCore(

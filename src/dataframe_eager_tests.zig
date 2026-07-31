@@ -469,6 +469,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_trimean);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_trimean_validity);
 
+    var row_bowley_table = try validity_table.withRowBowleySkewness(&.{ "a", "b" }, "row_bowley");
+    defer row_bowley_table.deinit();
+    const row_bowley_column = try row_bowley_table.column("row_bowley");
+    try std.testing.expect(row_bowley_column.f64.nullable());
+    const row_bowley = try row_bowley_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_bowley);
+    const row_bowley_validity = try row_bowley_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_bowley_validity);
+    try std.testing.expect(std.math.isNan(row_bowley[0]));
+    try std.testing.expect(std.math.isNan(row_bowley[1]));
+    try std.testing.expectEqual(@as(f64, 0.0), row_bowley[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bowley[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_bowley_validity);
+
     var row_iqr_table = try validity_table.withRowIqr(&.{ "a", "b" }, "row_iqr");
     defer row_iqr_table.deinit();
     const row_iqr_column = try row_iqr_table.column("row_iqr");

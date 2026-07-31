@@ -2823,6 +2823,14 @@ pub fn withRowTrimean(self: anytype, names: []const []const u8, output_name: []c
     return dataframe_array_mod.withRowTrimean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowBowleySkewness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowBowleySkewness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowBowleySkew(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowBowleySkew(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMad(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMad(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

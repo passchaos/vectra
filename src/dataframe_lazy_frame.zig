@@ -1934,6 +1934,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowTrimean(self, names, output_name);
             }
 
+            pub fn withRowBowleySkewness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowBowleySkewness(self, names, output_name);
+            }
+
+            pub fn withRowBowleySkew(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowBowleySkew(self, names, output_name);
+            }
+
             pub fn withRowMad(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMad(self, names, output_name);
             }
