@@ -378,6 +378,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_next_after_scalar => |expr| try writer.print("with_column_next_after_scalar({s}=next_after({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_copysign_scalar => |expr| try writer.print("with_column_copysign_scalar({s}=copysign({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_heaviside_scalar => |expr| try writer.print("with_column_heaviside_scalar({s}=heaviside({s}, value_at_zero:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
+        .with_column_ldexp_scalar => |expr| try writer.print("with_column_ldexp_scalar({s}=ldexp({s}, exponent:{d}))", .{ expr.name, expr.input_name, expr.exponent }),
         .with_column_threshold => |expr| try writer.print("with_column_threshold({s}=threshold({s}, threshold:{s}, replacement:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_hardtanh => |expr| try writer.print("with_column_hardtanh({s}=hardtanh({s}, min:{s}, max:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_maximum_scalar => |expr| try writer.print("with_column_maximum_scalar({s}=maximum({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),

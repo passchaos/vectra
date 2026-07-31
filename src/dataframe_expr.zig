@@ -264,6 +264,11 @@ pub fn unaryColumnHeavisideWithDeviceScalar(frame: anytype, name: []const u8, va
     return col.heavisideWithDeviceScalar(value_at_zero);
 }
 
+pub fn unaryColumnLdexpScalar(frame: anytype, name: []const u8, exponent: i32) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.ldexpScalar(exponent);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

@@ -580,6 +580,16 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn ldexpScalar(self: Self, exponent: i32) array_mod.ArrayError!Self {
+            if (comptime T == bool or T == array_mod.BFloat16 or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            var values = try self.values.ldexpScalar(exponent);
+            errdefer values.deinit();
+            var validity: ?array_mod.Array(bool) = null;
+            errdefer if (validity) |*mask| mask.deinit();
+            if (self.validity) |mask| validity = try mask.clone();
+            return .{ .values = values, .validity = validity, .null_count = self.null_count };
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) array_mod.ArrayError!Self {
             if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
             var values = try self.values.threshold(threshold_value, replacement_value);

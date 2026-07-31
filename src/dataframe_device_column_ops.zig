@@ -460,6 +460,14 @@ pub fn heavisideWithDeviceScalar(self: anytype, value_at_zero: options_mod.Devic
     };
 }
 
+pub fn ldexpScalar(self: anytype, exponent: i32) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.ldexpScalar(exponent)),
+    };
+}
+
 pub fn threshold(self: anytype, comptime T: type, threshold_value: T, replacement_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

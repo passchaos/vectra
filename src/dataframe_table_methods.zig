@@ -535,6 +535,16 @@ pub fn withColumnHeavisideWithDeviceScalar(self: anytype, output_name: []const u
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnLdexpScalar(self: anytype, name: []const u8, exponent: i32) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnLdexpScalar(frameValue(self), name, exponent);
+}
+
+pub fn withColumnLdexpScalar(self: anytype, output_name: []const u8, input_name: []const u8, exponent: i32) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnLdexpScalar(self, input_name, exponent);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnThreshold(
     self: anytype,
     name: []const u8,

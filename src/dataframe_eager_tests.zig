@@ -2708,6 +2708,15 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, units_heaviside);
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnHeavisideWithDeviceScalar("bad_fractional_heaviside", "units", .{ .f64 = 0.5 }));
 
+    var ldexp_ratio_table = try inverse_trig_table.withColumnLdexpScalar("ratio_ldexp", "ratio", 2);
+    defer ldexp_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try ldexp_ratio_table.columnDType("ratio_ldexp"));
+    const ratio_ldexp = try (try ldexp_ratio_table.column("ratio_ldexp")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_ldexp);
+    try std.testing.expectEqualSlices(f64, &.{ -2.0, 0.0, 2.0 }, ratio_ldexp);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLdexpScalar("bad_ldexp", "units", 2));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLdexpScalar("missing_ldexp", "missing", 2));
+
     var nan_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.nan(f64), -1.0, 2.0 }, .cpu);
     defer nan_metric.deinit();
     var nan_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = nan_metric }});

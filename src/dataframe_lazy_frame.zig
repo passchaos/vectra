@@ -1053,6 +1053,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnHeavisideWithDeviceScalar(self, name, input_name, value_at_zero);
             }
 
+            pub fn withColumnLdexpScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, exponent: i32) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLdexpScalar(self, name, input_name, exponent);
+            }
+
             pub fn withColumnThreshold(
                 self: *DeviceLazyFrame,
                 name: []const u8,

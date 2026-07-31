@@ -251,6 +251,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const copysignWithDeviceScalar = column_ops_mod.copysignWithDeviceScalar;
     pub const heavisideScalar = column_ops_mod.heavisideScalar;
     pub const heavisideWithDeviceScalar = column_ops_mod.heavisideWithDeviceScalar;
+    pub const ldexpScalar = column_ops_mod.ldexpScalar;
     pub const threshold = column_ops_mod.threshold;
     pub const thresholdWithDeviceScalars = column_ops_mod.thresholdWithDeviceScalars;
     pub const hardtanh = column_ops_mod.hardtanh;
