@@ -873,6 +873,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnSqrt(self, name, input_name);
             }
 
+            pub fn withColumnRsqrt(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnRsqrt(self, name, input_name);
+            }
+
+            pub fn withColumnCbrt(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnCbrt(self, name, input_name);
+            }
+
             pub fn withColumnExp(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnExp(self, name, input_name);
             }

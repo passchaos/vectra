@@ -39,6 +39,16 @@ pub fn unaryColumnSqrt(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.sqrt();
 }
 
+pub fn unaryColumnRsqrt(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.rsqrt();
+}
+
+pub fn unaryColumnCbrt(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.cbrt();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

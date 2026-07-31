@@ -2321,6 +2321,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnSqrt("bad_sqrt", "units"));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnSqrt("missing_sqrt", "missing"));
 
+    var rsqrt_sales_table = try table.withColumnRsqrt("sales_rsqrt", "sales");
+    defer rsqrt_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try rsqrt_sales_table.columnDType("sales_rsqrt"));
+    const sales_rsqrt = try (try rsqrt_sales_table.column("sales_rsqrt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_rsqrt);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / std.math.sqrt(@as(f64, 2.0)), sales_rsqrt[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / std.math.sqrt(@as(f64, 3.0)), sales_rsqrt[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / std.math.sqrt(@as(f64, 5.0)), sales_rsqrt[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnRsqrt("bad_rsqrt", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnRsqrt("missing_rsqrt", "missing"));
+
+    var cbrt_sales_table = try table.withColumnCbrt("sales_cbrt", "sales");
+    defer cbrt_sales_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try cbrt_sales_table.columnDType("sales_cbrt"));
+    const sales_cbrt = try (try cbrt_sales_table.column("sales_cbrt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cbrt);
+    try std.testing.expectApproxEqAbs(std.math.cbrt(@as(f64, 2.0)), sales_cbrt[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cbrt(@as(f64, 3.0)), sales_cbrt[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cbrt(@as(f64, 5.0)), sales_cbrt[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnCbrt("bad_cbrt", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnCbrt("missing_cbrt", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));
