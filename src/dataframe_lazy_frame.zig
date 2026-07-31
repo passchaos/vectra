@@ -1750,6 +1750,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowCosine(self, lhs_names, rhs_names, output_name);
             }
 
+            pub fn withRowSquaredEuclideanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSquaredEuclideanDistance(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowEuclideanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowEuclideanDistance(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowManhattanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowManhattanDistance(self, lhs_names, rhs_names, output_name);
+            }
+
             pub fn withRowArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowArgMin(self, names, output_name);
             }

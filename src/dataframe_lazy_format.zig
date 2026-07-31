@@ -584,6 +584,45 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_paired.output_name});
         },
+        .row_squared_euclidean_distance => |row_paired| {
+            try writer.print("row_squared_euclidean_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
+        .row_euclidean_distance => |row_paired| {
+            try writer.print("row_euclidean_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
+        .row_manhattan_distance => |row_paired| {
+            try writer.print("row_manhattan_distance(lhs=[", .{});
+            for (row_paired.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], rhs=[", .{});
+            for (row_paired.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_paired.output_name});
+        },
         .row_argmin => |row_count| {
             try writer.print("row_argmin([", .{});
             for (row_count.names, 0..) |name, i| {

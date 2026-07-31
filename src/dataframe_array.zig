@@ -1933,7 +1933,7 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
-const RowPairedNumericReduction = enum { dot, cosine };
+const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan };
 
 fn withRowPairedNumericReduction(
     comptime DeviceDataFrame: type,
@@ -1951,11 +1951,14 @@ fn withRowPairedNumericReduction(
     defer input.allocator.free(lhs_norm2);
     const rhs_norm2 = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(rhs_norm2);
+    const manhattan = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(manhattan);
     const validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(validity);
     @memset(dots, 0.0);
     @memset(lhs_norm2, 0.0);
     @memset(rhs_norm2, 0.0);
+    @memset(manhattan, 0.0);
     @memset(validity, false);
 
     for (lhs_names, rhs_names) |lhs_name, rhs_name| {
@@ -1986,6 +1989,7 @@ fn withRowPairedNumericReduction(
                             dots[row] += lhs * rhs;
                             lhs_norm2[row] += lhs * lhs;
                             rhs_norm2[row] += rhs * rhs;
+                            manhattan[row] += @abs(lhs - rhs);
                             validity[row] = true;
                         }
                     },
@@ -1996,13 +2000,17 @@ fn withRowPairedNumericReduction(
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, dots, lhs_norm2, rhs_norm2) |*value, valid, dot, lhs2, rhs2| {
+    for (values, validity, dots, lhs_norm2, rhs_norm2, manhattan) |*value, valid, dot, lhs2, rhs2, l1| {
         if (!valid) {
             value.* = 0.0;
         } else {
+            const squared_distance = lhs2 + rhs2 - 2.0 * dot;
             value.* = switch (reduction) {
                 .dot => dot,
                 .cosine => if (lhs2 == 0.0 or rhs2 == 0.0) std.math.nan(f64) else dot / (std.math.sqrt(lhs2) * std.math.sqrt(rhs2)),
+                .squared_euclidean => squared_distance,
+                .euclidean => std.math.sqrt(squared_distance),
+                .manhattan => l1,
             };
         }
     }
@@ -2041,6 +2049,36 @@ pub fn withRowCosine(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCosineSimilarity(DeviceDataFrame, input, lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowSquaredEuclideanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .squared_euclidean);
+}
+
+pub fn withRowEuclideanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .euclidean);
+}
+
+pub fn withRowManhattanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .manhattan);
 }
 
 const RowNumericArgReduction = enum { argmin, argmax };

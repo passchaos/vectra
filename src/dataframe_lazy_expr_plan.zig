@@ -2544,7 +2544,7 @@ fn withRowPairedNumeric(
     lhs_names: []const []const u8,
     rhs_names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { weighted_mean, dot, cosine },
+    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -2574,6 +2574,21 @@ fn withRowPairedNumeric(
             .weight_names = owned_weights,
             .output_name = owned_output,
         } }),
+        .squared_euclidean => try frame.ops.append(frame.allocator, .{ .row_squared_euclidean_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .euclidean => try frame.ops.append(frame.allocator, .{ .row_euclidean_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .manhattan => try frame.ops.append(frame.allocator, .{ .row_manhattan_distance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2587,6 +2602,18 @@ pub fn withRowCosineSimilarity(frame: anytype, lhs_names: []const []const u8, rh
 
 pub fn withRowCosine(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowCosineSimilarity(frame, lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowSquaredEuclideanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .squared_euclidean);
+}
+
+pub fn withRowEuclideanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .euclidean);
+}
+
+pub fn withRowManhattanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .manhattan);
 }
 
 fn withRowNumericArgReduction(

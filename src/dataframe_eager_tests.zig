@@ -516,6 +516,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cosine[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 56.0) / (std.math.sqrt(@as(f64, 1616.0)) * std.math.sqrt(@as(f64, 17.0))), row_cosine[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cosine_validity);
+
+    var row_sqdist_table = try validity_table.withRowSquaredEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_sqdist");
+    defer row_sqdist_table.deinit();
+    const row_sqdist = try (try row_sqdist_table.column("row_sqdist")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_sqdist);
+    const row_sqdist_validity = try (try row_sqdist_table.column("row_sqdist")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_sqdist_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 361.0, 0.0, 1521.0 }, row_sqdist);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sqdist_validity);
+
+    var row_euclidean_table = try validity_table.withRowEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_euclidean");
+    defer row_euclidean_table.deinit();
+    const row_euclidean = try (try row_euclidean_table.column("row_euclidean")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_euclidean);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_euclidean[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0), row_euclidean[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_euclidean[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 39.0), row_euclidean[3], 1e-12);
+
+    var row_manhattan_table = try validity_table.withRowManhattanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_manhattan");
+    defer row_manhattan_table.deinit();
+    const row_manhattan = try (try row_manhattan_table.column("row_manhattan")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_manhattan);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
 

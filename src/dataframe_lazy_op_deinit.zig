@@ -567,7 +567,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_quantile.names);
             allocator.free(row_quantile.output_name);
         },
-        .row_weighted_mean, .row_dot, .row_cosine_similarity => |row_weighted| {
+        .row_weighted_mean, .row_dot, .row_cosine_similarity, .row_squared_euclidean_distance, .row_euclidean_distance, .row_manhattan_distance => |row_weighted| {
             freeNameList(allocator, row_weighted.value_names);
             freeNameList(allocator, row_weighted.weight_names);
             allocator.free(row_weighted.output_name);

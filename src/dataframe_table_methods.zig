@@ -2639,6 +2639,18 @@ pub fn withRowCosine(self: anytype, lhs_names: []const []const u8, rhs_names: []
     return dataframe_array_mod.withRowCosine(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
 
+pub fn withRowSquaredEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSquaredEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowManhattanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowManhattanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
