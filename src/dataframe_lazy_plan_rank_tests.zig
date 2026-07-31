@@ -803,6 +803,8 @@ test "device lazy frame derives sign predicate columns" {
     defer plan.deinit();
     try plan.isPositiveColumn("metric", "metric_is_positive");
     try plan.isNegativeColumn("metric", "metric_is_negative");
+    try plan.isSignBitColumn("metric", "metric_signbit");
+    try plan.isSignBitColumn("id", "id_signbit");
     try plan.isPositiveZeroColumn("metric", "metric_is_positive_zero");
     try plan.isNegativeZeroColumn("metric", "metric_is_negative_zero");
     try plan.isPositiveColumn("id", "id_is_positive");
@@ -812,12 +814,14 @@ test "device lazy frame derives sign predicate columns" {
     try plan.withRowNegativeZeroCount(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_zero_count");
     try plan.withRowPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_count");
     try plan.withRowNegativeCount(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_count");
-    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "metric_is_positive_zero", "metric_is_negative_zero", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_zero_count", "row_negative_zero_count", "row_positive_count", "row_negative_count" });
+    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "metric_signbit", "id_signbit", "metric_is_positive_zero", "metric_is_negative_zero", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_zero_count", "row_negative_zero_count", "row_positive_count", "row_negative_count" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_column(metric->metric_is_positive)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_column(metric->metric_is_negative)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_signbit_column(metric->metric_signbit)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_signbit_column(id->id_signbit)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_zero_column(metric->metric_is_positive_zero)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_zero_column(metric->metric_is_negative_zero)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_positive_zero_count([metric,id,unsigned,flag]->row_positive_zero_count)") != null);
@@ -827,11 +831,15 @@ test "device lazy frame derives sign predicate columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 11), result.width());
+    try std.testing.expectEqual(@as(usize, 13), result.width());
     const metric_is_positive = try (try result.column("metric_is_positive")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_positive);
     const metric_is_negative = try (try result.column("metric_is_negative")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_negative);
+    const metric_signbit = try (try result.column("metric_signbit")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_signbit);
+    const id_signbit = try (try result.column("id_signbit")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_signbit);
     const metric_is_positive_zero = try (try result.column("metric_is_positive_zero")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_positive_zero);
     const metric_is_negative_zero = try (try result.column("metric_is_negative_zero")).bool.toOwnedSlice(gpa);
@@ -852,6 +860,8 @@ test "device lazy frame derives sign predicate columns" {
     defer gpa.free(row_negative_count);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false, true, false }, metric_signbit);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true, false, false, true, false }, id_signbit);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, false, false, false }, metric_is_positive_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false, false, false, false }, metric_is_negative_zero);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false, true }, id_is_positive);

@@ -903,7 +903,7 @@ pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) 
     } });
 }
 
-fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
+fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     const owned_output = try frame.allocator.dupe(u8, output_name);
@@ -930,6 +930,10 @@ fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const
             .output_name = owned_output,
         } }),
         .positive => try frame.ops.append(frame.allocator, .{ .is_positive_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
+        .signbit => try frame.ops.append(frame.allocator, .{ .is_signbit_column = .{
             .name = owned_name,
             .output_name = owned_output,
         } }),
@@ -990,6 +994,10 @@ pub fn isNonZeroColumn(frame: anytype, name: []const u8, output_name: []const u8
 
 pub fn isPositiveColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     return numericPredicateColumn(frame, name, output_name, .positive);
+}
+
+pub fn isSignBitColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .signbit);
 }
 
 pub fn isNegativeColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {

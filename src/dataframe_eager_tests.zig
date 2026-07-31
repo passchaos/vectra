@@ -806,6 +806,19 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(metric_is_negative);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
 
+    var signbit_flags = try table.isSignBitColumn("metric", "metric_signbit");
+    defer signbit_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try signbit_flags.columnDType("metric_signbit"));
+    const metric_signbit = try (try signbit_flags.column("metric_signbit")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_signbit);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false, true, false }, metric_signbit);
+
+    var id_signbit_flags = try table.isSignBitColumn("id", "id_signbit");
+    defer id_signbit_flags.deinit();
+    const id_signbit = try (try id_signbit_flags.column("id_signbit")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_signbit);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true, false, false, true, false }, id_signbit);
+
     var positive_zero_flags = try table.isPositiveZeroColumn("metric", "metric_is_positive_zero");
     defer positive_zero_flags.deinit();
     try std.testing.expectEqual(DeviceDType.bool, try positive_zero_flags.columnDType("metric_is_positive_zero"));
@@ -913,6 +926,7 @@ test "device dataframe derives sign predicate columns" {
 
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveColumn("missing", "missing_is_positive"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
+    try std.testing.expectError(error.ColumnNotFound, table.isSignBitColumn("missing", "missing_signbit"));
     try std.testing.expectError(error.ColumnNotFound, table.isPositiveZeroColumn("missing", "missing_is_positive_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));

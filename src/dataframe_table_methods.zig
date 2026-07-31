@@ -657,6 +657,10 @@ pub fn isPositiveColumn(self: anytype, name: []const u8, output_name: []const u8
     return dataframe_array_mod.isPositiveColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isSignBitColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isSignBitColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn isNegativeColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isNegativeColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

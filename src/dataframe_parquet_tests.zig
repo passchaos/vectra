@@ -298,13 +298,15 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer sign_scan.deinit();
     try sign_scan.isPositiveColumn("sales", "sales_is_positive");
     try sign_scan.isNegativeColumn("sales", "sales_is_negative");
-    try sign_scan.select(&.{ "sales_is_positive", "sales_is_negative" });
+    try sign_scan.isSignBitColumn("sales", "sales_signbit");
+    try sign_scan.select(&.{ "sales_is_positive", "sales_is_negative", "sales_signbit" });
 
     const sign_explain = try sign_scan.explain(gpa);
     defer gpa.free(sign_explain);
     try std.testing.expect(std.mem.indexOf(u8, sign_explain, "scan_pushdown: projection=[sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, sign_explain, "is_positive_column(sales->sales_is_positive)") != null);
     try std.testing.expect(std.mem.indexOf(u8, sign_explain, "is_negative_column(sales->sales_is_negative)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, sign_explain, "is_signbit_column(sales->sales_signbit)") != null);
 
     var sign_result = try sign_scan.collect();
     defer sign_result.deinit();
@@ -312,8 +314,11 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(sales_is_positive);
     const sales_is_negative = try (try sign_result.column("sales_is_negative")).bool.toOwnedSlice(gpa);
     defer gpa.free(sales_is_negative);
+    const sales_signbit = try (try sign_result.column("sales_signbit")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_signbit);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_signbit);
 
     var finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer finite_scan.deinit();

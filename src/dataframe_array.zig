@@ -1380,6 +1380,16 @@ fn isPositiveValue(comptime T: type, value: T) bool {
     };
 }
 
+fn isSignBitValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return std.math.signbit(value.toF32());
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float, .int, .comptime_int => std.math.signbit(value),
+        .bool => false,
+        else => false,
+    };
+}
+
 fn isNegativeValue(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return value.toF32() < 0;
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
@@ -1423,7 +1433,7 @@ fn withNumericPredicateColumn(
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, negative, finite, normal, subnormal, non_finite },
+    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -1452,6 +1462,7 @@ fn withNumericPredicateColumn(
                     .negative_zero => isNegativeZeroValue(@TypeOf(value), value),
                     .non_zero => isNonZeroValue(@TypeOf(value), value),
                     .positive => isPositiveValue(@TypeOf(value), value),
+                    .signbit => isSignBitValue(@TypeOf(value), value),
                     .negative => isNegativeValue(@TypeOf(value), value),
                     .finite => isFiniteValue(@TypeOf(value), value),
                     .normal => isNormalValue(@TypeOf(value), value),
@@ -1520,6 +1531,15 @@ pub fn isPositiveColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .positive);
+}
+
+pub fn isSignBitColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .signbit);
 }
 
 pub fn isNegativeColumn(
