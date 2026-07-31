@@ -758,6 +758,26 @@ pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usiz
     return col.countNonzero();
 }
 
+pub fn anyColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.any();
+}
+
+pub fn allColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.all();
+}
+
+pub fn countTrueColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countTrue();
+}
+
+pub fn countFalseColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countFalse();
+}
+
 pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return switch (op) {

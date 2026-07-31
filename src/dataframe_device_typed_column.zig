@@ -1371,6 +1371,57 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return count;
         }
 
+        pub fn any(self: Self) array_mod.ArrayError!bool {
+            if (comptime T != bool) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (value) return true;
+            }
+            return false;
+        }
+
+        pub fn all(self: Self) array_mod.ArrayError!bool {
+            if (comptime T != bool) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!value) return false;
+            }
+            return true;
+        }
+
+        pub fn countTrue(self: Self) array_mod.ArrayError!usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            return self.countNonzero();
+        }
+
+        pub fn countFalse(self: Self) array_mod.ArrayError!usize {
+            if (comptime T != bool) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!value) count += 1;
+            }
+            return count;
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }

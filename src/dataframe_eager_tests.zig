@@ -2596,6 +2596,20 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer rounding_active.deinit();
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
+    try std.testing.expect(try rounding_type_table.anyColumn("active"));
+    try std.testing.expect(!try rounding_type_table.allColumn("active"));
+    try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));
+    try std.testing.expectEqual(@as(usize, 1), try rounding_type_table.countFalseColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, table.anyColumn("sales"));
+
+    var nullable_bool = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false }, &.{ true, false, true }, .cpu);
+    defer nullable_bool.deinit();
+    var nullable_bool_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "flag", .data = nullable_bool }});
+    defer nullable_bool_table.deinit();
+    try std.testing.expect(!try nullable_bool_table.anyColumn("flag"));
+    try std.testing.expect(!try nullable_bool_table.allColumn("flag"));
+    try std.testing.expectEqual(@as(usize, 0), try nullable_bool_table.countTrueColumn("flag"));
+    try std.testing.expectEqual(@as(usize, 2), try nullable_bool_table.countFalseColumn("flag"));
 
     var where_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 2.0, 5.0 }, .cpu);
     defer where_metric.deinit();

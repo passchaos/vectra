@@ -1342,6 +1342,38 @@ pub fn countNonzero(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn any(self: anytype) array_mod.ArrayError!bool {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.any(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn all(self: anytype) array_mod.ArrayError!bool {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.all(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn countTrue(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.countTrue(),
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn countFalse(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => |typed| try typed.countFalse(),
+        else => error.TypeUnsupported,
+    };
+}
+
 pub fn logicalAndScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

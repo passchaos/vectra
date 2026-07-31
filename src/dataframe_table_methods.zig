@@ -1431,6 +1431,22 @@ pub fn countNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!usize
     return expr_mod.countNonzeroColumn(frameValue(self), name);
 }
 
+pub fn anyColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyColumn(frameValue(self), name);
+}
+
+pub fn allColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allColumn(frameValue(self), name);
+}
+
+pub fn countTrueColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.countTrueColumn(frameValue(self), name);
+}
+
+pub fn countFalseColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.countFalseColumn(frameValue(self), name);
+}
+
 pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
 }
