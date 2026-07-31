@@ -2600,6 +2600,50 @@ pub fn withRowPtp(frame: anytype, names: []const []const u8, output_name: []cons
     return withRowNumericReduction(frame, names, output_name, .ptp);
 }
 
+fn withRowNumericDispersion(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: enum { variance, stddev },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .variance => try frame.ops.append(frame.allocator, .{ .row_variance = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .stddev => try frame.ops.append(frame.allocator, .{ .row_stddev = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+    }
+}
+
+pub fn withRowVariance(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .variance);
+}
+
+pub fn withRowVar(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowVariance(frame, names, output_name, correction);
+}
+
+pub fn withRowStddev(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .stddev);
+}
+
+pub fn withRowStd(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowStddev(frame, names, output_name, correction);
+}
+
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

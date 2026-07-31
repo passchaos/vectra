@@ -2647,6 +2647,22 @@ pub fn withRowPtp(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowPtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowVariance(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowVariance(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowVar(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withRowVariance(self, names, output_name, correction);
+}
+
+pub fn withRowStddev(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowStddev(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowStd(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withRowStddev(self, names, output_name, correction);
+}
+
 pub fn withRowTrueCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTrueCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

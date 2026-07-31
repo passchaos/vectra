@@ -2026,6 +2026,105 @@ pub fn withRowPtp(
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
 }
 
+const RowNumericDispersion = enum { variance, stddev };
+
+fn withRowNumericDispersion(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: RowNumericDispersion,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+
+    const check_names = if (names.len == 0) input.names else names;
+    const means = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(means);
+    const m2s = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(m2s);
+    const counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(counts);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(means, 0.0);
+    @memset(m2s, 0.0);
+    @memset(counts, 0);
+    @memset(validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+
+                    // Keep row-wise dispersion numerically aligned with the
+                    // scalar column moment implementation: Welford's online M2
+                    // update gives stable population/sample variance while
+                    // skipping nulls without materializing a dense row matrix.
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    counts[row] += 1;
+                    const n: f64 = @floatFromInt(counts[row]);
+                    const delta = value - means[row];
+                    means[row] += delta / n;
+                    const delta2 = value - means[row];
+                    m2s[row] += delta * delta2;
+                    validity[row] = true;
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    for (values, validity, counts, m2s) |*value, valid, count, m2| {
+        if (!valid) {
+            value.* = 0.0;
+            continue;
+        }
+        const denominator = @as(f64, @floatFromInt(count)) - correction;
+        const variance = if (denominator <= 0.0) std.math.nan(f64) else m2 / denominator;
+        value.* = switch (reduction) {
+            .variance => variance,
+            .stddev => std.math.sqrt(variance),
+        };
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowVariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .variance);
+}
+
+pub fn withRowStddev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .stddev);
+}
+
 fn withRowBoolPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

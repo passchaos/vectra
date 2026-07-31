@@ -906,6 +906,18 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .row_variance, .row_stddev => |row_dispersion| {
+                try appendBorrowedNameUnique(allocator, &derived_names, row_dispersion.output_name);
+                if (row_dispersion.names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_dispersion.names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .with_column_compare => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);

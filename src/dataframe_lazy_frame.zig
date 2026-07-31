@@ -1758,6 +1758,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPtp(self, names, output_name);
             }
 
+            pub fn withRowVariance(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowVariance(self, names, output_name, correction);
+            }
+
+            pub fn withRowVar(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowVar(self, names, output_name, correction);
+            }
+
+            pub fn withRowStddev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowStddev(self, names, output_name, correction);
+            }
+
+            pub fn withRowStd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowStd(self, names, output_name, correction);
+            }
+
             pub fn withRowTrueCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowTrueCount(self, names, output_name);
             }

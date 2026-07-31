@@ -683,6 +683,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_min => |row_count| try current.withRowMin(row_count.names, row_count.output_name),
             .row_max => |row_count| try current.withRowMax(row_count.names, row_count.output_name),
             .row_ptp => |row_count| try current.withRowPtp(row_count.names, row_count.output_name),
+            .row_variance => |row_dispersion| try current.withRowVariance(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
+            .row_stddev => |row_dispersion| try current.withRowStddev(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
             .row_true_count => |row_count| try current.withRowTrueCount(row_count.names, row_count.output_name),
             .row_false_count => |row_count| try current.withRowFalseCount(row_count.names, row_count.output_name),
             .row_any_true => |row_count| try current.withRowAnyTrue(row_count.names, row_count.output_name),
