@@ -1431,6 +1431,22 @@ pub fn cv(self: anytype, correction: f64) array_mod.ArrayError!options_mod.Devic
     };
 }
 
+pub fn skewness(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.skewness() },
+    };
+}
+
+pub fn kurtosis(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.kurtosis() },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

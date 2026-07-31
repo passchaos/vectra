@@ -1487,6 +1487,22 @@ pub fn cvColumn(self: anytype, name: []const u8, correction: f64) DeviceDataErro
     return expr_mod.cvColumn(frameValue(self), name, correction);
 }
 
+pub fn skewnessColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.skewnessColumn(frameValue(self), name);
+}
+
+pub fn skewColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return skewnessColumn(self, name);
+}
+
+pub fn kurtosisColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.kurtosisColumn(frameValue(self), name);
+}
+
+pub fn kurtColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return kurtosisColumn(self, name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }

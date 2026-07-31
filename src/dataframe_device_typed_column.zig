@@ -43,6 +43,8 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             count: usize,
             mean: f64,
             m2: f64,
+            m3: f64,
+            m4: f64,
         };
 
         values: array_mod.Array(T),
@@ -1444,20 +1446,34 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             const maybe_validity = try validityValues(self, self.values.allocator);
             defer if (maybe_validity) |validity| self.values.allocator.free(validity);
 
-            var stats: RealStats = .{ .count = 0, .mean = 0.0, .m2 = 0.0 };
+            var stats: RealStats = .{ .count = 0, .mean = 0.0, .m2 = 0.0, .m3 = 0.0, .m4 = 0.0 };
             for (values, 0..) |value, row| {
                 if (maybe_validity) |validity| {
                     if (!validity[row]) continue;
                 }
-                // Welford accumulation avoids the worst cancellation from
-                // sum(x*x) - sum(x)^2/n while keeping scalar dataframe results
-                // independent from an eventual device-side reduction kernel.
+                // Online central moment accumulation avoids the worst
+                // cancellation from raw-power sums while providing variance,
+                // skewness, and excess kurtosis from one pass over nullable
+                // rows. The formulas match the grouped/window moment helpers
+                // so scalar and profile APIs report the same population
+                // moments.
+                const previous_count = stats.count;
                 stats.count += 1;
+
+                const n: f64 = @floatFromInt(stats.count);
+                const previous_n: f64 = @floatFromInt(previous_count);
                 const x = realValueToF64(value);
                 const delta = x - stats.mean;
-                stats.mean += delta / @as(f64, @floatFromInt(stats.count));
-                const delta2 = x - stats.mean;
-                stats.m2 += delta * delta2;
+                const delta_n = delta / n;
+                const delta_n2 = delta_n * delta_n;
+                const term1 = delta * delta_n * previous_n;
+                const previous_m2 = stats.m2;
+                const previous_m3 = stats.m3;
+
+                stats.mean += delta_n;
+                stats.m4 += term1 * delta_n2 * (n * n - 3.0 * n + 3.0) + 6.0 * delta_n2 * previous_m2 - 4.0 * delta_n * previous_m3;
+                stats.m3 += term1 * delta_n * (n - 2.0) - 3.0 * delta_n * previous_m2;
+                stats.m2 += term1;
             }
             if (stats.count == 0) return error.EmptyArray;
             return stats;
@@ -1774,6 +1790,20 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             const denom = @as(f64, @floatFromInt(stats.count)) - correction;
             if (denom <= 0.0) return std.math.nan(f64);
             return std.math.sqrt(stats.m2 / denom) / stats.mean;
+        }
+
+        pub fn skewness(self: Self) array_mod.ArrayError!f64 {
+            const stats = try self.realStats();
+            if (stats.count < 2 or stats.m2 == 0.0) return std.math.nan(f64);
+            const n: f64 = @floatFromInt(stats.count);
+            return std.math.sqrt(n) * stats.m3 / std.math.pow(f64, stats.m2, 1.5);
+        }
+
+        pub fn kurtosis(self: Self) array_mod.ArrayError!f64 {
+            const stats = try self.realStats();
+            if (stats.count < 2 or stats.m2 == 0.0) return std.math.nan(f64);
+            const n: f64 = @floatFromInt(stats.count);
+            return n * stats.m4 / (stats.m2 * stats.m2) - 3.0;
         }
 
         pub fn any(self: Self) array_mod.ArrayError!bool {

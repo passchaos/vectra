@@ -818,6 +818,16 @@ pub fn cvColumn(frame: anytype, name: []const u8, correction: f64) DeviceDataErr
     return col.cv(correction);
 }
 
+pub fn skewnessColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.skewness();
+}
+
+pub fn kurtosisColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.kurtosis();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();
