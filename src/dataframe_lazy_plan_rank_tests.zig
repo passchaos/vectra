@@ -1385,6 +1385,81 @@ test "device lazy frame derives row validity match index columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives row numeric reduction columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowSum(&.{ "a", "b" }, "row_sum");
+    try plan.withRowMean(&.{ "a", "b" }, "row_mean");
+    try plan.withRowMin(&.{ "a", "b" }, "row_min");
+    try plan.withRowMax(&.{ "a", "b" }, "row_max");
+    try plan.select(&.{ "row_sum", "row_mean", "row_min", "row_max" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean([a,b]->row_mean)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_min([a,b]->row_min)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_max([a,b]->row_max)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), result.width());
+    const row_sum_column = try result.column("row_sum");
+    try std.testing.expect(row_sum_column.f64.nullable());
+    const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_sum);
+    const row_sum_validity = try row_sum_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_sum_validity);
+    const row_mean_column = try result.column("row_mean");
+    try std.testing.expect(row_mean_column.f64.nullable());
+    const row_mean = try row_mean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mean);
+    const row_mean_validity = try row_mean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_validity);
+    const row_min_column = try result.column("row_min");
+    try std.testing.expect(row_min_column.f64.nullable());
+    const row_min = try row_min_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_min);
+    const row_min_validity = try row_min_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_min_validity);
+    const row_max_column = try result.column("row_max");
+    try std.testing.expect(row_max_column.f64.nullable());
+    const row_max = try row_max_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_max);
+    const row_max_validity = try row_max_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_max_validity);
+
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_min);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_min_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 40.0 }, row_max);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_max_validity);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowSum(&.{"flag"}, "bad_row_sum");
+    try std.testing.expectError(error.TypeMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

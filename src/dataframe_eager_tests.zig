@@ -395,6 +395,49 @@ test "device dataframe owns fixed-width columns on a shared device" {
     });
     defer validity_table.deinit();
 
+    var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");
+    defer row_sum_table.deinit();
+    const row_sum_column = try row_sum_table.column("row_sum");
+    try std.testing.expectEqual(DeviceDType.f64, row_sum_column.dtype());
+    try std.testing.expect(row_sum_column.f64.nullable());
+    const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_sum);
+    const row_sum_validity = try row_sum_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_sum_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
+
+    var row_mean_table = try validity_table.withRowMean(&.{ "a", "b" }, "row_mean");
+    defer row_mean_table.deinit();
+    const row_mean_column = try row_mean_table.column("row_mean");
+    const row_mean = try row_mean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mean);
+    const row_mean_validity = try row_mean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_validity);
+
+    var row_min_table = try validity_table.withRowMin(&.{ "a", "b" }, "row_min");
+    defer row_min_table.deinit();
+    const row_min_column = try row_min_table.column("row_min");
+    const row_min = try row_min_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_min);
+    const row_min_validity = try row_min_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_min_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_min);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_min_validity);
+
+    var row_max_table = try validity_table.withRowMax(&.{ "a", "b" }, "row_max");
+    defer row_max_table.deinit();
+    const row_max_column = try row_max_table.column("row_max");
+    const row_max = try row_max_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_max);
+    const row_max_validity = try row_max_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_max_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 40.0 }, row_max);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_max_validity);
+    try std.testing.expectError(error.TypeMismatch, validity_table.withRowSum(&.{"c"}, "bad_row_sum"));
+
     var row_first_valid_table = try validity_table.withRowFirstValidIndex(&.{ "a", "b", "c" }, "first_valid");
     defer row_first_valid_table.deinit();
     const row_first_valid_column = try row_first_valid_table.column("first_valid");

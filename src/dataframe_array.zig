@@ -1868,6 +1868,122 @@ pub fn withRowLastNullIndex(
     return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
 }
 
+const RowNumericReduction = enum { sum, mean, min, max };
+
+fn realValueAsF64(comptime T: type, value: T) f64 {
+    if (comptime T == array_mod.BFloat16) return value.toF64();
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return 0.0;
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float => @floatCast(value),
+        .int, .comptime_int => @floatFromInt(value),
+        .bool => if (value) 1.0 else 0.0,
+        else => 0.0,
+    };
+}
+
+fn withRowNumericReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowNumericReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    const counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(counts);
+    @memset(values, 0.0);
+    @memset(validity, false);
+    @memset(counts, 0);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    switch (reduction) {
+                        .sum, .mean => values[row] += value,
+                        .min => {
+                            if (!validity[row] or std.math.isNan(value) or (!std.math.isNan(values[row]) and value < values[row])) {
+                                values[row] = value;
+                            }
+                        },
+                        .max => {
+                            if (!validity[row] or std.math.isNan(value) or (!std.math.isNan(values[row]) and value > values[row])) {
+                                values[row] = value;
+                            }
+                        },
+                    }
+                    counts[row] += 1;
+                    validity[row] = true;
+                }
+            },
+        }
+    }
+
+    for (values, validity, counts) |*value, valid, count| {
+        if (!valid) {
+            value.* = 0.0;
+        } else if (reduction == .mean) {
+            value.* /= @floatFromInt(count);
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowSum(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .sum);
+}
+
+pub fn withRowMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .mean);
+}
+
+pub fn withRowMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .min);
+}
+
+pub fn withRowMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .max);
+}
+
 fn withRowBoolPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

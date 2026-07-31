@@ -2535,6 +2535,55 @@ pub fn withRowLastNullIndex(frame: anytype, names: []const []const u8, output_na
     return withRowValidityMatchIndex(frame, names, output_name, .last_null);
 }
 
+fn withRowNumericReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { sum, mean, min, max },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .sum => try frame.ops.append(frame.allocator, .{ .row_sum = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .mean => try frame.ops.append(frame.allocator, .{ .row_mean = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .min => try frame.ops.append(frame.allocator, .{ .row_min = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .max => try frame.ops.append(frame.allocator, .{ .row_max = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowSum(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .sum);
+}
+
+pub fn withRowMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .mean);
+}
+
+pub fn withRowMin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .min);
+}
+
+pub fn withRowMax(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .max);
+}
+
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
