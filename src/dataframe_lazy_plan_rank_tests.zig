@@ -1416,6 +1416,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowMedian(&.{ "a", "b" }, "row_median");
     try plan.withRowIqr(&.{ "a", "b" }, "row_iqr");
     try plan.withRowMidhinge(&.{ "a", "b" }, "row_midhinge");
+    try plan.withRowTrimean(&.{ "a", "b" }, "row_trimean");
     try plan.withRowMad(&.{ "a", "b" }, "row_mad");
     try plan.withRowMode(&.{ "a", "b" }, "row_mode");
     try plan.withRowEntropy(&.{ "a", "b", "wa" }, "row_entropy");
@@ -1488,7 +1489,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_midhinge", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_midrange", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_midhinge", "row_trimean", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_midrange", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1497,6 +1498,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_quantile([a,b]->row_quantile, q=0.25)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_median([a,b]->row_median)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr([a,b]->row_iqr)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_midhinge([a,b]->row_midhinge)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_trimean([a,b]->row_trimean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mad([a,b]->row_mad)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode([a,b]->row_mode)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_entropy([a,b,wa]->row_entropy)") != null);
@@ -1571,7 +1574,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 78), result.width());
+    try std.testing.expectEqual(@as(usize, 79), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1602,6 +1605,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_iqr);
     const row_iqr_validity = try row_iqr_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_iqr_validity);
+    const row_trimean_column = try result.column("row_trimean");
+    try std.testing.expect(row_trimean_column.f64.nullable());
+    const row_trimean = try row_trimean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_trimean);
+    const row_trimean_validity = try row_trimean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_trimean_validity);
     const row_mad_column = try result.column("row_mad");
     try std.testing.expect(row_mad_column.f64.nullable());
     const row_mad = try row_mad_column.f64.toOwnedSlice(gpa);
@@ -1933,6 +1942,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_iqr);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_iqr_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_trimean);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_trimean_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_mad);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mad_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_mode);

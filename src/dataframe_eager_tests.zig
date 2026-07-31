@@ -458,6 +458,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_midhinge);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_midhinge);
 
+    var row_trimean_table = try validity_table.withRowTrimean(&.{ "a", "b" }, "row_trimean");
+    defer row_trimean_table.deinit();
+    const row_trimean_column = try row_trimean_table.column("row_trimean");
+    try std.testing.expect(row_trimean_column.f64.nullable());
+    const row_trimean = try row_trimean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_trimean);
+    const row_trimean_validity = try row_trimean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_trimean_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_trimean);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_trimean_validity);
+
     var row_iqr_table = try validity_table.withRowIqr(&.{ "a", "b" }, "row_iqr");
     defer row_iqr_table.deinit();
     const row_iqr_column = try row_iqr_table.column("row_iqr");

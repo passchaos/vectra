@@ -3208,7 +3208,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, midhinge, mad, mode, count_distinct, n_unique },
+    comptime reduction: enum { median, iqr, midhinge, trimean, mad, mode, count_distinct, n_unique },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3227,6 +3227,10 @@ fn withRowQuantileAlias(
             .output_name = owned_output,
         } }),
         .midhinge => try frame.ops.append(frame.allocator, .{ .row_midhinge = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .trimean => try frame.ops.append(frame.allocator, .{ .row_trimean = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3259,6 +3263,10 @@ pub fn withRowIqr(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowMidhinge(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuantileAlias(frame, names, output_name, .midhinge);
+}
+
+pub fn withRowTrimean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .trimean);
 }
 
 pub fn withRowMad(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -3597,16 +3597,30 @@ const RowQuantileOutput = struct {
     validity: []bool,
 };
 
+const RowQuantileMeasure = union(enum) {
+    quantile: f64,
+    difference: struct { hi: f64, lo: f64 },
+    midhinge,
+    trimean,
+};
+
+fn validateRowQuantile(q: f64) DeviceFrameArrayError!void {
+    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+}
+
 fn withRowQuantileValues(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     check_names: []const []const u8,
-    q: f64,
-    subtract_q: ?f64,
+    measure: RowQuantileMeasure,
 ) DeviceFrameArrayError!RowQuantileOutput {
-    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
-    if (subtract_q) |lo_q| {
-        if (std.math.isNan(lo_q) or lo_q < 0.0 or lo_q > 1.0) return error.InvalidShape;
+    switch (measure) {
+        .quantile => |q| try validateRowQuantile(q),
+        .difference => |qs| {
+            try validateRowQuantile(qs.hi);
+            try validateRowQuantile(qs.lo);
+        },
+        .midhinge, .trimean => {},
     }
 
     const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
@@ -3658,12 +3672,16 @@ fn withRowQuantileValues(
         }
         if (count == 0) continue;
 
-        // Sort each row's valid values once; IQR can then reuse the same
-        // sorted slice for both quartiles, matching scalar quantile
-        // interpolation and NaN placement semantics.
+        // Sort each row's valid values once; derived quartile summaries can
+        // then reuse the same interpolation and NaN placement semantics as
+        // the public scalar quantile operation.
         std.sort.insertion(f64, scratch[0..count], {}, rowQuantileLess);
-        const hi = rowQuantileFromSorted(scratch[0..count], q);
-        values[row] = if (subtract_q) |lo_q| hi - rowQuantileFromSorted(scratch[0..count], lo_q) else hi;
+        values[row] = switch (measure) {
+            .quantile => |q| rowQuantileFromSorted(scratch[0..count], q),
+            .difference => |qs| rowQuantileFromSorted(scratch[0..count], qs.hi) - rowQuantileFromSorted(scratch[0..count], qs.lo),
+            .midhinge => (rowQuantileFromSorted(scratch[0..count], 0.25) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 2.0,
+            .trimean => (rowQuantileFromSorted(scratch[0..count], 0.25) + 2.0 * rowQuantileFromSorted(scratch[0..count], 0.5) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 4.0,
+        };
         validity[row] = true;
     }
 
@@ -3680,7 +3698,7 @@ fn withRowQuantileCore(
     if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
 
     const check_names = if (names.len == 0) input.names else names;
-    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, q, null);
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .quantile = q });
     defer {
         input.allocator.free(output.values);
         input.allocator.free(output.validity);
@@ -3718,7 +3736,7 @@ fn withRowIqrCore(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const check_names = if (names.len == 0) input.names else names;
-    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, 0.75, 0.25);
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .difference = .{ .hi = 0.75, .lo = 0.25 } });
     defer {
         input.allocator.free(output.values);
         input.allocator.free(output.validity);
@@ -3746,19 +3764,31 @@ pub fn withRowMidhinge(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     const check_names = if (names.len == 0) input.names else names;
-    const q3 = try withRowQuantileValues(DeviceDataFrame, input, check_names, 0.75, null);
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .midhinge);
     defer {
-        input.allocator.free(q3.values);
-        input.allocator.free(q3.validity);
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
     }
-    const q1 = try withRowQuantileValues(DeviceDataFrame, input, check_names, 0.25, null);
-    defer {
-        input.allocator.free(q1.values);
-        input.allocator.free(q1.validity);
-    }
-    for (q3.values, q1.values) |*hi, lo| hi.* = (hi.* + lo) / 2.0;
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, q3.values, q3.validity, input.device);
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowTrimean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .trimean);
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
     defer column.deinit();
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
