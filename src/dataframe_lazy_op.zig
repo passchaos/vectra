@@ -389,6 +389,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         take_rows_mode: Payloads.RowTakeMode,
         take_rows_signed: Payloads.RowTakeSigned,
         take_rows_signed_mode: Payloads.RowTakeSignedMode,
+        take_rows_by_column: []const u8,
+        take_rows_by_column_mode: Payloads.RowTakeByColumnMode,
         repeat_rows: usize,
         repeat_rows_by: []const u8,
         sample_rows: Payloads.RowSample,

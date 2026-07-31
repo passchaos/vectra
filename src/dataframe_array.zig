@@ -2696,6 +2696,78 @@ pub fn takeRowsSignedMode(
     return takeRows(DeviceDataFrame, input, normalized);
 }
 
+fn normalizeRowIndexValue(comptime T: type, value: T, rows: usize, mode: array_mod.IndexMode) DeviceFrameArrayError!usize {
+    return if (comptime @typeInfo(T).int.signedness == .signed) blk: {
+        const signed = std.math.cast(isize, value) orelse return error.InvalidShape;
+        break :blk try normalizeSignedRowIndexMode(signed, rows, mode);
+    } else blk: {
+        const unsigned = std.math.cast(usize, value) orelse return error.InvalidShape;
+        break :blk try normalizeRowIndexMode(unsigned, rows, mode);
+    };
+}
+
+fn takeRowsByIndexColumnTyped(
+    comptime DeviceDataFrame: type,
+    comptime T: type,
+    input: DeviceDataFrame,
+    index_column: anytype,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const values = try index_column.toOwnedSlice(input.allocator);
+    defer input.allocator.free(values);
+    const maybe_validity = try validityValues(index_column, input.allocator);
+    defer if (maybe_validity) |validity| input.allocator.free(validity);
+
+    if (maybe_validity) |validity| {
+        const row_indices = try input.allocator.alloc(?usize, values.len);
+        defer input.allocator.free(row_indices);
+        for (values, validity, row_indices) |value, valid, *slot| {
+            // A nullable index column is equivalent to optional row gather:
+            // invalid index rows materialize an all-null output row, while
+            // valid rows still honor the requested bounds mode.
+            slot.* = if (valid) try normalizeRowIndexValue(T, value, input.rows, mode) else null;
+        }
+        return takeOptionalRows(DeviceDataFrame, input, row_indices);
+    }
+
+    const row_indices = try input.allocator.alloc(usize, values.len);
+    defer input.allocator.free(row_indices);
+    for (values, row_indices) |value, *slot| {
+        slot.* = try normalizeRowIndexValue(T, value, input.rows, mode);
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
+pub fn takeRowsByColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    index_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return takeRowsByColumnMode(DeviceDataFrame, input, index_name, .raise);
+}
+
+pub fn takeRowsByColumnMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    index_name: []const u8,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const index_column = try input.column(index_name);
+    return switch (index_column.*) {
+        .i8 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, i8, input, typed, mode),
+        .i16 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, i16, input, typed, mode),
+        .i32 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, i32, input, typed, mode),
+        .i64 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, i64, input, typed, mode),
+        .isize => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, isize, input, typed, mode),
+        .u8 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, u8, input, typed, mode),
+        .u16 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, u16, input, typed, mode),
+        .u32 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, u32, input, typed, mode),
+        .u64 => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, u64, input, typed, mode),
+        .usize => |typed| takeRowsByIndexColumnTyped(DeviceDataFrame, usize, input, typed, mode),
+        else => error.TypeMismatch,
+    };
+}
+
 pub fn repeatRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -2557,6 +2557,22 @@ pub fn takeOptionalRows(self: anytype, row_indices: []const ?usize) DeviceDataEr
     return takeOptional(self, row_indices);
 }
 
+pub fn takeByColumn(self: anytype, index_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeRowsByColumn(FrameType(@TypeOf(self)), frameValue(self), index_name);
+}
+
+pub fn takeByColumnMode(self: anytype, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.takeRowsByColumnMode(FrameType(@TypeOf(self)), frameValue(self), index_name, mode);
+}
+
+pub fn takeRowsByColumn(self: anytype, index_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return takeByColumn(self, index_name);
+}
+
+pub fn takeRowsByColumnMode(self: anytype, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return takeByColumnMode(self, index_name, mode);
+}
+
 pub fn repeatRows(self: anytype, repeat_count: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.repeatRows(FrameType(@TypeOf(self)), frameValue(self), repeat_count);
 }

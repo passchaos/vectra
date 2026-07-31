@@ -2,6 +2,7 @@ const std = @import("std");
 const vectra = @import("vectra");
 
 const DeviceColumn = vectra.DeviceColumn;
+const DeviceDataFrame = vectra.DeviceDataFrame;
 const DeviceLazyFrame = vectra.DeviceLazyFrame;
 const helpers = @import("dataframe_lazy_test_helpers.zig");
 const lazyCollectTable = helpers.lazyCollectTable;
@@ -3549,6 +3550,53 @@ test "device lazy frame collects row slice operations" {
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 0.0, 3.0 }, taken_optional_sales);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, taken_optional_sales_validity);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0, 2 }, taken_optional_units);
+
+    var row_pick = try DeviceColumn.fromSliceWithValidity(isize, gpa, &.{ 2, 0, -1, 1 }, &.{ true, false, true, true }, .cpu);
+    defer row_pick.deinit();
+    var take_by_source = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = (try table.column("sales")).* },
+        .{ .name = "units", .data = (try table.column("units")).* },
+        .{ .name = "row_pick", .data = row_pick },
+    });
+    defer take_by_source.deinit();
+    var take_by_plan = try DeviceLazyFrame.init(gpa, take_by_source);
+    defer take_by_plan.deinit();
+    try take_by_plan.takeByColumn("row_pick");
+    try take_by_plan.select(&.{ "sales", "units" });
+    const take_by_explain = try take_by_plan.explain(gpa);
+    defer gpa.free(take_by_explain);
+    try std.testing.expect(std.mem.indexOf(u8, take_by_explain, "take_rows_by_column(row_pick)") != null);
+    var taken_by = try take_by_plan.collect();
+    defer taken_by.deinit();
+    const taken_by_sales = try (try taken_by.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_sales);
+    const taken_by_sales_validity = try (try taken_by.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_sales_validity);
+    const taken_by_units = try (try taken_by.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_units);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 0.0, 7.0, 3.0 }, taken_by_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, taken_by_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 4, 2 }, taken_by_units);
+
+    var row_pick_wrap = try DeviceColumn.fromSlice(usize, gpa, &.{ 5, 0, 3, 6 }, .cpu);
+    defer row_pick_wrap.deinit();
+    var take_by_wrap_source = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = (try table.column("sales")).* },
+        .{ .name = "row_pick", .data = row_pick_wrap },
+    });
+    defer take_by_wrap_source.deinit();
+    var take_by_wrap_plan = try DeviceLazyFrame.init(gpa, take_by_wrap_source);
+    defer take_by_wrap_plan.deinit();
+    try take_by_wrap_plan.takeByColumnMode("row_pick", .wrap);
+    try take_by_wrap_plan.select(&.{"sales"});
+    const take_by_wrap_explain = try take_by_wrap_plan.explain(gpa);
+    defer gpa.free(take_by_wrap_explain);
+    try std.testing.expect(std.mem.indexOf(u8, take_by_wrap_explain, "take_rows_by_column_mode(row_pick, mode:wrap)") != null);
+    var taken_by_wrap = try take_by_wrap_plan.collect();
+    defer taken_by_wrap.deinit();
+    const taken_by_wrap_sales = try (try taken_by_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_wrap_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0, 7.0, 5.0 }, taken_by_wrap_sales);
 
     var take_mode_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_mode_plan.deinit();

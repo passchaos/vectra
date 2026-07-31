@@ -1092,6 +1092,16 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .filter_mask, .slice_rows, .drop_rows, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .take_rows, .take_rows_optional, .take_rows_mode, .take_rows_signed, .take_rows_signed_mode, .repeat_rows, .sample_rows, .sample_rows_with_replacement, .reverse_rows, .head, .tail => {},
+            .take_rows_by_column => |name| {
+                if (!nameInBorrowedList(name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, name);
+                }
+            },
+            .take_rows_by_column_mode => |take_mode| {
+                if (!nameInBorrowedList(take_mode.name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, take_mode.name);
+                }
+            },
             .repeat_rows_by => |count_name| {
                 if (!nameInBorrowedList(count_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, count_name);

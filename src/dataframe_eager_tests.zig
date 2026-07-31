@@ -580,6 +580,42 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, taken_optional_units_validity);
     try std.testing.expectError(error.IndexOutOfBounds, table.takeOptional(&.{table.height()}));
 
+    var row_pick = try DeviceColumn.fromSliceWithValidity(isize, gpa, &.{ 2, 0, -1 }, &.{ true, false, true }, .cpu);
+    defer row_pick.deinit();
+    var take_by_source = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "units", .data = units }, .{ .name = "row_pick", .data = row_pick } });
+    defer take_by_source.deinit();
+    var taken_by_column = try take_by_source.takeByColumn("row_pick");
+    defer taken_by_column.deinit();
+    const taken_by_sales = try (try taken_by_column.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_sales);
+    const taken_by_sales_validity = try (try taken_by_column.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_sales_validity);
+    const taken_by_units = try (try taken_by_column.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_units);
+    const taken_by_units_validity = try (try taken_by_column.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 0.0, 5.0 }, taken_by_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, taken_by_sales_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 3 }, taken_by_units);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, taken_by_units_validity);
+
+    var row_pick_wrap = try DeviceColumn.fromSlice(usize, gpa, &.{ table.height() + 1, 0, 2 }, .cpu);
+    defer row_pick_wrap.deinit();
+    var take_by_wrap_source = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "row_pick", .data = row_pick_wrap } });
+    defer take_by_wrap_source.deinit();
+    var taken_by_wrap = try take_by_wrap_source.takeByColumnMode("row_pick", .wrap);
+    defer taken_by_wrap.deinit();
+    const taken_by_wrap_sales = try (try taken_by_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(taken_by_wrap_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0, 5.0 }, taken_by_wrap_sales);
+    try std.testing.expectError(error.TypeMismatch, table.takeByColumn("sales"));
+
+    var row_pick_bad = try DeviceColumn.fromSlice(usize, gpa, &.{ table.height(), 0, 1 }, .cpu);
+    defer row_pick_bad.deinit();
+    var take_by_bad_source = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "row_pick", .data = row_pick_bad } });
+    defer take_by_bad_source.deinit();
+    try std.testing.expectError(error.IndexOutOfBounds, take_by_bad_source.takeByColumn("row_pick"));
+
     var repeated_rows = try table.repeatRows(2);
     defer repeated_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), repeated_rows.height());

@@ -1937,6 +1937,29 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn takeByColumn(self: *DeviceLazyFrame, index_name: []const u8) DeviceDataError!void {
+                const owned = try self.allocator.dupe(u8, index_name);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_by_column = owned });
+            }
+
+            pub fn takeByColumnMode(self: *DeviceLazyFrame, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(u8, index_name);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .take_rows_by_column_mode = .{
+                    .name = owned,
+                    .mode = mode,
+                } });
+            }
+
+            pub fn takeRowsByColumn(self: *DeviceLazyFrame, index_name: []const u8) DeviceDataError!void {
+                return self.takeByColumn(index_name);
+            }
+
+            pub fn takeRowsByColumnMode(self: *DeviceLazyFrame, index_name: []const u8, mode: array_mod.IndexMode) DeviceDataError!void {
+                return self.takeByColumnMode(index_name, mode);
+            }
+
             pub fn repeatRows(self: *DeviceLazyFrame, repeat_count: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
             }

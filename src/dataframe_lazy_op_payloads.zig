@@ -315,6 +315,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             row_indices: []isize,
             mode: array_mod.IndexMode,
         };
+        pub const RowTakeByColumnMode = struct {
+            name: []const u8,
+            mode: array_mod.IndexMode,
+        };
         pub const RankProfileBy = profile_payloads.RankProfileBy;
         pub const RollingProfile = profile_payloads.RollingProfile;
         pub const ExpandingProfile = profile_payloads.ExpandingProfile;
