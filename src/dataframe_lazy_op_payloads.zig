@@ -127,6 +127,12 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             rhs_name: []const u8,
             scalar: DeviceScalar,
         };
+        pub const WithColumnTernary = struct {
+            name: []const u8,
+            input_name: []const u8,
+            lhs_name: []const u8,
+            rhs_name: []const u8,
+        };
         pub const WithColumnIsCloseScalar = struct {
             name: []const u8,
             input_name: []const u8,

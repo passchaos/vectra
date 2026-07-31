@@ -1315,6 +1315,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnAddcdivWithDeviceScalar(self, name, base_name, input1_name, input2_name, value);
             }
 
+            pub fn withColumnClipArray(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, min_name: []const u8, max_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnClipArray(self, name, input_name, min_name, max_name);
+            }
+
             pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
             }

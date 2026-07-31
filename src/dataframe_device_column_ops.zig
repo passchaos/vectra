@@ -989,6 +989,19 @@ pub fn addcdivWithDeviceScalar(self: anytype, input1: ColumnType(@TypeOf(self)),
     };
 }
 
+pub fn clipArray(self: anytype, min_values: ColumnType(@TypeOf(self)), max_values: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (column.dtype() != min_values.dtype() or column.dtype() != max_values.dtype()) return error.TypeUnsupported;
+    if (!column.device().sameDevice(min_values.device()) or !column.device().sameDevice(max_values.device())) return error.InvalidDevice;
+    return switch (column) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.clipArray(
+            @field(min_values, @tagName(tag)),
+            @field(max_values, @tagName(tag)),
+        )),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

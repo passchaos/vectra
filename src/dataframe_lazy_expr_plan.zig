@@ -1683,6 +1683,23 @@ pub fn withColumnAddcdivWithDeviceScalar(frame: anytype, name: []const u8, base_
     return appendTernaryParamOp(frame, name, base_name, input1_name, input2_name, value, .addcdiv);
 }
 
+pub fn withColumnClipArray(frame: anytype, name: []const u8, input_name: []const u8, min_name: []const u8, max_name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_min = try frame.allocator.dupe(u8, min_name);
+    errdefer frame.allocator.free(owned_min);
+    const owned_max = try frame.allocator.dupe(u8, max_name);
+    errdefer frame.allocator.free(owned_max);
+    try frame.ops.append(frame.allocator, .{ .with_column_clip_array = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .lhs_name = owned_min,
+        .rhs_name = owned_max,
+    } });
+}
+
 pub fn withColumnIscloseScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
     return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), false);
 }

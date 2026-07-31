@@ -1182,6 +1182,16 @@ pub fn withColumnAddcdivWithDeviceScalar(self: anytype, output_name: []const u8,
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn clipArrayColumns(self: anytype, input_name: []const u8, min_name: []const u8, max_name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.clipArrayColumns(frameValue(self), input_name, min_name, max_name);
+}
+
+pub fn withColumnClipArray(self: anytype, output_name: []const u8, input_name: []const u8, min_name: []const u8, max_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try clipArrayColumns(self, input_name, min_name, max_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn compareColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.compareColumns(frameValue(self), lhs_name, rhs_name, op);
 }

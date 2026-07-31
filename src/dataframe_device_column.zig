@@ -318,6 +318,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const addcmulWithDeviceScalar = column_ops_mod.addcmulWithDeviceScalar;
     pub const addcdivScalar = column_ops_mod.addcdivScalar;
     pub const addcdivWithDeviceScalar = column_ops_mod.addcdivWithDeviceScalar;
+    pub const clipArray = column_ops_mod.clipArray;
     pub const compare = column_ops_mod.compare;
     pub const equal = column_ops_mod.equal;
     pub const notEqual = column_ops_mod.notEqual;

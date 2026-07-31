@@ -570,6 +570,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_clip_array => |expr| blk: {
+                var column_value = try current.clipArrayColumns(expr.input_name, expr.lhs_name, expr.rhs_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_isclose_scalar => |expr| blk: {
                 var column_value = try current.iscloseColumnWithDeviceScalarsEqualNan(expr.input_name, expr.scalar, expr.rtol, expr.atol, expr.equal_nan);
                 defer column_value.deinit();

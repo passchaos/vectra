@@ -2292,6 +2292,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnAddcdivScalar("bad_addcdiv", "units", "units", "units", i64, 1));
     try std.testing.expectError(error.ColumnNotFound, table.withColumnAddcmulScalar("missing_addcmul", "sales", "missing", "cost", f64, 1.0));
 
+    var sales_clipped_table = try sales_addcdiv_table.withColumnClipArray("sales_clipped", "sales", "cost", "sales_addcdiv");
+    defer sales_clipped_table.deinit();
+    const sales_clipped = try (try sales_clipped_table.column("sales_clipped")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_clipped);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, sales_clipped);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnClipArray("bad_clip_array", "sales", "units", "cost"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnClipArray("missing_clip_array", "sales", "cost", "missing"));
+
     var doubled = try table.binaryColumnScalar("sales", f64, 2.0, .mul);
     defer doubled.deinit();
     const doubled_values = try doubled.f64.toOwnedSlice(gpa);

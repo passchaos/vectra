@@ -591,6 +591,13 @@ pub fn addcdivColumnsWithDeviceScalar(frame: anytype, base_name: []const u8, inp
     return base.addcdivWithDeviceScalar(input1.*, input2.*, value);
 }
 
+pub fn clipArrayColumns(frame: anytype, input_name: []const u8, min_name: []const u8, max_name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const min_values = try frame.column(min_name);
+    const max_values = try frame.column(max_name);
+    return input.clipArray(min_values.*, max_values.*);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

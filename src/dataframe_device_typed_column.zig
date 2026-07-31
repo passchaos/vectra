@@ -1042,6 +1042,24 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn clipArray(self: Self, min_values: Self, max_values: Self) array_mod.ArrayError!Self {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            try requireCompatibleColumnArrays(T, self.values, min_values.values);
+            try requireCompatibleColumnArrays(T, self.values, max_values.values);
+            var values = try self.values.clipArray(min_values.values, max_values.values);
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, min_values.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            if (max_values.validity) |mask| {
+                var combined = try combineValidityMasks(self.values.allocator, validity, mask, self.len(), self.device());
+                errdefer if (combined) |*combined_mask| combined_mask.deinit();
+                if (validity) |*old_mask| old_mask.deinit();
+                validity = combined;
+            }
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn logicalScalar(self: Self, scalar: bool, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
             if (comptime T != bool) return error.TypeUnsupported;
             var values = switch (op) {
