@@ -1903,6 +1903,99 @@ pub fn withRowAllFalse(
     return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .all_false);
 }
 
+const RowBoolMatchIndex = enum { first_true, last_true, first_false, last_false };
+
+fn withRowBoolMatchIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime search: RowBoolMatchIndex,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const indices = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(indices);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(indices, 0);
+    @memset(validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |mask| input.allocator.free(mask);
+        const output_index = std.math.cast(i64, col_index) orelse return error.InvalidShape;
+
+        for (host_values, 0..) |value, row| {
+            const valid = if (maybe_validity) |mask| mask[row] else true;
+            if (!valid) continue;
+            const matches = switch (search) {
+                .first_true, .last_true => value,
+                .first_false, .last_false => !value,
+            };
+            if (!matches) continue;
+
+            // Missing matches are represented by the validity mask rather than
+            // a sentinel, so column position 0 remains a legitimate result.
+            switch (search) {
+                .first_true, .first_false => if (!validity[row]) {
+                    indices[row] = output_index;
+                    validity[row] = true;
+                },
+                .last_true, .last_false => {
+                    indices[row] = output_index;
+                    validity[row] = true;
+                },
+            }
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, indices, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowFirstTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolMatchIndex(DeviceDataFrame, input, names, output_name, .first_true);
+}
+
+pub fn withRowLastTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolMatchIndex(DeviceDataFrame, input, names, output_name, .last_true);
+}
+
+pub fn withRowFirstFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolMatchIndex(DeviceDataFrame, input, names, output_name, .first_false);
+}
+
+pub fn withRowLastFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolMatchIndex(DeviceDataFrame, input, names, output_name, .last_false);
+}
+
 fn withRowBoolPredicateRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

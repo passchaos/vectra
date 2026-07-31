@@ -437,6 +437,64 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.TypeMismatch, table.withRowTrueCount(&.{"sales"}, "bad_bool_count"));
     try std.testing.expectError(error.TypeMismatch, table.withRowTrueRatio(&.{"sales"}, "bad_bool_ratio"));
 
+    var signal_a = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false, true }, &.{ true, true, true, false }, .cpu);
+    defer signal_a.deinit();
+    var signal_b = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, false, false }, &.{ true, false, true, true }, .cpu);
+    defer signal_b.deinit();
+    var signal_c = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false, true }, &.{ false, true, true, true }, .cpu);
+    defer signal_c.deinit();
+    var signal_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer signal_metric.deinit();
+    var signal_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = signal_a },
+        .{ .name = "b", .data = signal_b },
+        .{ .name = "c", .data = signal_c },
+        .{ .name = "metric", .data = signal_metric },
+    });
+    defer signal_table.deinit();
+
+    var row_first_true_table = try signal_table.withRowFirstTrueIndex(&.{ "a", "b", "c" }, "first_true");
+    defer row_first_true_table.deinit();
+    const row_first_true_column = try row_first_true_table.column("first_true");
+    try std.testing.expect(row_first_true_column.i64.nullable());
+    const row_first_true = try row_first_true_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_true);
+    const row_first_true_validity = try row_first_true_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_true_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 2 }, row_first_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_first_true_validity);
+
+    var row_last_true_table = try signal_table.withRowLastTrueIndex(&.{ "a", "b", "c" }, "last_true");
+    defer row_last_true_table.deinit();
+    const row_last_true_column = try row_last_true_table.column("last_true");
+    const row_last_true = try row_last_true_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_true);
+    const row_last_true_validity = try row_last_true_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_true_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 2 }, row_last_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_last_true_validity);
+
+    var row_first_false_table = try signal_table.withRowFirstFalseIndex(&.{ "a", "b", "c" }, "first_false");
+    defer row_first_false_table.deinit();
+    const row_first_false_column = try row_first_false_table.column("first_false");
+    const row_first_false = try row_first_false_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_false);
+    const row_first_false_validity = try row_first_false_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_false_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, row_first_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, row_first_false_validity);
+
+    var row_last_false_table = try signal_table.withRowLastFalseIndex(&.{ "a", "b", "c" }, "last_false");
+    defer row_last_false_table.deinit();
+    const row_last_false_column = try row_last_false_table.column("last_false");
+    const row_last_false = try row_last_false_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_false);
+    const row_last_false_validity = try row_last_false_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_false_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 2, 1 }, row_last_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, row_last_false_validity);
+    try std.testing.expectError(error.TypeMismatch, signal_table.withRowFirstTrueIndex(&.{"metric"}, "bad_bool_index"));
+
     var dropped_nulls = try table.dropNullsColumn("units");
     defer dropped_nulls.deinit();
     try std.testing.expectEqual(@as(usize, 2), dropped_nulls.height());

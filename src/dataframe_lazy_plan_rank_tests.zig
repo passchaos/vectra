@@ -1310,6 +1310,84 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expectError(error.TypeMismatch, invalid_bool_ratio_plan.collect());
 }
 
+test "device lazy frame derives row boolean match index columns" {
+    const gpa = std.testing.allocator;
+
+    var signal_a = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false, true }, &.{ true, true, true, false }, .cpu);
+    defer signal_a.deinit();
+    var signal_b = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ true, false, false, false }, &.{ true, false, true, true }, .cpu);
+    defer signal_b.deinit();
+    var signal_c = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false, true }, &.{ false, true, true, true }, .cpu);
+    defer signal_c.deinit();
+    var metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer metric.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = signal_a },
+        .{ .name = "b", .data = signal_b },
+        .{ .name = "c", .data = signal_c },
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowFirstTrueIndex(&.{ "a", "b", "c" }, "first_true");
+    try plan.withRowLastTrueIndex(&.{ "a", "b", "c" }, "last_true");
+    try plan.withRowFirstFalseIndex(&.{ "a", "b", "c" }, "first_false");
+    try plan.withRowLastFalseIndex(&.{ "a", "b", "c" }, "last_false");
+    try plan.select(&.{ "first_true", "last_true", "first_false", "last_false" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_first_true_index([a,b,c]->first_true)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_last_true_index([a,b,c]->last_true)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_first_false_index([a,b,c]->first_false)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_last_false_index([a,b,c]->last_false)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), result.width());
+    const first_true_column = try result.column("first_true");
+    try std.testing.expect(first_true_column.i64.nullable());
+    const first_true = try first_true_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(first_true);
+    const first_true_validity = try first_true_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(first_true_validity);
+    const last_true_column = try result.column("last_true");
+    try std.testing.expect(last_true_column.i64.nullable());
+    const last_true = try last_true_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(last_true);
+    const last_true_validity = try last_true_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(last_true_validity);
+    const first_false_column = try result.column("first_false");
+    try std.testing.expect(first_false_column.i64.nullable());
+    const first_false = try first_false_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(first_false);
+    const first_false_validity = try first_false_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(first_false_validity);
+    const last_false_column = try result.column("last_false");
+    try std.testing.expect(last_false_column.i64.nullable());
+    const last_false = try last_false_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(last_false);
+    const last_false_validity = try last_false_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(last_false_validity);
+
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 2 }, first_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, first_true_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 2 }, last_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, last_true_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, first_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, first_false_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 2, 1 }, last_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, last_false_validity);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowFirstTrueIndex(&.{"metric"}, "bad_bool_index");
+    try std.testing.expectError(error.TypeMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives zero predicate columns" {
     const gpa = std.testing.allocator;
 

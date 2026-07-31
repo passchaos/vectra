@@ -2564,6 +2564,55 @@ pub fn withRowAllFalse(frame: anytype, names: []const []const u8, output_name: [
     return withRowBoolReduction(frame, names, output_name, .all_false);
 }
 
+fn withRowBoolMatchIndex(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime search: enum { first_true, last_true, first_false, last_false },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (search) {
+        .first_true => try frame.ops.append(frame.allocator, .{ .row_first_true_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .last_true => try frame.ops.append(frame.allocator, .{ .row_last_true_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .first_false => try frame.ops.append(frame.allocator, .{ .row_first_false_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .last_false => try frame.ops.append(frame.allocator, .{ .row_last_false_index = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowFirstTrueIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolMatchIndex(frame, names, output_name, .first_true);
+}
+
+pub fn withRowLastTrueIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolMatchIndex(frame, names, output_name, .last_true);
+}
+
+pub fn withRowFirstFalseIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolMatchIndex(frame, names, output_name, .first_false);
+}
+
+pub fn withRowLastFalseIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolMatchIndex(frame, names, output_name, .last_false);
+}
+
 fn withRowBoolPredicateRatio(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
