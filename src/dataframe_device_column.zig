@@ -351,6 +351,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const allcloseScalar = column_ops_mod.allcloseScalar;
     pub const allcloseWithDeviceScalars = column_ops_mod.allcloseWithDeviceScalars;
     pub const countNonzero = column_ops_mod.countNonzero;
+    pub const sum = column_ops_mod.sum;
     pub const any = column_ops_mod.any;
     pub const all = column_ops_mod.all;
     pub const countTrue = column_ops_mod.countTrue;

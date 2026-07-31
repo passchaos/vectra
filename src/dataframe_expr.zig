@@ -758,6 +758,11 @@ pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usiz
     return col.countNonzero();
 }
 
+pub fn sumColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.sum();
+}
+
 pub fn anyColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
     const col = try frame.column(name);
     return col.any();

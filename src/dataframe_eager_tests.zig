@@ -7,6 +7,7 @@ const DeviceColumn = vectra.DeviceColumn;
 const DeviceDataFrame = vectra.DeviceDataFrame;
 const DeviceLazyFrame = vectra.DeviceLazyFrame;
 const DeviceDType = vectra.DeviceDType;
+const DeviceScalar = vectra.DeviceScalar;
 const DeviceValidityEncoding = vectra.DeviceValidityEncoding;
 const DeviceParquetScan = vectra.DeviceParquetScan;
 
@@ -2583,6 +2584,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 3), try table.countNonzeroColumn("sales"));
     try std.testing.expectEqual(@as(usize, 2), try table.countNonzeroColumn("units"));
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 10.0 }, try table.sumColumn("sales"));
+    try std.testing.expectEqual(DeviceScalar{ .i64 = 4 }, try table.sumColumn("units"));
 
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
@@ -2596,6 +2599,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer rounding_active.deinit();
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.sumColumn("active"));
     try std.testing.expect(try rounding_type_table.anyColumn("active"));
     try std.testing.expect(!try rounding_type_table.allColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));

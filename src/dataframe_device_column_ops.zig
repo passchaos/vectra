@@ -1342,6 +1342,14 @@ pub fn countNonzero(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn sum(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool => error.TypeUnsupported,
+        inline else => |typed| options_mod.DeviceScalar.init(@TypeOf(typed).Scalar, try typed.sum()),
+    };
+}
+
 pub fn any(self: anytype) array_mod.ArrayError!bool {
     const value = columnValue(self);
     return switch (value) {

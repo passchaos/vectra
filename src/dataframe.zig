@@ -419,6 +419,7 @@ pub const DeviceDataFrame = struct {
     pub const allcloseColumnWithDeviceScalars = table_methods_mod.allcloseColumnWithDeviceScalars;
     pub const allcloseColumnWithDeviceScalarsEqualNan = table_methods_mod.allcloseColumnWithDeviceScalarsEqualNan;
     pub const countNonzeroColumn = table_methods_mod.countNonzeroColumn;
+    pub const sumColumn = table_methods_mod.sumColumn;
     pub const anyColumn = table_methods_mod.anyColumn;
     pub const allColumn = table_methods_mod.allColumn;
     pub const countTrueColumn = table_methods_mod.countTrueColumn;

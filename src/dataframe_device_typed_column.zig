@@ -1356,6 +1356,28 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return value == zeroValue(T);
         }
 
+        fn addValue(lhs: T, rhs: T) T {
+            if (comptime T == array_mod.BFloat16) return lhs.add(rhs);
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.add(rhs);
+            return lhs + rhs;
+        }
+
+        pub fn sum(self: Self) array_mod.ArrayError!T {
+            if (comptime T == bool) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var total = zeroValue(T);
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                total = addValue(total, value);
+            }
+            return total;
+        }
+
         pub fn countNonzero(self: Self) array_mod.ArrayError!usize {
             const values = try self.values.toOwnedSlice(self.values.allocator);
             defer self.values.allocator.free(values);
