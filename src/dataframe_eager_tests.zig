@@ -589,6 +589,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_mode_margin = try (try row_mode_margin_table.column("row_mode_margin")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_mode_margin);
     try std.testing.expectEqualSlices(i64, &.{ 2, 0, 1, 1 }, row_mode_margin);
+    var row_mode_margin_ratio_table = try validity_table.withRowModeMarginRatio(&.{ "a", "b", "wa" }, "row_mode_margin_ratio");
+    defer row_mode_margin_ratio_table.deinit();
+    const row_mode_margin_ratio = try (try row_mode_margin_ratio_table.column("row_mode_margin_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_margin_ratio);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_mode_margin_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_mode_margin_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_mode_margin_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), row_mode_margin_ratio[3], 1e-12);
 
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
@@ -679,6 +687,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_weighted_mode_margin = try (try row_weighted_mode_margin_table.column("row_weighted_mode_margin")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_weighted_mode_margin);
     try std.testing.expectEqualSlices(f64, &.{ 4.0, 1.0, 5.0, 2.0 }, row_weighted_mode_margin);
+    var row_weighted_mode_margin_ratio_table = try validity_table.withRowWeightedModeMarginRatio(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_margin_ratio");
+    defer row_weighted_mode_margin_ratio_table.deinit();
+    const row_weighted_mode_margin_ratio = try (try row_weighted_mode_margin_ratio_table.column("row_weighted_mode_margin_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mode_margin_ratio);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mode_margin_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), row_weighted_mode_margin_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mode_margin_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), row_weighted_mode_margin_ratio[3], 1e-12);
 
     var row_weighted_entropy_table = try validity_table.withRowWeightedEntropy(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_entropy");
     defer row_weighted_entropy_table.deinit();

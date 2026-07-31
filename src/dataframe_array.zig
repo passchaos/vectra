@@ -2567,7 +2567,7 @@ pub fn withRowWeightedMode(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
-const RowWeightedModeDiagnostic = enum { weight, ratio };
+const RowWeightedModeDiagnostic = enum { weight, ratio, margin_ratio };
 
 fn withRowWeightedModeDiagnostic(
     comptime DeviceDataFrame: type,
@@ -2590,6 +2590,7 @@ fn withRowWeightedModeDiagnostic(
     for (0..flat.rows) |row| {
         var found = false;
         var best_weight: f64 = 0.0;
+        var second: f64 = 0.0;
         var row_weight: f64 = 0.0;
         for (0..flat.width) |col_index| {
             const offset = row * flat.width + col_index;
@@ -2615,14 +2616,18 @@ fn withRowWeightedModeDiagnostic(
                 if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
             }
             if (!found or candidate_weight > best_weight) {
+                second = best_weight;
                 best_weight = candidate_weight;
                 found = true;
+            } else if (candidate_weight > second) {
+                second = candidate_weight;
             }
         }
         if (found and row_weight > 0.0) {
             values[row] = switch (reduction) {
                 .weight => best_weight,
                 .ratio => best_weight / row_weight,
+                .margin_ratio => (best_weight - second) / row_weight,
             };
             validity[row] = true;
         }
@@ -2652,6 +2657,16 @@ pub fn withRowWeightedModeRatio(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_name, .ratio);
+}
+
+pub fn withRowWeightedModeMarginRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_name, .margin_ratio);
 }
 
 pub fn withRowWeightedModeMargin(
@@ -4189,6 +4204,39 @@ pub fn withRowModeMargin(
 
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
     var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowModeMarginRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var margins = try withRowModeMargin(DeviceDataFrame, input, names, output_name);
+    defer margins.deinit();
+    const check_names = if (names.len == 0) input.names else names;
+    var valid_counts_df = try withRowValidCount(DeviceDataFrame, input, check_names, "__row_valid_count_tmp");
+    defer valid_counts_df.deinit();
+    const margin_col = try margins.column(output_name);
+    const count_col = try valid_counts_df.column("__row_valid_count_tmp");
+    const margin_values = try margin_col.i64.toOwnedSlice(input.allocator);
+    defer input.allocator.free(margin_values);
+    const count_values = try count_col.i64.toOwnedSlice(input.allocator);
+    defer input.allocator.free(count_values);
+    const maybe_validity = try validityValues(margin_col.i64, input.allocator);
+    defer if (maybe_validity) |mask| input.allocator.free(mask);
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    for (ratios, validity, margin_values, count_values, 0..) |*ratio, *valid, margin, count, row| {
+        valid.* = (if (maybe_validity) |mask| mask[row] else true) and count > 0;
+        ratio.* = if (valid.*) @as(f64, @floatFromInt(margin)) / @as(f64, @floatFromInt(count)) else 0.0;
+    }
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, ratios, validity, input.device);
     defer column.deinit();
     return withColumn(DeviceDataFrame, input, output_name, column);
 }

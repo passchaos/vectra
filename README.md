@@ -360,7 +360,7 @@ shape diagnostics.
 `withRowModeCount` and `withRowModeRatio` expose the winning row-wise
 mode frequency and its share of valid values, complementing entropy/Gini with
 direct dominance diagnostics.
-`withRowModeMargin` adds the frequency gap between the winning and runner-up row-wise modes.
+`withRowModeMargin` and `withRowModeMarginRatio` add absolute and normalized frequency gaps between the winning and runner-up row-wise modes.
 `withRowPairCount` appends the per-row count of jointly valid pairs across
 two aligned column-name lists, exposing the sample coverage used by row-wise
 paired statistics and vector metrics.
@@ -385,7 +385,7 @@ rejecting negative weights.
 `withRowWeightedModeWeight` and `withRowWeightedModeRatio` expose the
 winning weighted mode mass and its share of valid row weight for direct
 weighted dominance diagnostics.
-`withRowWeightedModeMargin` adds the weighted gap between the winning and runner-up row-wise modes.
+`withRowWeightedModeMargin` and `withRowWeightedModeMarginRatio` add absolute and normalized weighted gaps between the winning and runner-up row-wise modes.
 `withRowWeightedEntropy`, `withRowWeightedGiniImpurity`,
 `withRowWeightedPerplexity`, and `withRowWeightedInverseSimpson` apply the
 row-wise distribution purity/diversity diagnostics to weighted value lists.

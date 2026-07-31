@@ -1426,6 +1426,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowModeCount(&.{ "a", "b", "wa" }, "row_mode_count");
     try plan.withRowModeRatio(&.{ "a", "b", "wa" }, "row_mode_ratio");
     try plan.withRowModeMargin(&.{ "a", "b", "wa" }, "row_mode_margin");
+    try plan.withRowModeMarginRatio(&.{ "a", "b", "wa" }, "row_mode_margin_ratio");
     try plan.withRowPairCount(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_pair_count");
     try plan.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     try plan.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
@@ -1436,6 +1437,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowWeightedModeWeight(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_weight");
     try plan.withRowWeightedModeRatio(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_ratio");
     try plan.withRowWeightedModeMargin(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_margin");
+    try plan.withRowWeightedModeMarginRatio(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_margin_ratio");
     try plan.withRowWeightedEntropy(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_entropy");
     try plan.withRowWeightedGiniImpurity(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_gini");
     try plan.withRowWeightedPerplexity(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_perplexity");
@@ -1484,7 +1486,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1504,6 +1506,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode_count([a,b,wa]->row_mode_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode_ratio([a,b,wa]->row_mode_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode_margin([a,b,wa]->row_mode_margin)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_mode_margin_ratio([a,b,wa]->row_mode_margin_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_pair_count(lhs=[a,b], rhs=[wa,wb]->row_pair_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mean(values=[a,b], weights=[wa,wb]->row_weighted_mean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_quantile(values=[a,b], weights=[wa,wb]->row_weighted_quantile, q=0.9)") != null);
@@ -1514,6 +1517,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mode_weight(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_mode_weight)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mode_ratio(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_mode_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mode_margin(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_mode_margin)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_mode_margin_ratio(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_mode_margin_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_entropy(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_entropy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_gini_impurity(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_gini)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_weighted_perplexity(values=[a,b,wa], weights=[wb,wa,wb]->row_weighted_perplexity)") != null);
@@ -1565,7 +1569,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 74), result.width());
+    try std.testing.expectEqual(@as(usize, 76), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);

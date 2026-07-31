@@ -1802,6 +1802,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedModeMargin(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedModeMarginRatio(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedModeMarginRatio(self, value_names, weight_names, output_name);
+            }
+
             pub fn withRowWeightedEntropy(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedEntropy(self, value_names, weight_names, output_name);
             }
@@ -1968,6 +1972,10 @@ pub fn DeviceLazyTypes(
 
             pub fn withRowModeMargin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowModeMargin(self, names, output_name);
+            }
+
+            pub fn withRowModeMarginRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowModeMarginRatio(self, names, output_name);
             }
 
             pub fn withRowCountDistinct(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
