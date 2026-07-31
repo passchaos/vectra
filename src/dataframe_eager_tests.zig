@@ -714,6 +714,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_inverse[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.8), row_weighted_inverse[3], 1e-12);
 
+    var row_weighted_concentration_table = try validity_table.withRowWeightedSimpsonConcentration(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_concentration");
+    defer row_weighted_concentration_table.deinit();
+    const row_weighted_concentration = try (try row_weighted_concentration_table.column("row_weighted_concentration")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_concentration);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_concentration[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), row_weighted_concentration[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_concentration[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), row_weighted_concentration[3], 1e-12);
+
+    var row_weighted_evenness_table = try validity_table.withRowWeightedEvenness(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_evenness");
+    defer row_weighted_evenness_table.deinit();
+    const row_weighted_evenness = try (try row_weighted_evenness_table.column("row_weighted_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_evenness);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))) / std.math.log(f64, std.math.e, @as(f64, 2.0)), row_weighted_evenness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_evenness[2], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))) / std.math.log(f64, std.math.e, @as(f64, 2.0)), row_weighted_evenness[3], 1e-12);
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");

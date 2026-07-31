@@ -695,6 +695,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_weighted_gini_impurity => |row_weighted| try current.withRowWeightedGiniImpurity(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_perplexity => |row_weighted| try current.withRowWeightedPerplexity(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_inverse_simpson => |row_weighted| try current.withRowWeightedInverseSimpson(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_simpson_concentration => |row_weighted| try current.withRowWeightedSimpsonConcentration(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_evenness => |row_weighted| try current.withRowWeightedEvenness(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_dot => |row_paired| try current.withRowDot(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_cosine_similarity => |row_paired| try current.withRowCosineSimilarity(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_squared_euclidean_distance => |row_paired| try current.withRowSquaredEuclideanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),

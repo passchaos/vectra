@@ -310,6 +310,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_weighted_gini_impurity: Payloads.RowWeightedMean,
         row_weighted_perplexity: Payloads.RowWeightedMean,
         row_weighted_inverse_simpson: Payloads.RowWeightedMean,
+        row_weighted_simpson_concentration: Payloads.RowWeightedMean,
+        row_weighted_evenness: Payloads.RowWeightedMean,
         row_dot: Payloads.RowWeightedMean,
         row_cosine_similarity: Payloads.RowWeightedMean,
         row_squared_euclidean_distance: Payloads.RowWeightedMean,

@@ -2771,6 +2771,26 @@ pub fn withRowWeightedInverseSimpson(
     return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .inverse_simpson);
 }
 
+pub fn withRowWeightedSimpsonConcentration(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .simpson_concentration);
+}
+
+pub fn withRowWeightedEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .evenness);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

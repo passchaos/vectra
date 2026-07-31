@@ -2703,6 +2703,14 @@ pub fn withRowWeightedInverseSimpson(self: anytype, value_names: []const []const
     return dataframe_array_mod.withRowWeightedInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowWeightedSimpsonConcentration(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSimpsonConcentration(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedEvenness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedEvenness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
 pub fn withRowDot(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowDot(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
