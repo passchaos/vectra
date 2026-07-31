@@ -6,6 +6,7 @@ const std = @import("std");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 
 fn columnValue(self: anytype) switch (@typeInfo(@TypeOf(self))) {
     .pointer => |ptr| ptr.child,
@@ -1067,4 +1068,30 @@ pub fn logicalXorScalar(self: anytype, scalar: bool) array_mod.ArrayError!Column
         .bool => |typed| .{ .bool = try typed.logicalScalar(scalar, .xor) },
         else => error.TypeUnsupported,
     };
+}
+
+pub fn logical(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnLogicalOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    if (value.dtype() != other.dtype()) return error.TypeUnsupported;
+    if (!value.device().sameDevice(other.device())) return error.InvalidDevice;
+    return switch (value) {
+        .bool => |typed| .{ .bool = switch (op) {
+            .@"and" => try typed.logical(other.bool, .@"and"),
+            .@"or" => try typed.logical(other.bool, .@"or"),
+            .xor => try typed.logical(other.bool, .xor),
+        } },
+        else => error.TypeUnsupported,
+    };
+}
+
+pub fn logicalAnd(self: anytype, other: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return logical(self, other, .@"and");
+}
+
+pub fn logicalOr(self: anytype, other: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return logical(self, other, .@"or");
+}
+
+pub fn logicalXor(self: anytype, other: ColumnType(@TypeOf(self))) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return logical(self, other, .xor);
 }

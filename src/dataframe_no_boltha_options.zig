@@ -25,6 +25,12 @@ pub const DeviceColumnCompareOp = enum {
     le,
 };
 
+pub const DeviceColumnLogicalOp = enum {
+    @"and",
+    @"or",
+    xor,
+};
+
 pub const DeviceDTypeClass = enum {
     numeric,
     real,

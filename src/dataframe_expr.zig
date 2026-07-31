@@ -629,6 +629,12 @@ pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: D
     };
 }
 
+pub fn logicalColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const lhs = try frame.column(lhs_name);
+    const rhs = try frame.column(rhs_name);
+    return lhs.logical(rhs.*, op);
+}
+
 pub fn filterColumnMask(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

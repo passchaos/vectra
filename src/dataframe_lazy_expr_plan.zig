@@ -1684,6 +1684,33 @@ pub fn withColumnLogicalXorScalar(frame: anytype, name: []const u8, input_name: 
     return withColumnLogicalScalar(frame, name, input_name, scalar, .xor);
 }
 
+pub fn withColumnLogical(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    try frame.ops.append(frame.allocator, .{ .with_column_logical = .{
+        .name = owned_name,
+        .lhs_name = owned_lhs,
+        .rhs_name = owned_rhs,
+        .op = op,
+    } });
+}
+
+pub fn withColumnLogicalAnd(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+    return withColumnLogical(frame, name, lhs_name, rhs_name, .@"and");
+}
+
+pub fn withColumnLogicalOr(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+    return withColumnLogical(frame, name, lhs_name, rhs_name, .@"or");
+}
+
+pub fn withColumnLogicalXor(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+    return withColumnLogical(frame, name, lhs_name, rhs_name, .xor);
+}
+
 pub fn withColumnLiteral(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

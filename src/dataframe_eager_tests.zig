@@ -2349,6 +2349,23 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnLogicalAndScalar("bad_logical", "sales", true));
     try std.testing.expectError(error.ColumnNotFound, rounding_type_table.withColumnLogicalXorScalar("missing_logical", "missing", true));
 
+    var bool_rhs = try DeviceColumn.fromSlice(bool, gpa, &.{ false, false, true }, .cpu);
+    defer bool_rhs.deinit();
+    var bool_pair_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "lhs", .data = rounding_active }, .{ .name = "rhs", .data = bool_rhs } });
+    defer bool_pair_table.deinit();
+    var logical_pair_table = try bool_pair_table.withColumnLogicalOr("lhs_or_rhs", "lhs", "rhs");
+    defer logical_pair_table.deinit();
+    const lhs_or_rhs = try (try logical_pair_table.column("lhs_or_rhs")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lhs_or_rhs);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, lhs_or_rhs);
+    var logical_xor_pair_table = try bool_pair_table.withColumnLogicalXor("lhs_xor_rhs", "lhs", "rhs");
+    defer logical_xor_pair_table.deinit();
+    const lhs_xor_rhs = try (try logical_xor_pair_table.column("lhs_xor_rhs")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lhs_xor_rhs);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, lhs_xor_rhs);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnLogicalAnd("bad_logical_pair", "sales", "cost"));
+    try std.testing.expectError(error.ColumnNotFound, bool_pair_table.withColumnLogicalAnd("missing_logical_pair", "lhs", "missing"));
+
     var neg_sales_table = try table.withColumnNeg("sales_neg", "sales");
     defer neg_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try neg_sales_table.columnDType("sales_neg"));

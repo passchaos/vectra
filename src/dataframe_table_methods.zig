@@ -1216,6 +1216,28 @@ pub fn withColumnLogicalXorScalar(self: anytype, output_name: []const u8, input_
     return withColumnLogicalScalar(self, output_name, input_name, scalar, .xor);
 }
 
+pub fn logicalColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.logicalColumns(frameValue(self), lhs_name, rhs_name, op);
+}
+
+pub fn withColumnLogical(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try logicalColumns(self, lhs_name, rhs_name, op);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnLogicalAnd(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogical(self, output_name, lhs_name, rhs_name, .@"and");
+}
+
+pub fn withColumnLogicalOr(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogical(self, output_name, lhs_name, rhs_name, .@"or");
+}
+
+pub fn withColumnLogicalXor(self: anytype, output_name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogical(self, output_name, lhs_name, rhs_name, .xor);
+}
+
 pub fn filterColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
     return expr_mod.filterColumnMask(FrameType(@TypeOf(self)), frameValue(self), mask);
 }

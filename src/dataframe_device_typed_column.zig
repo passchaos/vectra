@@ -1034,6 +1034,21 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn logical(self: Self, other: Self, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
+            if (comptime T != bool) return error.TypeUnsupported;
+            try requireCompatibleColumnArrays(T, self.values, other.values);
+            var values = switch (op) {
+                .@"and" => try self.values.logicalAnd(other.values),
+                .@"or" => try self.values.logicalOr(other.values),
+                .xor => try self.values.logicalXor(other.values),
+            };
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, other.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn compare(self: Self, other: Self, op: DeviceColumnCompareOp) array_mod.ArrayError!DeviceTypedColumn(bool) {
             try requireCompatibleColumnArrays(T, self.values, other.values);
             if (comptime !isOrderedColumnType(T)) {

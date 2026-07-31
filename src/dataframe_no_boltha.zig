@@ -18,6 +18,7 @@ pub const ParquetInteropError = ArrowInteropError;
 pub const DeviceValidityEncoding = options_mod.DeviceValidityEncoding;
 pub const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
 pub const DeviceColumnCompareOp = options_mod.DeviceColumnCompareOp;
+pub const DeviceColumnLogicalOp = options_mod.DeviceColumnLogicalOp;
 pub const DeviceDTypeClass = options_mod.DeviceDTypeClass;
 pub const DeviceScalar = options_mod.DeviceScalar;
 pub const DeviceGroupByAggregation = options_mod.DeviceGroupByAggregation;

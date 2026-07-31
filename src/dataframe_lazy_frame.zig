@@ -1331,6 +1331,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnLogicalXorScalar(self, name, input_name, scalar);
             }
 
+            pub fn withColumnLogical(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: options_mod.DeviceColumnLogicalOp) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLogical(self, name, lhs_name, rhs_name, op);
+            }
+
+            pub fn withColumnLogicalAnd(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLogicalAnd(self, name, lhs_name, rhs_name);
+            }
+
+            pub fn withColumnLogicalOr(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLogicalOr(self, name, lhs_name, rhs_name);
+            }
+
+            pub fn withColumnLogicalXor(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLogicalXor(self, name, lhs_name, rhs_name);
+            }
+
             pub fn withColumnLiteral(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnLiteral(self, name, T, value);
             }
