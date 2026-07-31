@@ -936,6 +936,15 @@ pub fn fillNegativeInfColumn(
     return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .negative_inf);
 }
 
+pub fn fillFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .finite);
+}
+
 pub fn fillNormalColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

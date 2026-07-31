@@ -1167,6 +1167,35 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.filterSubnormalsColumn("missing"));
 }
 
+test "device dataframe fills finite values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.floatTrueMin(f64), 0.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var filled_finite = try table.fillFiniteColumn("metric", f64, 42.0);
+    defer filled_finite.deinit();
+    const filled_values = try (try filled_finite.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled_values);
+    const filled_validity = try (try filled_finite.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(filled_validity);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[0]);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[1]);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[2]);
+    try std.testing.expect(std.math.isNan(filled_values[3]));
+    try std.testing.expect(std.math.isPositiveInf(filled_values[4]));
+    try std.testing.expectEqual(@as(f64, -2.0), filled_values[5]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, false }, filled_validity);
+
+    try std.testing.expectError(error.TypeUnsupported, table.fillFiniteColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillFiniteColumn("missing", f64, 0.0));
+}
+
 test "device dataframe fills normal values" {
     const gpa = std.testing.allocator;
 

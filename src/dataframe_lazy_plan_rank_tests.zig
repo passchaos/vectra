@@ -1579,6 +1579,40 @@ test "device lazy frame fills signed Inf values" {
     try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
 }
 
+test "device lazy frame fills finite values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.floatTrueMin(f64), 0.0, std.math.nan(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer finite_plan.deinit();
+    try finite_plan.fillFiniteColumn("metric", f64, 42.0);
+    const finite_explain = try finite_plan.explain(gpa);
+    defer gpa.free(finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, finite_explain, "fill_finite_column(metric=scalar:f64)") != null);
+    var filled_finite = try finite_plan.collect();
+    defer filled_finite.deinit();
+    const filled_values = try (try filled_finite.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filled_values);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[0]);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[1]);
+    try std.testing.expectEqual(@as(f64, 42.0), filled_values[2]);
+    try std.testing.expect(std.math.isNan(filled_values[3]));
+    try std.testing.expect(std.math.isPositiveInf(filled_values[4]));
+    try std.testing.expectEqual(@as(f64, -2.0), filled_values[5]);
+
+    var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer mismatch_plan.deinit();
+    try mismatch_plan.fillFiniteColumn("metric", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
+}
+
 test "device lazy frame fills normal values" {
     const gpa = std.testing.allocator;
 
