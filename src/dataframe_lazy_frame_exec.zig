@@ -689,6 +689,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_weighted_iqr => |row_weighted| try current.withRowWeightedIqr(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_mad => |row_weighted| try current.withRowWeightedMad(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_mode => |row_weighted| try current.withRowWeightedMode(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_mode_weight => |row_weighted| try current.withRowWeightedModeWeight(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_mode_ratio => |row_weighted| try current.withRowWeightedModeRatio(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_entropy => |row_weighted| try current.withRowWeightedEntropy(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_gini_impurity => |row_weighted| try current.withRowWeightedGiniImpurity(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_perplexity => |row_weighted| try current.withRowWeightedPerplexity(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),

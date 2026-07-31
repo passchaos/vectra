@@ -635,6 +635,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 3.0, 40.0 }, row_weighted_mode);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_weighted_mode_validity);
 
+    var row_weighted_mode_weight_table = try validity_table.withRowWeightedModeWeight(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_weight");
+    defer row_weighted_mode_weight_table.deinit();
+    const row_weighted_mode_weight = try (try row_weighted_mode_weight_table.column("row_weighted_mode_weight")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mode_weight);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 2.0, 5.0, 4.0 }, row_weighted_mode_weight);
+
+    var row_weighted_mode_ratio_table = try validity_table.withRowWeightedModeRatio(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode_ratio");
+    defer row_weighted_mode_ratio_table.deinit();
+    const row_weighted_mode_ratio = try (try row_weighted_mode_ratio_table.column("row_weighted_mode_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mode_ratio);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mode_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), row_weighted_mode_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_mode_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), row_weighted_mode_ratio[3], 1e-12);
+
     var row_weighted_entropy_table = try validity_table.withRowWeightedEntropy(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_entropy");
     defer row_weighted_entropy_table.deinit();
     const row_weighted_entropy_column = try row_weighted_entropy_table.column("row_weighted_entropy");

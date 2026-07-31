@@ -1790,6 +1790,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMode(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedModeWeight(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedModeWeight(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedModeRatio(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedModeRatio(self, value_names, weight_names, output_name);
+            }
+
             pub fn withRowWeightedEntropy(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedEntropy(self, value_names, weight_names, output_name);
             }

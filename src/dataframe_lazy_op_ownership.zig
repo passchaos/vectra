@@ -1952,6 +1952,32 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .row_weighted_mode_weight => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_mode_weight = .{
+                .value_names = value_names,
+                .weight_names = weight_names,
+                .output_name = output_name,
+            } };
+        },
+        .row_weighted_mode_ratio => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_mode_ratio = .{
+                .value_names = value_names,
+                .weight_names = weight_names,
+                .output_name = output_name,
+            } };
+        },
         .row_weighted_entropy => |row_weighted| blk: {
             const value_names = try cloneNameList(allocator, row_weighted.value_names);
             errdefer freeNameList(allocator, value_names);
