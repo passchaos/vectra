@@ -2467,6 +2467,35 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogsigmoid("bad_logsigmoid", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogsigmoid("missing_logsigmoid", "missing"));
 
+    var relu_ratio_table = try inverse_trig_table.withColumnRelu("ratio_relu", "ratio");
+    defer relu_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try relu_ratio_table.columnDType("ratio_relu"));
+    const ratio_relu = try (try relu_ratio_table.column("ratio_relu")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_relu);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5 }, ratio_relu);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu("bad_relu", "active"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnRelu("missing_relu", "missing"));
+
+    var relu6_cost_table = try table.withColumnRelu6("cost_relu6", "cost");
+    defer relu6_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try relu6_cost_table.columnDType("cost_relu6"));
+    const cost_relu6 = try (try relu6_cost_table.column("cost_relu6")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_relu6);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.5, 2.0 }, cost_relu6);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnRelu6("bad_relu6", "active"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnRelu6("missing_relu6", "missing"));
+
+    var softsign_ratio_table = try inverse_trig_table.withColumnSoftsign("ratio_softsign", "ratio");
+    defer softsign_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try softsign_ratio_table.columnDType("ratio_softsign"));
+    const ratio_softsign = try (try softsign_ratio_table.column("ratio_softsign")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_softsign);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5) / @as(f64, 1.5), ratio_softsign[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_softsign[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5) / @as(f64, 1.5), ratio_softsign[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnSoftsign("bad_softsign", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnSoftsign("missing_softsign", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));

@@ -99,6 +99,21 @@ pub fn unaryColumnLogsigmoid(frame: anytype, name: []const u8) DeviceDataError!@
     return col.logsigmoid();
 }
 
+pub fn unaryColumnRelu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.relu();
+}
+
+pub fn unaryColumnRelu6(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.relu6();
+}
+
+pub fn unaryColumnSoftsign(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.softsign();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();
