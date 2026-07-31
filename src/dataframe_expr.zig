@@ -778,6 +778,31 @@ pub fn nonFiniteCountColumn(frame: anytype, name: []const u8) DeviceDataError!us
     return col.countNonFinite();
 }
 
+fn ratioFromValidCount(count: usize, valid_count: usize) DeviceScalar {
+    if (valid_count == 0) return .{ .f64 = std.math.nan(f64) };
+    return .{ .f64 = @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(valid_count)) };
+}
+
+pub fn nanRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNan(), col.validCount());
+}
+
+pub fn infRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countInf(), col.validCount());
+}
+
+pub fn finiteRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countFinite(), col.validCount());
+}
+
+pub fn nonFiniteRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNonFinite(), col.validCount());
+}
+
 pub fn firstValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstValidIndex();

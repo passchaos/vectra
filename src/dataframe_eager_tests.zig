@@ -2610,6 +2610,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.infCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.finiteCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 2), try anomaly_metric_table.nonFiniteCountColumn("metric"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.finiteRatioColumn("units"));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.nanRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.infRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.finiteRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try anomaly_metric_table.nonFiniteRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expect(std.math.isNan((try all_null_metric_table.nanRatioColumn("metric")).f64));
     try std.testing.expectError(error.ColumnNotFound, table.nanCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 0), try table.nullCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 3), try table.validCountColumn("sales"));

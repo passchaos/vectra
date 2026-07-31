@@ -1447,6 +1447,22 @@ pub fn nonFiniteCountColumn(self: anytype, name: []const u8) DeviceDataError!usi
     return expr_mod.nonFiniteCountColumn(frameValue(self), name);
 }
 
+pub fn nanRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.nanRatioColumn(frameValue(self), name);
+}
+
+pub fn infRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.infRatioColumn(frameValue(self), name);
+}
+
+pub fn finiteRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.finiteRatioColumn(frameValue(self), name);
+}
+
+pub fn nonFiniteRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.nonFiniteRatioColumn(frameValue(self), name);
+}
+
 pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstValidIndexColumn(frameValue(self), name);
 }
