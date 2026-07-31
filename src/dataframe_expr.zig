@@ -808,6 +808,16 @@ pub fn stddevColumn(frame: anytype, name: []const u8, correction: f64) DeviceDat
     return col.stddev(correction);
 }
 
+pub fn semColumn(frame: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.sem(correction);
+}
+
+pub fn cvColumn(frame: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.cv(correction);
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

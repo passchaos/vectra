@@ -1479,6 +1479,14 @@ pub fn stdColumn(self: anytype, name: []const u8, correction: f64) DeviceDataErr
     return stddevColumn(self, name, correction);
 }
 
+pub fn semColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return expr_mod.semColumn(frameValue(self), name, correction);
+}
+
+pub fn cvColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return expr_mod.cvColumn(frameValue(self), name, correction);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }

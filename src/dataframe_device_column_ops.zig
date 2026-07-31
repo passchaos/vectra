@@ -1415,6 +1415,22 @@ pub fn stddev(self: anytype, correction: f64) array_mod.ArrayError!options_mod.D
     };
 }
 
+pub fn sem(self: anytype, correction: f64) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.sem(correction) },
+    };
+}
+
+pub fn cv(self: anytype, correction: f64) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.cv(correction) },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

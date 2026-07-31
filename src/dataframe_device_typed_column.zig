@@ -39,6 +39,11 @@ pub fn DeviceTypedColumn(comptime T: type) type {
     return struct {
         const Self = @This();
         pub const Scalar = T;
+        const RealStats = struct {
+            count: usize,
+            mean: f64,
+            m2: f64,
+        };
 
         values: array_mod.Array(T),
         validity: ?array_mod.Array(bool) = null,
@@ -1432,6 +1437,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight;
         }
 
+        fn realStats(self: Self) array_mod.ArrayError!RealStats {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+
+            var stats: RealStats = .{ .count = 0, .mean = 0.0, .m2 = 0.0 };
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                // Welford accumulation avoids the worst cancellation from
+                // sum(x*x) - sum(x)^2/n while keeping scalar dataframe results
+                // independent from an eventual device-side reduction kernel.
+                stats.count += 1;
+                const x = realValueToF64(value);
+                const delta = x - stats.mean;
+                stats.mean += delta / @as(f64, @floatFromInt(stats.count));
+                const delta2 = x - stats.mean;
+                stats.m2 += delta * delta2;
+            }
+            if (stats.count == 0) return error.EmptyArray;
+            return stats;
+        }
+
         pub fn sum(self: Self) array_mod.ArrayError!T {
             if (comptime T == bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);
@@ -1717,39 +1748,32 @@ pub fn DeviceTypedColumn(comptime T: type) type {
         }
 
         pub fn variance(self: Self, correction: f64) array_mod.ArrayError!f64 {
-            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
             if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
-            const values = try self.values.toOwnedSlice(self.values.allocator);
-            defer self.values.allocator.free(values);
-            const maybe_validity = try validityValues(self, self.values.allocator);
-            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
-
-            var count: usize = 0;
-            var mean_value: f64 = 0.0;
-            var m2: f64 = 0.0;
-            for (values, 0..) |value, row| {
-                if (maybe_validity) |validity| {
-                    if (!validity[row]) continue;
-                }
-                // Welford accumulation avoids the worst cancellation from
-                // sum(x*x) - sum(x)^2/n while keeping the scalar dataframe
-                // result independent from an eventual device-side reduction
-                // kernel implementation.
-                count += 1;
-                const x = realValueToF64(value);
-                const delta = x - mean_value;
-                mean_value += delta / @as(f64, @floatFromInt(count));
-                const delta2 = x - mean_value;
-                m2 += delta * delta2;
-            }
-            if (count == 0) return error.EmptyArray;
-            const denom = @as(f64, @floatFromInt(count)) - correction;
+            const stats = try self.realStats();
+            const denom = @as(f64, @floatFromInt(stats.count)) - correction;
             if (denom <= 0.0) return std.math.nan(f64);
-            return m2 / denom;
+            return stats.m2 / denom;
         }
 
         pub fn stddev(self: Self, correction: f64) array_mod.ArrayError!f64 {
             return std.math.sqrt(try self.variance(correction));
+        }
+
+        pub fn sem(self: Self, correction: f64) array_mod.ArrayError!f64 {
+            if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+            const stats = try self.realStats();
+            const denom = @as(f64, @floatFromInt(stats.count)) - correction;
+            if (denom <= 0.0) return std.math.nan(f64);
+            const stddev_value = std.math.sqrt(stats.m2 / denom);
+            return stddev_value / std.math.sqrt(@as(f64, @floatFromInt(stats.count)));
+        }
+
+        pub fn cv(self: Self, correction: f64) array_mod.ArrayError!f64 {
+            if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+            const stats = try self.realStats();
+            const denom = @as(f64, @floatFromInt(stats.count)) - correction;
+            if (denom <= 0.0) return std.math.nan(f64);
+            return std.math.sqrt(stats.m2 / denom) / stats.mean;
         }
 
         pub fn any(self: Self) array_mod.ArrayError!bool {
