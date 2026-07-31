@@ -1327,6 +1327,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnWhereWithDeviceScalar(self, name, input_name, mask_name, other_value);
             }
 
+            pub fn withColumnMaskedPutScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMaskedPutScalar(self, name, input_name, mask_name, T, value);
+            }
+
+            pub fn withColumnMaskedPutWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMaskedPutWithDeviceScalar(self, name, input_name, mask_name, value);
+            }
+
+            pub fn withColumnPutMaskScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutMaskScalar(self, name, input_name, mask_name, T, value);
+            }
+
+            pub fn withColumnPutMaskWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnPutMaskWithDeviceScalar(self, name, input_name, mask_name, value);
+            }
+
             pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
             }

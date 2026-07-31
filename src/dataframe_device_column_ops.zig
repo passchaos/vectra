@@ -1033,6 +1033,37 @@ pub fn whereWithDeviceScalar(self: anytype, mask: ColumnType(@TypeOf(self)), oth
     };
 }
 
+pub fn maskedPutScalar(self: anytype, mask: ColumnType(@TypeOf(self)), comptime T: type, value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (mask != .bool) return error.TypeUnsupported;
+    if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;
+    if (!column.device().sameDevice(mask.device())) return error.InvalidDevice;
+    const tag = comptime array_mod.DType.of(T);
+    return @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try @field(column, @tagName(tag)).maskedPutScalar(mask.bool, value));
+}
+
+pub fn maskedPutWithDeviceScalar(self: anytype, mask: ColumnType(@TypeOf(self)), value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (value) {
+        .bool => |scalar| maskedPutScalar(self, mask, bool, scalar),
+        .i8 => |scalar| maskedPutScalar(self, mask, i8, scalar),
+        .i16 => |scalar| maskedPutScalar(self, mask, i16, scalar),
+        .i32 => |scalar| maskedPutScalar(self, mask, i32, scalar),
+        .i64 => |scalar| maskedPutScalar(self, mask, i64, scalar),
+        .u8 => |scalar| maskedPutScalar(self, mask, u8, scalar),
+        .u16 => |scalar| maskedPutScalar(self, mask, u16, scalar),
+        .u32 => |scalar| maskedPutScalar(self, mask, u32, scalar),
+        .u64 => |scalar| maskedPutScalar(self, mask, u64, scalar),
+        .usize => |scalar| maskedPutScalar(self, mask, usize, scalar),
+        .isize => |scalar| maskedPutScalar(self, mask, isize, scalar),
+        .f16 => |scalar| maskedPutScalar(self, mask, f16, scalar),
+        .f32 => |scalar| maskedPutScalar(self, mask, f32, scalar),
+        .f64 => |scalar| maskedPutScalar(self, mask, f64, scalar),
+        .bf16 => |scalar| maskedPutScalar(self, mask, array_mod.BFloat16, scalar),
+        .c64 => |scalar| maskedPutScalar(self, mask, array_mod.Complex64, scalar),
+        .c128 => |scalar| maskedPutScalar(self, mask, array_mod.Complex128, scalar),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

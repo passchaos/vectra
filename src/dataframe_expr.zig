@@ -610,6 +610,18 @@ pub fn whereColumnWithDeviceScalar(frame: anytype, input_name: []const u8, mask_
     return input.whereWithDeviceScalar(mask.*, other_value);
 }
 
+pub fn maskedPutColumnScalar(frame: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const mask = try frame.column(mask_name);
+    return input.maskedPutScalar(mask.*, T, value);
+}
+
+pub fn maskedPutColumnWithDeviceScalar(frame: anytype, input_name: []const u8, mask_name: []const u8, value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const mask = try frame.column(mask_name);
+    return input.maskedPutWithDeviceScalar(mask.*, value);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

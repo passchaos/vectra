@@ -1719,6 +1719,33 @@ pub fn withColumnWhereWithDeviceScalar(frame: anytype, name: []const u8, input_n
     } });
 }
 
+pub fn withColumnMaskedPutScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnMaskedPutWithDeviceScalar(frame, name, input_name, mask_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnMaskedPutWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_mask = try frame.allocator.dupe(u8, mask_name);
+    errdefer frame.allocator.free(owned_mask);
+    try frame.ops.append(frame.allocator, .{ .with_column_masked_put_scalar = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .mask_name = owned_mask,
+        .scalar = value,
+    } });
+}
+
+pub fn withColumnPutMaskScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnMaskedPutScalar(frame, name, input_name, mask_name, T, value);
+}
+
+pub fn withColumnPutMaskWithDeviceScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, value: DeviceScalar) DeviceDataError!void {
+    return withColumnMaskedPutWithDeviceScalar(frame, name, input_name, mask_name, value);
+}
+
 pub fn withColumnIscloseScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
     return withColumnIscloseWithDeviceScalarsEqualNan(frame, name, input_name, DeviceScalar.init(T, scalar), DeviceScalar.init(T, rtol), DeviceScalar.init(T, atol), false);
 }

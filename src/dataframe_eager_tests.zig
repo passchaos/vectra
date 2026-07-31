@@ -2365,6 +2365,19 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, table.withColumnWhereScalar("bad_where", "sales", "cost", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, where_table.withColumnWhereScalar("missing_where", "metric", "missing", f64, 0.0));
 
+    var masked_put_table = try where_table.withColumnMaskedPutScalar("metric_masked", "metric", "mask", f64, 9.0);
+    defer masked_put_table.deinit();
+    const metric_masked = try (try masked_put_table.column("metric_masked")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_masked);
+    try std.testing.expectEqualSlices(f64, &.{ 9.0, 2.0, 9.0 }, metric_masked);
+    var put_mask_table = try where_table.withColumnPutMaskScalar("metric_put_mask", "metric", "mask", f64, -3.0);
+    defer put_mask_table.deinit();
+    const metric_put_mask = try (try put_mask_table.column("metric_put_mask")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_put_mask);
+    try std.testing.expectEqualSlices(f64, &.{ -3.0, 2.0, -3.0 }, metric_put_mask);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnMaskedPutScalar("bad_masked", "sales", "cost", f64, 9.0));
+    try std.testing.expectError(error.ColumnNotFound, where_table.withColumnMaskedPutScalar("missing_masked", "metric", "missing", f64, 9.0));
+
     var active_and_table = try rounding_type_table.withColumnLogicalAndScalar("active_and", "active", false);
     defer active_and_table.deinit();
     const active_and = try (try active_and_table.column("active_and")).bool.toOwnedSlice(gpa);
