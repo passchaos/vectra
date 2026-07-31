@@ -2658,6 +2658,90 @@ pub fn repeatRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+fn appendRepeatRowsFromCounts(
+    allocator: std.mem.Allocator,
+    row_indices: *std.ArrayList(usize),
+    counts: anytype,
+) DeviceFrameArrayError!void {
+    for (counts, 0..) |count_value, row_index| {
+        const count = switch (@typeInfo(@TypeOf(count_value))) {
+            .int => |info| blk: {
+                if (info.signedness == .signed and count_value < 0) return error.InvalidShape;
+                break :blk std.math.cast(usize, count_value) orelse return error.InvalidShape;
+            },
+            else => return error.TypeMismatch,
+        };
+        try row_indices.ensureUnusedCapacity(allocator, count);
+        for (0..count) |_| row_indices.appendAssumeCapacity(row_index);
+    }
+}
+
+pub fn repeatRowsByColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    count_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const count_column = try input.column(count_name);
+    if (count_column.hasNulls()) return error.TypeMismatch;
+
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(input.allocator);
+    switch (count_column.*) {
+        .i8 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .i16 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .i32 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .i64 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .isize => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .u8 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .u16 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .u32 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .u64 => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        .usize => |typed| {
+            const counts = try typed.toOwnedSlice(input.allocator);
+            defer input.allocator.free(counts);
+            try appendRepeatRowsFromCounts(input.allocator, &row_indices, counts);
+        },
+        else => return error.TypeMismatch,
+    }
+    return takeRows(DeviceDataFrame, input, row_indices.items);
+}
+
 pub fn dropRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

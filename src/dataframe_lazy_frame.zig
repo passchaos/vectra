@@ -1859,6 +1859,12 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
             }
 
+            pub fn repeatRowsByColumn(self: *DeviceLazyFrame, count_name: []const u8) DeviceDataError!void {
+                const owned = try self.allocator.dupe(u8, count_name);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .repeat_rows_by = owned });
+            }
+
             pub fn sampleRows(self: *DeviceLazyFrame, count: usize, seed: u64) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .sample_rows = .{
                     .count = count,

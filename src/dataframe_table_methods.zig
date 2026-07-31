@@ -2435,6 +2435,10 @@ pub fn repeatRows(self: anytype, repeat_count: usize) DeviceDataError!FrameType(
     return dataframe_array_mod.repeatRows(FrameType(@TypeOf(self)), frameValue(self), repeat_count);
 }
 
+pub fn repeatRowsByColumn(self: anytype, count_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.repeatRowsByColumn(FrameType(@TypeOf(self)), frameValue(self), count_name);
+}
+
 pub fn sampleRows(self: anytype, count: usize, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.sampleRows(FrameType(@TypeOf(self)), frameValue(self), count, seed);
 }

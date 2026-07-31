@@ -3464,6 +3464,20 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(repeated_lazy_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 7.0, 7.0 }, repeated_lazy_sales);
 
+    var repeat_by_plan = try DeviceLazyFrame.init(gpa, table);
+    defer repeat_by_plan.deinit();
+    try repeat_by_plan.repeatRowsByColumn("units");
+    try repeat_by_plan.select(&.{ "sales", "units" });
+    const repeat_by_explain = try repeat_by_plan.explain(gpa);
+    defer gpa.free(repeat_by_explain);
+    try std.testing.expect(std.mem.indexOf(u8, repeat_by_explain, "repeat_rows_by(units)") != null);
+    var repeated_by_lazy = try repeat_by_plan.collect();
+    defer repeated_by_lazy.deinit();
+    try std.testing.expectEqual(@as(usize, 10), repeated_by_lazy.height());
+    const repeated_by_lazy_sales = try (try repeated_by_lazy.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(repeated_by_lazy_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 3.0, 5.0, 5.0, 5.0, 7.0, 7.0, 7.0, 7.0 }, repeated_by_lazy_sales);
+
     var take_plan = try DeviceLazyFrame.init(gpa, table);
     defer take_plan.deinit();
     try take_plan.take(&.{ 3, 1, 1 });

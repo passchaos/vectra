@@ -553,6 +553,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), repeated_zero.height());
     try std.testing.expectEqual(table.width(), repeated_zero.width());
 
+    var repeat_counts = try DeviceColumn.fromSlice(usize, gpa, &.{ 1, 0, 2 }, .cpu);
+    defer repeat_counts.deinit();
+    var repeat_count_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "units", .data = units }, .{ .name = "repeat_count", .data = repeat_counts } });
+    defer repeat_count_table.deinit();
+    var repeated_by = try repeat_count_table.repeatRowsByColumn("repeat_count");
+    defer repeated_by.deinit();
+    try std.testing.expectEqual(@as(usize, 3), repeated_by.height());
+    const repeated_by_sales = try (try repeated_by.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(repeated_by_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 5.0 }, repeated_by_sales);
+    try std.testing.expectError(error.TypeMismatch, table.repeatRowsByColumn("sales"));
+
+    var negative_counts = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, -1, 1 }, .cpu);
+    defer negative_counts.deinit();
+    var negative_count_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "repeat_count", .data = negative_counts } });
+    defer negative_count_table.deinit();
+    try std.testing.expectError(error.InvalidShape, negative_count_table.repeatRowsByColumn("repeat_count"));
+
     var stepped_slice = try table.sliceRowsStep(0, table.height(), 2);
     defer stepped_slice.deinit();
     try std.testing.expectEqual(@as(usize, 2), stepped_slice.height());
