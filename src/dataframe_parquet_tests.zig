@@ -295,6 +295,22 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(sales_is_normal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, sales_is_normal);
 
+    var subnormal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer subnormal_scan.deinit();
+    try subnormal_scan.isSubnormalColumn("sales", "sales_is_subnormal");
+    try subnormal_scan.select(&.{"sales_is_subnormal"});
+
+    const subnormal_explain = try subnormal_scan.explain(gpa);
+    defer gpa.free(subnormal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, subnormal_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, subnormal_explain, "is_subnormal_column(sales->sales_is_subnormal)") != null);
+
+    var subnormal_result = try subnormal_scan.collect();
+    defer subnormal_result.deinit();
+    const sales_is_subnormal = try (try subnormal_result.column("sales_is_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_subnormal);
+
     var inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer inf_scan.deinit();
     try inf_scan.isInfColumn("sales", "sales_is_inf");

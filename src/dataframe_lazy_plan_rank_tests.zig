@@ -1115,21 +1115,30 @@ test "device lazy frame derives normal predicate columns" {
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
     try plan.isNormalColumn("metric", "metric_is_normal");
+    try plan.isSubnormalColumn("metric", "metric_is_subnormal");
     try plan.isNormalColumn("id", "id_is_normal");
-    try plan.select(&.{ "metric_is_normal", "id_is_normal" });
+    try plan.isSubnormalColumn("id", "id_is_subnormal");
+    try plan.select(&.{ "metric_is_normal", "metric_is_subnormal", "id_is_normal", "id_is_subnormal" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "is_normal_column(metric->metric_is_normal)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_subnormal_column(metric->metric_is_subnormal)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
     const metric_is_normal = try (try result.column("metric_is_normal")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_normal);
+    const metric_is_subnormal = try (try result.column("metric_is_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_subnormal);
     const id_is_normal = try (try result.column("id_is_normal")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_normal);
+    const id_is_subnormal = try (try result.column("id_is_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_subnormal);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, metric_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, metric_is_subnormal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_subnormal);
 
     var row_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_normal_plan.deinit();
@@ -1177,6 +1186,11 @@ test "device lazy frame derives normal predicate columns" {
     defer invalid_plan.deinit();
     try invalid_plan.isNormalColumn("missing", "missing_is_normal");
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+
+    var invalid_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_subnormal_plan.deinit();
+    try invalid_subnormal_plan.isSubnormalColumn("missing", "missing_is_subnormal");
+    try std.testing.expectError(error.ColumnNotFound, invalid_subnormal_plan.collect());
 
     var invalid_count_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_count_plan.deinit();

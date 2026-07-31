@@ -1001,11 +1001,24 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(metric_is_normal);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, metric_is_normal);
 
+    var metric_subnormal_flags = try table.isSubnormalColumn("metric", "metric_is_subnormal");
+    defer metric_subnormal_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try metric_subnormal_flags.columnDType("metric_is_subnormal"));
+    const metric_is_subnormal = try (try metric_subnormal_flags.column("metric_is_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, metric_is_subnormal);
+
     var integer_flags = try table.isNormalColumn("id", "id_is_normal");
     defer integer_flags.deinit();
     const id_is_normal = try (try integer_flags.column("id_is_normal")).bool.toOwnedSlice(gpa);
     defer gpa.free(id_is_normal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_normal);
+
+    var integer_subnormal_flags = try table.isSubnormalColumn("id", "id_is_subnormal");
+    defer integer_subnormal_flags.deinit();
+    const id_is_subnormal = try (try integer_subnormal_flags.column("id_is_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_subnormal);
 
     var row_normal_counts = try table.withRowNormalCount(&.{ "metric", "id" }, "row_normal_count");
     defer row_normal_counts.deinit();
@@ -1034,6 +1047,7 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectEqual(@as(f64, 1.0), filtered_normal_metric[0]);
 
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
+    try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));

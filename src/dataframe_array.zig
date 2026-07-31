@@ -1035,12 +1035,28 @@ fn isNormalValue(comptime T: type, value: T) bool {
     };
 }
 
+fn isSubnormalFloat(comptime T: type, value: T) bool {
+    return std.math.isFinite(value) and !std.math.isNormal(value) and value != 0;
+}
+
+fn isSubnormalValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return isSubnormalFloat(f32, value.toF32());
+    // Subnormal is a presence-style predicate for complex values: flag the row
+    // when either component is a finite non-zero subnormal. Zeros, NaNs, and
+    // infinities are deliberately excluded.
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return isSubnormalFloat(@TypeOf(value.re), value.re) or isSubnormalFloat(@TypeOf(value.im), value.im);
+    return switch (@typeInfo(T)) {
+        .float => isSubnormalFloat(T, value),
+        else => false,
+    };
+}
+
 fn withNumericPredicateColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, inf, positive_inf, negative_inf, finite, normal },
+    comptime predicate: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -1066,6 +1082,7 @@ fn withNumericPredicateColumn(
                     .negative_inf => isNegativeInfValue(@TypeOf(value), value),
                     .finite => isFiniteValue(@TypeOf(value), value),
                     .normal => isNormalValue(@TypeOf(value), value),
+                    .subnormal => isSubnormalValue(@TypeOf(value), value),
                 };
             }
         },
@@ -1102,6 +1119,15 @@ pub fn isNormalColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .normal);
+}
+
+pub fn isSubnormalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .subnormal);
 }
 
 pub fn isInfColumn(
