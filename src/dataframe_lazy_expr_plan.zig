@@ -362,6 +362,25 @@ pub fn filterNegativeInfsColumn(frame: anytype, name: []const u8) DeviceDataErro
     try frame.ops.append(frame.allocator, .{ .filter_negative_infs_column = owned_name });
 }
 
+pub fn dropFinites(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_finites = owned });
+}
+
+pub fn dropFinitesColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropFinites(frame, &.{name});
+}
+
+pub fn filterFinitesColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_finites_column = owned_name });
+}
+
 pub fn dropNormals(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try cloneNameList(frame.allocator, names);
     errdefer {

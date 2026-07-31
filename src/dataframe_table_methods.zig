@@ -689,6 +689,22 @@ pub fn filterNegativeInfsColumn(self: anytype, name: []const u8) DeviceDataError
     return dataframe_array_mod.filterNegativeInfsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropFinites(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropFinites(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropFinitesOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropFinites(self, names);
+}
+
+pub fn dropFinitesColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropFinites(self, &.{name});
+}
+
+pub fn filterFinitesColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterFinitesColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn dropNormals(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropNormals(FrameType(@TypeOf(self)), frameValue(self), names);
 }

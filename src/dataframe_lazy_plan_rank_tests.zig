@@ -995,6 +995,37 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(filtered_inf_metric);
     try std.testing.expect(std.math.isInf(filtered_inf_metric[0]));
 
+    var drop_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_finite_plan.deinit();
+    try drop_finite_plan.dropFinitesColumn("metric");
+    const drop_finite_explain = try drop_finite_plan.explain(gpa);
+    defer gpa.free(drop_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_finite_explain, "drop_finites[metric]") != null);
+    var dropped_finite_rows = try drop_finite_plan.collect();
+    defer dropped_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), dropped_finite_rows.height());
+    const dropped_finite_metric = try (try dropped_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_finite_metric);
+    const dropped_finite_validity = try (try dropped_finite_rows.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(dropped_finite_validity);
+    try std.testing.expect(std.math.isNan(dropped_finite_metric[0]));
+    try std.testing.expect(std.math.isInf(dropped_finite_metric[1]));
+    try std.testing.expectEqual(@as(f64, 7.0), dropped_finite_metric[2]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, dropped_finite_validity);
+
+    var filter_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_finite_plan.deinit();
+    try filter_finite_plan.filterFinitesColumn("metric");
+    const filter_finite_explain = try filter_finite_plan.explain(gpa);
+    defer gpa.free(filter_finite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_finite_explain, "filter_finites_column(metric)") != null);
+    var filtered_finite_rows = try filter_finite_plan.collect();
+    defer filtered_finite_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered_finite_rows.height());
+    const filtered_finite_metric = try (try filtered_finite_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_finite_metric);
+    try std.testing.expectEqual(@as(f64, 1.0), filtered_finite_metric[0]);
+
     var drop_non_finite_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_non_finite_plan.deinit();
     try drop_non_finite_plan.dropNonFinitesColumn("metric");
@@ -1050,6 +1081,11 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, row_inf_count);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, row_finite_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 0 }, row_non_finite_count);
+
+    var invalid_filter_finite_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_filter_finite_plan.deinit();
+    try invalid_filter_finite_plan.filterFinitesColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_filter_finite_plan.collect());
 
     var invalid_row_count_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_row_count_plan.deinit();

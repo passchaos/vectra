@@ -809,7 +809,7 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, normal, subnormal, non_finite };
+const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite };
 
 fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: SpecialFloatPredicate) bool {
     return switch (predicate) {
@@ -817,6 +817,7 @@ fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: 
         .inf => isInfValue(T, value),
         .positive_inf => isPositiveInfValue(T, value),
         .negative_inf => isNegativeInfValue(T, value),
+        .finite => isFiniteValue(T, value),
         .normal => isNormalValue(T, value),
         .subnormal => isSubnormalValue(T, value),
         .non_finite => !isFiniteValue(T, value),
@@ -1840,6 +1841,14 @@ pub fn dropNegativeInfs(
     return dropSpecialFloats(DeviceDataFrame, input, names, .negative_inf);
 }
 
+pub fn dropFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropSpecialFloats(DeviceDataFrame, input, names, .finite);
+}
+
 pub fn dropNormals(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -1920,6 +1929,14 @@ pub fn filterNegativeInfsColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .negative_inf);
+}
+
+pub fn filterFinitesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterSpecialFloatsColumn(DeviceDataFrame, input, name, .finite);
 }
 
 pub fn filterNormalsColumn(
