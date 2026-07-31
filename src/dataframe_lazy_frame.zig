@@ -1964,6 +1964,10 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .repeat_rows = repeat_count });
             }
 
+            pub fn tileRows(self: *DeviceLazyFrame, tile_count: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .tile_rows = tile_count });
+            }
+
             pub fn repeatRowsByColumn(self: *DeviceLazyFrame, count_name: []const u8) DeviceDataError!void {
                 const owned = try self.allocator.dupe(u8, count_name);
                 errdefer self.allocator.free(owned);

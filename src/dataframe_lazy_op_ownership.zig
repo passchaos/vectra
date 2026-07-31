@@ -1857,6 +1857,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             } };
         },
         .repeat_rows => |repeat_count| .{ .repeat_rows = repeat_count },
+        .tile_rows => |tile_count| .{ .tile_rows = tile_count },
         .repeat_rows_by => |count_name| .{ .repeat_rows_by = try allocator.dupe(u8, count_name) },
         .sample_rows => |sample| .{ .sample_rows = sample },
         .sample_rows_with_replacement => |sample| .{ .sample_rows_with_replacement = sample },

@@ -748,6 +748,7 @@ pub const DeviceDataFrame = struct {
     pub const takeRowsByColumn = table_methods_mod.takeRowsByColumn;
     pub const takeRowsByColumnMode = table_methods_mod.takeRowsByColumnMode;
     pub const repeatRows = table_methods_mod.repeatRows;
+    pub const tileRows = table_methods_mod.tileRows;
     pub const repeatRowsByColumn = table_methods_mod.repeatRowsByColumn;
     pub const sampleRows = table_methods_mod.sampleRows;
     pub const sampleRowsWithReplacement = table_methods_mod.sampleRowsWithReplacement;

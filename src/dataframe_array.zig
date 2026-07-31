@@ -2787,6 +2787,27 @@ pub fn repeatRows(
     return takeRows(DeviceDataFrame, input, row_indices);
 }
 
+pub fn tileRows(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    tile_count: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (tile_count == 0 or input.rows == 0) return takeRows(DeviceDataFrame, input, &.{});
+    const total_rows = std.math.mul(usize, input.rows, tile_count) catch return error.InvalidShape;
+    const row_indices = try input.allocator.alloc(usize, total_rows);
+    defer input.allocator.free(row_indices);
+    var write: usize = 0;
+    // `repeatRows` repeats each row consecutively. `tileRows` instead repeats
+    // the whole row block, mirroring Array.tile semantics for dataframe rows.
+    for (0..tile_count) |_| {
+        for (0..input.rows) |row_index| {
+            row_indices[write] = row_index;
+            write += 1;
+        }
+    }
+    return takeRows(DeviceDataFrame, input, row_indices);
+}
+
 fn appendRepeatRowsFromCounts(
     allocator: std.mem.Allocator,
     row_indices: *std.ArrayList(usize),

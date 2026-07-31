@@ -679,6 +679,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), repeated_zero.height());
     try std.testing.expectEqual(table.width(), repeated_zero.width());
 
+    var tiled_rows = try table.tileRows(2);
+    defer tiled_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 6), tiled_rows.height());
+    const tiled_sales = try (try tiled_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(tiled_sales);
+    const tiled_units_validity = try (try tiled_rows.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(tiled_units_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 2.0, 3.0, 5.0 }, tiled_sales);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false, true }, tiled_units_validity);
+
+    var tiled_zero = try table.tileRows(0);
+    defer tiled_zero.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tiled_zero.height());
+    try std.testing.expectEqual(table.width(), tiled_zero.width());
+
     var repeat_counts = try DeviceColumn.fromSlice(usize, gpa, &.{ 1, 0, 2 }, .cpu);
     defer repeat_counts.deinit();
     var repeat_count_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "sales", .data = sales }, .{ .name = "units", .data = units }, .{ .name = "repeat_count", .data = repeat_counts } });
