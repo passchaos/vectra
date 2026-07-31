@@ -1826,6 +1826,23 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .slice_rows => |slice| .{ .slice_rows = slice },
         .slice_rows_signed => |slice| .{ .slice_rows_signed = slice },
         .drop_rows => |row_indices| .{ .drop_rows = try allocator.dupe(usize, row_indices) },
+        .drop_rows_mode => |drop_mode| blk: {
+            const row_indices = try allocator.dupe(usize, drop_mode.row_indices);
+            errdefer allocator.free(row_indices);
+            break :blk .{ .drop_rows_mode = .{
+                .row_indices = row_indices,
+                .mode = drop_mode.mode,
+            } };
+        },
+        .drop_rows_signed => |row_indices| .{ .drop_rows_signed = try allocator.dupe(isize, row_indices) },
+        .drop_rows_signed_mode => |drop_mode| blk: {
+            const row_indices = try allocator.dupe(isize, drop_mode.row_indices);
+            errdefer allocator.free(row_indices);
+            break :blk .{ .drop_rows_signed_mode = .{
+                .row_indices = row_indices,
+                .mode = drop_mode.mode,
+            } };
+        },
         .drop_row_range => |range| .{ .drop_row_range = range },
         .drop_last_rows => |n| .{ .drop_last_rows = n },
         .slice_rows_step => |slice| .{ .slice_rows_step = slice },

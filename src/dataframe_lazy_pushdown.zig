@@ -1096,7 +1096,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try profile_pushdown_mod.addDependencies(allocator, &required_names, derived_names.items, op);
                 break :op_loop;
             },
-            .filter_mask, .slice_rows, .slice_rows_signed, .drop_rows, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .take_rows, .take_rows_optional, .take_rows_mode, .take_rows_signed, .take_rows_signed_mode, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
+            .filter_mask, .slice_rows, .slice_rows_signed, .drop_rows, .drop_rows_mode, .drop_rows_signed, .drop_rows_signed_mode, .drop_row_range, .drop_last_rows, .slice_rows_step, .stride_rows, .take_rows, .take_rows_optional, .take_rows_mode, .take_rows_signed, .take_rows_signed_mode, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
             .take_rows_by_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);

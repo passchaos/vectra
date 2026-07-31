@@ -3332,6 +3332,23 @@ test "device lazy frame collects row slice operations" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, rows_dropped_sales);
     try std.testing.expectEqualSlices(i64, &.{ 1, 3, 4 }, rows_dropped_units);
 
+    var drop_mode_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_mode_plan.deinit();
+    try drop_mode_plan.dropRowsMode(&.{5}, .wrap);
+    try drop_mode_plan.dropRowsSignedMode(&.{-9}, .clip);
+    try drop_mode_plan.dropRowsSigned(&.{-1});
+    try drop_mode_plan.select(&.{ "sales", "units" });
+    const drop_mode_explain = try drop_mode_plan.explain(gpa);
+    defer gpa.free(drop_mode_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_mode_explain, "drop_rows_mode([5], mode:wrap)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_mode_explain, "drop_rows_signed_mode([-9], mode:clip)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_mode_explain, "drop_rows_signed([-1])") != null);
+    var dropped_mode = try drop_mode_plan.collect();
+    defer dropped_mode.deinit();
+    const dropped_mode_sales = try (try dropped_mode.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_mode_sales);
+    try std.testing.expectEqualSlices(f64, &.{5.0}, dropped_mode_sales);
+
     var invalid_drop_rows_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_drop_rows_plan.deinit();
     try invalid_drop_rows_plan.dropRows(&.{table.height()});

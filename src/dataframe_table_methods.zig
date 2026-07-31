@@ -2523,6 +2523,18 @@ pub fn dropRows(self: anytype, row_indices: []const usize) DeviceDataError!Frame
     return dataframe_array_mod.dropRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }
 
+pub fn dropRowsMode(self: anytype, row_indices: []const usize, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowsMode(FrameType(@TypeOf(self)), frameValue(self), row_indices, mode);
+}
+
+pub fn dropRowsSigned(self: anytype, row_indices: []const isize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowsSigned(FrameType(@TypeOf(self)), frameValue(self), row_indices);
+}
+
+pub fn dropRowsSignedMode(self: anytype, row_indices: []const isize, mode: array_mod.IndexMode) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropRowsSignedMode(FrameType(@TypeOf(self)), frameValue(self), row_indices, mode);
+}
+
 pub fn dropRowRange(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropRowRange(FrameType(@TypeOf(self)), frameValue(self), start, stop);
 }

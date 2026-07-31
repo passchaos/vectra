@@ -733,6 +733,30 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
+        .drop_rows_mode => |drop_mode| {
+            try writer.print("drop_rows_mode([", .{});
+            for (drop_mode.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], mode:{s})", .{@tagName(drop_mode.mode)});
+        },
+        .drop_rows_signed => |row_indices| {
+            try writer.print("drop_rows_signed([", .{});
+            for (row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("])", .{});
+        },
+        .drop_rows_signed_mode => |drop_mode| {
+            try writer.print("drop_rows_signed_mode([", .{});
+            for (drop_mode.row_indices, 0..) |row_index, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{d}", .{row_index});
+            }
+            try writer.print("], mode:{s})", .{@tagName(drop_mode.mode)});
+        },
         .drop_row_range => |range| try writer.print("drop_row_range({d}..{d})", .{ range.start, range.stop }),
         .drop_last_rows => |n| try writer.print("drop_last_rows({d})", .{n}),
         .slice_rows_step => |slice| try writer.print("slice_rows_step({d}..{d}, step={d})", .{ slice.start, slice.stop, slice.step }),

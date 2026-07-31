@@ -564,6 +564,25 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, rows_dropped_sales);
     try std.testing.expectEqualSlices(bool, &.{ true, true }, rows_dropped_units_validity);
 
+    var rows_dropped_wrap = try table.dropRowsMode(&.{table.height() + 1}, .wrap);
+    defer rows_dropped_wrap.deinit();
+    const rows_dropped_wrap_sales = try (try rows_dropped_wrap.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_wrap_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, rows_dropped_wrap_sales);
+    try std.testing.expectError(error.IndexOutOfBounds, table.dropRowsMode(&.{table.height()}, .raise));
+
+    var rows_dropped_signed = try table.dropRowsSigned(&.{-1});
+    defer rows_dropped_signed.deinit();
+    const rows_dropped_signed_sales = try (try rows_dropped_signed.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_signed_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, rows_dropped_signed_sales);
+
+    var rows_dropped_signed_clip = try table.dropRowsSignedMode(&.{ -9, 9 }, .clip);
+    defer rows_dropped_signed_clip.deinit();
+    const rows_dropped_signed_clip_sales = try (try rows_dropped_signed_clip.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rows_dropped_signed_clip_sales);
+    try std.testing.expectEqualSlices(f64, &.{3.0}, rows_dropped_signed_clip_sales);
+
     var row_range_dropped = try table.dropRowRange(0, 2);
     defer row_range_dropped.deinit();
     try std.testing.expectEqual(@as(usize, 1), row_range_dropped.height());

@@ -2977,6 +2977,42 @@ pub fn dropRows(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
+pub fn dropRowsMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const usize,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const normalized = try input.allocator.alloc(usize, row_indices.len);
+    defer input.allocator.free(normalized);
+    for (row_indices, normalized) |row_index, *slot| {
+        slot.* = try normalizeRowIndexMode(row_index, input.rows, mode);
+    }
+    return dropRows(DeviceDataFrame, input, normalized);
+}
+
+pub fn dropRowsSigned(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const isize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsSignedMode(DeviceDataFrame, input, row_indices, .raise);
+}
+
+pub fn dropRowsSignedMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    row_indices: []const isize,
+    mode: array_mod.IndexMode,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const normalized = try input.allocator.alloc(usize, row_indices.len);
+    defer input.allocator.free(normalized);
+    for (row_indices, normalized) |row_index, *slot| {
+        slot.* = try normalizeSignedRowIndexMode(row_index, input.rows, mode);
+    }
+    return dropRows(DeviceDataFrame, input, normalized);
+}
+
 pub fn dropRowRange(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

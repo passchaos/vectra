@@ -1879,6 +1879,30 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_rows = owned });
             }
 
+            pub fn dropRowsMode(self: *DeviceLazyFrame, row_indices: []const usize, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(usize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows_mode = .{
+                    .row_indices = owned,
+                    .mode = mode,
+                } });
+            }
+
+            pub fn dropRowsSigned(self: *DeviceLazyFrame, row_indices: []const isize) DeviceDataError!void {
+                const owned = try self.allocator.dupe(isize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows_signed = owned });
+            }
+
+            pub fn dropRowsSignedMode(self: *DeviceLazyFrame, row_indices: []const isize, mode: array_mod.IndexMode) DeviceDataError!void {
+                const owned = try self.allocator.dupe(isize, row_indices);
+                errdefer self.allocator.free(owned);
+                try self.ops.append(self.allocator, .{ .drop_rows_signed_mode = .{
+                    .row_indices = owned,
+                    .mode = mode,
+                } });
+            }
+
             pub fn dropRowRange(self: *DeviceLazyFrame, start: usize, stop: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .drop_row_range = .{
                     .start = start,
