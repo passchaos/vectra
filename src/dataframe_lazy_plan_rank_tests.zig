@@ -891,6 +891,21 @@ test "device lazy frame derives sign predicate columns" {
     try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
     try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
 
+    var filter_signbit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_signbit_plan.deinit();
+    try filter_signbit_plan.filterSignBitsColumn("metric");
+    const filter_signbit_explain = try filter_signbit_plan.explain(gpa);
+    defer gpa.free(filter_signbit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_signbit_explain, "filter_signbits_column(metric)") != null);
+    var filtered_signbit_rows = try filter_signbit_plan.collect();
+    defer filtered_signbit_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), filtered_signbit_rows.height());
+    const filtered_signbit_metric = try (try filtered_signbit_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_signbit_metric);
+    try std.testing.expectEqual(@as(f64, -2.0), filtered_signbit_metric[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), filtered_signbit_metric[1]);
+    try std.testing.expect(std.math.isNegativeInf(filtered_signbit_metric[2]));
+
     var filter_positive_zero_plan = try DeviceLazyFrame.init(gpa, table);
     defer filter_positive_zero_plan.deinit();
     try filter_positive_zero_plan.filterPositiveZerosColumn("metric");
@@ -950,6 +965,11 @@ test "device lazy frame derives sign predicate columns" {
     defer invalid_signed_zero_filter_plan.deinit();
     try invalid_signed_zero_filter_plan.filterPositiveZerosColumn("missing");
     try std.testing.expectError(error.ColumnNotFound, invalid_signed_zero_filter_plan.collect());
+
+    var invalid_signbit_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_signbit_filter_plan.deinit();
+    try invalid_signbit_filter_plan.dropSignBitsColumn("missing");
+    try std.testing.expectError(error.ColumnNotFound, invalid_signbit_filter_plan.collect());
 }
 
 test "device lazy frame derives NaN and finite predicate columns" {

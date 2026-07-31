@@ -457,6 +457,25 @@ pub fn filterPositivesColumn(frame: anytype, name: []const u8) DeviceDataError!v
     try frame.ops.append(frame.allocator, .{ .filter_positives_column = owned_name });
 }
 
+pub fn dropSignBits(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned) |name| frame.allocator.free(name);
+        frame.allocator.free(owned);
+    }
+    try frame.ops.append(frame.allocator, .{ .drop_signbits = owned });
+}
+
+pub fn dropSignBitsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    return dropSignBits(frame, &.{name});
+}
+
+pub fn filterSignBitsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_signbits_column = owned_name });
+}
+
 pub fn dropNegatives(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try cloneNameList(frame.allocator, names);
     errdefer {

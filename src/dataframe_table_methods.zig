@@ -993,6 +993,22 @@ pub fn filterPositivesColumn(self: anytype, name: []const u8) DeviceDataError!Fr
     return dataframe_array_mod.filterPositivesColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn dropSignBits(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropSignBits(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropSignBitsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropSignBits(self, names);
+}
+
+pub fn dropSignBitsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropSignBits(self, &.{name});
+}
+
+pub fn filterSignBitsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterSignBitsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
 pub fn dropNegatives(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropNegatives(FrameType(@TypeOf(self)), frameValue(self), names);
 }

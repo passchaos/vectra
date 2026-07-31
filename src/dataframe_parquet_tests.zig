@@ -637,6 +637,15 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, filter_positive_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, filter_positive_explain, "filter_positives_column(sales)") != null);
 
+    var filter_signbit_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_signbit_scan.deinit();
+    try filter_signbit_scan.filterSignBitsColumn("sales");
+
+    const filter_signbit_explain = try filter_signbit_scan.explain(gpa);
+    defer gpa.free(filter_signbit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_signbit_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_signbit_explain, "filter_signbits_column(sales)") != null);
+
     var filter_negative_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer filter_negative_scan.deinit();
     try filter_negative_scan.filterNegativesColumn("sales");

@@ -2350,6 +2350,14 @@ pub fn dropPositives(
     return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .positive);
 }
 
+pub fn dropSignBits(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropRowsByNumericPredicate(DeviceDataFrame, input, names, .signbit);
+}
+
 pub fn dropNegatives(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -2486,6 +2494,14 @@ pub fn filterPositivesColumn(
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .positive);
+}
+
+pub fn filterSignBitsColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return filterRowsByNumericPredicateColumn(DeviceDataFrame, input, name, .signbit);
 }
 
 pub fn filterNegativesColumn(

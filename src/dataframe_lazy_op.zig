@@ -136,6 +136,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         filter_non_zeros_column: Payloads.FilterColumn,
         drop_positives: Payloads.DropNulls,
         filter_positives_column: Payloads.FilterColumn,
+        drop_signbits: Payloads.DropNulls,
+        filter_signbits_column: Payloads.FilterColumn,
         drop_negatives: Payloads.DropNulls,
         filter_negatives_column: Payloads.FilterColumn,
         drop_finites: Payloads.DropNulls,

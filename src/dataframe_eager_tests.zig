@@ -903,6 +903,15 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectEqual(@as(f64, 3.0), filtered_positive_metric[0]);
     try std.testing.expect(std.math.isPositiveInf(filtered_positive_metric[1]));
 
+    var filtered_signbit_rows = try table.filterSignBitsColumn("metric");
+    defer filtered_signbit_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), filtered_signbit_rows.height());
+    const filtered_signbit_metric = try (try filtered_signbit_rows.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filtered_signbit_metric);
+    try std.testing.expectEqual(@as(f64, -2.0), filtered_signbit_metric[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), filtered_signbit_metric[1]);
+    try std.testing.expect(std.math.isNegativeInf(filtered_signbit_metric[2]));
+
     var filtered_positive_zero_rows = try table.filterPositiveZerosColumn("metric");
     defer filtered_positive_zero_rows.deinit();
     try std.testing.expectEqual(@as(usize, 1), filtered_positive_zero_rows.height());
@@ -941,6 +950,8 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.filterPositiveZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativeZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositivesColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.filterSignBitsColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.dropSignBitsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativesColumn("missing"));
 }
 

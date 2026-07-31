@@ -729,6 +729,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterPositivesColumn(self, name);
             }
 
+            pub fn dropSignBits(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropSignBits(self, names);
+            }
+
+            pub fn dropSignBitsOn(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropSignBits(names);
+            }
+
+            pub fn dropSignBitsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropSignBitsColumn(self, name);
+            }
+
+            pub fn filterSignBitsColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterSignBitsColumn(self, name);
+            }
+
             pub fn dropNegatives(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropNegatives(self, names);
             }

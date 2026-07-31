@@ -145,6 +145,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .filter_non_zeros_column => |name| try current.filterNonZerosColumn(name),
             .drop_positives => |names| try current.dropPositives(names),
             .filter_positives_column => |name| try current.filterPositivesColumn(name),
+            .drop_signbits => |names| try current.dropSignBits(names),
+            .filter_signbits_column => |name| try current.filterSignBitsColumn(name),
             .drop_negatives => |names| try current.dropNegatives(names),
             .filter_negatives_column => |name| try current.filterNegativesColumn(name),
             .drop_finites => |names| try current.dropFinites(names),
