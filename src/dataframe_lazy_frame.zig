@@ -1710,6 +1710,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowValidCount(self, names, output_name);
             }
 
+            pub fn withRowTrueCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowTrueCount(self, names, output_name);
+            }
+
+            pub fn withRowFalseCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFalseCount(self, names, output_name);
+            }
+
             pub fn withRowNaNCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNaNCount(self, names, output_name);
             }

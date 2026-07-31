@@ -1192,27 +1192,42 @@ test "device lazy frame derives row null and valid count columns" {
     defer plan.deinit();
     try plan.withRowValidCount(&.{}, "row_valids_all");
     try plan.withRowNullCount(&.{ "quality", "flag" }, "row_nulls");
-    try plan.select(&.{ "row_nulls", "row_valids_all" });
+    try plan.withRowTrueCount(&.{"flag"}, "row_true_count");
+    try plan.withRowFalseCount(&.{"flag"}, "row_false_count");
+    try plan.select(&.{ "row_nulls", "row_valids_all", "row_true_count", "row_false_count" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_null_count([quality,flag]->row_nulls)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_count([]->row_valids_all)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_true_count([flag]->row_true_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_false_count([flag]->row_false_count)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(usize, 4), result.width());
     const row_nulls = try (try result.column("row_nulls")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_nulls);
     const row_valids_all = try (try result.column("row_valids_all")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_valids_all);
+    const row_true_count = try (try result.column("row_true_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_true_count);
+    const row_false_count = try (try result.column("row_false_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_false_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_nulls);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2, 2 }, row_valids_all);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, row_true_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_false_count);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
     try invalid_plan.withRowNullCount(&.{ "quality", "missing" }, "bad_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+
+    var invalid_bool_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_bool_plan.deinit();
+    try invalid_bool_plan.withRowTrueCount(&.{"sales"}, "bad_bool_count");
+    try std.testing.expectError(error.TypeMismatch, invalid_bool_plan.collect());
 }
 
 test "device lazy frame derives zero predicate columns" {

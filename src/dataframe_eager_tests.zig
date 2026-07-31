@@ -369,7 +369,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_valid_count = try (try row_valid_counts.column("row_valid_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_valid_count);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valid_count);
+
+    var row_true_counts = try table.withRowTrueCount(&.{"active"}, "row_true_count");
+    defer row_true_counts.deinit();
+    const row_true_count = try (try row_true_counts.column("row_true_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_true_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, row_true_count);
+
+    var row_false_counts = try table.withRowFalseCount(&.{"active"}, "row_false_count");
+    defer row_false_counts.deinit();
+    const row_false_count = try (try row_false_counts.column("row_false_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_false_count);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, row_false_count);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNullCount(&.{"missing"}, "bad_count"));
+    try std.testing.expectError(error.TypeMismatch, table.withRowTrueCount(&.{"sales"}, "bad_bool_count"));
 
     var dropped_nulls = try table.dropNullsColumn("units");
     defer dropped_nulls.deinit();

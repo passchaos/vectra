@@ -2457,6 +2457,35 @@ pub fn withRowValidCount(frame: anytype, names: []const []const u8, output_name:
     return withRowValidityCount(frame, names, output_name, true);
 }
 
+fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    if (target) {
+        try frame.ops.append(frame.allocator, .{ .row_true_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_false_count = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } });
+    }
+}
+
+pub fn withRowTrueCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolPredicateCount(frame, names, output_name, true);
+}
+
+pub fn withRowFalseCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowBoolPredicateCount(frame, names, output_name, false);
+}
+
 fn withRowNumericPredicateCount(
     frame: anytype,
     names: []const []const u8,
