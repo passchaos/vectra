@@ -779,6 +779,65 @@ test "device lazy frame derives zero predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives sign predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -2.0, -0.0, 0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64), 9.0 }, &.{ true, true, true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ -3, 0, 4, -5, 6, 0, -7, 8 }, .cpu);
+    defer id.deinit();
+    var unsigned = try DeviceColumn.fromSlice(u64, gpa, &.{ 0, 2, 0, 5, 0, 9, 11, 0 }, .cpu);
+    defer unsigned.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false, true, true, false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "unsigned", .data = unsigned },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isPositiveColumn("metric", "metric_is_positive");
+    try plan.isNegativeColumn("metric", "metric_is_negative");
+    try plan.isPositiveColumn("id", "id_is_positive");
+    try plan.isNegativeColumn("unsigned", "unsigned_is_negative");
+    try plan.isPositiveColumn("flag", "flag_is_positive");
+    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "id_is_positive", "unsigned_is_negative", "flag_is_positive" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_column(metric->metric_is_positive)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_column(metric->metric_is_negative)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 5), result.width());
+    const metric_is_positive = try (try result.column("metric_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_positive);
+    const metric_is_negative = try (try result.column("metric_is_negative")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_negative);
+    const id_is_positive = try (try result.column("id_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_positive);
+    const unsigned_is_negative = try (try result.column("unsigned_is_negative")).bool.toOwnedSlice(gpa);
+    defer gpa.free(unsigned_is_negative);
+    const flag_is_positive = try (try result.column("flag_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(flag_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false, true }, id_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, unsigned_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, flag_is_positive);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isPositiveColumn("missing", "missing_is_positive");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame derives NaN and finite predicate columns" {
     const gpa = std.testing.allocator;
 

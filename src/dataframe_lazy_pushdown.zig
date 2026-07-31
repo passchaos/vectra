@@ -423,7 +423,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, coalesce.fallback_name);
                 }
             },
-            .is_null_column, .is_valid_column, .is_nan_column, .is_zero_column, .is_non_zero_column, .is_finite_column, .is_normal_column, .is_subnormal_column, .is_non_finite_column, .is_inf_column, .is_positive_inf_column, .is_negative_inf_column => |predicate| {
+            .is_null_column, .is_valid_column, .is_nan_column, .is_zero_column, .is_non_zero_column, .is_positive_column, .is_negative_column, .is_finite_column, .is_normal_column, .is_subnormal_column, .is_non_finite_column, .is_inf_column, .is_positive_inf_column, .is_negative_inf_column => |predicate| {
                 try appendBorrowedNameUnique(allocator, &derived_names, predicate.output_name);
                 if (!nameInBorrowedList(predicate.name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, predicate.name);

@@ -1204,6 +1204,26 @@ fn isNonZeroValue(comptime T: type, value: T) bool {
     };
 }
 
+fn isPositiveValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return value.toF32() > 0;
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float, .int, .comptime_int => value > 0,
+        .bool => false,
+        else => false,
+    };
+}
+
+fn isNegativeValue(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return value.toF32() < 0;
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return false;
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float, .int, .comptime_int => value < 0,
+        .bool => false,
+        else => false,
+    };
+}
+
 fn isNormalValue(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return std.math.isNormal(value.toF32());
     // Treat complex values as normal only when both components are normal IEEE
@@ -1237,7 +1257,7 @@ fn withNumericPredicateColumn(
     input: DeviceDataFrame,
     name: []const u8,
     output_name: []const u8,
-    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, non_zero, finite, normal, subnormal, non_finite },
+    comptime predicate: enum { nan, inf, positive_inf, negative_inf, zero, non_zero, positive, negative, finite, normal, subnormal, non_finite },
 ) DeviceFrameArrayError!DeviceDataFrame {
     const source = try input.column(name);
     const values = try input.allocator.alloc(bool, input.rows);
@@ -1263,6 +1283,8 @@ fn withNumericPredicateColumn(
                     .negative_inf => isNegativeInfValue(@TypeOf(value), value),
                     .zero => isZeroValue(@TypeOf(value), value),
                     .non_zero => isNonZeroValue(@TypeOf(value), value),
+                    .positive => isPositiveValue(@TypeOf(value), value),
+                    .negative => isNegativeValue(@TypeOf(value), value),
                     .finite => isFiniteValue(@TypeOf(value), value),
                     .normal => isNormalValue(@TypeOf(value), value),
                     .subnormal => isSubnormalValue(@TypeOf(value), value),
@@ -1303,6 +1325,24 @@ pub fn isNonZeroColumn(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .non_zero);
+}
+
+pub fn isPositiveColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .positive);
+}
+
+pub fn isNegativeColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withNumericPredicateColumn(DeviceDataFrame, input, name, output_name, .negative);
 }
 
 pub fn isFiniteColumn(

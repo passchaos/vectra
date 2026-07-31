@@ -773,6 +773,61 @@ test "device dataframe derives zero predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.dropNonZerosColumn("missing"));
 }
 
+test "device dataframe derives sign predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ -2.0, -0.0, 0.0, 3.0, std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64), 9.0 }, &.{ true, true, true, true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ -3, 0, 4, -5, 6, 0, -7, 8 }, .cpu);
+    defer id.deinit();
+    var unsigned = try DeviceColumn.fromSlice(u64, gpa, &.{ 0, 2, 0, 5, 0, 9, 11, 0 }, .cpu);
+    defer unsigned.deinit();
+    var flag = try DeviceColumn.fromSlice(bool, gpa, &.{ false, true, false, true, true, false, true, false }, .cpu);
+    defer flag.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+        .{ .name = "unsigned", .data = unsigned },
+        .{ .name = "flag", .data = flag },
+    });
+    defer table.deinit();
+
+    var positive_flags = try table.isPositiveColumn("metric", "metric_is_positive");
+    defer positive_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try positive_flags.columnDType("metric_is_positive"));
+    const metric_is_positive = try (try positive_flags.column("metric_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_is_positive);
+
+    var negative_flags = try table.isNegativeColumn("metric", "metric_is_negative");
+    defer negative_flags.deinit();
+    const metric_is_negative = try (try negative_flags.column("metric_is_negative")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
+
+    var id_positive_flags = try table.isPositiveColumn("id", "id_is_positive");
+    defer id_positive_flags.deinit();
+    const id_is_positive = try (try id_positive_flags.column("id_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true, false, false, true }, id_is_positive);
+
+    var unsigned_negative_flags = try table.isNegativeColumn("unsigned", "unsigned_is_negative");
+    defer unsigned_negative_flags.deinit();
+    const unsigned_is_negative = try (try unsigned_negative_flags.column("unsigned_is_negative")).bool.toOwnedSlice(gpa);
+    defer gpa.free(unsigned_is_negative);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, unsigned_is_negative);
+
+    var bool_positive_flags = try table.isPositiveColumn("flag", "flag_is_positive");
+    defer bool_positive_flags.deinit();
+    const flag_is_positive = try (try bool_positive_flags.column("flag_is_positive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(flag_is_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, false, false, false }, flag_is_positive);
+
+    try std.testing.expectError(error.ColumnNotFound, table.isPositiveColumn("missing", "missing_is_positive"));
+    try std.testing.expectError(error.ColumnNotFound, table.isNegativeColumn("missing", "missing_is_negative"));
+}
+
 test "device dataframe derives NaN and finite predicate columns" {
     const gpa = std.testing.allocator;
 
