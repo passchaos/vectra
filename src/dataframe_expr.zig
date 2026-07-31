@@ -129,6 +129,26 @@ pub fn unaryColumnHardswish(frame: anytype, name: []const u8) DeviceDataError!@T
     return col.hardswish();
 }
 
+pub fn unaryColumnSilu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.silu();
+}
+
+pub fn unaryColumnSwish(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.swish();
+}
+
+pub fn unaryColumnMish(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.mish();
+}
+
+pub fn unaryColumnGelu(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.gelu();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

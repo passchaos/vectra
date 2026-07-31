@@ -451,6 +451,42 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .input_name = input_name,
             } };
         },
+        .with_column_silu => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_silu = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
+        .with_column_swish => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_swish = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
+        .with_column_mish => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_mish = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
+        .with_column_gelu => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_gelu = .{
+                .name = name,
+                .input_name = input_name,
+            } };
+        },
         .with_column_exp => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

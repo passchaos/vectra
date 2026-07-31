@@ -945,6 +945,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnHardswish(self, name, input_name);
             }
 
+            pub fn withColumnSilu(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnSilu(self, name, input_name);
+            }
+
+            pub fn withColumnSwish(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnSwish(self, name, input_name);
+            }
+
+            pub fn withColumnMish(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnMish(self, name, input_name);
+            }
+
+            pub fn withColumnGelu(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnGelu(self, name, input_name);
+            }
+
             pub fn withColumnExp(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withColumnExp(self, name, input_name);
             }
