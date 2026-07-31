@@ -768,6 +768,11 @@ pub fn nUniqueColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     return col.nUnique();
 }
 
+pub fn modeColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.mode();
+}
+
 pub fn sumColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.sum();

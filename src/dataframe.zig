@@ -421,6 +421,7 @@ pub const DeviceDataFrame = struct {
     pub const countNonzeroColumn = table_methods_mod.countNonzeroColumn;
     pub const countDistinctColumn = table_methods_mod.countDistinctColumn;
     pub const nUniqueColumn = table_methods_mod.nUniqueColumn;
+    pub const modeColumn = table_methods_mod.modeColumn;
     pub const sumColumn = table_methods_mod.sumColumn;
     pub const prodColumn = table_methods_mod.prodColumn;
     pub const meanColumn = table_methods_mod.meanColumn;

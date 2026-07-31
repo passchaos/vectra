@@ -1643,6 +1643,53 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.countDistinct();
         }
 
+        pub fn modeValue(self: Self) array_mod.ArrayError!T {
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var found = false;
+            var best = zeroValue(T);
+            var best_count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+
+                var seen = false;
+                for (values[0..row], 0..) |previous, previous_row| {
+                    if (maybe_validity) |validity| {
+                        if (!validity[previous_row]) continue;
+                    }
+                    if (distinctValueEqual(previous, value)) {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen) continue;
+
+                var count: usize = 0;
+                for (values[row..], row..) |candidate, candidate_row| {
+                    if (maybe_validity) |validity| {
+                        if (!validity[candidate_row]) continue;
+                    }
+                    if (distinctValueEqual(value, candidate)) count += 1;
+                }
+
+                // Ties intentionally keep the first distinct valid value. That
+                // makes `mode` deterministic for unsorted dataframe columns and
+                // matches the stable "first occurrence wins" policy used by
+                // argmin/argmax above.
+                if (!found or count > best_count) {
+                    best = value;
+                    best_count = count;
+                    found = true;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best;
+        }
+
         pub fn quantile(self: Self, q: f64) array_mod.ArrayError!f64 {
             if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
             if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;

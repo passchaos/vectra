@@ -353,6 +353,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const countNonzero = column_ops_mod.countNonzero;
     pub const countDistinct = column_ops_mod.countDistinct;
     pub const nUnique = column_ops_mod.nUnique;
+    pub const mode = column_ops_mod.modeValue;
     pub const sum = column_ops_mod.sum;
     pub const prod = column_ops_mod.prod;
     pub const mean = column_ops_mod.mean;

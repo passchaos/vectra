@@ -1353,6 +1353,13 @@ pub fn nUnique(self: anytype) array_mod.ArrayError!usize {
     return countDistinct(self);
 }
 
+pub fn modeValue(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| options_mod.DeviceScalar.init(@TypeOf(typed).Scalar, try typed.modeValue()),
+    };
+}
+
 pub fn sum(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

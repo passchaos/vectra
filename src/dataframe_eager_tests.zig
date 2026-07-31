@@ -2563,6 +2563,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer repeated_metric.deinit();
     var repeated_metric_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = repeated_metric }});
     defer repeated_metric_table.deinit();
+    var modal_units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 2, 3, 3, 2, 9 }, &.{ true, true, true, true, false }, .cpu);
+    defer modal_units.deinit();
+    var modal_units_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "units", .data = modal_units }});
+    defer modal_units_table.deinit();
     var nullable_close_table = try nullable_sales_table.withColumnIscloseWithDeviceScalars("metric_close", "metric", .{ .f64 = 2.0 }, .{ .f64 = 0.0 }, .{ .f64 = 0.1 });
     defer nullable_close_table.deinit();
     const nullable_close_column = try nullable_close_table.column("metric_close");
@@ -2600,6 +2604,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 2), try repeated_metric_table.nUniqueColumn("metric"));
     try std.testing.expectEqual(@as(usize, 2), try repeated_metric_table.countDistinctColumn("metric"));
     try std.testing.expectError(error.ColumnNotFound, table.nUniqueColumn("missing"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try repeated_metric_table.modeColumn("metric"));
+    try std.testing.expectEqual(DeviceScalar{ .i64 = 2 }, try modal_units_table.modeColumn("units"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.modeColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.modeColumn("missing"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 10.0 }, try table.sumColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 4 }, try table.sumColumn("units"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 30.0 }, try table.prodColumn("sales"));
@@ -2653,6 +2661,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer rounding_type_table.deinit();
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.nUniqueColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countDistinctColumn("active"));
+    try std.testing.expectEqual(DeviceScalar{ .bool = true }, try rounding_type_table.modeColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.sumColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.prodColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.medianColumn("active"));

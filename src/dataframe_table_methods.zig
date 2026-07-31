@@ -1439,6 +1439,10 @@ pub fn nUniqueColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.nUniqueColumn(frameValue(self), name);
 }
 
+pub fn modeColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.modeColumn(frameValue(self), name);
+}
+
 pub fn sumColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.sumColumn(frameValue(self), name);
 }
