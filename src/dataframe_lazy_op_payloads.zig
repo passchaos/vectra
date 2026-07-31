@@ -291,6 +291,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             start: usize,
             stop: usize,
         };
+        pub const RowSliceSigned = struct {
+            start: isize,
+            length: usize,
+        };
         pub const RowStride = struct {
             start: usize,
             step: usize,

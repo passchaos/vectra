@@ -2507,6 +2507,14 @@ pub fn sliceRows(self: anytype, start: usize, stop: usize) DeviceDataError!Frame
     return dataframe_array_mod.sliceRows(FrameType(@TypeOf(self)), frameValue(self), start, stop);
 }
 
+pub fn sliceRowsSigned(self: anytype, start: isize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.sliceRowsSigned(FrameType(@TypeOf(self)), frameValue(self), start, length);
+}
+
+pub fn sliceSigned(self: anytype, start: isize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return sliceRowsSigned(self, start, length);
+}
+
 pub fn dropRows(self: anytype, row_indices: []const usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropRows(FrameType(@TypeOf(self)), frameValue(self), row_indices);
 }

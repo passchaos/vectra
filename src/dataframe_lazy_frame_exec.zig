@@ -783,6 +783,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .rolling_validity_profile => |validity| try current.rollingValidityProfile(validity.name, validity.output_prefix, validity.options),
             .expanding_validity_profile => |validity| try current.expandingValidityProfile(validity.name, validity.output_prefix, validity.options),
             .slice_rows => |slice| try current.sliceRows(slice.start, slice.stop),
+            .slice_rows_signed => |slice| try current.sliceRowsSigned(slice.start, slice.length),
             .drop_rows => |row_indices| try current.dropRows(row_indices),
             .drop_row_range => |range| try current.dropRowRange(range.start, range.stop),
             .drop_last_rows => |n| try current.dropLastRows(n),

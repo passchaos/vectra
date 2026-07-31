@@ -2620,6 +2620,18 @@ pub fn sliceRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, input.allocator, input.names, columns, end - begin, input.device);
 }
 
+pub fn sliceRowsSigned(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    start: isize,
+    length: usize,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const begin = try normalizeSignedRowIndexMode(start, input.rows, .raise);
+    const stop = std.math.add(usize, begin, length) catch return error.InvalidShape;
+    if (stop > input.rows) return error.IndexOutOfBounds;
+    return sliceRows(DeviceDataFrame, input, begin, stop);
+}
+
 pub fn takeRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

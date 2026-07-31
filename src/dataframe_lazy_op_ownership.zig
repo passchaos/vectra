@@ -1823,6 +1823,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .rolling_validity_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "rolling_validity_profile", profile),
         .expanding_validity_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "expanding_validity_profile", profile),
         .slice_rows => |slice| .{ .slice_rows = slice },
+        .slice_rows_signed => |slice| .{ .slice_rows_signed = slice },
         .drop_rows => |row_indices| .{ .drop_rows = try allocator.dupe(usize, row_indices) },
         .drop_row_range => |range| .{ .drop_row_range = range },
         .drop_last_rows => |n| .{ .drop_last_rows = n },

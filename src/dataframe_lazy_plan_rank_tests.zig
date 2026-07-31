@@ -3273,6 +3273,24 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, sliced_sales);
 
+    var signed_slice_plan = try DeviceLazyFrame.init(gpa, table);
+    defer signed_slice_plan.deinit();
+    try signed_slice_plan.sliceRowsSigned(-2, 2);
+    try signed_slice_plan.select(&.{ "sales", "units" });
+    const signed_slice_explain = try signed_slice_plan.explain(gpa);
+    defer gpa.free(signed_slice_explain);
+    try std.testing.expect(std.mem.indexOf(u8, signed_slice_explain, "slice_rows_signed(start=-2, len=2)") != null);
+    var signed_sliced = try signed_slice_plan.collect();
+    defer signed_sliced.deinit();
+    const signed_sliced_sales = try (try signed_sliced.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signed_sliced_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, signed_sliced_sales);
+
+    var invalid_signed_slice_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_signed_slice_plan.deinit();
+    try invalid_signed_slice_plan.sliceRowsSigned(-1, 2);
+    try std.testing.expectError(error.IndexOutOfBounds, invalid_signed_slice_plan.collect());
+
     var len_plan = try DeviceLazyFrame.init(gpa, table);
     defer len_plan.deinit();
     try len_plan.slice(2, 8);

@@ -723,6 +723,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .rolling_validity_profile => |validity| try writer.print("rolling_validity_profile({s}, prefix={s}, window={d})", .{ validity.name, validity.output_prefix, validity.options.window }),
         .expanding_validity_profile => |validity| try writer.print("expanding_validity_profile({s}, prefix={s}, min_periods={d})", .{ validity.name, validity.output_prefix, validity.options.min_periods }),
         .slice_rows => |slice| try writer.print("slice_rows({d}..{d})", .{ slice.start, slice.stop }),
+        .slice_rows_signed => |slice| try writer.print("slice_rows_signed(start={d}, len={d})", .{ slice.start, slice.length }),
         .drop_rows => |row_indices| {
             try writer.print("drop_rows([", .{});
             for (row_indices, 0..) |row_index, i| {

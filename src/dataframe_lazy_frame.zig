@@ -1858,6 +1858,17 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sliceRowsSigned(self: *DeviceLazyFrame, start: isize, length: usize) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .slice_rows_signed = .{
+                    .start = start,
+                    .length = length,
+                } });
+            }
+
+            pub fn sliceSigned(self: *DeviceLazyFrame, start: isize, length: usize) DeviceDataError!void {
+                return self.sliceRowsSigned(start, length);
+            }
+
             pub fn dropRows(self: *DeviceLazyFrame, row_indices: []const usize) DeviceDataError!void {
                 const owned = try self.allocator.dupe(usize, row_indices);
                 errdefer self.allocator.free(owned);
