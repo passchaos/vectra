@@ -2607,6 +2607,14 @@ pub fn withRowFalseCount(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowFalseCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowTrueRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowTrueRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFalseRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFalseRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowNaNCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

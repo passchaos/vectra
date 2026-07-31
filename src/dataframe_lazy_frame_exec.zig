@@ -673,6 +673,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_valid_count => |row_count| try current.withRowValidCount(row_count.names, row_count.output_name),
             .row_true_count => |row_count| try current.withRowTrueCount(row_count.names, row_count.output_name),
             .row_false_count => |row_count| try current.withRowFalseCount(row_count.names, row_count.output_name),
+            .row_true_ratio => |row_count| try current.withRowTrueRatio(row_count.names, row_count.output_name),
+            .row_false_ratio => |row_count| try current.withRowFalseRatio(row_count.names, row_count.output_name),
             .row_nan_count => |row_count| try current.withRowNaNCount(row_count.names, row_count.output_name),
             .row_inf_count => |row_count| try current.withRowInfCount(row_count.names, row_count.output_name),
             .row_positive_inf_count => |row_count| try current.withRowPositiveInfCount(row_count.names, row_count.output_name),

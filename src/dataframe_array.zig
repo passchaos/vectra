@@ -1755,6 +1755,75 @@ pub fn withRowFalseCount(
     return withRowBoolPredicateCount(DeviceDataFrame, input, names, output_name, false);
 }
 
+fn withRowBoolPredicateRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime target: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const numerators = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(numerators);
+    const denominators = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(denominators);
+    @memset(numerators, 0);
+    @memset(denominators, 0);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |validity| input.allocator.free(validity);
+
+        for (host_values, 0..) |value, row| {
+            const valid = if (maybe_validity) |validity| validity[row] else true;
+            if (!valid) continue;
+            denominators[row] += 1;
+            if (value == target) numerators[row] += 1;
+        }
+    }
+
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+    const ratio_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(ratio_validity);
+    for (ratios, ratio_validity, numerators, denominators) |*ratio, *valid, numerator, denominator| {
+        // Row-wise ratios can represent an all-null denominator precisely via
+        // the output validity mask. This avoids overloading NaN with null
+        // semantics while keeping scalar ratio APIs free to return NaN when no
+        // scalar validity channel exists.
+        valid.* = denominator != 0;
+        ratio.* = if (denominator == 0) 0.0 else @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(denominator));
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, ratios, ratio_validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowTrueRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolPredicateRatio(DeviceDataFrame, input, names, output_name, true);
+}
+
+pub fn withRowFalseRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowBoolPredicateRatio(DeviceDataFrame, input, names, output_name, false);
+}
+
 const RowNumericPredicate = enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, normal, subnormal, non_finite };
 
 fn rowNumericPredicateMatches(comptime T: type, value: T, comptime predicate: RowNumericPredicate) bool {

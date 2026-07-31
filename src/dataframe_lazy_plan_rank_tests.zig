@@ -1194,7 +1194,9 @@ test "device lazy frame derives row null and valid count columns" {
     try plan.withRowNullCount(&.{ "quality", "flag" }, "row_nulls");
     try plan.withRowTrueCount(&.{"flag"}, "row_true_count");
     try plan.withRowFalseCount(&.{"flag"}, "row_false_count");
-    try plan.select(&.{ "row_nulls", "row_valids_all", "row_true_count", "row_false_count" });
+    try plan.withRowTrueRatio(&.{"flag"}, "row_true_ratio");
+    try plan.withRowFalseRatio(&.{"flag"}, "row_false_ratio");
+    try plan.select(&.{ "row_nulls", "row_valids_all", "row_true_count", "row_false_count", "row_true_ratio", "row_false_ratio" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1202,10 +1204,12 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_count([]->row_valids_all)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_true_count([flag]->row_true_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_false_count([flag]->row_false_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_true_ratio([flag]->row_true_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_false_ratio([flag]->row_false_ratio)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 4), result.width());
+    try std.testing.expectEqual(@as(usize, 6), result.width());
     const row_nulls = try (try result.column("row_nulls")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_nulls);
     const row_valids_all = try (try result.column("row_valids_all")).i64.toOwnedSlice(gpa);
@@ -1214,10 +1218,26 @@ test "device lazy frame derives row null and valid count columns" {
     defer gpa.free(row_true_count);
     const row_false_count = try (try result.column("row_false_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_false_count);
+    const row_true_ratio_column = try result.column("row_true_ratio");
+    try std.testing.expect(row_true_ratio_column.f64.nullable());
+    const row_true_ratio = try row_true_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_true_ratio);
+    const row_true_ratio_validity = try row_true_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_true_ratio_validity);
+    const row_false_ratio_column = try result.column("row_false_ratio");
+    try std.testing.expect(row_false_ratio_column.f64.nullable());
+    const row_false_ratio = try row_false_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_false_ratio);
+    const row_false_ratio_validity = try row_false_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_false_ratio_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_nulls);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2, 2 }, row_valids_all);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, row_true_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_false_count);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 0.0 }, row_true_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, row_true_ratio_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0 }, row_false_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, row_false_ratio_validity);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
@@ -1228,6 +1248,11 @@ test "device lazy frame derives row null and valid count columns" {
     defer invalid_bool_plan.deinit();
     try invalid_bool_plan.withRowTrueCount(&.{"sales"}, "bad_bool_count");
     try std.testing.expectError(error.TypeMismatch, invalid_bool_plan.collect());
+
+    var invalid_bool_ratio_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_bool_ratio_plan.deinit();
+    try invalid_bool_ratio_plan.withRowTrueRatio(&.{"sales"}, "bad_bool_ratio");
+    try std.testing.expectError(error.TypeMismatch, invalid_bool_ratio_plan.collect());
 }
 
 test "device lazy frame derives zero predicate columns" {

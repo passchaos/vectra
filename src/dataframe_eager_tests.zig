@@ -381,8 +381,25 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_false_count = try (try row_false_counts.column("row_false_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_false_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, row_false_count);
+
+    var row_true_ratios = try table.withRowTrueRatio(&.{"active"}, "row_true_ratio");
+    defer row_true_ratios.deinit();
+    const row_true_ratio_column = try row_true_ratios.column("row_true_ratio");
+    try std.testing.expect(row_true_ratio_column.f64.nullable());
+    const row_true_ratio = try row_true_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_true_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 1.0 }, row_true_ratio);
+
+    var row_false_ratios = try table.withRowFalseRatio(&.{"active"}, "row_false_ratio");
+    defer row_false_ratios.deinit();
+    const row_false_ratio_column = try row_false_ratios.column("row_false_ratio");
+    try std.testing.expect(row_false_ratio_column.f64.nullable());
+    const row_false_ratio = try row_false_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_false_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0 }, row_false_ratio);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNullCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.TypeMismatch, table.withRowTrueCount(&.{"sales"}, "bad_bool_count"));
+    try std.testing.expectError(error.TypeMismatch, table.withRowTrueRatio(&.{"sales"}, "bad_bool_ratio"));
 
     var dropped_nulls = try table.dropNullsColumn("units");
     defer dropped_nulls.deinit();
