@@ -758,6 +758,15 @@ pub fn countNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!usiz
     return col.countNonzero();
 }
 
+pub fn zeroCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.validCount() - try col.countNonzero();
+}
+
+pub fn countZeroColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    return zeroCountColumn(frame, name);
+}
+
 pub fn nanCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countNan();
@@ -791,6 +800,17 @@ pub fn nonFiniteCountColumn(frame: anytype, name: []const u8) DeviceDataError!us
 fn ratioFromValidCount(count: usize, valid_count: usize) DeviceScalar {
     if (valid_count == 0) return .{ .f64 = std.math.nan(f64) };
     return .{ .f64 = @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(valid_count)) };
+}
+
+pub fn zeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    const valid_count = col.validCount();
+    return ratioFromValidCount(valid_count - try col.countNonzero(), valid_count);
+}
+
+pub fn nonzeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNonzero(), col.validCount());
 }
 
 pub fn nanRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {

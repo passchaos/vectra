@@ -2604,6 +2604,13 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 3), try table.countNonzeroColumn("sales"));
     try std.testing.expectEqual(@as(usize, 2), try table.countNonzeroColumn("units"));
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
+    try std.testing.expectEqual(@as(usize, 0), try table.zeroCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.countZeroColumn("units"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 0.0 }, try table.zeroRatioColumn("sales"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.nonzeroRatioColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try all_null_metric_table.zeroCountColumn("metric"));
+    try std.testing.expect(std.math.isNan((try all_null_metric_table.zeroRatioColumn("metric")).f64));
+    try std.testing.expectError(error.ColumnNotFound, table.zeroCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 0), try table.nanCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 0), try table.infCountColumn("sales"));
     try std.testing.expectEqual(@as(usize, 3), try table.finiteCountColumn("sales"));
@@ -2762,6 +2769,9 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer rounding_active.deinit();
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
+    try std.testing.expectEqual(@as(usize, 1), try rounding_type_table.zeroCountColumn("active"));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try rounding_type_table.zeroRatioColumn("active")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try rounding_type_table.nonZeroRatioColumn("active")).f64, 1e-12);
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.nUniqueColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countDistinctColumn("active"));
     try std.testing.expectEqual(DeviceScalar{ .bool = true }, try rounding_type_table.modeColumn("active"));

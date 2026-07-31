@@ -1431,6 +1431,14 @@ pub fn countNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!usize
     return expr_mod.countNonzeroColumn(frameValue(self), name);
 }
 
+pub fn zeroCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.zeroCountColumn(frameValue(self), name);
+}
+
+pub fn countZeroColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return zeroCountColumn(self, name);
+}
+
 pub fn nanCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.nanCountColumn(frameValue(self), name);
 }
@@ -1453,6 +1461,18 @@ pub fn finiteCountColumn(self: anytype, name: []const u8) DeviceDataError!usize 
 
 pub fn nonFiniteCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.nonFiniteCountColumn(frameValue(self), name);
+}
+
+pub fn zeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.zeroRatioColumn(frameValue(self), name);
+}
+
+pub fn nonzeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.nonzeroRatioColumn(frameValue(self), name);
+}
+
+pub fn nonZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return nonzeroRatioColumn(self, name);
 }
 
 pub fn nanRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
