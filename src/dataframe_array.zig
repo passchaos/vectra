@@ -1868,6 +1868,8 @@ pub fn withRowLastNullIndex(
     return withRowValidityMatchIndex(DeviceDataFrame, input, names, output_name, .last_null);
 }
 
+const RowNumericArgReduction = enum { argmin, argmax };
+
 const RowNumericReduction = enum { sum, prod, mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
@@ -1879,6 +1881,84 @@ fn realValueAsF64(comptime T: type, value: T) f64 {
         .bool => if (value) 1.0 else 0.0,
         else => 0.0,
     };
+}
+
+fn withRowNumericArgReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowNumericArgReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const indices = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(indices);
+    const best_values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(best_values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(indices, 0);
+    @memset(best_values, 0.0);
+    @memset(validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        const output_index = std.math.cast(i64, col_index) orelse return error.InvalidShape;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (!validity[row]) {
+                        best_values[row] = value;
+                        indices[row] = output_index;
+                        validity[row] = true;
+                        continue;
+                    }
+
+                    const replace = switch (reduction) {
+                        .argmin => std.math.isNan(value) or (!std.math.isNan(best_values[row]) and value < best_values[row]),
+                        .argmax => std.math.isNan(value) or (!std.math.isNan(best_values[row]) and value > best_values[row]),
+                    };
+                    if (replace) {
+                        best_values[row] = value;
+                        indices[row] = output_index;
+                    }
+                }
+            },
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, indices, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowArgMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericArgReduction(DeviceDataFrame, input, names, output_name, .argmin);
+}
+
+pub fn withRowArgMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericArgReduction(DeviceDataFrame, input, names, output_name, .argmax);
 }
 
 fn withRowNumericReduction(

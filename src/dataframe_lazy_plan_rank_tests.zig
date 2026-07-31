@@ -1404,6 +1404,8 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
+    try plan.withRowArgMin(&.{ "a", "b" }, "row_argmin");
+    try plan.withRowArgMax(&.{ "a", "b" }, "row_argmax");
     try plan.withRowSum(&.{ "a", "b" }, "row_sum");
     try plan.withRowMean(&.{ "a", "b" }, "row_mean");
     try plan.withRowProd(&.{ "a", "b" }, "row_prod");
@@ -1418,10 +1420,12 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_sum", "row_mean", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_argmin([a,b]->row_argmin)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_argmax([a,b]->row_argmax)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_mean([a,b]->row_mean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_prod([a,b]->row_prod)") != null);
@@ -1439,7 +1443,19 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 14), result.width());
+    try std.testing.expectEqual(@as(usize, 16), result.width());
+    const row_argmin_column = try result.column("row_argmin");
+    try std.testing.expect(row_argmin_column.i64.nullable());
+    const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_argmin);
+    const row_argmin_validity = try row_argmin_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_argmin_validity);
+    const row_argmax_column = try result.column("row_argmax");
+    try std.testing.expect(row_argmax_column.i64.nullable());
+    const row_argmax = try row_argmax_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_argmax);
+    const row_argmax_validity = try row_argmax_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_argmax_validity);
     const row_sum_column = try result.column("row_sum");
     try std.testing.expect(row_sum_column.f64.nullable());
     const row_sum = try row_sum_column.f64.toOwnedSlice(gpa);
@@ -1525,6 +1541,10 @@ test "device lazy frame derives row numeric reduction columns" {
     const row_cv_validity = try row_cv_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_cv_validity);
 
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_argmin);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmin_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1 }, row_argmax);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmax_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_sum_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean);

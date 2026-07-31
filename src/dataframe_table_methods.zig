@@ -2623,6 +2623,14 @@ pub fn withRowLastNullIndex(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowLastNullIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowArgMax(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowSum(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSum(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

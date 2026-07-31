@@ -2535,6 +2535,39 @@ pub fn withRowLastNullIndex(frame: anytype, names: []const []const u8, output_na
     return withRowValidityMatchIndex(frame, names, output_name, .last_null);
 }
 
+fn withRowNumericArgReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { argmin, argmax },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .argmin => try frame.ops.append(frame.allocator, .{ .row_argmin = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .argmax => try frame.ops.append(frame.allocator, .{ .row_argmax = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowArgMin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericArgReduction(frame, names, output_name, .argmin);
+}
+
+pub fn withRowArgMax(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericArgReduction(frame, names, output_name, .argmax);
+}
+
 fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,

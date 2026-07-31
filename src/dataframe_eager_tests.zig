@@ -395,6 +395,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     });
     defer validity_table.deinit();
 
+    var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
+    defer row_argmin_table.deinit();
+    const row_argmin_column = try row_argmin_table.column("row_argmin");
+    try std.testing.expect(row_argmin_column.i64.nullable());
+    const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_argmin);
+    const row_argmin_validity = try row_argmin_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_argmin_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, row_argmin);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmin_validity);
+
+    var row_argmax_table = try validity_table.withRowArgMax(&.{ "a", "b" }, "row_argmax");
+    defer row_argmax_table.deinit();
+    const row_argmax_column = try row_argmax_table.column("row_argmax");
+    try std.testing.expect(row_argmax_column.i64.nullable());
+    const row_argmax = try row_argmax_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_argmax);
+    const row_argmax_validity = try row_argmax_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_argmax_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1 }, row_argmax);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmax_validity);
+
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");
     defer row_sum_table.deinit();
     const row_sum_column = try row_sum_table.column("row_sum");

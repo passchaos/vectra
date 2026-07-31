@@ -677,6 +677,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_last_valid_index => |row_count| try current.withRowLastValidIndex(row_count.names, row_count.output_name),
             .row_first_null_index => |row_count| try current.withRowFirstNullIndex(row_count.names, row_count.output_name),
             .row_last_null_index => |row_count| try current.withRowLastNullIndex(row_count.names, row_count.output_name),
+            .row_argmin => |row_count| try current.withRowArgMin(row_count.names, row_count.output_name),
+            .row_argmax => |row_count| try current.withRowArgMax(row_count.names, row_count.output_name),
             .row_sum => |row_count| try current.withRowSum(row_count.names, row_count.output_name),
             .row_mean => |row_count| try current.withRowMean(row_count.names, row_count.output_name),
             .row_prod => |row_count| try current.withRowProd(row_count.names, row_count.output_name),
