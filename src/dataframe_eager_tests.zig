@@ -1193,6 +1193,24 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(row_negative_count);
     try std.testing.expectEqualSlices(i64, &.{ 2, 0, 0, 1, 0, 0, 2, 0 }, row_negative_count);
 
+    var row_positive_ratios = try table.withRowPositiveRatio(&.{ "metric", "id", "unsigned", "flag" }, "row_positive_ratio");
+    defer row_positive_ratios.deinit();
+    const row_positive_ratio = try (try row_positive_ratios.column("row_positive_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.25, 0.25, 0.5, 0.25, 0.5, 0.25, 1.0 / 3.0 }, row_positive_ratio);
+
+    var row_signbit_ratios = try table.withRowSignBitRatio(&.{ "metric", "id", "unsigned", "flag" }, "row_signbit_ratio");
+    defer row_signbit_ratios.deinit();
+    const row_signbit_ratio = try (try row_signbit_ratios.column("row_signbit_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_signbit_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.25, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, row_signbit_ratio);
+
+    var row_negative_ratios = try table.withRowNegativeRatio(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_ratio");
+    defer row_negative_ratios.deinit();
+    const row_negative_ratio = try (try row_negative_ratios.column("row_negative_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, row_negative_ratio);
+
     var dropped_positive_rows = try table.dropPositivesColumn("metric");
     defer dropped_positive_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), dropped_positive_rows.height());

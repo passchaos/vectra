@@ -2629,7 +2629,7 @@ fn withRowNumericPredicateRatio(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, finite, non_finite },
+    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, zero, positive_zero, negative_zero, non_zero, positive, signbit, negative, finite, non_finite },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -2668,6 +2668,18 @@ fn withRowNumericPredicateRatio(
             .output_name = owned_output,
         } }),
         .non_zero => try frame.ops.append(frame.allocator, .{ .row_non_zero_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .positive => try frame.ops.append(frame.allocator, .{ .row_positive_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .signbit => try frame.ops.append(frame.allocator, .{ .row_signbit_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .negative => try frame.ops.append(frame.allocator, .{ .row_negative_ratio = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -2750,12 +2762,24 @@ pub fn withRowPositiveCount(frame: anytype, names: []const []const u8, output_na
     return withRowNumericPredicateCount(frame, names, output_name, .positive);
 }
 
+pub fn withRowPositiveRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .positive);
+}
+
 pub fn withRowSignBitCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .signbit);
 }
 
+pub fn withRowSignBitRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .signbit);
+}
+
 pub fn withRowNegativeCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .negative);
+}
+
+pub fn withRowNegativeRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .negative);
 }
 
 pub fn withRowFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
