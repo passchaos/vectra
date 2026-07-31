@@ -1986,6 +1986,22 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return self.lastMatchingIndex(isFiniteValue);
         }
 
+        pub fn firstNormalIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isNormalValue);
+        }
+
+        pub fn lastNormalIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isNormalValue);
+        }
+
+        pub fn firstSubnormalIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.firstMatchingIndex(isSubnormalValue);
+        }
+
+        pub fn lastSubnormalIndex(self: Self) array_mod.ArrayError!?usize {
+            return self.lastMatchingIndex(isSubnormalValue);
+        }
+
         pub fn firstNonFiniteIndex(self: Self) array_mod.ArrayError!?usize {
             return self.firstMatchingIndex(struct {
                 fn f(value: T) bool {

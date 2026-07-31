@@ -1033,6 +1033,26 @@ pub fn lastFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?
     return col.lastFiniteIndex();
 }
 
+pub fn firstNormalIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNormalIndex();
+}
+
+pub fn lastNormalIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNormalIndex();
+}
+
+pub fn firstSubnormalIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstSubnormalIndex();
+}
+
+pub fn lastSubnormalIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastSubnormalIndex();
+}
+
 pub fn firstNonFiniteIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
     const col = try frame.column(name);
     return col.firstNonFiniteIndex();

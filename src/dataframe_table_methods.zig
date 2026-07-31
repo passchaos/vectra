@@ -1659,6 +1659,22 @@ pub fn lastFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?u
     return expr_mod.lastFiniteIndexColumn(frameValue(self), name);
 }
 
+pub fn firstNormalIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNormalIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNormalIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNormalIndexColumn(frameValue(self), name);
+}
+
+pub fn firstSubnormalIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstSubnormalIndexColumn(frameValue(self), name);
+}
+
+pub fn lastSubnormalIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastSubnormalIndexColumn(frameValue(self), name);
+}
+
 pub fn firstNonFiniteIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
     return expr_mod.firstNonFiniteIndexColumn(frameValue(self), name);
 }

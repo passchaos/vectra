@@ -1601,6 +1601,34 @@ pub fn lastFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
     };
 }
 
+pub fn firstNormalIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNormalIndex(),
+    };
+}
+
+pub fn lastNormalIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNormalIndex(),
+    };
+}
+
+pub fn firstSubnormalIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstSubnormalIndex(),
+    };
+}
+
+pub fn lastSubnormalIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastSubnormalIndex(),
+    };
+}
+
 pub fn firstNonFiniteIndex(self: anytype) array_mod.ArrayError!?usize {
     const value = columnValue(self);
     return switch (value) {
