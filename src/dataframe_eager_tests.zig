@@ -2371,6 +2371,14 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(nan_close);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, nan_close);
 
+    try std.testing.expect(try table.allcloseColumnScalar("sales", f64, 3.3, 0.0, 2.0));
+    try std.testing.expect(!try table.allcloseColumnScalar("sales", f64, 3.0, 0.0, 0.5));
+    try std.testing.expect(try table.allcloseColumnWithDeviceScalars("cost", .{ .f64 = 1.5 }, .{ .f64 = 0.0 }, .{ .f64 = 0.5 }));
+    try std.testing.expect(!try nullable_sales_table.allcloseColumnScalar("metric", f64, 2.0, 0.0, 10.0));
+    try std.testing.expect(try nan_close_source.allcloseColumnScalarEqualNan("metric", f64, std.math.nan(f64), 0.0, 0.0, true) == false);
+    try std.testing.expectError(error.TypeUnsupported, table.allcloseColumnScalar("units", i64, 2, 0, 1));
+    try std.testing.expectError(error.ColumnNotFound, table.allcloseColumnScalar("missing", f64, 1.0, 0.0, 0.0));
+
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try cost_delta.columnDType("cost_abs"));

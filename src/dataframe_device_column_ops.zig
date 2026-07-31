@@ -1191,6 +1191,45 @@ pub fn iscloseWithDeviceScalars(
     };
 }
 
+pub fn allcloseScalar(
+    self: anytype,
+    comptime T: type,
+    scalar: T,
+    rtol: T,
+    atol: T,
+    equal_nan: bool,
+) array_mod.ArrayError!bool {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| try typed.allcloseScalar(
+            try castNumericScalar(T, @TypeOf(typed).Scalar, scalar),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, rtol),
+            try castNumericScalar(T, @TypeOf(typed).Scalar, atol),
+            equal_nan,
+        ),
+    };
+}
+
+pub fn allcloseWithDeviceScalars(
+    self: anytype,
+    scalar: options_mod.DeviceScalar,
+    rtol: options_mod.DeviceScalar,
+    atol: options_mod.DeviceScalar,
+    equal_nan: bool,
+) array_mod.ArrayError!bool {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .i8, .i16, .i32, .i64, .isize, .u8, .u16, .u32, .u64, .usize, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| try typed.allcloseScalar(
+            try castDeviceScalar(@TypeOf(typed).Scalar, scalar),
+            try castDeviceScalar(@TypeOf(typed).Scalar, rtol),
+            try castDeviceScalar(@TypeOf(typed).Scalar, atol),
+            equal_nan,
+        ),
+    };
+}
+
 pub fn logicalAndScalar(self: anytype, scalar: bool) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

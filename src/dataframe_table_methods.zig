@@ -1302,6 +1302,22 @@ pub fn withColumnIscloseWithDeviceScalarsEqualNan(self: anytype, output_name: []
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn allcloseColumnScalar(self: anytype, name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!bool {
+    return expr_mod.allcloseColumnScalar(frameValue(self), name, T, scalar, rtol, atol, false);
+}
+
+pub fn allcloseColumnScalarEqualNan(self: anytype, name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T, equal_nan: bool) DeviceDataError!bool {
+    return expr_mod.allcloseColumnScalar(frameValue(self), name, T, scalar, rtol, atol, equal_nan);
+}
+
+pub fn allcloseColumnWithDeviceScalars(self: anytype, name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar) DeviceDataError!bool {
+    return expr_mod.allcloseColumnWithDeviceScalars(frameValue(self), name, scalar, rtol, atol, false);
+}
+
+pub fn allcloseColumnWithDeviceScalarsEqualNan(self: anytype, name: []const u8, scalar: DeviceScalar, rtol: DeviceScalar, atol: DeviceScalar, equal_nan: bool) DeviceDataError!bool {
+    return expr_mod.allcloseColumnWithDeviceScalars(frameValue(self), name, scalar, rtol, atol, equal_nan);
+}
+
 pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
 }

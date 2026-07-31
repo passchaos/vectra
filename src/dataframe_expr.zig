@@ -686,6 +686,31 @@ pub fn iscloseColumnWithDeviceScalars(
     return col.iscloseWithDeviceScalars(scalar, rtol, atol, equal_nan);
 }
 
+pub fn allcloseColumnScalar(
+    frame: anytype,
+    name: []const u8,
+    comptime T: type,
+    scalar: T,
+    rtol: T,
+    atol: T,
+    equal_nan: bool,
+) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.allcloseScalar(T, scalar, rtol, atol, equal_nan);
+}
+
+pub fn allcloseColumnWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    scalar: DeviceScalar,
+    rtol: DeviceScalar,
+    atol: DeviceScalar,
+    equal_nan: bool,
+) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.allcloseWithDeviceScalars(scalar, rtol, atol, equal_nan);
+}
+
 pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return switch (op) {

@@ -1196,6 +1196,15 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = self.null_count };
         }
 
+        pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) array_mod.ArrayError!bool {
+            if (comptime T == bool or isIntegerColumnType(T) or isComplexColumnType(T)) return error.TypeUnsupported;
+            // Treat nullable columns conservatively: a column with unknown
+            // values is not "all close" to a scalar unless callers first
+            // impute/filter it explicitly.
+            if (self.hasNulls()) return false;
+            return self.values.allcloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
         pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) array_mod.ArrayError![]T {
             return self.values.toOwnedSlice(allocator);
         }
