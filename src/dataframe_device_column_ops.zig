@@ -1370,6 +1370,34 @@ pub fn countNonFinite(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn firstValidIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstValidIndex(),
+    };
+}
+
+pub fn lastValidIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastValidIndex(),
+    };
+}
+
+pub fn firstNullIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.firstNullIndex(),
+    };
+}
+
+pub fn lastNullIndex(self: anytype) array_mod.ArrayError!?usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.lastNullIndex(),
+    };
+}
+
 pub fn countDistinct(self: anytype) array_mod.ArrayError!usize {
     const value = columnValue(self);
     return switch (value) {

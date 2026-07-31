@@ -778,6 +778,26 @@ pub fn nonFiniteCountColumn(frame: anytype, name: []const u8) DeviceDataError!us
     return col.countNonFinite();
 }
 
+pub fn firstValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstValidIndex();
+}
+
+pub fn lastValidIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastValidIndex();
+}
+
+pub fn firstNullIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.firstNullIndex();
+}
+
+pub fn lastNullIndexColumn(frame: anytype, name: []const u8) DeviceDataError!?usize {
+    const col = try frame.column(name);
+    return col.lastNullIndex();
+}
+
 pub fn countDistinctColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countDistinct();

@@ -1447,6 +1447,22 @@ pub fn nonFiniteCountColumn(self: anytype, name: []const u8) DeviceDataError!usi
     return expr_mod.nonFiniteCountColumn(frameValue(self), name);
 }
 
+pub fn firstValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstValidIndexColumn(frameValue(self), name);
+}
+
+pub fn lastValidIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastValidIndexColumn(frameValue(self), name);
+}
+
+pub fn firstNullIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.firstNullIndexColumn(frameValue(self), name);
+}
+
+pub fn lastNullIndexColumn(self: anytype, name: []const u8) DeviceDataError!?usize {
+    return expr_mod.lastNullIndexColumn(frameValue(self), name);
+}
+
 pub fn countDistinctColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.countDistinctColumn(frameValue(self), name);
 }

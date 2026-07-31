@@ -1718,6 +1718,50 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             }.f);
         }
 
+        pub fn firstValidIndex(self: Self) array_mod.ArrayError!?usize {
+            if (!self.nullable()) return if (self.len() == 0) null else 0;
+            const validity = try validityValues(self, self.values.allocator);
+            defer if (validity) |mask| self.values.allocator.free(mask);
+            for (validity.?, 0..) |is_valid, row| {
+                if (is_valid) return row;
+            }
+            return null;
+        }
+
+        pub fn lastValidIndex(self: Self) array_mod.ArrayError!?usize {
+            if (!self.nullable()) return if (self.len() == 0) null else self.len() - 1;
+            const validity = try validityValues(self, self.values.allocator);
+            defer if (validity) |mask| self.values.allocator.free(mask);
+            var row = validity.?.len;
+            while (row > 0) {
+                row -= 1;
+                if (validity.?[row]) return row;
+            }
+            return null;
+        }
+
+        pub fn firstNullIndex(self: Self) array_mod.ArrayError!?usize {
+            if (!self.nullable() or self.null_count == 0) return null;
+            const validity = try validityValues(self, self.values.allocator);
+            defer if (validity) |mask| self.values.allocator.free(mask);
+            for (validity.?, 0..) |is_valid, row| {
+                if (!is_valid) return row;
+            }
+            return null;
+        }
+
+        pub fn lastNullIndex(self: Self) array_mod.ArrayError!?usize {
+            if (!self.nullable() or self.null_count == 0) return null;
+            const validity = try validityValues(self, self.values.allocator);
+            defer if (validity) |mask| self.values.allocator.free(mask);
+            var row = validity.?.len;
+            while (row > 0) {
+                row -= 1;
+                if (!validity.?[row]) return row;
+            }
+            return null;
+        }
+
         pub fn countDistinct(self: Self) array_mod.ArrayError!usize {
             const values = try self.values.toOwnedSlice(self.values.allocator);
             defer self.values.allocator.free(values);
