@@ -1906,6 +1906,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowGiniImpurity(self, names, output_name);
             }
 
+            pub fn withRowModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowModeCount(self, names, output_name);
+            }
+
+            pub fn withRowModeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowModeRatio(self, names, output_name);
+            }
+
             pub fn withRowCountDistinct(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCountDistinct(self, names, output_name);
             }

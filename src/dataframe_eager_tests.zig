@@ -513,6 +513,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 9.0), row_gini[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_gini_validity);
 
+    var row_mode_count_table = try validity_table.withRowModeCount(&.{ "a", "b", "wa" }, "row_mode_count");
+    defer row_mode_count_table.deinit();
+    const row_mode_count_column = try row_mode_count_table.column("row_mode_count");
+    try std.testing.expect(row_mode_count_column.i64.nullable());
+    const row_mode_count = try row_mode_count_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_count);
+    const row_mode_count_validity = try row_mode_count_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_count_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 2 }, row_mode_count);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_mode_count_validity);
+
+    var row_mode_ratio_table = try validity_table.withRowModeRatio(&.{ "a", "b", "wa" }, "row_mode_ratio");
+    defer row_mode_ratio_table.deinit();
+    const row_mode_ratio_column = try row_mode_ratio_table.column("row_mode_ratio");
+    try std.testing.expect(row_mode_ratio_column.f64.nullable());
+    const row_mode_ratio = try row_mode_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_ratio);
+    const row_mode_ratio_validity = try row_mode_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mode_ratio_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_mode_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), row_mode_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_mode_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), row_mode_ratio[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_mode_ratio_validity);
+
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
     const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");

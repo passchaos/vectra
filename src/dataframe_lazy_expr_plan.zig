@@ -3101,6 +3101,34 @@ pub fn withRowGiniImpurity(frame: anytype, names: []const []const u8, output_nam
     } });
 }
 
+pub fn withRowModeCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_mode_count = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
+pub fn withRowModeRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_mode_ratio = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn withRowCountDistinct(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuantileAlias(frame, names, output_name, .count_distinct);
 }

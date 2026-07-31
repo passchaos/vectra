@@ -715,6 +715,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_mode => |row_count| try current.withRowMode(row_count.names, row_count.output_name),
             .row_entropy => |row_count| try current.withRowEntropy(row_count.names, row_count.output_name),
             .row_gini_impurity => |row_count| try current.withRowGiniImpurity(row_count.names, row_count.output_name),
+            .row_mode_count => |row_count| try current.withRowModeCount(row_count.names, row_count.output_name),
+            .row_mode_ratio => |row_count| try current.withRowModeRatio(row_count.names, row_count.output_name),
             .row_count_distinct => |row_count| try current.withRowCountDistinct(row_count.names, row_count.output_name),
             .row_n_unique => |row_count| try current.withRowNUnique(row_count.names, row_count.output_name),
             .row_sum => |row_count| try current.withRowSum(row_count.names, row_count.output_name),
