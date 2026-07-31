@@ -2980,19 +2980,29 @@ test "device lazy frame filters signed Inf rows" {
     defer row_signed_plan.deinit();
     try row_signed_plan.withRowPositiveInfCount(&.{}, "row_positive_inf_count");
     try row_signed_plan.withRowNegativeInfCount(&.{"metric"}, "row_negative_inf_count");
-    try row_signed_plan.select(&.{ "row_positive_inf_count", "row_negative_inf_count" });
+    try row_signed_plan.withRowPositiveInfRatio(&.{"metric"}, "row_positive_inf_ratio");
+    try row_signed_plan.withRowNegativeInfRatio(&.{"metric"}, "row_negative_inf_ratio");
+    try row_signed_plan.select(&.{ "row_positive_inf_count", "row_negative_inf_count", "row_positive_inf_ratio", "row_negative_inf_ratio" });
     const row_signed_explain = try row_signed_plan.explain(gpa);
     defer gpa.free(row_signed_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_positive_inf_count([]->row_positive_inf_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_negative_inf_count([metric]->row_negative_inf_count)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_positive_inf_ratio([metric]->row_positive_inf_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_negative_inf_ratio([metric]->row_negative_inf_ratio)") != null);
     var row_signed = try row_signed_plan.collect();
     defer row_signed.deinit();
     const row_positive_inf_count = try (try row_signed.column("row_positive_inf_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_positive_inf_count);
     const row_negative_inf_count = try (try row_signed.column("row_negative_inf_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_negative_inf_count);
+    const row_positive_inf_ratio = try (try row_signed.column("row_positive_inf_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_inf_ratio);
+    const row_negative_inf_ratio = try (try row_signed.column("row_negative_inf_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_inf_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, row_positive_inf_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_negative_inf_count);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0, 0.0 }, row_positive_inf_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, row_negative_inf_ratio);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
@@ -3003,6 +3013,11 @@ test "device lazy frame filters signed Inf rows" {
     defer invalid_count_plan.deinit();
     try invalid_count_plan.withRowPositiveInfCount(&.{"missing"}, "bad_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_count_plan.collect());
+
+    var invalid_ratio_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_ratio_plan.deinit();
+    try invalid_ratio_plan.withRowPositiveInfRatio(&.{"missing"}, "bad_ratio");
+    try std.testing.expectError(error.ColumnNotFound, invalid_ratio_plan.collect());
 }
 
 test "device lazy frame drops null rows" {

@@ -2401,6 +2401,23 @@ test "device dataframe filters signed Inf rows" {
     defer gpa.free(row_negative_inf_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_negative_inf_count);
 
+    var row_positive_ratios = try table.withRowPositiveInfRatio(&.{"metric"}, "row_positive_inf_ratio");
+    defer row_positive_ratios.deinit();
+    const row_positive_inf_ratio = try (try row_positive_ratios.column("row_positive_inf_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_positive_inf_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0, 0.0 }, row_positive_inf_ratio);
+
+    var row_negative_ratios = try table.withRowNegativeInfRatio(&.{"metric"}, "row_negative_inf_ratio");
+    defer row_negative_ratios.deinit();
+    const row_negative_inf_ratio_column = try row_negative_ratios.column("row_negative_inf_ratio");
+    try std.testing.expect(row_negative_inf_ratio_column.f64.nullable());
+    const row_negative_inf_ratio = try row_negative_inf_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_inf_ratio);
+    const row_negative_inf_ratio_validity = try row_negative_inf_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_negative_inf_ratio_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, row_negative_inf_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, row_negative_inf_ratio_validity);
+
     try std.testing.expectError(error.ColumnNotFound, table.dropPositiveInfsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNegativeInfsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveInfCount(&.{"missing"}, "bad_count"));

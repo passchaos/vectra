@@ -2651,6 +2651,14 @@ pub fn withRowNegativeInfCount(self: anytype, names: []const []const u8, output_
     return dataframe_array_mod.withRowNegativeInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowPositiveInfRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPositiveInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowNegativeInfRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNegativeInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowZeroCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

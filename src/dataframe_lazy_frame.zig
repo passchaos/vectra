@@ -1762,6 +1762,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNegativeInfCount(self, names, output_name);
             }
 
+            pub fn withRowPositiveInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPositiveInfRatio(self, names, output_name);
+            }
+
+            pub fn withRowNegativeInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNegativeInfRatio(self, names, output_name);
+            }
+
             pub fn withRowZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowZeroCount(self, names, output_name);
             }
