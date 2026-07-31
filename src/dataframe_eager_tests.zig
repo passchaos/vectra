@@ -2430,6 +2430,39 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnAtan("bad_atan", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnAtan("missing_atan", "missing"));
 
+    var sinh_cost_table = try table.withColumnSinh("cost_sinh", "cost");
+    defer sinh_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try sinh_cost_table.columnDType("cost_sinh"));
+    const cost_sinh = try (try sinh_cost_table.column("cost_sinh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_sinh);
+    try std.testing.expectApproxEqAbs(std.math.sinh(@as(f64, 1.0)), cost_sinh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sinh(@as(f64, 1.5)), cost_sinh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sinh(@as(f64, 2.0)), cost_sinh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnSinh("bad_sinh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnSinh("missing_sinh", "missing"));
+
+    var cosh_cost_table = try table.withColumnCosh("cost_cosh", "cost");
+    defer cosh_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try cosh_cost_table.columnDType("cost_cosh"));
+    const cost_cosh = try (try cosh_cost_table.column("cost_cosh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_cosh);
+    try std.testing.expectApproxEqAbs(std.math.cosh(@as(f64, 1.0)), cost_cosh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cosh(@as(f64, 1.5)), cost_cosh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.cosh(@as(f64, 2.0)), cost_cosh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnCosh("bad_cosh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnCosh("missing_cosh", "missing"));
+
+    var tanh_cost_table = try table.withColumnTanh("cost_tanh", "cost");
+    defer tanh_cost_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try tanh_cost_table.columnDType("cost_tanh"));
+    const cost_tanh = try (try tanh_cost_table.column("cost_tanh")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cost_tanh);
+    try std.testing.expectApproxEqAbs(std.math.tanh(@as(f64, 1.0)), cost_tanh[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.tanh(@as(f64, 1.5)), cost_tanh[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.tanh(@as(f64, 2.0)), cost_tanh[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnTanh("bad_tanh", "units"));
+    try std.testing.expectError(error.ColumnNotFound, table.withColumnTanh("missing_tanh", "missing"));
+
     var log_sales_table = try table.withColumnLog("sales_log", "sales");
     defer log_sales_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try log_sales_table.columnDType("sales_log"));

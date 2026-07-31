@@ -84,6 +84,21 @@ pub fn unaryColumnAtan(frame: anytype, name: []const u8) DeviceDataError!@TypeOf
     return col.atan();
 }
 
+pub fn unaryColumnSinh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.sinh();
+}
+
+pub fn unaryColumnCosh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.cosh();
+}
+
+pub fn unaryColumnTanh(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.tanh();
+}
+
 pub fn unaryColumnLog(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.log();
