@@ -772,6 +772,16 @@ pub fn nanCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     return col.countNan();
 }
 
+pub fn positiveZeroCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countPositiveZero();
+}
+
+pub fn negativeZeroCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNegativeZero();
+}
+
 pub fn infCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countInf();
@@ -811,6 +821,16 @@ pub fn zeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceS
 pub fn nonzeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return ratioFromValidCount(try col.countNonzero(), col.validCount());
+}
+
+pub fn positiveZeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countPositiveZero(), col.validCount());
+}
+
+pub fn negativeZeroRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNegativeZero(), col.validCount());
 }
 
 pub fn nanRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {

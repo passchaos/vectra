@@ -1364,6 +1364,34 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return value == zeroValue(T);
         }
 
+        fn isPositiveZeroValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) {
+                const widened = value.toF32();
+                return widened == 0 and !std.math.signbit(widened);
+            }
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) {
+                return value.re == 0 and value.im == 0 and !std.math.signbit(value.re) and !std.math.signbit(value.im);
+            }
+            return switch (@typeInfo(T)) {
+                .float => value == 0 and !std.math.signbit(value),
+                else => false,
+            };
+        }
+
+        fn isNegativeZeroValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) {
+                const widened = value.toF32();
+                return widened == 0 and std.math.signbit(widened);
+            }
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) {
+                return value.re == 0 and value.im == 0 and (std.math.signbit(value.re) or std.math.signbit(value.im));
+            }
+            return switch (@typeInfo(T)) {
+                .float => value == 0 and std.math.signbit(value),
+                else => false,
+            };
+        }
+
         fn isNanValue(value: T) bool {
             if (comptime T == array_mod.BFloat16) return std.math.isNan(value.toF32());
             if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNan(value.re) or std.math.isNan(value.im);
@@ -1718,6 +1746,14 @@ pub fn DeviceTypedColumn(comptime T: type) type {
 
         pub fn countNan(self: Self) array_mod.ArrayError!usize {
             return self.countMatching(isNanValue);
+        }
+
+        pub fn countPositiveZero(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isPositiveZeroValue);
+        }
+
+        pub fn countNegativeZero(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isNegativeZeroValue);
         }
 
         pub fn countInf(self: Self) array_mod.ArrayError!usize {

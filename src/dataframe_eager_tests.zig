@@ -2588,6 +2588,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer signed_inf_metric.deinit();
     var signed_inf_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = signed_inf_metric }});
     defer signed_inf_table.deinit();
+    var signed_zero_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, -0.0, 1.0 }, .cpu);
+    defer signed_zero_metric.deinit();
+    var signed_zero_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = signed_zero_metric }});
+    defer signed_zero_table.deinit();
     var nan_close_table = try nan_close_source.withColumnIscloseScalarEqualNan("metric_nan_close", "metric", f64, std.math.nan(f64), 0.0, 0.0, true);
     defer nan_close_table.deinit();
     const nan_close = try (try nan_close_table.column("metric_nan_close")).bool.toOwnedSlice(gpa);
@@ -2608,6 +2612,12 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 0), try table.countZeroColumn("units"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 0.0 }, try table.zeroRatioColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.nonzeroRatioColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.positiveZeroCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.negativeZeroCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 1), try signed_zero_table.positiveZeroCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try signed_zero_table.negativeZeroCountColumn("metric"));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try signed_zero_table.positiveZeroRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try signed_zero_table.negativeZeroRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectEqual(@as(usize, 0), try all_null_metric_table.zeroCountColumn("metric"));
     try std.testing.expect(std.math.isNan((try all_null_metric_table.zeroRatioColumn("metric")).f64));
     try std.testing.expectError(error.ColumnNotFound, table.zeroCountColumn("missing"));

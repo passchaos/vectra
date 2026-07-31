@@ -1349,6 +1349,20 @@ pub fn countNan(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countPositiveZero(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countPositiveZero(),
+    };
+}
+
+pub fn countNegativeZero(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNegativeZero(),
+    };
+}
+
 pub fn countInf(self: anytype) array_mod.ArrayError!usize {
     const value = columnValue(self);
     return switch (value) {

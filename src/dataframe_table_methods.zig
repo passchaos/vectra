@@ -1443,6 +1443,14 @@ pub fn nanCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.nanCountColumn(frameValue(self), name);
 }
 
+pub fn positiveZeroCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.positiveZeroCountColumn(frameValue(self), name);
+}
+
+pub fn negativeZeroCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.negativeZeroCountColumn(frameValue(self), name);
+}
+
 pub fn infCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.infCountColumn(frameValue(self), name);
 }
@@ -1473,6 +1481,14 @@ pub fn nonzeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!Devic
 
 pub fn nonZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return nonzeroRatioColumn(self, name);
+}
+
+pub fn positiveZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.positiveZeroRatioColumn(frameValue(self), name);
+}
+
+pub fn negativeZeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.negativeZeroRatioColumn(frameValue(self), name);
 }
 
 pub fn nanRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
