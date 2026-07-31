@@ -2659,6 +2659,14 @@ pub fn withRowWeightedBeta(self: anytype, lhs_names: []const []const u8, rhs_nam
     return dataframe_array_mod.withRowWeightedBeta(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }
 
+pub fn withRowWeightedQuantile(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedQuantile(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, q);
+}
+
+pub fn withRowWeightedMedian(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMedian(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
 pub fn withRowDot(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowDot(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }

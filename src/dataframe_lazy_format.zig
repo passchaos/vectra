@@ -651,6 +651,32 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
         },
+        .row_weighted_quantile => |row_weighted| {
+            try writer.print("row_weighted_quantile(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, q={d})", .{ row_weighted.output_name, row_weighted.q });
+        },
+        .row_weighted_median => |row_weighted| {
+            try writer.print("row_weighted_median(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
         .row_dot => |row_paired| {
             try writer.print("row_dot(lhs=[", .{});
             for (row_paired.value_names, 0..) |name, i| {

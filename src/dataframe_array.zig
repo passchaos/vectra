@@ -2272,6 +2272,109 @@ pub fn withRowWeightedBeta(
     return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
 }
 
+const RowWeightedValue = struct {
+    value: f64,
+    weight: f64,
+};
+
+fn rowWeightedValueLess(_: void, lhs: RowWeightedValue, rhs: RowWeightedValue) bool {
+    return rowQuantileLess({}, lhs.value, rhs.value);
+}
+
+fn rowWeightedQuantileFromSorted(sorted: []const RowWeightedValue, q: f64, total_weight: f64) f64 {
+    const threshold = q * total_weight;
+    var cumulative: f64 = 0.0;
+    for (sorted) |item| {
+        cumulative += item.weight;
+        if (cumulative >= threshold) return item.value;
+    }
+    return sorted[sorted.len - 1].value;
+}
+
+pub fn withRowWeightedQuantile(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    q: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+    if (value_names.len == 0 or value_names.len != weight_names.len) return error.LengthMismatch;
+
+    const total_slots = std.math.mul(usize, input.rows, value_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_weights = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_weights);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_weights, 0.0);
+    @memset(flat_validity, false);
+
+    for (value_names, weight_names, 0..) |value_name, weight_name, col_index| {
+        const value_source = try input.column(value_name);
+        const weight_source = try input.column(weight_name);
+        var value_column = try ownedRealF64Column(input.allocator, value_source);
+        defer value_column.deinit();
+        var weight_column = try ownedRealF64Column(input.allocator, weight_source);
+        defer weight_column.deinit();
+
+        for (value_column.values, weight_column.values, 0..) |value, weight, row| {
+            const value_valid = if (value_column.validity) |mask| mask[row] else true;
+            const weight_valid = if (weight_column.validity) |mask| mask[row] else true;
+            if (!value_valid or !weight_valid) continue;
+            if (weight < 0.0) return error.InvalidShape;
+            const offset = row * value_names.len + col_index;
+            flat_values[offset] = value;
+            flat_weights[offset] = weight;
+            flat_validity[offset] = true;
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, value_names.len);
+    defer input.allocator.free(scratch);
+    for (0..input.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..value_names.len) |col_index| {
+            const offset = row * value_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            scratch[count] = .{ .value = flat_values[offset], .weight = flat_weights[offset] };
+            total_weight += flat_weights[offset];
+            count += 1;
+        }
+        if (count == 0 or !(total_weight > 0.0)) continue;
+
+        std.sort.insertion(RowWeightedValue, scratch[0..count], {}, rowWeightedValueLess);
+        values[row] = rowWeightedQuantileFromSorted(scratch[0..count], q, total_weight);
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedMedian(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedQuantile(DeviceDataFrame, input, value_names, weight_names, output_name, 0.5);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

@@ -499,6 +499,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
 
+    var row_weighted_quantile_table = try validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
+    defer row_weighted_quantile_table.deinit();
+    const row_weighted_quantile_column = try row_weighted_quantile_table.column("row_weighted_quantile");
+    try std.testing.expect(row_weighted_quantile_column.f64.nullable());
+    const row_weighted_quantile = try row_weighted_quantile_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_quantile);
+    const row_weighted_quantile_validity = try row_weighted_quantile_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_quantile_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 40.0 }, row_weighted_quantile);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_quantile_validity);
+
+    var row_weighted_median_table = try validity_table.withRowWeightedMedian(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_median");
+    defer row_weighted_median_table.deinit();
+    const row_weighted_median_column = try row_weighted_median_table.column("row_weighted_median");
+    try std.testing.expect(row_weighted_median_column.f64.nullable());
+    const row_weighted_median = try row_weighted_median_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_median);
+    const row_weighted_median_validity = try row_weighted_median_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_median_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_weighted_median);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_median_validity);
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");
@@ -744,6 +766,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_beta_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPairCount(&.{"a"}, &.{ "wa", "wb" }, "bad_row_pair_count"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedQuantile(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 0.5));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 1.5));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedVariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_variance", 0.0));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedCovariance(&.{"a"}, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", 0.0));

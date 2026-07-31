@@ -1770,6 +1770,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedBeta(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }
 
+            pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);
+            }
+
+            pub fn withRowWeightedMedian(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMedian(self, value_names, weight_names, output_name);
+            }
+
             pub fn withRowDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowDot(self, lhs_names, rhs_names, output_name);
             }
