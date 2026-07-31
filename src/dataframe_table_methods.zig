@@ -2651,6 +2651,18 @@ pub fn withRowManhattanDistance(self: anytype, lhs_names: []const []const u8, rh
     return dataframe_array_mod.withRowManhattanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
 
+pub fn withRowMae(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMae(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowMse(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMse(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowRmse(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRmse(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

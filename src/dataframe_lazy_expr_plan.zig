@@ -2544,7 +2544,7 @@ fn withRowPairedNumeric(
     lhs_names: []const []const u8,
     rhs_names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan },
+    comptime reduction: enum { weighted_mean, dot, cosine, squared_euclidean, euclidean, manhattan, mae, mse, rmse },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -2589,6 +2589,21 @@ fn withRowPairedNumeric(
             .weight_names = owned_weights,
             .output_name = owned_output,
         } }),
+        .mae => try frame.ops.append(frame.allocator, .{ .row_mae = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .mse => try frame.ops.append(frame.allocator, .{ .row_mse = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .rmse => try frame.ops.append(frame.allocator, .{ .row_rmse = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -2614,6 +2629,18 @@ pub fn withRowEuclideanDistance(frame: anytype, lhs_names: []const []const u8, r
 
 pub fn withRowManhattanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .manhattan);
+}
+
+pub fn withRowMae(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .mae);
+}
+
+pub fn withRowMse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .mse);
+}
+
+pub fn withRowRmse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .rmse);
 }
 
 fn withRowNumericArgReduction(

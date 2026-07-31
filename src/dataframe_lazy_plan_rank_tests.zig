@@ -1423,6 +1423,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowSquaredEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_sqdist");
     try plan.withRowEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_euclidean");
     try plan.withRowManhattanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_manhattan");
+    try plan.withRowMae(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mae");
+    try plan.withRowMse(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mse");
+    try plan.withRowRmse(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_rmse");
     try plan.withRowCountDistinct(&.{ "a", "b" }, "row_distinct");
     try plan.withRowNUnique(&.{ "a", "b" }, "row_unique");
     try plan.withRowSum(&.{ "a", "b" }, "row_sum");
@@ -1443,7 +1446,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_median", "row_iqr", "row_mad", "row_mode", "row_weighted_mean", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_mae", "row_mse", "row_rmse", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1460,6 +1463,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_squared_euclidean_distance(lhs=[a,b], rhs=[wa,wb]->row_sqdist)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_euclidean_distance(lhs=[a,b], rhs=[wa,wb]->row_euclidean)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_manhattan_distance(lhs=[a,b], rhs=[wa,wb]->row_manhattan)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_mae(lhs=[a,b], rhs=[wa,wb]->row_mae)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_mse(lhs=[a,b], rhs=[wa,wb]->row_mse)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_rmse(lhs=[a,b], rhs=[wa,wb]->row_rmse)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_count_distinct([a,b]->row_distinct)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_n_unique([a,b]->row_unique)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_sum([a,b]->row_sum)") != null);
@@ -1483,7 +1489,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 33), result.width());
+    try std.testing.expectEqual(@as(usize, 36), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1552,6 +1558,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_euclidean);
     const row_manhattan = try (try result.column("row_manhattan")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_manhattan);
+    const row_mae = try (try result.column("row_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mae);
+    const row_mse = try (try result.column("row_mse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mse);
+    const row_rmse = try (try result.column("row_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_rmse);
     const row_distinct = try (try result.column("row_distinct")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_distinct);
     const row_unique = try (try result.column("row_unique")).i64.toOwnedSlice(gpa);
@@ -1698,6 +1710,12 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_euclidean[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 39.0), row_euclidean[3], 1e-12);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 19.5 }, row_mae);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 361.0, 0.0, 760.5 }, row_mse);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rmse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0), row_rmse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rmse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 760.5)), row_rmse[3], 1e-12);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_distinct);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_unique);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 44.0 }, row_sum);

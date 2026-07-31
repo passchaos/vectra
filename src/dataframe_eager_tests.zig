@@ -540,6 +540,27 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_manhattan = try (try row_manhattan_table.column("row_manhattan")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_manhattan);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 39.0 }, row_manhattan);
+
+    var row_mae_table = try validity_table.withRowMae(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mae");
+    defer row_mae_table.deinit();
+    const row_mae = try (try row_mae_table.column("row_mae")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mae);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 19.0, 0.0, 19.5 }, row_mae);
+
+    var row_mse_table = try validity_table.withRowMse(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_mse");
+    defer row_mse_table.deinit();
+    const row_mse = try (try row_mse_table.column("row_mse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mse);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 361.0, 0.0, 760.5 }, row_mse);
+
+    var row_rmse_table = try validity_table.withRowRmse(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_rmse");
+    defer row_rmse_table.deinit();
+    const row_rmse = try (try row_rmse_table.column("row_rmse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_rmse);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rmse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 19.0), row_rmse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_rmse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 760.5)), row_rmse[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
 
