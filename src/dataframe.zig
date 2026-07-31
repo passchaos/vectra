@@ -774,6 +774,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowWeightedMedian = table_methods_mod.withRowWeightedMedian;
     pub const withRowWeightedIqr = table_methods_mod.withRowWeightedIqr;
     pub const withRowWeightedMad = table_methods_mod.withRowWeightedMad;
+    pub const withRowWeightedMode = table_methods_mod.withRowWeightedMode;
     pub const withRowDot = table_methods_mod.withRowDot;
     pub const withRowCosineSimilarity = table_methods_mod.withRowCosineSimilarity;
     pub const withRowCosine = table_methods_mod.withRowCosine;

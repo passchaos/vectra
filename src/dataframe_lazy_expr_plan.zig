@@ -2755,6 +2755,26 @@ pub fn withRowWeightedMad(frame: anytype, value_names: []const []const u8, weigh
     } });
 }
 
+pub fn withRowWeightedMode(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer {
+        for (owned_values) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_values);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_weighted_mode = .{
+        .value_names = owned_values,
+        .weight_names = owned_weights,
+        .output_name = owned_output,
+    } });
+}
+
 fn withRowPairedNumeric(
     frame: anytype,
     lhs_names: []const []const u8,

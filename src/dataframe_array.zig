@@ -2501,6 +2501,72 @@ pub fn withRowWeightedMad(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+pub fn withRowWeightedMode(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var found = false;
+        var best_value: f64 = 0.0;
+        var best_weight: f64 = 0.0;
+        var row_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            row_weight += flat.weights[offset];
+            const candidate = flat.values[offset];
+
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * flat.width + previous_index;
+                if (!flat.validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) continue;
+
+            var candidate_weight: f64 = 0.0;
+            for (col_index..flat.width) |candidate_index| {
+                const candidate_offset = row * flat.width + candidate_index;
+                if (!flat.validity[candidate_offset]) continue;
+                if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
+            }
+
+            // Preserve row mode's stable tie-break: the first distinct valid
+            // value wins when weighted frequencies are equal.
+            if (!found or candidate_weight > best_weight) {
+                best_value = candidate;
+                best_weight = candidate_weight;
+                found = true;
+            }
+        }
+        if (found and row_weight > 0.0) {
+            values[row] = best_value;
+            validity[row] = true;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

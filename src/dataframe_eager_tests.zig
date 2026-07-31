@@ -543,6 +543,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, row_weighted_mad);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mad_validity);
 
+    var row_weighted_mode_table = try validity_table.withRowWeightedMode(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode");
+    defer row_weighted_mode_table.deinit();
+    const row_weighted_mode_column = try row_weighted_mode_table.column("row_weighted_mode");
+    try std.testing.expect(row_weighted_mode_column.f64.nullable());
+    const row_weighted_mode = try row_weighted_mode_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mode);
+    const row_weighted_mode_validity = try row_weighted_mode_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_mode_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 3.0, 40.0 }, row_weighted_mode);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_weighted_mode_validity);
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");
@@ -789,6 +800,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPairCount(&.{"a"}, &.{ "wa", "wb" }, "bad_row_pair_count"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedQuantile(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 0.5));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMode(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mode"));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 1.5));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedVariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_variance", 0.0));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0));
