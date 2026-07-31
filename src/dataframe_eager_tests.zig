@@ -483,6 +483,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_bowley[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_bowley_validity);
 
+    var row_qcd_table = try validity_table.withRowQuartileCoeffDispersion(&.{ "a", "b" }, "row_qcd");
+    defer row_qcd_table.deinit();
+    const row_qcd_column = try row_qcd_table.column("row_qcd");
+    try std.testing.expect(row_qcd_column.f64.nullable());
+    const row_qcd = try row_qcd_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_qcd);
+    const row_qcd_validity = try row_qcd_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_qcd_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_qcd[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_qcd[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_qcd[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0 / 22.0), row_qcd[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_qcd_validity);
+
     var row_iqr_table = try validity_table.withRowIqr(&.{ "a", "b" }, "row_iqr");
     defer row_iqr_table.deinit();
     const row_iqr_column = try row_iqr_table.column("row_iqr");
