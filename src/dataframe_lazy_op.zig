@@ -159,6 +159,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         fill_positive_inf_column: Payloads.FillNullColumn,
         fill_negative_inf_column: Payloads.FillNullColumn,
         fill_zero_column: Payloads.FillNullColumn,
+        fill_positive_zero_column: Payloads.FillNullColumn,
+        fill_negative_zero_column: Payloads.FillNullColumn,
         fill_non_zero_column: Payloads.FillNullColumn,
         fill_positive_column: Payloads.FillNullColumn,
         fill_negative_column: Payloads.FillNullColumn,

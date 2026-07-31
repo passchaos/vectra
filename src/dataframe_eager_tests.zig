@@ -1655,6 +1655,34 @@ test "device dataframe fills sign values" {
     defer gpa.free(id_values);
     try std.testing.expectEqualSlices(i64, &.{ 99, 0, 4, 99, 6, 99, 8, 0 }, id_values);
 
+    var filled_positive_zero = try table.fillPositiveZeroColumn("metric", f64, 11.0);
+    defer filled_positive_zero.deinit();
+    const positive_zero_values = try (try filled_positive_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(positive_zero_values);
+    try std.testing.expectEqual(@as(f64, -2.0), positive_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), positive_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 11.0), positive_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), positive_zero_values[3]);
+    try std.testing.expect(std.math.isNan(positive_zero_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(positive_zero_values[5]));
+    try std.testing.expect(std.math.isNegativeInf(positive_zero_values[6]));
+    try std.testing.expectEqual(@as(f64, 9.0), positive_zero_values[7]);
+
+    var filled_negative_zero = try table.fillNegativeZeroColumn("metric", f64, -11.0);
+    defer filled_negative_zero.deinit();
+    const negative_zero_values = try (try filled_negative_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(negative_zero_values);
+    try std.testing.expectEqual(@as(f64, -2.0), negative_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -11.0), negative_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 0.0), negative_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), negative_zero_values[3]);
+    try std.testing.expect(std.math.isNan(negative_zero_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(negative_zero_values[5]));
+    try std.testing.expect(std.math.isNegativeInf(negative_zero_values[6]));
+    try std.testing.expectEqual(@as(f64, 9.0), negative_zero_values[7]);
+
+    try std.testing.expectError(error.TypeUnsupported, table.fillPositiveZeroColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillNegativeZeroColumn("missing", f64, 0.0));
     try std.testing.expectError(error.TypeUnsupported, table.fillPositiveColumn("metric", i64, 0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNegativeColumn("missing", f64, 0.0));
 }

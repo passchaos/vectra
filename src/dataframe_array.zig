@@ -1098,6 +1098,24 @@ pub fn fillZeroColumn(
     return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .zero);
 }
 
+pub fn fillPositiveZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .positive_zero);
+}
+
+pub fn fillNegativeZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNumericPredicateColumn(DeviceDataFrame, input, name, scalar, .negative_zero);
+}
+
 pub fn fillNonZeroColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

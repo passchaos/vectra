@@ -2093,6 +2093,44 @@ test "device lazy frame fills sign values" {
     try std.testing.expectEqual(@as(f64, 7.0), negative_values[6]);
     try std.testing.expectEqual(@as(f64, 9.0), negative_values[7]);
 
+    var positive_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer positive_zero_plan.deinit();
+    try positive_zero_plan.fillPositiveZeroColumn("metric", f64, 11.0);
+    const positive_zero_explain = try positive_zero_plan.explain(gpa);
+    defer gpa.free(positive_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positive_zero_explain, "fill_positive_zero_column(metric=scalar:f64)") != null);
+    var filled_positive_zero = try positive_zero_plan.collect();
+    defer filled_positive_zero.deinit();
+    const positive_zero_values = try (try filled_positive_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(positive_zero_values);
+    try std.testing.expectEqual(@as(f64, -2.0), positive_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -0.0), positive_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 11.0), positive_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), positive_zero_values[3]);
+    try std.testing.expect(std.math.isNan(positive_zero_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(positive_zero_values[5]));
+    try std.testing.expect(std.math.isNegativeInf(positive_zero_values[6]));
+    try std.testing.expectEqual(@as(f64, 9.0), positive_zero_values[7]);
+
+    var negative_zero_plan = try DeviceLazyFrame.init(gpa, table);
+    defer negative_zero_plan.deinit();
+    try negative_zero_plan.fillNegativeZeroColumn("metric", f64, -11.0);
+    const negative_zero_explain = try negative_zero_plan.explain(gpa);
+    defer gpa.free(negative_zero_explain);
+    try std.testing.expect(std.mem.indexOf(u8, negative_zero_explain, "fill_negative_zero_column(metric=scalar:f64)") != null);
+    var filled_negative_zero = try negative_zero_plan.collect();
+    defer filled_negative_zero.deinit();
+    const negative_zero_values = try (try filled_negative_zero.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(negative_zero_values);
+    try std.testing.expectEqual(@as(f64, -2.0), negative_zero_values[0]);
+    try std.testing.expectEqual(@as(f64, -11.0), negative_zero_values[1]);
+    try std.testing.expectEqual(@as(f64, 0.0), negative_zero_values[2]);
+    try std.testing.expectEqual(@as(f64, 3.0), negative_zero_values[3]);
+    try std.testing.expect(std.math.isNan(negative_zero_values[4]));
+    try std.testing.expect(std.math.isPositiveInf(negative_zero_values[5]));
+    try std.testing.expect(std.math.isNegativeInf(negative_zero_values[6]));
+    try std.testing.expectEqual(@as(f64, 9.0), negative_zero_values[7]);
+
     var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
     defer mismatch_plan.deinit();
     try mismatch_plan.fillPositiveColumn("metric", i64, 0);
