@@ -838,6 +838,16 @@ pub fn rmsColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar 
     return col.rms();
 }
 
+pub fn l1NormColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.l1Norm();
+}
+
+pub fn l2NormColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.l2Norm();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

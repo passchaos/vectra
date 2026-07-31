@@ -1463,6 +1463,22 @@ pub fn rms(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     };
 }
 
+pub fn l1Norm(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.l1Norm() },
+    };
+}
+
+pub fn l2Norm(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.l2Norm() },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

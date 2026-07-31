@@ -1511,6 +1511,14 @@ pub fn rmsColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.rmsColumn(frameValue(self), name);
 }
 
+pub fn l1NormColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.l1NormColumn(frameValue(self), name);
+}
+
+pub fn l2NormColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.l2NormColumn(frameValue(self), name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }
