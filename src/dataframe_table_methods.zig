@@ -2627,8 +2627,20 @@ pub fn withRowNaNCount(self: anytype, names: []const []const u8, output_name: []
     return dataframe_array_mod.withRowNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowNaNRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNaNRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowNanRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withRowNaNRatio(self, names, output_name);
+}
+
 pub fn withRowInfCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowInfRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
 pub fn withRowPositiveInfCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
@@ -2671,6 +2683,10 @@ pub fn withRowFiniteCount(self: anytype, names: []const []const u8, output_name:
     return dataframe_array_mod.withRowFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowFiniteRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowNormalCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNormalCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
@@ -2681,6 +2697,10 @@ pub fn withRowSubnormalCount(self: anytype, names: []const []const u8, output_na
 
 pub fn withRowNonFiniteCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNonFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowNonFiniteRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowNonFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
 pub fn withColumnLiteral(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {

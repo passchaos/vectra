@@ -1738,8 +1738,20 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNaNCount(self, names, output_name);
             }
 
+            pub fn withRowNaNRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNaNRatio(self, names, output_name);
+            }
+
+            pub fn withRowNanRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNanRatio(self, names, output_name);
+            }
+
             pub fn withRowInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowInfCount(self, names, output_name);
+            }
+
+            pub fn withRowInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowInfRatio(self, names, output_name);
             }
 
             pub fn withRowPositiveInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
@@ -1782,6 +1794,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowFiniteCount(self, names, output_name);
             }
 
+            pub fn withRowFiniteRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFiniteRatio(self, names, output_name);
+            }
+
             pub fn withRowNormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNormalCount(self, names, output_name);
             }
@@ -1792,6 +1808,10 @@ pub fn DeviceLazyTypes(
 
             pub fn withRowNonFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNonFiniteCount(self, names, output_name);
+            }
+
+            pub fn withRowNonFiniteRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowNonFiniteRatio(self, names, output_name);
             }
 
             pub fn withColumnCompare(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {

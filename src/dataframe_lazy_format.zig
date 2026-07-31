@@ -553,8 +553,24 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_nan_ratio => |row_count| {
+            try writer.print("row_nan_ratio([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_inf_count => |row_count| {
             try writer.print("row_inf_count([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_inf_ratio => |row_count| {
+            try writer.print("row_inf_ratio([", .{});
             for (row_count.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
@@ -641,6 +657,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_finite_ratio => |row_count| {
+            try writer.print("row_finite_ratio([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_normal_count => |row_count| {
             try writer.print("row_normal_count([", .{});
             for (row_count.names, 0..) |name, i| {
@@ -659,6 +683,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .row_non_finite_count => |row_count| {
             try writer.print("row_non_finite_count([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_non_finite_ratio => |row_count| {
+            try writer.print("row_non_finite_ratio([", .{});
             for (row_count.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});

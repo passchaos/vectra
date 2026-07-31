@@ -1480,7 +1480,43 @@ test "device dataframe derives NaN and finite predicate columns" {
     const row_non_finite_count = try (try row_non_finite_counts.column("row_non_finite_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_non_finite_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 0 }, row_non_finite_count);
+
+    var row_nan_ratios = try table.withRowNaNRatio(&.{ "metric", "id" }, "row_nan_ratio");
+    defer row_nan_ratios.deinit();
+    const row_nan_ratio = try (try row_nan_ratios.column("row_nan_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_nan_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.0, 0.0 }, row_nan_ratio);
+
+    var row_inf_ratios = try table.withRowInfRatio(&.{}, "row_inf_ratio");
+    defer row_inf_ratios.deinit();
+    const row_inf_ratio = try (try row_inf_ratios.column("row_inf_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_inf_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0 }, row_inf_ratio);
+
+    var row_finite_ratios = try table.withRowFiniteRatio(&.{ "metric", "id" }, "row_finite_ratio");
+    defer row_finite_ratios.deinit();
+    const row_finite_ratio = try (try row_finite_ratios.column("row_finite_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_finite_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 1.0 }, row_finite_ratio);
+
+    var row_non_finite_ratios = try table.withRowNonFiniteRatio(&.{}, "row_non_finite_ratio");
+    defer row_non_finite_ratios.deinit();
+    const row_non_finite_ratio = try (try row_non_finite_ratios.column("row_non_finite_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_non_finite_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, row_non_finite_ratio);
+
+    var metric_nan_ratios = try table.withRowNanRatio(&.{"metric"}, "metric_nan_ratio");
+    defer metric_nan_ratios.deinit();
+    const metric_nan_ratio_column = try metric_nan_ratios.column("metric_nan_ratio");
+    try std.testing.expect(metric_nan_ratio_column.f64.nullable());
+    const metric_nan_ratio = try metric_nan_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_nan_ratio);
+    const metric_nan_ratio_validity = try metric_nan_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_nan_ratio_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0 }, metric_nan_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, metric_nan_ratio_validity);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
 }
 
 test "device dataframe selects zero columns" {

@@ -2625,8 +2625,53 @@ pub fn withRowNaNCount(frame: anytype, names: []const []const u8, output_name: [
     return withRowNumericPredicateCount(frame, names, output_name, .nan);
 }
 
+fn withRowNumericPredicateRatio(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime tag_name: enum { nan, inf, finite, non_finite },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (tag_name) {
+        .nan => try frame.ops.append(frame.allocator, .{ .row_nan_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .inf => try frame.ops.append(frame.allocator, .{ .row_inf_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .finite => try frame.ops.append(frame.allocator, .{ .row_finite_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .non_finite => try frame.ops.append(frame.allocator, .{ .row_non_finite_ratio = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowNaNRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .nan);
+}
+
+pub fn withRowNanRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNaNRatio(frame, names, output_name);
+}
+
 pub fn withRowInfCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .inf);
+}
+
+pub fn withRowInfRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .inf);
 }
 
 pub fn withRowPositiveInfCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
@@ -2669,6 +2714,10 @@ pub fn withRowFiniteCount(frame: anytype, names: []const []const u8, output_name
     return withRowNumericPredicateCount(frame, names, output_name, .finite);
 }
 
+pub fn withRowFiniteRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .finite);
+}
+
 pub fn withRowNormalCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .normal);
 }
@@ -2679,6 +2728,10 @@ pub fn withRowSubnormalCount(frame: anytype, names: []const []const u8, output_n
 
 pub fn withRowNonFiniteCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateCount(frame, names, output_name, .non_finite);
+}
+
+pub fn withRowNonFiniteRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateRatio(frame, names, output_name, .non_finite);
 }
 
 pub fn withColumnCompare(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!void {

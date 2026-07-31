@@ -2075,6 +2075,99 @@ pub fn withRowNonFiniteCount(
     return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .non_finite);
 }
 
+fn withRowNumericPredicateRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime predicate: RowNumericPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const numerators = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(numerators);
+    const denominators = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(denominators);
+    @memset(numerators, 0);
+    @memset(denominators, 0);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                for (host_values, 0..) |value, row| {
+                    const valid = if (maybe_validity) |validity| validity[row] else true;
+                    if (!valid) continue;
+                    denominators[row] += 1;
+                    if (rowNumericPredicateMatches(@TypeOf(value), value, predicate)) numerators[row] += 1;
+                }
+            },
+        }
+    }
+
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+    const ratio_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(ratio_validity);
+    for (ratios, ratio_validity, numerators, denominators) |*ratio, *valid, numerator, denominator| {
+        valid.* = denominator != 0;
+        ratio.* = if (denominator == 0) 0.0 else @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(denominator));
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, ratios, ratio_validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowNaNRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .nan);
+}
+
+pub fn withRowNanRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNaNRatio(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .inf);
+}
+
+pub fn withRowFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .finite);
+}
+
+pub fn withRowNonFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .non_finite);
+}
+
 fn literalColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
