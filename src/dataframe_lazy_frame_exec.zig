@@ -114,6 +114,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .is_nan_column => |predicate| try current.isNanColumn(predicate.name, predicate.output_name),
             .is_finite_column => |predicate| try current.isFiniteColumn(predicate.name, predicate.output_name),
             .is_inf_column => |predicate| try current.isInfColumn(predicate.name, predicate.output_name),
+            .is_positive_inf_column => |predicate| try current.isPositiveInfColumn(predicate.name, predicate.output_name),
+            .is_negative_inf_column => |predicate| try current.isNegativeInfColumn(predicate.name, predicate.output_name),
             .row_null_count => |row_count| try current.withRowNullCount(row_count.names, row_count.output_name),
             .row_valid_count => |row_count| try current.withRowValidCount(row_count.names, row_count.output_name),
             .row_nan_count => |row_count| try current.withRowNaNCount(row_count.names, row_count.output_name),

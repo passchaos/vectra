@@ -381,6 +381,14 @@ pub fn isInfColumn(self: anytype, name: []const u8, output_name: []const u8) Dev
     return dataframe_array_mod.isInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }
 
+pub fn isPositiveInfColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isPositiveInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
+pub fn isNegativeInfColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.isNegativeInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
+}
+
 pub fn withRowNullCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowNullCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

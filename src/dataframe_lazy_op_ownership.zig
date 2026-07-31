@@ -333,6 +333,26 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .is_positive_inf_column => |predicate| blk: {
+            const name = try allocator.dupe(u8, predicate.name);
+            errdefer allocator.free(name);
+            const output_name = try allocator.dupe(u8, predicate.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .is_positive_inf_column = .{
+                .name = name,
+                .output_name = output_name,
+            } };
+        },
+        .is_negative_inf_column => |predicate| blk: {
+            const name = try allocator.dupe(u8, predicate.name);
+            errdefer allocator.free(name);
+            const output_name = try allocator.dupe(u8, predicate.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .is_negative_inf_column = .{
+                .name = name,
+                .output_name = output_name,
+            } };
+        },
         .row_null_count, .row_valid_count, .row_nan_count, .row_inf_count, .row_finite_count, .row_non_finite_count => |row_count, tag| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);

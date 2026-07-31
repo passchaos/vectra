@@ -196,7 +196,7 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
 
     var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
     defer id.deinit();
-    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 3.0, 5.0 }, &.{ true, false, true }, .cpu);
+    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ std.math.inf(f64), -std.math.inf(f64), 5.0 }, &.{ true, false, true }, .cpu);
     defer sales.deinit();
     var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
     defer active.deinit();
@@ -277,7 +277,7 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer finite_result.deinit();
     const sales_is_finite = try (try finite_result.column("sales_is_finite")).bool.toOwnedSlice(gpa);
     defer gpa.free(sales_is_finite);
-    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, sales_is_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, sales_is_finite);
 
     var inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer inf_scan.deinit();
@@ -288,6 +288,44 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(inf_explain);
     try std.testing.expect(std.mem.indexOf(u8, inf_explain, "scan_pushdown: projection=[sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, inf_explain, "is_inf_column(sales->sales_is_inf)") != null);
+
+    var inf_result = try inf_scan.collect();
+    defer inf_result.deinit();
+    const sales_is_inf = try (try inf_result.column("sales_is_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, sales_is_inf);
+
+    var positive_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer positive_inf_scan.deinit();
+    try positive_inf_scan.isPositiveInfColumn("sales", "sales_is_pos_inf");
+    try positive_inf_scan.select(&.{"sales_is_pos_inf"});
+
+    const positive_inf_explain = try positive_inf_scan.explain(gpa);
+    defer gpa.free(positive_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positive_inf_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, positive_inf_explain, "is_positive_inf_column(sales->sales_is_pos_inf)") != null);
+
+    var positive_inf_result = try positive_inf_scan.collect();
+    defer positive_inf_result.deinit();
+    const sales_is_pos_inf = try (try positive_inf_result.column("sales_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, sales_is_pos_inf);
+
+    var negative_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer negative_inf_scan.deinit();
+    try negative_inf_scan.isNegativeInfColumn("sales", "sales_is_neg_inf");
+    try negative_inf_scan.select(&.{"sales_is_neg_inf"});
+
+    const negative_inf_explain = try negative_inf_scan.explain(gpa);
+    defer gpa.free(negative_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, negative_inf_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, negative_inf_explain, "is_negative_inf_column(sales->sales_is_neg_inf)") != null);
+
+    var negative_inf_result = try negative_inf_scan.collect();
+    defer negative_inf_result.deinit();
+    const sales_is_neg_inf = try (try negative_inf_result.column("sales_is_neg_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_is_neg_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_is_neg_inf);
 
     var fill_nan_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer fill_nan_scan.deinit();

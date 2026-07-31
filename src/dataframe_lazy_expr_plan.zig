@@ -551,7 +551,7 @@ pub fn isValidColumn(frame: anytype, name: []const u8, output_name: []const u8) 
     } });
 }
 
-fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, finite, inf }) DeviceDataError!void {
+fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const u8, comptime predicate: enum { nan, finite, inf, positive_inf, negative_inf }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     const owned_output = try frame.allocator.dupe(u8, output_name);
@@ -569,6 +569,14 @@ fn numericPredicateColumn(frame: anytype, name: []const u8, output_name: []const
             .name = owned_name,
             .output_name = owned_output,
         } }),
+        .positive_inf => try frame.ops.append(frame.allocator, .{ .is_positive_inf_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
+        .negative_inf => try frame.ops.append(frame.allocator, .{ .is_negative_inf_column = .{
+            .name = owned_name,
+            .output_name = owned_output,
+        } }),
     }
 }
 
@@ -582,6 +590,14 @@ pub fn isFiniteColumn(frame: anytype, name: []const u8, output_name: []const u8)
 
 pub fn isInfColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     return numericPredicateColumn(frame, name, output_name, .inf);
+}
+
+pub fn isPositiveInfColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .positive_inf);
+}
+
+pub fn isNegativeInfColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return numericPredicateColumn(frame, name, output_name, .negative_inf);
 }
 
 fn withRowValidityCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime count_valid: bool) DeviceDataError!void {

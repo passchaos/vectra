@@ -899,6 +899,87 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
 }
 
+test "device dataframe derives signed Inf predicate columns" {
+    const gpa = std.testing.allocator;
+    const BF16 = vectra.BFloat16;
+    const C64 = vectra.Complex64;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 9.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var bf16_metric = try DeviceColumn.fromSlice(BF16, gpa, &.{
+        BF16.fromF32(1.0),
+        BF16.fromF32(std.math.inf(f32)),
+        BF16.fromF32(-std.math.inf(f32)),
+        BF16.fromF32(3.0),
+        BF16.fromF32(-4.0),
+    }, .cpu);
+    defer bf16_metric.deinit();
+    var complex_metric = try DeviceColumn.fromSlice(C64, gpa, &.{
+        C64.init(1.0, 0.0),
+        C64.init(std.math.inf(f32), 2.0),
+        C64.init(3.0, -std.math.inf(f32)),
+        C64.init(std.math.inf(f32), -std.math.inf(f32)),
+        C64.init(5.0, 6.0),
+    }, .cpu);
+    defer complex_metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer id.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "bf16_metric", .data = bf16_metric },
+        .{ .name = "complex_metric", .data = complex_metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var metric_positive_flags = try table.isPositiveInfColumn("metric", "metric_is_pos_inf");
+    defer metric_positive_flags.deinit();
+    try std.testing.expectEqual(DeviceDType.bool, try metric_positive_flags.columnDType("metric_is_pos_inf"));
+    const metric_is_pos_inf = try (try metric_positive_flags.column("metric_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, metric_is_pos_inf);
+
+    var metric_negative_flags = try table.isNegativeInfColumn("metric", "metric_is_neg_inf");
+    defer metric_negative_flags.deinit();
+    const metric_is_neg_inf = try (try metric_negative_flags.column("metric_is_neg_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_neg_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, metric_is_neg_inf);
+
+    var bf16_positive_flags = try table.isPositiveInfColumn("bf16_metric", "bf16_is_pos_inf");
+    defer bf16_positive_flags.deinit();
+    const bf16_is_pos_inf = try (try bf16_positive_flags.column("bf16_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(bf16_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, bf16_is_pos_inf);
+
+    var bf16_negative_flags = try table.isNegativeInfColumn("bf16_metric", "bf16_is_neg_inf");
+    defer bf16_negative_flags.deinit();
+    const bf16_is_neg_inf = try (try bf16_negative_flags.column("bf16_is_neg_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(bf16_is_neg_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, bf16_is_neg_inf);
+
+    var complex_positive_flags = try table.isPositiveInfColumn("complex_metric", "complex_is_pos_inf");
+    defer complex_positive_flags.deinit();
+    const complex_is_pos_inf = try (try complex_positive_flags.column("complex_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(complex_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true, false }, complex_is_pos_inf);
+
+    var complex_negative_flags = try table.isNegativeInfColumn("complex_metric", "complex_is_neg_inf");
+    defer complex_negative_flags.deinit();
+    const complex_is_neg_inf = try (try complex_negative_flags.column("complex_is_neg_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(complex_is_neg_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, false }, complex_is_neg_inf);
+
+    var integer_positive_flags = try table.isPositiveInfColumn("id", "id_is_pos_inf");
+    defer integer_positive_flags.deinit();
+    const id_is_pos_inf = try (try integer_positive_flags.column("id_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_pos_inf);
+
+    try std.testing.expectError(error.ColumnNotFound, table.isPositiveInfColumn("missing", "missing_is_pos_inf"));
+    try std.testing.expectError(error.ColumnNotFound, table.isNegativeInfColumn("missing", "missing_is_neg_inf"));
+}
+
 test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 

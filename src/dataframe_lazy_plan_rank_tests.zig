@@ -1053,6 +1053,51 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame derives signed Inf predicate columns" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 9.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+    var id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer id.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+        .{ .name = "id", .data = id },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.isPositiveInfColumn("metric", "metric_is_pos_inf");
+    try plan.isNegativeInfColumn("metric", "metric_is_neg_inf");
+    try plan.isPositiveInfColumn("id", "id_is_pos_inf");
+    try plan.select(&.{ "metric_is_pos_inf", "metric_is_neg_inf", "id_is_pos_inf" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_positive_inf_column(metric->metric_is_pos_inf)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "is_negative_inf_column(metric->metric_is_neg_inf)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 3), result.width());
+    const metric_is_pos_inf = try (try result.column("metric_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_pos_inf);
+    const metric_is_neg_inf = try (try result.column("metric_is_neg_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_is_neg_inf);
+    const id_is_pos_inf = try (try result.column("id_is_pos_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, metric_is_pos_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, metric_is_neg_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false }, id_is_pos_inf);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.isPositiveInfColumn("missing", "missing_is_pos_inf");
+    try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+}
+
 test "device lazy frame drops null rows" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);

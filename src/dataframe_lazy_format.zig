@@ -180,6 +180,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .is_nan_column => |predicate| try writer.print("is_nan_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_finite_column => |predicate| try writer.print("is_finite_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .is_inf_column => |predicate| try writer.print("is_inf_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_positive_inf_column => |predicate| try writer.print("is_positive_inf_column({s}->{s})", .{ predicate.name, predicate.output_name }),
+        .is_negative_inf_column => |predicate| try writer.print("is_negative_inf_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .row_null_count => |row_count| {
             try writer.print("row_null_count([", .{});
             for (row_count.names, 0..) |name, i| {

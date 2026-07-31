@@ -565,6 +565,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.isInfColumn(self, name, output_name);
             }
 
+            pub fn isPositiveInfColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.isPositiveInfColumn(self, name, output_name);
+            }
+
+            pub fn isNegativeInfColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.isNegativeInfColumn(self, name, output_name);
+            }
+
             pub fn withRowNullCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNullCount(self, names, output_name);
             }
