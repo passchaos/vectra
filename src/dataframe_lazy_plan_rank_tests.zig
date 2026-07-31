@@ -1098,6 +1098,55 @@ test "device lazy frame derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame fills signed Inf values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 9.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try vectra.DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var positive_plan = try DeviceLazyFrame.init(gpa, table);
+    defer positive_plan.deinit();
+    try positive_plan.fillPositiveInfColumn("metric", f64, 100.0);
+    const positive_explain = try positive_plan.explain(gpa);
+    defer gpa.free(positive_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positive_explain, "fill_positive_inf_column(metric=scalar:f64)") != null);
+    var filled_positive = try positive_plan.collect();
+    defer filled_positive.deinit();
+    const positive_values = try (try filled_positive.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(positive_values);
+    try std.testing.expectEqual(@as(f64, 1.0), positive_values[0]);
+    try std.testing.expectEqual(@as(f64, 100.0), positive_values[1]);
+    try std.testing.expect(std.math.isNegativeInf(positive_values[2]));
+    try std.testing.expect(std.math.isNan(positive_values[3]));
+    try std.testing.expectEqual(@as(f64, 9.0), positive_values[4]);
+
+    var negative_plan = try DeviceLazyFrame.init(gpa, table);
+    defer negative_plan.deinit();
+    try negative_plan.fillNegativeInfColumn("metric", f64, -100.0);
+    const negative_explain = try negative_plan.explain(gpa);
+    defer gpa.free(negative_explain);
+    try std.testing.expect(std.mem.indexOf(u8, negative_explain, "fill_negative_inf_column(metric=scalar:f64)") != null);
+    var filled_negative = try negative_plan.collect();
+    defer filled_negative.deinit();
+    const negative_values = try (try filled_negative.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(negative_values);
+    try std.testing.expectEqual(@as(f64, 1.0), negative_values[0]);
+    try std.testing.expect(std.math.isPositiveInf(negative_values[1]));
+    try std.testing.expectEqual(@as(f64, -100.0), negative_values[2]);
+    try std.testing.expect(std.math.isNan(negative_values[3]));
+    try std.testing.expectEqual(@as(f64, 9.0), negative_values[4]);
+
+    var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
+    defer mismatch_plan.deinit();
+    try mismatch_plan.fillPositiveInfColumn("metric", i64, 0);
+    try std.testing.expectError(error.TypeUnsupported, mismatch_plan.collect());
+}
+
 test "device lazy frame drops null rows" {
     const gpa = std.testing.allocator;
     var table = try lazyQualityTable(gpa);

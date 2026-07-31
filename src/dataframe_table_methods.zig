@@ -349,6 +349,22 @@ pub fn fillInfColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceSc
     return dataframe_array_mod.fillInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
 }
 
+pub fn fillPositiveInfColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillPositiveInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
+}
+
+pub fn fillPositiveInfColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillPositiveInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
+pub fn fillNegativeInfColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNegativeInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
+}
+
+pub fn fillNegativeInfColumnWithScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNegativeInfColumn(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
 pub fn fillNonFiniteColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.fillNonFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
 }

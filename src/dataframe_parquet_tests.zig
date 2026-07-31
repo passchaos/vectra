@@ -347,6 +347,26 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, fill_inf_explain, "scan_pushdown: projection=[sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, fill_inf_explain, "fill_inf_column(sales=scalar:f64)") != null);
 
+    var fill_positive_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer fill_positive_inf_scan.deinit();
+    try fill_positive_inf_scan.fillPositiveInfColumn("sales", f64, 100.0);
+    try fill_positive_inf_scan.select(&.{"sales"});
+
+    const fill_positive_inf_explain = try fill_positive_inf_scan.explain(gpa);
+    defer gpa.free(fill_positive_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fill_positive_inf_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, fill_positive_inf_explain, "fill_positive_inf_column(sales=scalar:f64)") != null);
+
+    var fill_negative_inf_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer fill_negative_inf_scan.deinit();
+    try fill_negative_inf_scan.fillNegativeInfColumn("sales", f64, -100.0);
+    try fill_negative_inf_scan.select(&.{"sales"});
+
+    const fill_negative_inf_explain = try fill_negative_inf_scan.explain(gpa);
+    defer gpa.free(fill_negative_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, fill_negative_inf_explain, "scan_pushdown: projection=[sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, fill_negative_inf_explain, "fill_negative_inf_column(sales=scalar:f64)") != null);
+
     var fill_non_finite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer fill_non_finite_scan.deinit();
     try fill_non_finite_scan.fillNonFiniteColumn("sales", f64, -5.0);

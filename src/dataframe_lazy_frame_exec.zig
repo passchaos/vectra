@@ -107,6 +107,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .fill_null_column => |fill| try current.fillNullColumnWithScalar(fill.name, fill.scalar),
             .fill_nan_column => |fill| try current.fillNaNColumnWithScalar(fill.name, fill.scalar),
             .fill_inf_column => |fill| try current.fillInfColumnWithScalar(fill.name, fill.scalar),
+            .fill_positive_inf_column => |fill| try current.fillPositiveInfColumnWithScalar(fill.name, fill.scalar),
+            .fill_negative_inf_column => |fill| try current.fillNegativeInfColumnWithScalar(fill.name, fill.scalar),
             .fill_non_finite_column => |fill| try current.fillNonFiniteColumnWithScalar(fill.name, fill.scalar),
             .coalesce_columns => |coalesce| try current.coalesceColumns(coalesce.primary_name, coalesce.fallback_name, coalesce.output_name),
             .is_null_column => |predicate| try current.isNullColumn(predicate.name, predicate.output_name),

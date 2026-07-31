@@ -980,6 +980,49 @@ test "device dataframe derives signed Inf predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeInfColumn("missing", "missing_is_neg_inf"));
 }
 
+test "device dataframe fills signed Inf values" {
+    const gpa = std.testing.allocator;
+
+    var metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 9.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer metric.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = metric },
+    });
+    defer table.deinit();
+
+    var filled_positive = try table.fillPositiveInfColumn("metric", f64, 100.0);
+    defer filled_positive.deinit();
+    const positive_values = try (try filled_positive.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(positive_values);
+    const positive_validity = try (try filled_positive.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(positive_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), positive_values[0]);
+    try std.testing.expectEqual(@as(f64, 100.0), positive_values[1]);
+    try std.testing.expect(std.math.isNegativeInf(positive_values[2]));
+    try std.testing.expect(std.math.isNan(positive_values[3]));
+    try std.testing.expectEqual(@as(f64, 9.0), positive_values[4]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, positive_validity);
+
+    var filled_negative = try table.fillNegativeInfColumn("metric", f64, -100.0);
+    defer filled_negative.deinit();
+    const negative_values = try (try filled_negative.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(negative_values);
+    const negative_validity = try (try filled_negative.column("metric")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(negative_validity);
+    try std.testing.expectEqual(@as(f64, 1.0), negative_values[0]);
+    try std.testing.expect(std.math.isPositiveInf(negative_values[1]));
+    try std.testing.expectEqual(@as(f64, -100.0), negative_values[2]);
+    try std.testing.expect(std.math.isNan(negative_values[3]));
+    try std.testing.expectEqual(@as(f64, 9.0), negative_values[4]);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, negative_validity);
+
+    try std.testing.expectError(error.TypeUnsupported, table.fillPositiveInfColumn("metric", i64, 0));
+    try std.testing.expectError(error.TypeUnsupported, table.fillNegativeInfColumn("metric", i64, 0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillPositiveInfColumn("missing", f64, 0.0));
+    try std.testing.expectError(error.ColumnNotFound, table.fillNegativeInfColumn("missing", f64, 0.0));
+}
+
 test "device dataframe selects and drops columns by name pattern" {
     const gpa = std.testing.allocator;
 

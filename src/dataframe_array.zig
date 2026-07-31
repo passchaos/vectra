@@ -363,11 +363,7 @@ fn columnHasSpecialFloat(column: anytype, allocator: std.mem.Allocator, comptime
             defer if (maybe_validity) |validity| allocator.free(validity);
             for (host_values, 0..) |value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                if (valid and switch (predicate) {
-                    .nan => isNanValue(@TypeOf(value), value),
-                    .inf => isInfValue(@TypeOf(value), value),
-                    .non_finite => !isFiniteValue(@TypeOf(value), value),
-                }) return true;
+                if (valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate)) return true;
             }
             return false;
         },
@@ -701,7 +697,17 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
-const SpecialFloatPredicate = enum { nan, inf, non_finite };
+const SpecialFloatPredicate = enum { nan, inf, positive_inf, negative_inf, non_finite };
+
+fn specialFloatPredicateMatches(comptime T: type, value: T, comptime predicate: SpecialFloatPredicate) bool {
+    return switch (predicate) {
+        .nan => isNanValue(T, value),
+        .inf => isInfValue(T, value),
+        .positive_inf => isPositiveInfValue(T, value),
+        .negative_inf => isNegativeInfValue(T, value),
+        .non_finite => !isFiniteValue(T, value),
+    };
+}
 
 fn fillSpecialFloatsTyped(
     comptime T: type,
@@ -718,11 +724,7 @@ fn fillSpecialFloatsTyped(
 
     for (values, 0..) |*slot, row| {
         const valid = if (maybe_validity) |validity| validity[row] else true;
-        if (valid and switch (predicate) {
-            .nan => isNanValue(T, slot.*),
-            .inf => isInfValue(T, slot.*),
-            .non_finite => !isFiniteValue(T, slot.*),
-        }) slot.* = replacement;
+        if (valid and specialFloatPredicateMatches(T, slot.*, predicate)) slot.* = replacement;
     }
 
     if (maybe_validity) |validity| {
@@ -771,6 +773,24 @@ pub fn fillInfColumn(
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .inf);
+}
+
+pub fn fillPositiveInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .positive_inf);
+}
+
+pub fn fillNegativeInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillSpecialFloatColumn(DeviceDataFrame, input, name, scalar, .negative_inf);
 }
 
 pub fn fillNonFiniteColumn(
@@ -1550,11 +1570,7 @@ fn dropSpecialFloats(
                 defer if (maybe_validity) |validity| input.allocator.free(validity);
                 for (keep, host_values, 0..) |*slot, value, row| {
                     const valid = if (maybe_validity) |validity| validity[row] else true;
-                    if (valid and switch (predicate) {
-                        .nan => isNanValue(@TypeOf(value), value),
-                        .inf => isInfValue(@TypeOf(value), value),
-                        .non_finite => !isFiniteValue(@TypeOf(value), value),
-                    }) slot.* = false;
+                    if (valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate)) slot.* = false;
                 }
             },
         }
@@ -1605,11 +1621,7 @@ fn filterSpecialFloatsColumn(
             defer if (maybe_validity) |validity| input.allocator.free(validity);
             for (keep, host_values, 0..) |*slot, value, row| {
                 const valid = if (maybe_validity) |validity| validity[row] else true;
-                slot.* = valid and switch (predicate) {
-                    .nan => isNanValue(@TypeOf(value), value),
-                    .inf => isInfValue(@TypeOf(value), value),
-                    .non_finite => !isFiniteValue(@TypeOf(value), value),
-                };
+                slot.* = valid and specialFloatPredicateMatches(@TypeOf(value), value, predicate);
             }
         },
     }
