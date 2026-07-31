@@ -1393,6 +1393,22 @@ pub fn ptp(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     };
 }
 
+pub fn argmin(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| try typed.argmin(),
+    };
+}
+
+pub fn argmax(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| try typed.argmax(),
+    };
+}
+
 pub fn any(self: anytype) array_mod.ArrayError!bool {
     const value = columnValue(self);
     return switch (value) {

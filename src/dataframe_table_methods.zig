@@ -1455,6 +1455,14 @@ pub fn ptpColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.ptpColumn(frameValue(self), name);
 }
 
+pub fn argminColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.argminColumn(frameValue(self), name);
+}
+
+pub fn argmaxColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.argmaxColumn(frameValue(self), name);
+}
+
 pub fn anyColumn(self: anytype, name: []const u8) DeviceDataError!bool {
     return expr_mod.anyColumn(frameValue(self), name);
 }

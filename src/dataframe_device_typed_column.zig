@@ -1507,6 +1507,46 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return subValue(high, low);
         }
 
+        fn argExtreme(self: Self, comptime want_max: bool) array_mod.ArrayError!usize {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var found = false;
+            var best = zeroValue(T);
+            var best_row: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                if (!found) {
+                    best = value;
+                    best_row = row;
+                    found = true;
+                    continue;
+                }
+                // Use strict comparisons so ties keep the first physical row,
+                // matching stable argmin/argmax expectations while still
+                // returning source-table row positions after nulls are skipped.
+                const better = if (want_max) lessValue(best, value) else lessValue(value, best);
+                if (better) {
+                    best = value;
+                    best_row = row;
+                }
+            }
+            if (!found) return error.EmptyArray;
+            return best_row;
+        }
+
+        pub fn argmin(self: Self) array_mod.ArrayError!usize {
+            return self.argExtreme(false);
+        }
+
+        pub fn argmax(self: Self) array_mod.ArrayError!usize {
+            return self.argExtreme(true);
+        }
+
         pub fn countNonzero(self: Self) array_mod.ArrayError!usize {
             const values = try self.values.toOwnedSlice(self.values.allocator);
             defer self.values.allocator.free(values);

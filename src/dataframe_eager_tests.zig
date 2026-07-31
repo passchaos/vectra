@@ -2608,6 +2608,16 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.ptpColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.ptpColumn("metric"));
     try std.testing.expectError(error.ColumnNotFound, table.ptpColumn("missing"));
+    try std.testing.expectEqual(@as(usize, 0), try table.argminColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 2), try table.argmaxColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 0), try table.argminColumn("units"));
+    try std.testing.expectEqual(@as(usize, 2), try table.argmaxColumn("units"));
+    try std.testing.expectEqual(@as(usize, 0), try nullable_sales_table.argminColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 2), try nullable_sales_table.argmaxColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.argminColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.argmaxColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.argminColumn("missing"));
+    try std.testing.expectError(error.ColumnNotFound, table.argmaxColumn("missing"));
 
     var cost_delta = try table.withColumnAbs("cost_abs", "cost");
     defer cost_delta.deinit();
@@ -2626,6 +2636,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.ptpColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.argminColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.argmaxColumn("active"));
     try std.testing.expect(try rounding_type_table.anyColumn("active"));
     try std.testing.expect(!try rounding_type_table.allColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));
