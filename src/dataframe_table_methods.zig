@@ -1439,6 +1439,14 @@ pub fn infCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.infCountColumn(frameValue(self), name);
 }
 
+pub fn positiveInfCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.positiveInfCountColumn(frameValue(self), name);
+}
+
+pub fn negativeInfCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.negativeInfCountColumn(frameValue(self), name);
+}
+
 pub fn finiteCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.finiteCountColumn(frameValue(self), name);
 }
@@ -1453,6 +1461,14 @@ pub fn nanRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceSca
 
 pub fn infRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.infRatioColumn(frameValue(self), name);
+}
+
+pub fn positiveInfRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.positiveInfRatioColumn(frameValue(self), name);
+}
+
+pub fn negativeInfRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.negativeInfRatioColumn(frameValue(self), name);
 }
 
 pub fn finiteRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {

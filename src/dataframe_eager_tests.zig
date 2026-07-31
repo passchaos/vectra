@@ -2584,6 +2584,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer anomaly_metric.deinit();
     var anomaly_metric_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = anomaly_metric }});
     defer anomaly_metric_table.deinit();
+    var signed_inf_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ std.math.inf(f64), -std.math.inf(f64), 1.0 }, .cpu);
+    defer signed_inf_metric.deinit();
+    var signed_inf_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "metric", .data = signed_inf_metric }});
+    defer signed_inf_table.deinit();
     var nan_close_table = try nan_close_source.withColumnIscloseScalarEqualNan("metric_nan_close", "metric", f64, std.math.nan(f64), 0.0, 0.0, true);
     defer nan_close_table.deinit();
     const nan_close = try (try nan_close_table.column("metric_nan_close")).bool.toOwnedSlice(gpa);
@@ -2608,11 +2612,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 1), try nan_close_source.nanCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.nanCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.infCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.positiveInfCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 0), try anomaly_metric_table.negativeInfCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 1), try anomaly_metric_table.finiteCountColumn("metric"));
     try std.testing.expectEqual(@as(usize, 2), try anomaly_metric_table.nonFiniteCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try signed_inf_table.positiveInfCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 1), try signed_inf_table.negativeInfCountColumn("metric"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.finiteRatioColumn("units"));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.nanRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.infRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try signed_inf_table.positiveInfRatioColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try signed_inf_table.negativeInfRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), (try anomaly_metric_table.finiteRatioColumn("metric")).f64, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try anomaly_metric_table.nonFiniteRatioColumn("metric")).f64, 1e-12);
     try std.testing.expect(std.math.isNan((try all_null_metric_table.nanRatioColumn("metric")).f64));

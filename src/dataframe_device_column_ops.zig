@@ -1356,6 +1356,20 @@ pub fn countInf(self: anytype) array_mod.ArrayError!usize {
     };
 }
 
+pub fn countPositiveInf(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countPositiveInf(),
+    };
+}
+
+pub fn countNegativeInf(self: anytype) array_mod.ArrayError!usize {
+    const value = columnValue(self);
+    return switch (value) {
+        inline else => |typed| try typed.countNegativeInf(),
+    };
+}
+
 pub fn countFinite(self: anytype) array_mod.ArrayError!usize {
     const value = columnValue(self);
     return switch (value) {

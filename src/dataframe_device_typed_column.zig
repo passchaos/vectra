@@ -1382,6 +1382,24 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             };
         }
 
+        fn isPositiveInfValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isPositiveInf(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isPositiveInf(value.re) or std.math.isPositiveInf(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isPositiveInf(value),
+                else => false,
+            };
+        }
+
+        fn isNegativeInfValue(value: T) bool {
+            if (comptime T == array_mod.BFloat16) return std.math.isNegativeInf(value.toF32());
+            if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isNegativeInf(value.re) or std.math.isNegativeInf(value.im);
+            return switch (@typeInfo(T)) {
+                .float => std.math.isNegativeInf(value),
+                else => false,
+            };
+        }
+
         fn isFiniteValue(value: T) bool {
             if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
             if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
@@ -1704,6 +1722,14 @@ pub fn DeviceTypedColumn(comptime T: type) type {
 
         pub fn countInf(self: Self) array_mod.ArrayError!usize {
             return self.countMatching(isInfValue);
+        }
+
+        pub fn countPositiveInf(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isPositiveInfValue);
+        }
+
+        pub fn countNegativeInf(self: Self) array_mod.ArrayError!usize {
+            return self.countMatching(isNegativeInfValue);
         }
 
         pub fn countFinite(self: Self) array_mod.ArrayError!usize {

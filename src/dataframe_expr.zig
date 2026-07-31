@@ -768,6 +768,16 @@ pub fn infCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     return col.countInf();
 }
 
+pub fn positiveInfCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countPositiveInf();
+}
+
+pub fn negativeInfCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.countNegativeInf();
+}
+
 pub fn finiteCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countFinite();
@@ -791,6 +801,16 @@ pub fn nanRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceSc
 pub fn infRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return ratioFromValidCount(try col.countInf(), col.validCount());
+}
+
+pub fn positiveInfRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countPositiveInf(), col.validCount());
+}
+
+pub fn negativeInfRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return ratioFromValidCount(try col.countNegativeInf(), col.validCount());
 }
 
 pub fn finiteRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
