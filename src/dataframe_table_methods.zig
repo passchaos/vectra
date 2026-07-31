@@ -275,6 +275,66 @@ pub fn withColumnPowWithDeviceScalar(self: anytype, output_name: []const u8, inp
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn unaryColumnFloorDivScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnFloorDivScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnFloorDivWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnFloorDivWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnFloorDivScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnFloorDivScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnFloorDivWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnFloorDivWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnModScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnModScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnModWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnModWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnModScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnModScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnModWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnModWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn unaryColumnRemainderScalar(self: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnRemainderScalar(frameValue(self), name, T, scalar);
+}
+
+pub fn unaryColumnRemainderWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.unaryColumnRemainderWithDeviceScalar(frameValue(self), name, scalar);
+}
+
+pub fn withColumnRemainderScalar(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnRemainderScalar(self, input_name, T, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnRemainderWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try unaryColumnRemainderWithDeviceScalar(self, input_name, scalar);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn unaryColumnThreshold(
     self: anytype,
     name: []const u8,

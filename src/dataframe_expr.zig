@@ -134,6 +134,36 @@ pub fn unaryColumnPowWithDeviceScalar(frame: anytype, name: []const u8, exponent
     return col.powWithDeviceScalar(exponent);
 }
 
+pub fn unaryColumnFloorDivScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.floorDivScalar(T, scalar);
+}
+
+pub fn unaryColumnFloorDivWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.floorDivWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnModScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.modScalar(T, scalar);
+}
+
+pub fn unaryColumnModWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.modWithDeviceScalar(scalar);
+}
+
+pub fn unaryColumnRemainderScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.remainderScalar(T, scalar);
+}
+
+pub fn unaryColumnRemainderWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.remainderWithDeviceScalar(scalar);
+}
+
 pub fn unaryColumnThreshold(frame: anytype, name: []const u8, comptime T: type, threshold_value: T, replacement_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.threshold(T, threshold_value, replacement_value);

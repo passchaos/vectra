@@ -949,6 +949,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnPowWithDeviceScalar(self, name, input_name, exponent);
             }
 
+            pub fn withColumnFloorDivScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFloorDivScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnFloorDivWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFloorDivWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnModScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnModScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnModWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnModWithDeviceScalar(self, name, input_name, scalar);
+            }
+
+            pub fn withColumnRemainderScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnRemainderScalar(self, name, input_name, T, scalar);
+            }
+
+            pub fn withColumnRemainderWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnRemainderWithDeviceScalar(self, name, input_name, scalar);
+            }
+
             pub fn withColumnThreshold(
                 self: *DeviceLazyFrame,
                 name: []const u8,

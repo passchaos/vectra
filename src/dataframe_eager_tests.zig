@@ -2562,6 +2562,39 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 4, 9 }, units_pow);
     try std.testing.expectError(error.TypeUnsupported, table.withColumnPowWithDeviceScalar("bad_fractional_pow", "units", .{ .f64 = 2.5 }));
 
+    var floor_div_units_table = try signed_units_table.withColumnFloorDivWithDeviceScalar("signed_units_floor_div", "signed_units", .{ .f64 = 2.0 });
+    defer floor_div_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try floor_div_units_table.columnDType("signed_units_floor_div"));
+    const signed_units_floor_div = try (try floor_div_units_table.column("signed_units_floor_div")).i64.toOwnedSlice(gpa);
+    defer gpa.free(signed_units_floor_div);
+    try std.testing.expectEqualSlices(i64, &.{ -1, 1, -2 }, signed_units_floor_div);
+    try std.testing.expectError(error.TypeUnsupported, signed_units_table.withColumnFloorDivWithDeviceScalar("bad_fractional_floor_div", "signed_units", .{ .f64 = 2.5 }));
+
+    var mod_units_table = try signed_units_table.withColumnModScalar("signed_units_mod", "signed_units", i64, 3);
+    defer mod_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try mod_units_table.columnDType("signed_units_mod"));
+    const signed_units_mod = try (try mod_units_table.column("signed_units_mod")).i64.toOwnedSlice(gpa);
+    defer gpa.free(signed_units_mod);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 2 }, signed_units_mod);
+
+    var remainder_units_table = try signed_units_table.withColumnRemainderScalar("signed_units_remainder", "signed_units", i64, 3);
+    defer remainder_units_table.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try remainder_units_table.columnDType("signed_units_remainder"));
+    const signed_units_remainder = try (try remainder_units_table.column("signed_units_remainder")).i64.toOwnedSlice(gpa);
+    defer gpa.free(signed_units_remainder);
+    try std.testing.expectEqualSlices(i64, signed_units_mod, signed_units_remainder);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnModScalar("bad_mod", "active", i64, 3));
+    try std.testing.expectError(error.ColumnNotFound, signed_units_table.withColumnRemainderScalar("missing_remainder", "missing", i64, 3));
+
+    var ratio_mod_table = try inverse_trig_table.withColumnModScalar("ratio_mod", "ratio", f64, 0.4);
+    defer ratio_mod_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try ratio_mod_table.columnDType("ratio_mod"));
+    const ratio_mod = try (try ratio_mod_table.column("ratio_mod")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_mod);
+    try std.testing.expectApproxEqAbs(@mod(@as(f64, -0.5), @as(f64, 0.4)), ratio_mod[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ratio_mod[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@mod(@as(f64, 0.5), @as(f64, 0.4)), ratio_mod[2], 1e-12);
+
     var threshold_ratio_table = try inverse_trig_table.withColumnThreshold("ratio_threshold", "ratio", f64, -0.25, 1.0);
     defer threshold_ratio_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try threshold_ratio_table.columnDType("ratio_threshold"));

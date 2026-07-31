@@ -260,6 +260,46 @@ pub fn powWithDeviceScalar(self: anytype, exponent: options_mod.DeviceScalar) ar
     };
 }
 
+pub fn floorDivScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.floorDivScalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn floorDivWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.floorDivScalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn modScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.modScalar(try castNumericScalar(T, @TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn modWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed, tag| @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try typed.modScalar(try castDeviceScalar(@TypeOf(typed).Scalar, scalar))),
+    };
+}
+
+pub fn remainderScalar(self: anytype, comptime T: type, scalar: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return modScalar(self, T, scalar);
+}
+
+pub fn remainderWithDeviceScalar(self: anytype, scalar: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return modWithDeviceScalar(self, scalar);
+}
+
 pub fn threshold(self: anytype, comptime T: type, threshold_value: T, replacement_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     return switch (value) {

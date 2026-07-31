@@ -36,6 +36,9 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnLeakyRelu("sales_neg_leaky_relu", "sales_neg", f64, 0.1);
     try plan.withColumnRelu6("sales_relu6", "sales");
     try plan.withColumnPowScalar("sales_pow2", "sales", f64, 2.0);
+    try plan.withColumnFloorDivScalar("sales_floor_div2", "sales", f64, 2.0);
+    try plan.withColumnModScalar("sales_mod2", "sales", f64, 2.0);
+    try plan.withColumnRemainderScalar("sales_remainder2", "sales", f64, 2.0);
     try plan.withColumnThreshold("sales_neg_threshold", "sales_neg", f64, -6.0, 0.0);
     try plan.withColumnHardtanh("sales_neg_hardtanh", "sales_neg", f64, -6.0, -1.0);
     try plan.withColumnMaximumScalar("sales_neg_max", "sales_neg", f64, -6.0);
@@ -79,15 +82,15 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnCompareScalar("big_sale", "sales_x2", f64, 10.0, .gt);
     try plan.filterColumnScalar("sales", f64, 2.5, .gt);
     try plan.sortBy("sales", .{ .descending = true });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
-    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale", "active" });
+    try plan.select(&.{ "sales", "units", "sales_x2", "sales_abs", "sales_neg", "sales_neg_sign", "sales_square", "sales_recip", "sales_sqrt", "sales_rsqrt", "sales_cbrt", "sales_recip_floor", "sales_recip_ceil", "sales_recip_round", "sales_recip_trunc", "sales_deg2rad", "sales_roundtrip_deg", "sales_recip_expit", "sales_recip_logit", "sales_recip_softplus", "sales_recip_logsigmoid", "sales_neg_relu", "sales_neg_leaky_relu", "sales_relu6", "sales_pow2", "sales_floor_div2", "sales_mod2", "sales_remainder2", "sales_neg_threshold", "sales_neg_hardtanh", "sales_neg_max", "sales_neg_min", "sales_neg_clip_min", "sales_neg_clip_max", "sales_neg_hardshrink", "sales_neg_softshrink", "sales_neg_tanhshrink", "sales_neg_elu", "sales_neg_celu", "sales_neg_softsign", "sales_neg_hardsigmoid", "sales_neg_hardswish", "sales_neg_silu", "sales_neg_swish", "sales_neg_mish", "sales_neg_gelu", "sales_neg_selu", "sales_exp", "sales_exp2", "sales_expm1", "sales_sin", "sales_cos", "sales_tan", "sales_recip_asin", "sales_recip_acos", "sales_recip_atan", "sales_sinh", "sales_cosh", "sales_tanh", "sales_asinh", "sales_acosh", "sales_recip_atanh", "sales_log", "sales_log1p", "sales_lgamma", "sales_sinc", "sales_log2", "sales_log10", "big_sale" });
     try plan.head(3);
     try plan.head(2);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=70") != null);
-    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=68") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "raw_ops=73") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "optimized_ops=71") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_scalar(sales_x2") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_abs(sales_abs=abs(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_neg(sales_neg=neg(sales))") != null);
@@ -111,6 +114,9 @@ test "device lazy frame collects plan operations" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_leaky_relu(sales_neg_leaky_relu=leaky_relu(sales_neg, scalar:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_relu6(sales_relu6=relu6(sales))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_pow_scalar(sales_pow2=pow(sales, scalar:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_floor_div_scalar(sales_floor_div2=floor_div(sales, scalar:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_mod_scalar(sales_mod2=mod(sales, scalar:f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_remainder_scalar(sales_remainder2=remainder(sales, scalar:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_threshold(sales_neg_threshold=threshold(sales_neg, threshold:f64, replacement:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_hardtanh(sales_neg_hardtanh=hardtanh(sales_neg, min:f64, max:f64))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_maximum_scalar(sales_neg_max=maximum(sales_neg, scalar:f64))") != null);
@@ -157,7 +163,7 @@ test "device lazy frame collects plan operations" {
     var result = try plan.collect();
     defer result.deinit();
     try std.testing.expectEqual(@as(usize, 2), result.height());
-    try std.testing.expectEqual(@as(usize, 66), result.width());
+    try std.testing.expectEqual(@as(usize, 69), result.width());
     const result_sales = try (try result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales);
     const result_units = try (try result.column("units")).i64.toOwnedSlice(gpa);
@@ -208,6 +214,12 @@ test "device lazy frame collects plan operations" {
     defer gpa.free(result_sales_relu6);
     const result_sales_pow2 = try (try result.column("sales_pow2")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_pow2);
+    const result_sales_floor_div2 = try (try result.column("sales_floor_div2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_floor_div2);
+    const result_sales_mod2 = try (try result.column("sales_mod2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_mod2);
+    const result_sales_remainder2 = try (try result.column("sales_remainder2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(result_sales_remainder2);
     const result_sales_neg_threshold = try (try result.column("sales_neg_threshold")).f64.toOwnedSlice(gpa);
     defer gpa.free(result_sales_neg_threshold);
     const result_sales_neg_hardtanh = try (try result.column("sales_neg_hardtanh")).f64.toOwnedSlice(gpa);
@@ -326,6 +338,9 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectApproxEqAbs(@as(f64, -0.5), result_sales_neg_leaky_relu[1], 1e-12);
     try std.testing.expectEqualSlices(f64, &.{ 6.0, 5.0 }, result_sales_relu6);
     try std.testing.expectEqualSlices(f64, &.{ 49.0, 25.0 }, result_sales_pow2);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0 }, result_sales_floor_div2);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0 }, result_sales_mod2);
+    try std.testing.expectEqualSlices(f64, result_sales_mod2, result_sales_remainder2);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, -5.0 }, result_sales_neg_threshold);
     try std.testing.expectEqualSlices(f64, &.{ -6.0, -5.0 }, result_sales_neg_hardtanh);
     try std.testing.expectEqualSlices(f64, &.{ -6.0, -5.0 }, result_sales_neg_max);
