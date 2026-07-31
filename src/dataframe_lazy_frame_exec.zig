@@ -679,6 +679,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_last_null_index => |row_count| try current.withRowLastNullIndex(row_count.names, row_count.output_name),
             .row_pair_count => |row_paired| try current.withRowPairCount(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_weighted_mean => |row_weighted| try current.withRowWeightedMean(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_variance => |row_weighted| try current.withRowWeightedVariance(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.correction),
+            .row_weighted_stddev => |row_weighted| try current.withRowWeightedStddev(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.correction),
             .row_dot => |row_paired| try current.withRowDot(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_cosine_similarity => |row_paired| try current.withRowCosineSimilarity(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_squared_euclidean_distance => |row_paired| try current.withRowSquaredEuclideanDistance(row_paired.value_names, row_paired.weight_names, row_paired.output_name),

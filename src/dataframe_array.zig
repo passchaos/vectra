@@ -1977,6 +1977,137 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+const RowWeightedDispersion = enum { variance, stddev };
+
+fn withRowWeightedDispersion(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: RowWeightedDispersion,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+    if (value_names.len == 0 or value_names.len != weight_names.len) return error.LengthMismatch;
+
+    const weighted_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weighted_sums);
+    const weighted_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weighted_square_sums);
+    const weight_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weight_sums);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(weighted_sums, 0.0);
+    @memset(weighted_square_sums, 0.0);
+    @memset(weight_sums, 0.0);
+    @memset(validity, false);
+
+    for (value_names, weight_names) |value_name, weight_name| {
+        const value_source = try input.column(value_name);
+        const weight_source = try input.column(weight_name);
+        if (!value_source.dtype().isReal() or !weight_source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (value_source.*) {
+            inline else => |value_typed| {
+                const value_values = try value_typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(value_values);
+                const maybe_value_validity = try validityValues(value_typed, input.allocator);
+                defer if (maybe_value_validity) |mask| input.allocator.free(mask);
+
+                switch (weight_source.*) {
+                    inline else => |weight_typed| {
+                        const weight_values = try weight_typed.toOwnedSlice(input.allocator);
+                        defer input.allocator.free(weight_values);
+                        const maybe_weight_validity = try validityValues(weight_typed, input.allocator);
+                        defer if (maybe_weight_validity) |mask| input.allocator.free(mask);
+
+                        for (value_values, weight_values, 0..) |raw_value, raw_weight, row| {
+                            const value_valid = if (maybe_value_validity) |mask| mask[row] else true;
+                            const weight_valid = if (maybe_weight_validity) |mask| mask[row] else true;
+                            if (!value_valid or !weight_valid) continue;
+                            const weight = realValueAsF64(@TypeOf(raw_weight), raw_weight);
+                            if (weight < 0.0) return error.InvalidShape;
+                            const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                            weighted_sums[row] += value * weight;
+                            weighted_square_sums[row] += value * value * weight;
+                            weight_sums[row] += weight;
+                        }
+                    },
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    for (values, validity, weighted_sums, weighted_square_sums, weight_sums) |*value, *valid, weighted_sum, weighted_square_sum, weight_sum| {
+        valid.* = weight_sum > 0.0;
+        if (!valid.*) {
+            value.* = 0.0;
+            continue;
+        }
+        const denominator = weight_sum - correction;
+        var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
+        if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
+        const variance = if (denominator <= 0.0) quietNanF64() else centered_square_sum / denominator;
+        value.* = switch (reduction) {
+            .variance => variance,
+            .stddev => std.math.sqrt(variance),
+        };
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedVariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_name, correction, .variance);
+}
+
+pub fn withRowWeightedVar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedVariance(DeviceDataFrame, input, value_names, weight_names, output_name, correction);
+}
+
+pub fn withRowWeightedStddev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_name, correction, .stddev);
+}
+
+pub fn withRowWeightedStd(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedStddev(DeviceDataFrame, input, value_names, weight_names, output_name, correction);
+}
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

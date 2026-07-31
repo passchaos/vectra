@@ -1742,6 +1742,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedVariance(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedVariance(self, value_names, weight_names, output_name, correction);
+            }
+
+            pub fn withRowWeightedVar(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedVar(self, value_names, weight_names, output_name, correction);
+            }
+
+            pub fn withRowWeightedStddev(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedStddev(self, value_names, weight_names, output_name, correction);
+            }
+
+            pub fn withRowWeightedStd(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedStd(self, value_names, weight_names, output_name, correction);
+            }
+
             pub fn withRowDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowDot(self, lhs_names, rhs_names, output_name);
             }

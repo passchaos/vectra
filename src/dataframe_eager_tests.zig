@@ -499,6 +499,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
 
+    var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
+    defer row_weighted_variance_table.deinit();
+    const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");
+    try std.testing.expect(row_weighted_variance_column.f64.nullable());
+    const row_weighted_variance = try row_weighted_variance_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_variance);
+    const row_weighted_variance_validity = try row_weighted_variance_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_variance_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_variance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 207.36), row_weighted_variance[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_variance_validity);
+
+    var row_weighted_stddev_table = try validity_table.withRowWeightedStddev(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_stddev", 0.0);
+    defer row_weighted_stddev_table.deinit();
+    const row_weighted_stddev_column = try row_weighted_stddev_table.column("row_weighted_stddev");
+    try std.testing.expect(row_weighted_stddev_column.f64.nullable());
+    const row_weighted_stddev = try row_weighted_stddev_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_stddev);
+    const row_weighted_stddev_validity = try row_weighted_stddev_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_stddev_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_stddev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_stddev[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_stddev[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 207.36)), row_weighted_stddev[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_stddev_validity);
+
     var row_dot_table = try validity_table.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     defer row_dot_table.deinit();
     const row_dot_column = try row_dot_table.column("row_dot");
@@ -674,6 +702,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_beta_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPairCount(&.{"a"}, &.{ "wa", "wb" }, "bad_row_pair_count"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedVariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_variance", 0.0));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCovariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_covariance"));
 

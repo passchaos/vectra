@@ -572,6 +572,11 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_weighted.weight_names);
             allocator.free(row_weighted.output_name);
         },
+        .row_weighted_variance, .row_weighted_stddev => |row_weighted| {
+            freeNameList(allocator, row_weighted.value_names);
+            freeNameList(allocator, row_weighted.weight_names);
+            allocator.free(row_weighted.output_name);
+        },
         .with_column_compare => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.lhs_name);

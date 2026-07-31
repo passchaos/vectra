@@ -2559,6 +2559,58 @@ pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weig
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
 }
 
+fn withRowWeightedDispersion(
+    frame: anytype,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime reduction: enum { variance, stddev },
+) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer {
+        for (owned_values) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_values);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .variance => try frame.ops.append(frame.allocator, .{ .row_weighted_variance = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .stddev => try frame.ops.append(frame.allocator, .{ .row_weighted_stddev = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+    }
+}
+
+pub fn withRowWeightedVariance(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedDispersion(frame, value_names, weight_names, output_name, correction, .variance);
+}
+
+pub fn withRowWeightedVar(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedVariance(frame, value_names, weight_names, output_name, correction);
+}
+
+pub fn withRowWeightedStddev(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedDispersion(frame, value_names, weight_names, output_name, correction, .stddev);
+}
+
+pub fn withRowWeightedStd(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedStddev(frame, value_names, weight_names, output_name, correction);
+}
+
 fn withRowPairedNumeric(
     frame: anytype,
     lhs_names: []const []const u8,
