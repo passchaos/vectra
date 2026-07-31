@@ -1439,6 +1439,22 @@ pub fn nUniqueColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.nUniqueColumn(frameValue(self), name);
 }
 
+pub fn nullCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.nullCountColumn(frameValue(self), name);
+}
+
+pub fn validCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
+    return expr_mod.validCountColumn(frameValue(self), name);
+}
+
+pub fn nullRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.nullRatioColumn(frameValue(self), name);
+}
+
+pub fn validRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.validRatioColumn(frameValue(self), name);
+}
+
 pub fn modeColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.modeColumn(frameValue(self), name);
 }

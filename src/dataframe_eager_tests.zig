@@ -2596,6 +2596,18 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(usize, 3), try table.countNonzeroColumn("sales"));
     try std.testing.expectEqual(@as(usize, 2), try table.countNonzeroColumn("units"));
     try std.testing.expectError(error.ColumnNotFound, table.countNonzeroColumn("missing"));
+    try std.testing.expectEqual(@as(usize, 0), try table.nullCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 3), try table.validCountColumn("sales"));
+    try std.testing.expectEqual(@as(usize, 1), try table.nullCountColumn("units"));
+    try std.testing.expectEqual(@as(usize, 2), try table.validCountColumn("units"));
+    const units_null_ratio = try table.nullRatioColumn("units");
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), units_null_ratio.f64, 1e-12);
+    const units_valid_ratio = try table.validRatioColumn("units");
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), units_valid_ratio.f64, 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), try nullable_sales_table.nullCountColumn("metric"));
+    try std.testing.expectEqual(@as(usize, 2), try nullable_sales_table.validCountColumn("metric"));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try all_null_metric_table.nullRatioColumn("metric"));
+    try std.testing.expectError(error.ColumnNotFound, table.nullCountColumn("missing"));
     try std.testing.expectEqual(@as(usize, 3), try table.nUniqueColumn("sales"));
     try std.testing.expectEqual(@as(usize, 2), try table.nUniqueColumn("units"));
     try std.testing.expectEqual(@as(usize, 2), try nullable_sales_table.nUniqueColumn("metric"));

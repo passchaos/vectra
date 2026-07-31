@@ -88,6 +88,22 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn validCount(self: DeviceColumn) usize {
+        return self.len() - self.nullCount();
+    }
+
+    pub fn nullRatio(self: DeviceColumn) f64 {
+        const rows = self.len();
+        if (rows == 0) return std.math.nan(f64);
+        return @as(f64, @floatFromInt(self.nullCount())) / @as(f64, @floatFromInt(rows));
+    }
+
+    pub fn validRatio(self: DeviceColumn) f64 {
+        const rows = self.len();
+        if (rows == 0) return std.math.nan(f64);
+        return @as(f64, @floatFromInt(self.validCount())) / @as(f64, @floatFromInt(rows));
+    }
+
     pub fn dataNbytes(self: DeviceColumn) usize {
         return switch (self) {
             inline else => |typed| typed.dataNbytes(),

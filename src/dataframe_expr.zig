@@ -768,6 +768,26 @@ pub fn nUniqueColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     return col.nUnique();
 }
 
+pub fn nullCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.nullCount();
+}
+
+pub fn validCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
+    const col = try frame.column(name);
+    return col.validCount();
+}
+
+pub fn nullRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return .{ .f64 = col.nullRatio() };
+}
+
+pub fn validRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return .{ .f64 = col.validRatio() };
+}
+
 pub fn modeColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.mode();
