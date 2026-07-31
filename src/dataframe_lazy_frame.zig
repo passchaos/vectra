@@ -1906,6 +1906,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowGiniImpurity(self, names, output_name);
             }
 
+            pub fn withRowPerplexity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPerplexity(self, names, output_name);
+            }
+
+            pub fn withRowInverseSimpson(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowInverseSimpson(self, names, output_name);
+            }
+
             pub fn withRowModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowModeCount(self, names, output_name);
             }

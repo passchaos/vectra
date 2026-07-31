@@ -3101,6 +3101,34 @@ pub fn withRowGiniImpurity(frame: anytype, names: []const []const u8, output_nam
     } });
 }
 
+pub fn withRowPerplexity(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_perplexity = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
+pub fn withRowInverseSimpson(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_inverse_simpson = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn withRowModeCount(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

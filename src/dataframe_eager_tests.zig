@@ -513,6 +513,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 9.0), row_gini[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_gini_validity);
 
+    var row_perplexity_table = try validity_table.withRowPerplexity(&.{ "a", "b", "wa" }, "row_perplexity");
+    defer row_perplexity_table.deinit();
+    const row_perplexity_column = try row_perplexity_table.column("row_perplexity");
+    try std.testing.expect(row_perplexity_column.f64.nullable());
+    const row_perplexity = try row_perplexity_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_perplexity);
+    const row_perplexity_validity = try row_perplexity_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_perplexity_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_perplexity[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), row_perplexity[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_perplexity[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0)))), row_perplexity[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_perplexity_validity);
+
+    var row_inverse_simpson_table = try validity_table.withRowInverseSimpson(&.{ "a", "b", "wa" }, "row_inverse_simpson");
+    defer row_inverse_simpson_table.deinit();
+    const row_inverse_simpson_column = try row_inverse_simpson_table.column("row_inverse_simpson");
+    try std.testing.expect(row_inverse_simpson_column.f64.nullable());
+    const row_inverse_simpson = try row_inverse_simpson_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_inverse_simpson);
+    const row_inverse_simpson_validity = try row_inverse_simpson_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_inverse_simpson_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_inverse_simpson[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), row_inverse_simpson[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_inverse_simpson[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.8), row_inverse_simpson[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_inverse_simpson_validity);
+
     var row_mode_count_table = try validity_table.withRowModeCount(&.{ "a", "b", "wa" }, "row_mode_count");
     defer row_mode_count_table.deinit();
     const row_mode_count_column = try row_mode_count_table.column("row_mode_count");

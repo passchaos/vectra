@@ -2795,6 +2795,14 @@ pub fn withRowGiniImpurity(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowPerplexity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPerplexity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowInverseSimpson(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowModeCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowModeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

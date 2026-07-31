@@ -3521,7 +3521,7 @@ fn rowModeValueEqual(lhs: f64, rhs: f64) bool {
     return (std.math.isNan(lhs) and std.math.isNan(rhs)) or lhs == rhs;
 }
 
-const RowDistributionReduction = enum { entropy, gini_impurity };
+const RowDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson };
 
 fn withRowDistributionReduction(
     comptime DeviceDataFrame: type,
@@ -3609,6 +3609,8 @@ fn withRowDistributionReduction(
         values[row] = switch (reduction) {
             .entropy => entropy,
             .gini_impurity => 1.0 - sum_prob_sq,
+            .perplexity => std.math.exp(entropy),
+            .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
         };
         validity[row] = true;
     }
@@ -3635,6 +3637,24 @@ pub fn withRowGiniImpurity(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .gini_impurity);
+}
+
+pub fn withRowPerplexity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .perplexity);
+}
+
+pub fn withRowInverseSimpson(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowDistributionReduction(DeviceDataFrame, input, names, output_name, .inverse_simpson);
 }
 
 const RowModeFrequency = enum { count, ratio };
