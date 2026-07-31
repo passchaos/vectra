@@ -1399,6 +1399,22 @@ pub fn median(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     return quantile(self, 0.5);
 }
 
+pub fn variance(self: anytype, correction: f64) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.variance(correction) },
+    };
+}
+
+pub fn stddev(self: anytype, correction: f64) array_mod.ArrayError!options_mod.DeviceScalar {
+    const value = columnValue(self);
+    return switch (value) {
+        .bool, .c64, .c128 => error.TypeUnsupported,
+        inline else => |typed| .{ .f64 = try typed.stddev(correction) },
+    };
+}
+
 pub fn min(self: anytype) array_mod.ArrayError!options_mod.DeviceScalar {
     const value = columnValue(self);
     return switch (value) {

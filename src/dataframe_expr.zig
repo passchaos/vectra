@@ -798,6 +798,16 @@ pub fn medianColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScal
     return col.median();
 }
 
+pub fn varianceColumn(frame: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.variance(correction);
+}
+
+pub fn stddevColumn(frame: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.stddev(correction);
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

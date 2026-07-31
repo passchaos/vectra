@@ -1463,6 +1463,22 @@ pub fn medianColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScala
     return expr_mod.medianColumn(frameValue(self), name);
 }
 
+pub fn varianceColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return expr_mod.varianceColumn(frameValue(self), name, correction);
+}
+
+pub fn varColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return varianceColumn(self, name, correction);
+}
+
+pub fn stddevColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return expr_mod.stddevColumn(frameValue(self), name, correction);
+}
+
+pub fn stdColumn(self: anytype, name: []const u8, correction: f64) DeviceDataError!DeviceScalar {
+    return stddevColumn(self, name, correction);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }

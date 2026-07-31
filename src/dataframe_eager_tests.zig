@@ -2627,6 +2627,17 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.medianColumn("metric"));
     try std.testing.expectError(error.InvalidShape, table.quantileColumn("sales", 1.5));
     try std.testing.expectError(error.ColumnNotFound, table.medianColumn("missing"));
+    const sales_variance = try table.varianceColumn("sales", 0.0);
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), sales_variance.f64, 1e-12);
+    const sales_stddev = try table.stddevColumn("sales", 0.0);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 14.0 / 9.0)), sales_stddev.f64, 1e-12);
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.varColumn("units", 0.0));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try table.stdColumn("units", 0.0));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.0 }, try nullable_sales_table.varianceColumn("metric", 0.0));
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try nullable_sales_table.varianceColumn("metric", 1.0));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.varianceColumn("metric", 0.0));
+    try std.testing.expectError(error.InvalidShape, table.varianceColumn("sales", -1.0));
+    try std.testing.expectError(error.ColumnNotFound, table.stddevColumn("missing", 0.0));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 2.0 }, try table.minColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 5.0 }, try table.maxColumn("sales"));
     try std.testing.expectEqual(DeviceScalar{ .i64 = 1 }, try table.minColumn("units"));
@@ -2666,6 +2677,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.prodColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.medianColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.quantileColumn("active", 0.5));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.varianceColumn("active", 0.0));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.stddevColumn("active", 0.0));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.ptpColumn("active"));
