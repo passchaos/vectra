@@ -1002,6 +1002,37 @@ pub fn clipArray(self: anytype, min_values: ColumnType(@TypeOf(self)), max_value
     };
 }
 
+pub fn whereScalar(self: anytype, mask: ColumnType(@TypeOf(self)), comptime T: type, other_value: T) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    const column = columnValue(self);
+    if (mask != .bool) return error.TypeUnsupported;
+    if (column.dtype() != array_mod.DType.of(T)) return error.TypeUnsupported;
+    if (!column.device().sameDevice(mask.device())) return error.InvalidDevice;
+    const tag = comptime array_mod.DType.of(T);
+    return @unionInit(ColumnType(@TypeOf(self)), @tagName(tag), try @field(column, @tagName(tag)).whereScalar(mask.bool, other_value));
+}
+
+pub fn whereWithDeviceScalar(self: anytype, mask: ColumnType(@TypeOf(self)), other_value: options_mod.DeviceScalar) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
+    return switch (other_value) {
+        .bool => |value| whereScalar(self, mask, bool, value),
+        .i8 => |value| whereScalar(self, mask, i8, value),
+        .i16 => |value| whereScalar(self, mask, i16, value),
+        .i32 => |value| whereScalar(self, mask, i32, value),
+        .i64 => |value| whereScalar(self, mask, i64, value),
+        .u8 => |value| whereScalar(self, mask, u8, value),
+        .u16 => |value| whereScalar(self, mask, u16, value),
+        .u32 => |value| whereScalar(self, mask, u32, value),
+        .u64 => |value| whereScalar(self, mask, u64, value),
+        .usize => |value| whereScalar(self, mask, usize, value),
+        .isize => |value| whereScalar(self, mask, isize, value),
+        .f16 => |value| whereScalar(self, mask, f16, value),
+        .f32 => |value| whereScalar(self, mask, f32, value),
+        .f64 => |value| whereScalar(self, mask, f64, value),
+        .bf16 => |value| whereScalar(self, mask, array_mod.BFloat16, value),
+        .c64 => |value| whereScalar(self, mask, array_mod.Complex64, value),
+        .c128 => |value| whereScalar(self, mask, array_mod.Complex128, value),
+    };
+}
+
 pub fn compare(self: anytype, other: ColumnType(@TypeOf(self)), op: DeviceColumnCompareOp) array_mod.ArrayError!ColumnType(@TypeOf(self)) {
     const value = columnValue(self);
     if (value.dtype() != other.dtype()) return error.TypeUnsupported;

@@ -1060,6 +1060,17 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return .{ .values = values, .validity = validity, .null_count = nulls };
         }
 
+        pub fn whereScalar(self: Self, mask_column: DeviceTypedColumn(bool), other_value: T) array_mod.ArrayError!Self {
+            if (!self.device().sameDevice(mask_column.device())) return error.InvalidDevice;
+            if (mask_column.values.shape.len != 1 or mask_column.len() != self.len()) return error.ShapeMismatch;
+            var values = try self.values.whereScalar(mask_column.values, other_value);
+            errdefer values.deinit();
+            var validity = try combineValidityMasks(self.values.allocator, self.validity, mask_column.validity, self.len(), self.device());
+            errdefer if (validity) |*mask| mask.deinit();
+            const nulls = if (validity) |mask| try countNullsInArray(mask) else 0;
+            return .{ .values = values, .validity = validity, .null_count = nulls };
+        }
+
         pub fn logicalScalar(self: Self, scalar: bool, comptime op: enum { @"and", @"or", xor }) array_mod.ArrayError!Self {
             if (comptime T != bool) return error.TypeUnsupported;
             var values = switch (op) {

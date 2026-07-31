@@ -598,6 +598,18 @@ pub fn clipArrayColumns(frame: anytype, input_name: []const u8, min_name: []cons
     return input.clipArray(min_values.*, max_values.*);
 }
 
+pub fn whereColumnScalar(frame: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, other_value: T) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const mask = try frame.column(mask_name);
+    return input.whereScalar(mask.*, T, other_value);
+}
+
+pub fn whereColumnWithDeviceScalar(frame: anytype, input_name: []const u8, mask_name: []const u8, other_value: DeviceScalar) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const input = try frame.column(input_name);
+    const mask = try frame.column(mask_name);
+    return input.whereWithDeviceScalar(mask.*, other_value);
+}
+
 pub fn compareColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

@@ -1319,6 +1319,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnClipArray(self, name, input_name, min_name, max_name);
             }
 
+            pub fn withColumnWhereScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, other_value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnWhereScalar(self, name, input_name, mask_name, T, other_value);
+            }
+
+            pub fn withColumnWhereWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, other_value: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnWhereWithDeviceScalar(self, name, input_name, mask_name, other_value);
+            }
+
             pub fn withColumnIscloseScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnIscloseScalar(self, name, input_name, T, scalar, rtol, atol);
             }

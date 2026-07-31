@@ -2351,6 +2351,20 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     var rounding_type_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "active", .data = rounding_active }});
     defer rounding_type_table.deinit();
 
+    var where_metric = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 2.0, 5.0 }, .cpu);
+    defer where_metric.deinit();
+    var where_mask = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer where_mask.deinit();
+    var where_table = try DeviceDataFrame.init(gpa, &.{ .{ .name = "metric", .data = where_metric }, .{ .name = "mask", .data = where_mask } });
+    defer where_table.deinit();
+    var where_scalar_table = try where_table.withColumnWhereScalar("metric_where", "metric", "mask", f64, 0.0);
+    defer where_scalar_table.deinit();
+    const metric_where = try (try where_scalar_table.column("metric_where")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_where);
+    try std.testing.expectEqualSlices(f64, &.{ -1.0, 0.0, 5.0 }, metric_where);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnWhereScalar("bad_where", "sales", "cost", f64, 0.0));
+    try std.testing.expectError(error.ColumnNotFound, where_table.withColumnWhereScalar("missing_where", "metric", "missing", f64, 0.0));
+
     var active_and_table = try rounding_type_table.withColumnLogicalAndScalar("active_and", "active", false);
     defer active_and_table.deinit();
     const active_and = try (try active_and_table.column("active_and")).bool.toOwnedSlice(gpa);

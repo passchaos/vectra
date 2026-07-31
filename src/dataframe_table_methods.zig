@@ -1192,6 +1192,26 @@ pub fn withColumnClipArray(self: anytype, output_name: []const u8, input_name: [
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
 }
 
+pub fn whereColumnScalar(self: anytype, input_name: []const u8, mask_name: []const u8, comptime T: type, other_value: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.whereColumnScalar(frameValue(self), input_name, mask_name, T, other_value);
+}
+
+pub fn whereColumnWithDeviceScalar(self: anytype, input_name: []const u8, mask_name: []const u8, other_value: DeviceScalar) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.whereColumnWithDeviceScalar(frameValue(self), input_name, mask_name, other_value);
+}
+
+pub fn withColumnWhereScalar(self: anytype, output_name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, other_value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try whereColumnScalar(self, input_name, mask_name, T, other_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnWhereWithDeviceScalar(self: anytype, output_name: []const u8, input_name: []const u8, mask_name: []const u8, other_value: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try whereColumnWithDeviceScalar(self, input_name, mask_name, other_value);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
 pub fn compareColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnCompareOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.compareColumns(frameValue(self), lhs_name, rhs_name, op);
 }
