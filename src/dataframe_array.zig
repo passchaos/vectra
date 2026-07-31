@@ -514,6 +514,34 @@ pub fn dropColumnsWithoutInfs(
     return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .inf);
 }
 
+pub fn selectColumnsWithNonFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_finite);
+}
+
+pub fn selectColumnsWithoutNonFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_finite);
+}
+
+pub fn dropColumnsWithNonFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, true, .non_finite);
+}
+
+pub fn dropColumnsWithoutNonFinites(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropColumnsBySpecialFloatPresence(DeviceDataFrame, input, false, .non_finite);
+}
+
 pub fn withColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

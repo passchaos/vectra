@@ -802,6 +802,26 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqual(@as(usize, 1), drop_non_inf_columns.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_non_inf_columns.columnIndex("metric"));
 
+    var columns_with_non_finites = try table.selectColumnsWithNonFinites();
+    defer columns_with_non_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_with_non_finites.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_with_non_finites.columnIndex("metric"));
+
+    var columns_without_non_finites = try table.selectColumnsWithoutNonFinites();
+    defer columns_without_non_finites.deinit();
+    try std.testing.expectEqual(@as(usize, 1), columns_without_non_finites.width());
+    try std.testing.expectEqual(@as(?usize, 0), columns_without_non_finites.columnIndex("id"));
+
+    var drop_non_finite_columns = try table.dropColumnsWithNonFinites();
+    defer drop_non_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_non_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_finite_columns.columnIndex("id"));
+
+    var drop_finite_columns = try table.dropColumnsWithoutNonFinites();
+    defer drop_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_finite_columns.columnIndex("metric"));
+
     var dropped_nan_rows = try table.dropNaNsColumn("metric");
     defer dropped_nan_rows.deinit();
     try std.testing.expectEqual(@as(usize, 3), dropped_nan_rows.height());

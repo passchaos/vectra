@@ -554,6 +554,15 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     try std.testing.expect(std.mem.indexOf(u8, inf_columns_explain, "scan_pushdown: none") != null);
     try std.testing.expect(std.mem.indexOf(u8, inf_columns_explain, "select_columns_with_infs") != null);
 
+    var lazy_non_finite_columns_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer lazy_non_finite_columns_scan.deinit();
+    try lazy_non_finite_columns_scan.selectColumnsWithNonFinites();
+
+    const non_finite_columns_explain = try lazy_non_finite_columns_scan.explain(gpa);
+    defer gpa.free(non_finite_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, non_finite_columns_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, non_finite_columns_explain, "select_columns_with_non_finites") != null);
+
     var lazy_reverse_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_reverse_scan.deinit();
     try lazy_reverse_scan.reverseColumns();

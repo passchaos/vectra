@@ -321,6 +321,22 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_infs = {} });
             }
 
+            pub fn selectColumnsWithNonFinites(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_with_non_finites = {} });
+            }
+
+            pub fn selectColumnsWithoutNonFinites(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .select_columns_without_non_finites = {} });
+            }
+
+            pub fn dropColumnsWithNonFinites(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_with_non_finites = {} });
+            }
+
+            pub fn dropColumnsWithoutNonFinites(self: *DeviceLazyFrame) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .drop_columns_without_non_finites = {} });
+            }
+
             pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
                 return lazy_expr_mod.withRowIndex(self, name, offset);
             }

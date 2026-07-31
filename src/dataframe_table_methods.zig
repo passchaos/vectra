@@ -273,6 +273,22 @@ pub fn dropColumnsWithoutInfs(self: anytype) DeviceDataError!FrameType(@TypeOf(s
     return dataframe_array_mod.dropColumnsWithoutInfs(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn selectColumnsWithNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithNonFinites(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn selectColumnsWithoutNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.selectColumnsWithoutNonFinites(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithNonFinites(FrameType(@TypeOf(self)), frameValue(self));
+}
+
+pub fn dropColumnsWithoutNonFinites(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropColumnsWithoutNonFinites(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn withColumn(self: anytype, name: []const u8, data: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), name, data);
 }

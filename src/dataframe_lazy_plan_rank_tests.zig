@@ -886,6 +886,50 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqual(@as(usize, 1), drop_non_inf_columns.width());
     try std.testing.expectEqual(@as(?usize, 0), drop_non_inf_columns.columnIndex("metric"));
 
+    var select_non_finite_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_non_finite_columns_plan.deinit();
+    try select_non_finite_columns_plan.selectColumnsWithNonFinites();
+    const select_non_finite_columns_explain = try select_non_finite_columns_plan.explain(gpa);
+    defer gpa.free(select_non_finite_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_non_finite_columns_explain, "select_columns_with_non_finites") != null);
+    var non_finite_columns = try select_non_finite_columns_plan.collect();
+    defer non_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), non_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), non_finite_columns.columnIndex("metric"));
+
+    var select_finite_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_finite_columns_plan.deinit();
+    try select_finite_columns_plan.selectColumnsWithoutNonFinites();
+    const select_finite_columns_explain = try select_finite_columns_plan.explain(gpa);
+    defer gpa.free(select_finite_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_finite_columns_explain, "select_columns_without_non_finites") != null);
+    var finite_columns = try select_finite_columns_plan.collect();
+    defer finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), finite_columns.columnIndex("id"));
+
+    var drop_non_finite_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_non_finite_columns_plan.deinit();
+    try drop_non_finite_columns_plan.dropColumnsWithNonFinites();
+    const drop_non_finite_columns_explain = try drop_non_finite_columns_plan.explain(gpa);
+    defer gpa.free(drop_non_finite_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_non_finite_columns_explain, "drop_columns_with_non_finites") != null);
+    var drop_non_finite_columns = try drop_non_finite_columns_plan.collect();
+    defer drop_non_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_non_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_non_finite_columns.columnIndex("id"));
+
+    var drop_finite_columns_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_finite_columns_plan.deinit();
+    try drop_finite_columns_plan.dropColumnsWithoutNonFinites();
+    const drop_finite_columns_explain = try drop_finite_columns_plan.explain(gpa);
+    defer gpa.free(drop_finite_columns_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_finite_columns_explain, "drop_columns_without_non_finites") != null);
+    var drop_finite_columns = try drop_finite_columns_plan.collect();
+    defer drop_finite_columns.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_finite_columns.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_finite_columns.columnIndex("metric"));
+
     var drop_nan_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_nan_plan.deinit();
     try drop_nan_plan.dropNaNsColumn("metric");
