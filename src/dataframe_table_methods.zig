@@ -2627,6 +2627,18 @@ pub fn withRowWeightedMean(self: anytype, value_names: []const []const u8, weigh
     return dataframe_array_mod.withRowWeightedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowDot(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowDot(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowCosineSimilarity(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCosineSimilarity(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
+pub fn withRowCosine(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCosine(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
+}
+
 pub fn withRowArgMin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

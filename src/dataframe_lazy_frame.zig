@@ -1738,6 +1738,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowDot(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowCosineSimilarity(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCosineSimilarity(self, lhs_names, rhs_names, output_name);
+            }
+
+            pub fn withRowCosine(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCosine(self, lhs_names, rhs_names, output_name);
+            }
+
             pub fn withRowArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowArgMin(self, names, output_name);
             }

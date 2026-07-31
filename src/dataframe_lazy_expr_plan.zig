@@ -2536,23 +2536,57 @@ pub fn withRowLastNullIndex(frame: anytype, names: []const []const u8, output_na
 }
 
 pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
-    const owned_values = try cloneNameList(frame.allocator, value_names);
+    return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
+}
+
+fn withRowPairedNumeric(
+    frame: anytype,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { weighted_mean, dot, cosine },
+) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
         for (owned_values) |name| frame.allocator.free(name);
         frame.allocator.free(owned_values);
     }
-    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    const owned_weights = try cloneNameList(frame.allocator, rhs_names);
     errdefer {
         for (owned_weights) |name| frame.allocator.free(name);
         frame.allocator.free(owned_weights);
     }
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
-    try frame.ops.append(frame.allocator, .{ .row_weighted_mean = .{
-        .value_names = owned_values,
-        .weight_names = owned_weights,
-        .output_name = owned_output,
-    } });
+    switch (reduction) {
+        .weighted_mean => try frame.ops.append(frame.allocator, .{ .row_weighted_mean = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .dot => try frame.ops.append(frame.allocator, .{ .row_dot = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+        .cosine => try frame.ops.append(frame.allocator, .{ .row_cosine_similarity = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowDot(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .dot);
+}
+
+pub fn withRowCosineSimilarity(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowPairedNumeric(frame, lhs_names, rhs_names, output_name, .cosine);
+}
+
+pub fn withRowCosine(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowCosineSimilarity(frame, lhs_names, rhs_names, output_name);
 }
 
 fn withRowNumericArgReduction(

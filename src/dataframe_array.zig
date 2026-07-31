@@ -1933,6 +1933,116 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+const RowPairedNumericReduction = enum { dot, cosine };
+
+fn withRowPairedNumericReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowPairedNumericReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len) return error.LengthMismatch;
+
+    const dots = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(dots);
+    const lhs_norm2 = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(lhs_norm2);
+    const rhs_norm2 = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(rhs_norm2);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(dots, 0.0);
+    @memset(lhs_norm2, 0.0);
+    @memset(rhs_norm2, 0.0);
+    @memset(validity, false);
+
+    for (lhs_names, rhs_names) |lhs_name, rhs_name| {
+        const lhs_source = try input.column(lhs_name);
+        const rhs_source = try input.column(rhs_name);
+        if (!lhs_source.dtype().isReal() or !rhs_source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (lhs_source.*) {
+            inline else => |lhs_typed| {
+                const lhs_values = try lhs_typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(lhs_values);
+                const maybe_lhs_validity = try validityValues(lhs_typed, input.allocator);
+                defer if (maybe_lhs_validity) |mask| input.allocator.free(mask);
+
+                switch (rhs_source.*) {
+                    inline else => |rhs_typed| {
+                        const rhs_values = try rhs_typed.toOwnedSlice(input.allocator);
+                        defer input.allocator.free(rhs_values);
+                        const maybe_rhs_validity = try validityValues(rhs_typed, input.allocator);
+                        defer if (maybe_rhs_validity) |mask| input.allocator.free(mask);
+
+                        for (lhs_values, rhs_values, 0..) |raw_lhs, raw_rhs, row| {
+                            const lhs_valid = if (maybe_lhs_validity) |mask| mask[row] else true;
+                            const rhs_valid = if (maybe_rhs_validity) |mask| mask[row] else true;
+                            if (!lhs_valid or !rhs_valid) continue;
+                            const lhs = realValueAsF64(@TypeOf(raw_lhs), raw_lhs);
+                            const rhs = realValueAsF64(@TypeOf(raw_rhs), raw_rhs);
+                            dots[row] += lhs * rhs;
+                            lhs_norm2[row] += lhs * lhs;
+                            rhs_norm2[row] += rhs * rhs;
+                            validity[row] = true;
+                        }
+                    },
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    for (values, validity, dots, lhs_norm2, rhs_norm2) |*value, valid, dot, lhs2, rhs2| {
+        if (!valid) {
+            value.* = 0.0;
+        } else {
+            value.* = switch (reduction) {
+                .dot => dot,
+                .cosine => if (lhs2 == 0.0 or rhs2 == 0.0) std.math.nan(f64) else dot / (std.math.sqrt(lhs2) * std.math.sqrt(rhs2)),
+            };
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowDot(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .dot);
+}
+
+pub fn withRowCosineSimilarity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowPairedNumericReduction(DeviceDataFrame, input, lhs_names, rhs_names, output_name, .cosine);
+}
+
+pub fn withRowCosine(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCosineSimilarity(DeviceDataFrame, input, lhs_names, rhs_names, output_name);
+}
+
 const RowNumericArgReduction = enum { argmin, argmax };
 
 const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, mean_abs, rms, l1_norm, l2_norm };

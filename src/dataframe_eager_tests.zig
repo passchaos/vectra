@@ -491,7 +491,33 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_weighted_mean[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
+
+    var row_dot_table = try validity_table.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
+    defer row_dot_table.deinit();
+    const row_dot_column = try row_dot_table.column("row_dot");
+    try std.testing.expect(row_dot_column.f64.nullable());
+    const row_dot = try row_dot_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_dot);
+    const row_dot_validity = try row_dot_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_dot_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 56.0 }, row_dot);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_dot_validity);
+
+    var row_cosine_table = try validity_table.withRowCosineSimilarity(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_cosine");
+    defer row_cosine_table.deinit();
+    const row_cosine_column = try row_cosine_table.column("row_cosine");
+    try std.testing.expect(row_cosine_column.f64.nullable());
+    const row_cosine = try row_cosine_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_cosine);
+    const row_cosine_validity = try row_cosine_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_cosine_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_cosine[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_cosine[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cosine[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 56.0) / (std.math.sqrt(@as(f64, 1616.0)) * std.math.sqrt(@as(f64, 17.0))), row_cosine[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cosine_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMean(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mean"));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowDot(&.{"a"}, &.{ "wa", "wb" }, "bad_row_dot"));
 
     var row_distinct_table = try validity_table.withRowCountDistinct(&.{ "a", "b" }, "row_distinct");
     defer row_distinct_table.deinit();
