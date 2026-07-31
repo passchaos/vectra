@@ -1519,6 +1519,22 @@ pub fn l2NormColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScala
     return expr_mod.l2NormColumn(frameValue(self), name);
 }
 
+pub fn geometricMeanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.geometricMeanColumn(frameValue(self), name);
+}
+
+pub fn geoMeanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return geometricMeanColumn(self, name);
+}
+
+pub fn harmonicMeanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return expr_mod.harmonicMeanColumn(frameValue(self), name);
+}
+
+pub fn harmMeanColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    return harmonicMeanColumn(self, name);
+}
+
 pub fn minColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.minColumn(frameValue(self), name);
 }

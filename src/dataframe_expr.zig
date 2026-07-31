@@ -848,6 +848,16 @@ pub fn l2NormColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScal
     return col.l2Norm();
 }
 
+pub fn geometricMeanColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.geometricMean();
+}
+
+pub fn harmonicMeanColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
+    const col = try frame.column(name);
+    return col.harmonicMean();
+}
+
 pub fn minColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return col.min();

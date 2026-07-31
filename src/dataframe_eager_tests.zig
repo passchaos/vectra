@@ -2652,6 +2652,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 38.0)), (try table.l2NormColumn("sales")).f64, 1e-12);
     try std.testing.expectEqual(DeviceScalar{ .f64 = 4.0 }, try nullable_sales_table.l1NormColumn("metric"));
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 10.0)), (try nullable_sales_table.l2NormColumn("metric")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pow(f64, 30.0, 1.0 / 3.0), (try table.geometricMeanColumn("sales")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 90.0 / 31.0), (try table.harmonicMeanColumn("sales")).f64, 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 3.0)), (try nullable_sales_table.geoMeanColumn("metric")).f64, 1e-12);
+    try std.testing.expectEqual(DeviceScalar{ .f64 = 1.5 }, try nullable_sales_table.harmMeanColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.varianceColumn("metric", 0.0));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.skewnessColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.kurtosisColumn("metric"));
@@ -2659,6 +2663,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.rmsColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.l1NormColumn("metric"));
     try std.testing.expectError(error.EmptyArray, all_null_metric_table.l2NormColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.geometricMeanColumn("metric"));
+    try std.testing.expectError(error.EmptyArray, all_null_metric_table.harmonicMeanColumn("metric"));
     try std.testing.expectError(error.InvalidShape, table.varianceColumn("sales", -1.0));
     try std.testing.expectError(error.InvalidShape, table.semColumn("sales", -1.0));
     try std.testing.expectError(error.InvalidShape, table.cvColumn("sales", -1.0));
@@ -2712,6 +2718,8 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.rmsColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.l1NormColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.l2NormColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.geometricMeanColumn("active"));
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.harmonicMeanColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.minColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.maxColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.ptpColumn("active"));

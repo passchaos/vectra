@@ -1884,6 +1884,49 @@ pub fn DeviceTypedColumn(comptime T: type) type {
             return std.math.sqrt(total);
         }
 
+        pub fn geometricMean(self: Self) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var log_total: f64 = 0.0;
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                const x = realValueToF64(value);
+                if (x < 0.0) return std.math.nan(f64);
+                if (x == 0.0) return 0.0;
+                log_total += std.math.log(f64, std.math.e, x);
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            return std.math.exp(log_total / @as(f64, @floatFromInt(count)));
+        }
+
+        pub fn harmonicMean(self: Self) array_mod.ArrayError!f64 {
+            if (comptime T == bool or isComplexColumnType(T)) return error.TypeUnsupported;
+            const values = try self.values.toOwnedSlice(self.values.allocator);
+            defer self.values.allocator.free(values);
+            const maybe_validity = try validityValues(self, self.values.allocator);
+            defer if (maybe_validity) |validity| self.values.allocator.free(validity);
+            var reciprocal_total: f64 = 0.0;
+            var count: usize = 0;
+            for (values, 0..) |value, row| {
+                if (maybe_validity) |validity| {
+                    if (!validity[row]) continue;
+                }
+                const x = realValueToF64(value);
+                if (x == 0.0) return 0.0;
+                reciprocal_total += 1.0 / x;
+                count += 1;
+            }
+            if (count == 0) return error.EmptyArray;
+            return @as(f64, @floatFromInt(count)) / reciprocal_total;
+        }
+
         pub fn any(self: Self) array_mod.ArrayError!bool {
             if (comptime T != bool) return error.TypeUnsupported;
             const values = try self.values.toOwnedSlice(self.values.allocator);
