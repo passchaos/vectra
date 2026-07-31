@@ -89,6 +89,16 @@ pub fn unaryColumnLogit(frame: anytype, name: []const u8) DeviceDataError!@TypeO
     return col.logit();
 }
 
+pub fn unaryColumnSoftplus(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.softplus();
+}
+
+pub fn unaryColumnLogsigmoid(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    const col = try frame.column(name);
+    return col.logsigmoid();
+}
+
 pub fn unaryColumnExp(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
     const col = try frame.column(name);
     return col.exp();

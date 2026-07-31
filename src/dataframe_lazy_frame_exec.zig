@@ -240,6 +240,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_softplus => |expr| blk: {
+                var column_value = try current.unaryColumnSoftplus(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
+            .with_column_logsigmoid => |expr| blk: {
+                var column_value = try current.unaryColumnLogsigmoid(expr.input_name);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_exp => |expr| blk: {
                 var column_value = try current.unaryColumnExp(expr.input_name);
                 defer column_value.deinit();

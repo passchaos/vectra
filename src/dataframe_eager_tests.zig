@@ -2445,6 +2445,28 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogit("bad_logit", "units"));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogit("missing_logit", "missing"));
 
+    var softplus_ratio_table = try inverse_trig_table.withColumnSoftplus("ratio_softplus", "ratio");
+    defer softplus_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try softplus_ratio_table.columnDType("ratio_softplus"));
+    const ratio_softplus = try (try softplus_ratio_table.column("ratio_softplus")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_softplus);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, -0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, -0.5)))), ratio_softplus[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log1p(@as(f64, 1.0)), ratio_softplus[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@max(@as(f64, 0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, 0.5)))), ratio_softplus[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnSoftplus("bad_softplus", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnSoftplus("missing_softplus", "missing"));
+
+    var logsigmoid_ratio_table = try inverse_trig_table.withColumnLogsigmoid("ratio_logsigmoid", "ratio");
+    defer logsigmoid_ratio_table.deinit();
+    try std.testing.expectEqual(DeviceDType.f64, try logsigmoid_ratio_table.columnDType("ratio_logsigmoid"));
+    const ratio_logsigmoid = try (try logsigmoid_ratio_table.column("ratio_logsigmoid")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ratio_logsigmoid);
+    try std.testing.expectApproxEqAbs(-(@max(@as(f64, 0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, -0.5))))), ratio_logsigmoid[0], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.log1p(@as(f64, 1.0)), ratio_logsigmoid[1], 1e-12);
+    try std.testing.expectApproxEqAbs(-(@max(@as(f64, -0.5), @as(f64, 0.0)) + std.math.log1p(std.math.exp(-@abs(@as(f64, 0.5))))), ratio_logsigmoid[2], 1e-12);
+    try std.testing.expectError(error.TypeUnsupported, inverse_trig_table.withColumnLogsigmoid("bad_logsigmoid", "units"));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnLogsigmoid("missing_logsigmoid", "missing"));
+
     var exp_cost_table = try table.withColumnExp("cost_exp", "cost");
     defer exp_cost_table.deinit();
     try std.testing.expectEqual(DeviceDType.f64, try exp_cost_table.columnDType("cost_exp"));

@@ -449,6 +449,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .with_column_rad2deg,
             .with_column_expit,
             .with_column_logit,
+            .with_column_softplus,
+            .with_column_logsigmoid,
             .with_column_exp,
             .with_column_exp2,
             .with_column_expm1,
