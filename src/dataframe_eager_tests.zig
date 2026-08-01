@@ -1266,6 +1266,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 11.0), row_a_l1[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), row_b_l1[3], 1e-12);
 
+    var row_share_table = try validity_table.withRowSumNormalize(&.{ "a", "b" }, &.{ "a_share", "b_share" });
+    defer row_share_table.deinit();
+    const row_a_share = try (try row_share_table.column("a_share")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_share);
+    const row_b_share = try (try row_share_table.column("b_share")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_share);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_a_share[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_share[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 11.0), row_a_share[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), row_b_share[3], 1e-12);
+
     var row_maxabs_table = try validity_table.withRowMaxAbsNormalize(&.{ "a", "b" }, &.{ "a_maxabs", "b_maxabs" });
     defer row_maxabs_table.deinit();
     const row_a_maxabs = try (try row_maxabs_table.column("a_maxabs")).f64.toOwnedSlice(gpa);

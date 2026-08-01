@@ -3871,6 +3871,32 @@ pub fn withRowL1Normalized(frame: anytype, names: []const []const u8, output_nam
     return withRowL1Normalize(frame, names, output_names);
 }
 
+pub fn withRowSumNormalize(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_sum_normalize = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowProportion(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowSumNormalize(frame, names, output_names);
+}
+
+pub fn withRowShare(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowSumNormalize(frame, names, output_names);
+}
+
 pub fn withRowMaxAbsNormalize(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
