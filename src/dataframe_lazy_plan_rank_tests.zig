@@ -4818,6 +4818,8 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try row_special_plan.withRowInfRatio(&.{ "metric", "id" }, "row_inf_ratio");
     try row_special_plan.withRowFiniteRatio(&.{ "metric", "id" }, "row_finite_ratio");
     try row_special_plan.withRowNonFiniteRatio(&.{ "metric", "id" }, "row_non_finite_ratio");
+    try row_special_plan.withRowAnyNaN(&.{ "metric", "id" }, "row_any_nan");
+    try row_special_plan.withRowAllFinite(&.{ "metric", "id" }, "row_all_finite");
     try row_special_plan.withRowFirstNaNIndex(&.{ "metric", "id" }, "row_first_nan_index");
     try row_special_plan.withRowLastInfIndex(&.{ "metric", "id" }, "row_last_inf_index");
     try row_special_plan.withRowFirstFiniteIndex(&.{ "metric", "id" }, "row_first_finite_index");
@@ -4825,12 +4827,14 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try row_special_plan.withRowCumulativeFirstNaNIndex(&.{ "id", "metric" }, &.{ "id_cum_first_nan", "metric_cum_first_nan" });
     try row_special_plan.withRowPrefixLastInfIndex(&.{ "id", "metric" }, &.{ "id_prefix_last_inf", "metric_prefix_last_inf" });
     try row_special_plan.withRowCumulativeFirstFiniteIndex(&.{ "metric", "id" }, &.{ "metric_cum_first_finite", "id_cum_first_finite" });
+    try row_special_plan.withRowCumulativeAnyNaN(&.{ "id", "metric" }, &.{ "id_cum_any_nan", "metric_cum_any_nan" });
+    try row_special_plan.withRowPrefixAllFinite(&.{ "metric", "id" }, &.{ "metric_prefix_all_finite", "id_prefix_all_finite" });
     try row_special_plan.withRowPrefixLastNonFiniteIndex(&.{ "metric", "id" }, &.{ "metric_prefix_last_non_finite", "id_prefix_last_non_finite" });
     try row_special_plan.withRowCumulativeNaNCount(&.{ "metric", "id" }, &.{ "metric_cum_nan", "id_cum_nan" });
     try row_special_plan.withRowPrefixInfCount(&.{ "metric", "id" }, &.{ "metric_cum_inf", "id_cum_inf" });
     try row_special_plan.withRowCumulativeFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_finite_ratio", "id_cum_finite_ratio" });
     try row_special_plan.withRowPrefixNonFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
-    try row_special_plan.select(&.{ "row_nan_count", "row_inf_count", "row_finite_count", "row_non_finite_count", "row_nan_ratio", "row_inf_ratio", "row_finite_ratio", "row_non_finite_ratio", "row_first_nan_index", "row_last_inf_index", "row_first_finite_index", "row_last_non_finite_index", "id_cum_first_nan", "metric_cum_first_nan", "id_prefix_last_inf", "metric_prefix_last_inf", "metric_cum_first_finite", "id_cum_first_finite", "metric_prefix_last_non_finite", "id_prefix_last_non_finite", "metric_cum_nan", "id_cum_nan", "metric_cum_inf", "id_cum_inf", "metric_cum_finite_ratio", "id_cum_finite_ratio", "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
+    try row_special_plan.select(&.{ "row_nan_count", "row_inf_count", "row_finite_count", "row_non_finite_count", "row_nan_ratio", "row_inf_ratio", "row_finite_ratio", "row_non_finite_ratio", "row_any_nan", "row_all_finite", "row_first_nan_index", "row_last_inf_index", "row_first_finite_index", "row_last_non_finite_index", "id_cum_first_nan", "metric_cum_first_nan", "id_prefix_last_inf", "metric_prefix_last_inf", "metric_cum_first_finite", "id_cum_first_finite", "metric_cum_any_nan", "id_prefix_all_finite", "metric_prefix_last_non_finite", "id_prefix_last_non_finite", "metric_cum_nan", "id_cum_nan", "metric_cum_inf", "id_cum_inf", "metric_cum_finite_ratio", "id_cum_finite_ratio", "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
     const row_special_explain = try row_special_plan.explain(gpa);
     defer gpa.free(row_special_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_nan_count([metric,id]->row_nan_count)") != null);
@@ -4841,6 +4845,8 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_inf_ratio([metric,id]->row_inf_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_finite_ratio([metric,id]->row_finite_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_non_finite_ratio([metric,id]->row_non_finite_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_any_nan([metric,id]->row_any_nan)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_all_finite([metric,id]->row_all_finite)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_first_nan_index([metric,id]->row_first_nan_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_last_inf_index([metric,id]->row_last_inf_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_first_finite_index([metric,id]->row_first_finite_index)") != null);
@@ -4848,6 +4854,8 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_first_nan_index([id,metric]->[id_cum_first_nan,metric_cum_first_nan])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_last_inf_index([id,metric]->[id_prefix_last_inf,metric_prefix_last_inf])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_first_finite_index([metric,id]->[metric_cum_first_finite,id_cum_first_finite])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_any_nan([id,metric]->[id_cum_any_nan,metric_cum_any_nan])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_all_finite([metric,id]->[metric_prefix_all_finite,id_prefix_all_finite])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_last_non_finite_index([metric,id]->[metric_prefix_last_non_finite,id_prefix_last_non_finite])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_nan_count([metric,id]->[metric_cum_nan,id_cum_nan])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_inf_count([metric,id]->[metric_cum_inf,id_cum_inf])") != null);
@@ -4871,6 +4879,10 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(row_finite_ratio);
     const row_non_finite_ratio = try (try row_special.column("row_non_finite_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_non_finite_ratio);
+    const row_any_nan = try (try row_special.column("row_any_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_nan);
+    const row_all_finite = try (try row_special.column("row_all_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_finite);
     const row_first_nan = try (try row_special.column("row_first_nan_index")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_first_nan);
     const row_first_nan_validity = try (try row_special.column("row_first_nan_index")).i64.validity.?.toOwnedSlice(gpa);
@@ -4899,6 +4911,14 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(id_cum_first_finite);
     const id_cum_first_finite_validity = try (try row_special.column("id_cum_first_finite")).i64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(id_cum_first_finite_validity);
+    const metric_cum_any_nan = try (try row_special.column("metric_cum_any_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_any_nan);
+    const metric_cum_any_nan_validity = try (try row_special.column("metric_cum_any_nan")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_any_nan_validity);
+    const id_prefix_all_finite = try (try row_special.column("id_prefix_all_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_all_finite);
+    const id_prefix_all_finite_validity = try (try row_special.column("id_prefix_all_finite")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_all_finite_validity);
     const id_prefix_last_non_finite = try (try row_special.column("id_prefix_last_non_finite")).i64.toOwnedSlice(gpa);
     defer gpa.free(id_prefix_last_non_finite);
     const id_prefix_last_non_finite_validity = try (try row_special.column("id_prefix_last_non_finite")).i64.validity.?.toOwnedSlice(gpa);
@@ -4921,6 +4941,8 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0 }, row_inf_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 1.0 }, row_finite_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, row_non_finite_ratio);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, row_any_nan);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_all_finite);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_first_nan);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, row_first_nan_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_inf);
@@ -4935,6 +4957,10 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, metric_prefix_last_inf_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, id_cum_first_finite);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_cum_first_finite_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, metric_cum_any_nan);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, metric_cum_any_nan_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, id_prefix_all_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_prefix_all_finite_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, id_prefix_last_non_finite);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, id_prefix_last_non_finite_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, id_cum_nan);
@@ -4964,7 +4990,9 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try signed_inf_plan.withRowLastNegativeInfIndex(&.{ "metric", "peer", "id" }, "row_last_negative_inf_index");
     try signed_inf_plan.withRowCumulativeFirstPositiveInfIndex(&.{ "metric", "peer" }, &.{ "metric_cum_first_positive_inf", "peer_cum_first_positive_inf" });
     try signed_inf_plan.withRowPrefixLastNegativeInfIndex(&.{ "metric", "peer" }, &.{ "metric_prefix_last_negative_inf", "peer_prefix_last_negative_inf" });
-    try signed_inf_plan.select(&.{ "row_first_positive_inf_index", "row_last_positive_inf_index", "row_first_negative_inf_index", "row_last_negative_inf_index", "peer_cum_first_positive_inf", "peer_prefix_last_negative_inf" });
+    try signed_inf_plan.withRowAnyPositiveInf(&.{ "metric", "peer" }, "row_any_positive_inf");
+    try signed_inf_plan.withRowPrefixAllNegativeInf(&.{ "metric", "peer" }, &.{ "metric_prefix_all_negative_inf", "peer_prefix_all_negative_inf" });
+    try signed_inf_plan.select(&.{ "row_first_positive_inf_index", "row_last_positive_inf_index", "row_first_negative_inf_index", "row_last_negative_inf_index", "peer_cum_first_positive_inf", "peer_prefix_last_negative_inf", "row_any_positive_inf", "peer_prefix_all_negative_inf" });
     const signed_inf_explain = try signed_inf_plan.explain(gpa);
     defer gpa.free(signed_inf_explain);
     try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_first_positive_inf_index([metric,peer,id]->row_first_positive_inf_index)") != null);
@@ -4973,9 +5001,11 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_last_negative_inf_index([metric,peer,id]->row_last_negative_inf_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_cumulative_first_positive_inf_index([metric,peer]->[metric_cum_first_positive_inf,peer_cum_first_positive_inf])") != null);
     try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_cumulative_last_negative_inf_index([metric,peer]->[metric_prefix_last_negative_inf,peer_prefix_last_negative_inf])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_any_positive_inf([metric,peer]->row_any_positive_inf)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_cumulative_all_negative_inf([metric,peer]->[metric_prefix_all_negative_inf,peer_prefix_all_negative_inf])") != null);
     var signed_inf = try signed_inf_plan.collect();
     defer signed_inf.deinit();
-    try std.testing.expectEqual(@as(usize, 6), signed_inf.width());
+    try std.testing.expectEqual(@as(usize, 8), signed_inf.width());
     const row_first_positive_inf = try (try signed_inf.column("row_first_positive_inf_index")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_first_positive_inf);
     const row_first_positive_inf_validity = try (try signed_inf.column("row_first_positive_inf_index")).i64.validity.?.toOwnedSlice(gpa);
@@ -5000,6 +5030,12 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(peer_prefix_last_negative_inf);
     const peer_prefix_last_negative_inf_validity = try (try signed_inf.column("peer_prefix_last_negative_inf")).i64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(peer_prefix_last_negative_inf_validity);
+    const row_any_positive_inf = try (try signed_inf.column("row_any_positive_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_positive_inf);
+    const peer_prefix_all_negative_inf = try (try signed_inf.column("peer_prefix_all_negative_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_all_negative_inf);
+    const peer_prefix_all_negative_inf_validity = try (try signed_inf.column("peer_prefix_all_negative_inf")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_all_negative_inf_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 1 }, row_first_positive_inf);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_first_positive_inf_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 1 }, row_last_positive_inf);
@@ -5012,6 +5048,9 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, peer_cum_first_positive_inf_validity);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 1, 0 }, peer_prefix_last_negative_inf);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, peer_prefix_last_negative_inf_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_any_positive_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, peer_prefix_all_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true }, peer_prefix_all_negative_inf_validity);
 
     var invalid_positive_inf_index_plan = try DeviceLazyFrame.init(gpa, signed_inf_table);
     defer invalid_positive_inf_index_plan.deinit();
@@ -5047,6 +5086,7 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer invalid_prefix_plan.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixNonFiniteRatio(&.{"metric"}, &.{ "metric_cum_non_finite", "extra_cum_non_finite" }));
     try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixLastNonFiniteIndex(&.{"metric"}, &.{ "metric_last_non_finite", "extra_last_non_finite" }));
+    try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixAllFinite(&.{"metric"}, &.{ "metric_all_finite", "extra_all_finite" }));
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
@@ -5400,13 +5440,15 @@ test "device lazy frame derives normal predicate columns" {
     try row_normal_plan.withRowNormalRatio(&.{ "metric", "id" }, "row_normal_ratio");
     try row_normal_plan.withRowCumulativeNormalCount(&.{ "metric", "id" }, &.{ "metric_cum_normal", "id_cum_normal" });
     try row_normal_plan.withRowCumulativeFirstNormalIndex(&.{ "metric", "id" }, &.{ "metric_cum_first_normal", "id_cum_first_normal" });
-    try row_normal_plan.select(&.{ "row_normal_count", "row_normal_ratio", "metric_cum_normal", "id_cum_normal", "id_cum_first_normal" });
+    try row_normal_plan.withRowAnyNormal(&.{ "metric", "id" }, "row_any_normal");
+    try row_normal_plan.select(&.{ "row_normal_count", "row_normal_ratio", "metric_cum_normal", "id_cum_normal", "id_cum_first_normal", "row_any_normal" });
     const row_normal_explain = try row_normal_plan.explain(gpa);
     defer gpa.free(row_normal_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_count([metric,id]->row_normal_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_ratio([metric,id]->row_normal_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_cumulative_normal_count([metric,id]->[metric_cum_normal,id_cum_normal])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_cumulative_first_normal_index([metric,id]->[metric_cum_first_normal,id_cum_first_normal])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_any_normal([metric,id]->row_any_normal)") != null);
     var row_normal = try row_normal_plan.collect();
     defer row_normal.deinit();
     const row_normal_count = try (try row_normal.column("row_normal_count")).i64.toOwnedSlice(gpa);
@@ -5419,11 +5461,14 @@ test "device lazy frame derives normal predicate columns" {
     defer gpa.free(id_cum_first_normal);
     const id_cum_first_normal_validity = try (try row_normal.column("id_cum_first_normal")).i64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(id_cum_first_normal_validity);
+    const row_any_normal = try (try row_normal.column("row_any_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_normal);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0, 0.0 }, row_normal_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, id_cum_normal);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0 }, id_cum_first_normal);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, id_cum_first_normal_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, row_any_normal);
 
     var row_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_subnormal_plan.deinit();
@@ -5471,7 +5516,8 @@ test "device lazy frame derives normal predicate columns" {
     try index_plan.withRowFirstSubnormalIndex(&.{ "metric", "peer", "id" }, "row_first_subnormal_index");
     try index_plan.withRowLastSubnormalIndex(&.{ "metric", "peer", "id" }, "row_last_subnormal_index");
     try index_plan.withRowPrefixLastSubnormalIndex(&.{ "metric", "peer" }, &.{ "metric_prefix_last_subnormal", "peer_prefix_last_subnormal" });
-    try index_plan.select(&.{ "row_first_normal_index", "row_last_normal_index", "row_first_subnormal_index", "row_last_subnormal_index", "peer_prefix_last_subnormal" });
+    try index_plan.withRowPrefixAnySubnormal(&.{ "metric", "peer" }, &.{ "metric_prefix_any_subnormal", "peer_prefix_any_subnormal" });
+    try index_plan.select(&.{ "row_first_normal_index", "row_last_normal_index", "row_first_subnormal_index", "row_last_subnormal_index", "peer_prefix_last_subnormal", "peer_prefix_any_subnormal" });
     const index_explain = try index_plan.explain(gpa);
     defer gpa.free(index_explain);
     try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_first_normal_index([metric,peer,id]->row_first_normal_index)") != null);
@@ -5479,9 +5525,10 @@ test "device lazy frame derives normal predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_first_subnormal_index([metric,peer,id]->row_first_subnormal_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_last_subnormal_index([metric,peer,id]->row_last_subnormal_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_cumulative_last_subnormal_index([metric,peer]->[metric_prefix_last_subnormal,peer_prefix_last_subnormal])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_cumulative_any_subnormal([metric,peer]->[metric_prefix_any_subnormal,peer_prefix_any_subnormal])") != null);
     var index_result = try index_plan.collect();
     defer index_result.deinit();
-    try std.testing.expectEqual(@as(usize, 5), index_result.width());
+    try std.testing.expectEqual(@as(usize, 6), index_result.width());
     const row_first_normal = try (try index_result.column("row_first_normal_index")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_first_normal);
     const row_first_normal_validity = try (try index_result.column("row_first_normal_index")).i64.validity.?.toOwnedSlice(gpa);
@@ -5502,6 +5549,10 @@ test "device lazy frame derives normal predicate columns" {
     defer gpa.free(peer_prefix_last_subnormal);
     const peer_prefix_last_subnormal_validity = try (try index_result.column("peer_prefix_last_subnormal")).i64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(peer_prefix_last_subnormal_validity);
+    const peer_prefix_any_subnormal = try (try index_result.column("peer_prefix_any_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_any_subnormal);
+    const peer_prefix_any_subnormal_validity = try (try index_result.column("peer_prefix_any_subnormal")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_any_subnormal_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1, 0 }, row_first_normal);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false }, row_first_normal_validity);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 1, 0 }, row_last_normal);
@@ -5512,6 +5563,8 @@ test "device lazy frame derives normal predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_last_subnormal_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 1 }, peer_prefix_last_subnormal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, peer_prefix_last_subnormal_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, peer_prefix_any_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true }, peer_prefix_any_subnormal_validity);
 
     var drop_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_normal_plan.deinit();

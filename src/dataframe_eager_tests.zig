@@ -4756,6 +4756,42 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(row_non_finite_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 0 }, row_non_finite_count);
 
+    var row_any_nan = try table.withRowAnyNaN(&.{ "metric", "id" }, "row_any_nan");
+    defer row_any_nan.deinit();
+    const row_any_nan_values = try (try row_any_nan.column("row_any_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_nan_values);
+    const row_any_nan_validity = try (try row_any_nan.column("row_any_nan")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_any_nan_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, row_any_nan_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_any_nan_validity);
+
+    var row_all_finite = try table.withRowAllFinite(&.{ "metric", "id" }, "row_all_finite");
+    defer row_all_finite.deinit();
+    const row_all_finite_values = try (try row_all_finite.column("row_all_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_finite_values);
+    const row_all_finite_validity = try (try row_all_finite.column("row_all_finite")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_all_finite_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_all_finite_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_all_finite_validity);
+
+    var row_cum_any_nan = try table.withRowCumulativeAnyNaN(&.{ "id", "metric" }, &.{ "id_cum_any_nan", "metric_cum_any_nan" });
+    defer row_cum_any_nan.deinit();
+    const metric_cum_any_nan = try (try row_cum_any_nan.column("metric_cum_any_nan")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_any_nan);
+    const metric_cum_any_nan_validity = try (try row_cum_any_nan.column("metric_cum_any_nan")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_any_nan_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, metric_cum_any_nan);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, metric_cum_any_nan_validity);
+
+    var row_prefix_all_finite = try table.withRowPrefixAllFinite(&.{ "metric", "id" }, &.{ "metric_prefix_all_finite", "id_prefix_all_finite" });
+    defer row_prefix_all_finite.deinit();
+    const id_prefix_all_finite = try (try row_prefix_all_finite.column("id_prefix_all_finite")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_all_finite);
+    const id_prefix_all_finite_validity = try (try row_prefix_all_finite.column("id_prefix_all_finite")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_all_finite_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, id_prefix_all_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, id_prefix_all_finite_validity);
+
     var row_nan_ratios = try table.withRowNaNRatio(&.{ "metric", "id" }, "row_nan_ratio");
     defer row_nan_ratios.deinit();
     const row_nan_ratio = try (try row_nan_ratios.column("row_nan_ratio")).f64.toOwnedSlice(gpa);
@@ -4846,6 +4882,21 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(row_last_negative_inf_validity);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 1, 0 }, row_last_negative_inf);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, row_last_negative_inf_validity);
+
+    var row_any_positive_inf = try signed_inf_table.withRowAnyPositiveInf(&.{ "metric", "peer" }, "row_any_positive_inf");
+    defer row_any_positive_inf.deinit();
+    const row_any_positive_inf_values = try (try row_any_positive_inf.column("row_any_positive_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_positive_inf_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_any_positive_inf_values);
+
+    var row_prefix_all_negative_inf = try signed_inf_table.withRowPrefixAllNegativeInf(&.{ "metric", "peer" }, &.{ "metric_prefix_all_negative_inf", "peer_prefix_all_negative_inf" });
+    defer row_prefix_all_negative_inf.deinit();
+    const peer_prefix_all_negative_inf = try (try row_prefix_all_negative_inf.column("peer_prefix_all_negative_inf")).bool.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_all_negative_inf);
+    const peer_prefix_all_negative_inf_validity = try (try row_prefix_all_negative_inf.column("peer_prefix_all_negative_inf")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_all_negative_inf_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, peer_prefix_all_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true }, peer_prefix_all_negative_inf_validity);
 
     var row_cum_first_nan_indices = try table.withRowCumulativeFirstNaNIndex(&.{ "id", "metric" }, &.{ "id_cum_first_nan", "metric_cum_first_nan" });
     defer row_cum_first_nan_indices.deinit();
@@ -4938,6 +4989,8 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(metric_nan_ratio_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0 }, metric_nan_ratio);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, metric_nan_ratio_validity);
+    try std.testing.expectError(error.ColumnNotFound, table.withRowAnyNaN(&.{"missing"}, "bad_any_nan"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixAllFinite(&.{"metric"}, &.{ "metric_all_finite", "extra_all_finite" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstNaNIndex(&.{"missing"}, "bad_nan_index"));
@@ -5366,6 +5419,21 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 1 }, row_last_subnormal);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_last_subnormal_validity);
 
+    var row_any_normal = try table.withRowAnyNormal(&.{ "metric", "id" }, "row_any_normal");
+    defer row_any_normal.deinit();
+    const row_any_normal_values = try (try row_any_normal.column("row_any_normal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_normal_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false }, row_any_normal_values);
+
+    var row_prefix_any_subnormal = try index_table.withRowPrefixAnySubnormal(&.{ "metric", "peer" }, &.{ "metric_prefix_any_subnormal", "peer_prefix_any_subnormal" });
+    defer row_prefix_any_subnormal.deinit();
+    const peer_prefix_any_subnormal = try (try row_prefix_any_subnormal.column("peer_prefix_any_subnormal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_any_subnormal);
+    const peer_prefix_any_subnormal_validity = try (try row_prefix_any_subnormal.column("peer_prefix_any_subnormal")).bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(peer_prefix_any_subnormal_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, peer_prefix_any_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true }, peer_prefix_any_subnormal_validity);
+
     var row_cum_first_normal_indices = try table.withRowCumulativeFirstNormalIndex(&.{ "metric", "id" }, &.{ "metric_cum_first_normal", "id_cum_first_normal" });
     defer row_cum_first_normal_indices.deinit();
     const id_cum_first_normal = try (try row_cum_first_normal_indices.column("id_cum_first_normal")).i64.toOwnedSlice(gpa);
@@ -5441,6 +5509,8 @@ test "device dataframe derives normal predicate columns" {
 
     try std.testing.expectError(error.ColumnNotFound, table.isNormalColumn("missing", "missing_is_normal"));
     try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowAnyNormal(&.{"missing"}, "bad_any_normal"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixAnySubnormal(&.{"metric"}, &.{ "metric_any_subnormal", "extra_any_subnormal" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count"));
     try std.testing.expectError(error.ColumnNotFound, index_table.withRowFirstNormalIndex(&.{"missing"}, "bad_normal_index"));
