@@ -257,6 +257,16 @@ pub const DeviceDataFrame = struct {
         return dataframe_core_mod.columnAt(self, index);
     }
 
+    pub fn columnView(self: *const DeviceDataFrame, name: []const u8) DataError!DeviceColumnView {
+        const column_value = try self.column(name);
+        return column_value.view();
+    }
+
+    pub fn columnViewAt(self: *const DeviceDataFrame, index: usize) DeviceDataError!DeviceColumnView {
+        const column_value = try self.columnAt(index);
+        return column_value.view();
+    }
+
     pub fn columnNameAt(self: DeviceDataFrame, index: usize) DeviceDataError![]const u8 {
         return dataframe_core_mod.columnNameAt(self, index);
     }

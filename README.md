@@ -204,7 +204,7 @@ construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,
 `rowCount`, `width`, `columnCount`, `columnNames`, `columnNameAt`, `columnDTypeAt`,
-`columnAt`, `columnDTypes`/`dtypes`, `columnNullCounts`, `columnValidCounts`,
+`columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnNullCounts`, `columnValidCounts`,
 `columnNullableMask`, `columnHasNullsMask`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `dataNbytes`, `validityNbytes`,
 `totalNbytes`, `shape`, `isEmpty`,
