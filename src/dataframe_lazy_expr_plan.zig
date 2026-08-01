@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, logsumexp, geometric_mean, magnitude_geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, logsumexp, logmeanexp, geometric_mean, magnitude_geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3543,6 +3543,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .logsumexp => try frame.ops.append(frame.allocator, .{ .row_logsumexp = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .logmeanexp => try frame.ops.append(frame.allocator, .{ .row_logmeanexp = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3699,6 +3703,14 @@ pub fn withRowLogSumExp(frame: anytype, names: []const []const u8, output_name: 
 
 pub fn withRowLogsumexp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowLogSumExp(frame, names, output_name);
+}
+
+pub fn withRowLogMeanExp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .logmeanexp);
+}
+
+pub fn withRowLogmeanexp(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowLogMeanExp(frame, names, output_name);
 }
 
 pub fn withRowGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

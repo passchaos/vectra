@@ -2943,6 +2943,14 @@ pub fn withRowLogsumexp(self: anytype, names: []const []const u8, output_name: [
     return dataframe_array_mod.withRowLogsumexp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowLogMeanExp(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogMeanExp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLogmeanexp(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogmeanexp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

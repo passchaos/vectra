@@ -1315,6 +1315,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_logmeanexp => |row_count| {
+            try writer.print("row_logmeanexp([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_geometric_mean => |row_count| {
             try writer.print("row_geometric_mean([", .{});
             for (row_count.names, 0..) |name, i| {

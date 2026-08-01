@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, logsumexp, geometric_mean, magnitude_geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, logsumexp, logmeanexp, geometric_mean, magnitude_geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3376,8 +3376,8 @@ fn withRowNumericReduction(
                             if (magnitude > 0.0) maxima[row] += magnitude * std.math.log(f64, std.math.e, magnitude);
                         },
                         .rms, .l2_norm => values[row] += value * value,
-                        .logsumexp => {
-                            // Maintain a numerically stable log-sum-exp state:
+                        .logsumexp, .logmeanexp => {
+                            // Maintain a numerically stable log-sum-exp-style state:
                             // `maxima` is the current row max and `values` is
                             // sum(exp(x - maxima)).  This avoids overflow for
                             // large logits while preserving NaN/+Inf/-Inf
@@ -3496,13 +3496,14 @@ fn withRowNumericReduction(
             value.* = 0.0;
         } else if (reduction == .mean) {
             value.* /= @floatFromInt(count);
-        } else if (reduction == .logsumexp) {
+        } else if (reduction == .logsumexp or reduction == .logmeanexp) {
             if (std.math.isNan(value.*) or std.math.isNan(aux_value)) {
                 value.* = std.math.nan(f64);
             } else if (std.math.isPositiveInf(aux_value) or std.math.isNegativeInf(aux_value)) {
                 value.* = aux_value;
             } else {
                 value.* = aux_value + std.math.log(f64, std.math.e, value.*);
+                if (reduction == .logmeanexp) value.* -= std.math.log(f64, std.math.e, @as(f64, @floatFromInt(count)));
             }
         } else if (reduction == .geometric_mean or reduction == .magnitude_geometric_mean) {
             if (!std.math.isNan(value.*)) {
@@ -3602,6 +3603,24 @@ pub fn withRowLogsumexp(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowLogSumExp(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .logmeanexp);
+}
+
+pub fn withRowLogmeanexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowLogMeanExp(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowGeometricMean(

@@ -1182,6 +1182,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(std.math.exp(@as(f64, -36.0))), row_logsumexp[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_logsumexp_validity);
 
+    var row_logmeanexp_table = try validity_table.withRowLogMeanExp(&.{ "a", "b" }, "row_logmeanexp");
+    defer row_logmeanexp_table.deinit();
+    const row_logmeanexp_column = try row_logmeanexp_table.column("row_logmeanexp");
+    try std.testing.expect(row_logmeanexp_column.f64.nullable());
+    const row_logmeanexp = try row_logmeanexp_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_logmeanexp);
+    const row_logmeanexp_validity = try row_logmeanexp_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_logmeanexp_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_logmeanexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_logmeanexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_logmeanexp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(std.math.exp(@as(f64, -36.0))) - std.math.ln2, row_logmeanexp[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_logmeanexp_validity);
+
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
     defer row_geo_table.deinit();
     const row_geo_column = try row_geo_table.column("row_geo");
@@ -2447,6 +2461,20 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expect(std.math.isNan(lse[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 7.0), lse[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lse_validity);
+
+    var lme_table = try table.withRowLogMeanExp(&.{ "low", "high" }, "row_logmeanexp");
+    defer lme_table.deinit();
+    const lme_column = try lme_table.column("row_logmeanexp");
+    try std.testing.expect(lme_column.f64.nullable());
+    const lme = try lme_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(lme);
+    const lme_validity = try lme_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lme_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1001.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))) - std.math.ln2, lme[0], 1e-12);
+    try std.testing.expect(std.math.isNegativeInf(lme[1]));
+    try std.testing.expect(std.math.isNan(lme[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lme[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lme_validity);
 }
 
 test "device dataframe selects and drops columns by nullability" {
