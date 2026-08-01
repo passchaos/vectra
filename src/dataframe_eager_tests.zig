@@ -1748,6 +1748,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cummean_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cummean_validity);
 
+    var row_cum_lse_table = try validity_table.withRowCumulativeLogSumExp(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumlse", "b_row_cumlse", "wa_row_cumlse", "wb_row_cumlse" });
+    defer row_cum_lse_table.deinit();
+    const row_b_cumlse = try (try row_cum_lse_table.column("b_row_cumlse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumlse);
+    const row_wb_cumlse = try (try row_cum_lse_table.column("wb_row_cumlse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumlse);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_b_cumlse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(std.math.exp(@as(f64, -36.0))), row_b_cumlse[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) + std.math.log1p(@as(f64, 2.0) * std.math.exp(@as(f64, -1.0))), row_wb_cumlse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0) + std.math.log1p(std.math.exp(@as(f64, -18.0)) + std.math.exp(@as(f64, -19.0))), row_wb_cumlse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0) + std.math.log1p(std.math.exp(@as(f64, -2.0))), row_wb_cumlse[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(@as(f64, 2.0) * std.math.exp(@as(f64, -36.0)) + std.math.exp(@as(f64, -39.0))), row_wb_cumlse[3], 1e-12);
+
+    var row_cum_lme_table = try validity_table.withRowPrefixLogMeanExp(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumlme", "b_row_cumlme", "wa_row_cumlme", "wb_row_cumlme" });
+    defer row_cum_lme_table.deinit();
+    const row_wb_cumlme = try (try row_cum_lme_table.column("wb_row_cumlme")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumlme);
+    try std.testing.expectApproxEqAbs(row_wb_cumlse[0] - std.math.log(f64, std.math.e, 3.0), row_wb_cumlme[0], 1e-12);
+    try std.testing.expectApproxEqAbs(row_wb_cumlse[1] - std.math.log(f64, std.math.e, 3.0), row_wb_cumlme[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row_wb_cumlse[2] - std.math.ln2, row_wb_cumlme[2], 1e-12);
+    try std.testing.expectApproxEqAbs(row_wb_cumlse[3] - std.math.log(f64, std.math.e, 4.0), row_wb_cumlme[3], 1e-12);
+
     var row_cumvar_table = try validity_table.withRowCumulativeVariance(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumvar", "b_row_cumvar", "wa_row_cumvar", "wb_row_cumvar" }, 0.0);
     defer row_cumvar_table.deinit();
     const row_b_cumvar_column = try row_cumvar_table.column("b_row_cumvar");
@@ -1855,6 +1877,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 34.0)), row_wb_cuml2[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1633.0)), row_wb_cuml2[3], 1e-12);
 
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixLogsumexp(&.{"a"}, &.{ "a_row_cumlse", "extra_row_cumlse" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSkew(&.{"a"}, &.{ "a_row_cumskew", "extra_row_cumskew" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumL2Norm(&.{"a"}, &.{ "a_row_cuml2", "extra_row_cuml2" }));

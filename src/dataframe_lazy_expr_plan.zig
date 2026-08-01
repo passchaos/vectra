@@ -4456,6 +4456,73 @@ pub fn withRowPrefixAvg(frame: anytype, names: []const []const u8, output_names:
     return withRowCumulativeMean(frame, names, output_names);
 }
 
+fn withRowCumulativeLogExp(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime mean: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (mean) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_logmeanexp = .{ .names = owned_names, .output_names = owned_outputs } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_logsumexp = .{ .names = owned_names, .output_names = owned_outputs } });
+    }
+}
+
+pub fn withRowCumulativeLogSumExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogExp(frame, names, output_names, false);
+}
+
+pub fn withRowCumulativeLogsumexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogSumExp(frame, names, output_names);
+}
+
+pub fn withRowCumLogSumExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogSumExp(frame, names, output_names);
+}
+
+pub fn withRowCumLogsumexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogSumExp(frame, names, output_names);
+}
+
+pub fn withRowPrefixLogSumExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogSumExp(frame, names, output_names);
+}
+
+pub fn withRowPrefixLogsumexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogSumExp(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLogMeanExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogExp(frame, names, output_names, true);
+}
+
+pub fn withRowCumulativeLogmeanexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogMeanExp(frame, names, output_names);
+}
+
+pub fn withRowCumLogMeanExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogMeanExp(frame, names, output_names);
+}
+
+pub fn withRowCumLogmeanexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogMeanExp(frame, names, output_names);
+}
+
+pub fn withRowPrefixLogMeanExp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogMeanExp(frame, names, output_names);
+}
+
+pub fn withRowPrefixLogmeanexp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLogMeanExp(frame, names, output_names);
+}
+
 const RowCumulativeDispersion = enum { variance, stddev, sem, cv, fano };
 
 fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64, comptime reduction: RowCumulativeDispersion) DeviceDataError!void {

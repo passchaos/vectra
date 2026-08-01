@@ -4995,7 +4995,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, mean, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, l1_norm, l2_norm, max, min, range };
+const RowCumulativeReduction = enum { sum, product, mean, logsumexp, logmeanexp, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, l1_norm, l2_norm, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -5049,7 +5049,7 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
+            .sum, .mean, .logsumexp, .logmeanexp, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
         };
         var running_mean: f64 = 0.0;
         var running_m2: f64 = 0.0;
@@ -5057,6 +5057,8 @@ fn withRowCumulativeRealColumns(
         var running_m4: f64 = 0.0;
         var running_min: f64 = 0.0;
         var running_max: f64 = 0.0;
+        var log_exp_sum: f64 = 0.0;
+        var log_exp_max: f64 = 0.0;
         var running_count: usize = 0;
         var running_valid = false;
         for (0..check_names.len) |col_index| {
@@ -5069,6 +5071,37 @@ fn withRowCumulativeRealColumns(
                 .mean => {
                     running += value;
                     running_count += 1;
+                },
+                .logsumexp, .logmeanexp => {
+                    running_count += 1;
+                    if (std.math.isNan(value)) {
+                        log_exp_sum = std.math.nan(f64);
+                        log_exp_max = std.math.nan(f64);
+                    } else if (!running_valid) {
+                        log_exp_max = value;
+                        log_exp_sum = 1.0;
+                    } else if (!std.math.isNan(log_exp_sum)) {
+                        if (std.math.isPositiveInf(log_exp_max)) {
+                            log_exp_sum = 1.0;
+                        } else if (std.math.isPositiveInf(value)) {
+                            log_exp_max = value;
+                            log_exp_sum = 1.0;
+                        } else if (value > log_exp_max) {
+                            log_exp_sum = log_exp_sum * std.math.exp(log_exp_max - value) + 1.0;
+                            log_exp_max = value;
+                        } else if (!(std.math.isNegativeInf(log_exp_max) and std.math.isNegativeInf(value))) {
+                            log_exp_sum += std.math.exp(value - log_exp_max);
+                        }
+                    }
+                    running_valid = true;
+                    if (std.math.isNan(log_exp_sum) or std.math.isNan(log_exp_max)) {
+                        running = std.math.nan(f64);
+                    } else if (std.math.isPositiveInf(log_exp_max) or std.math.isNegativeInf(log_exp_max)) {
+                        running = log_exp_max;
+                    } else {
+                        running = log_exp_max + std.math.log(f64, std.math.e, log_exp_sum);
+                        if (reduction == .logmeanexp) running -= std.math.log(f64, std.math.e, @as(f64, @floatFromInt(running_count)));
+                    }
                 },
                 .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => {
                     const previous_count = running_count;
@@ -5280,6 +5313,114 @@ pub fn withRowPrefixAvg(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLogSumExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .logsumexp);
+}
+
+pub fn withRowCumulativeLogsumexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogSumExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLogSumExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogSumExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLogsumexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogSumExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLogSumExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogSumExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLogsumexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogSumExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .logmeanexp);
+}
+
+pub fn withRowCumulativeLogmeanexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLogmeanexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLogmeanexp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeVariance(

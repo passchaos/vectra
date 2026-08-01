@@ -2418,6 +2418,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixAvg(self, names, output_names);
             }
 
+            pub fn withRowCumulativeLogSumExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLogSumExp(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLogsumexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLogsumexp(self, names, output_names);
+            }
+
+            pub fn withRowCumLogSumExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLogSumExp(self, names, output_names);
+            }
+
+            pub fn withRowCumLogsumexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLogsumexp(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLogSumExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLogSumExp(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLogsumexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLogsumexp(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLogMeanExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLogMeanExp(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLogmeanexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLogmeanexp(self, names, output_names);
+            }
+
+            pub fn withRowCumLogMeanExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLogMeanExp(self, names, output_names);
+            }
+
+            pub fn withRowCumLogmeanexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLogmeanexp(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLogMeanExp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLogMeanExp(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLogmeanexp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLogmeanexp(self, names, output_names);
+            }
+
             pub fn withRowCumulativeVariance(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeVariance(self, names, output_names, correction);
             }
