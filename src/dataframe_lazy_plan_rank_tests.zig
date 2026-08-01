@@ -1094,11 +1094,14 @@ test "device lazy frame fills nullable columns" {
     defer table.deinit();
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
+    try plan.withColumnFillNull("quality_filled_copy", "quality", f64, -2.0);
     try plan.fillNullColumn("quality", f64, -1.0);
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_column(quality=scalar:f64)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "copy_column(quality->quality_filled_copy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_column(quality_filled_copy=scalar:f64)") != null);
 
     var filled = try plan.collect();
     defer filled.deinit();
@@ -1106,6 +1109,10 @@ test "device lazy frame fills nullable columns" {
     const quality = try (try filled.column("quality")).f64.toOwnedSlice(gpa);
     defer gpa.free(quality);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, -1.0, 3.0, 4.0 }, quality);
+    try std.testing.expectEqual(@as(usize, 0), (try filled.column("quality_filled_copy")).nullCount());
+    const quality_filled_copy = try (try filled.column("quality_filled_copy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality_filled_copy);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, -2.0, 3.0, 4.0 }, quality_filled_copy);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

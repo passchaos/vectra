@@ -1510,6 +1510,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.fillNullColumnWithScalar(self, name, scalar);
             }
 
+            pub fn withColumnFillNull(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNull(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNullScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNullScalar(self, output_name, input_name, scalar);
+            }
+
             pub fn fillNaNColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.fillNaNColumn(self, name, T, value);
             }

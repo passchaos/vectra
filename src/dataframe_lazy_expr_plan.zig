@@ -2068,6 +2068,17 @@ pub fn fillNullColumnWithScalar(frame: anytype, name: []const u8, scalar: Device
     } });
 }
 
+pub fn withColumnFillNull(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNullScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNullScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNullColumnWithScalar(frame, output_name, scalar);
+}
+
 pub fn fillNaNColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return fillNaNColumnWithScalar(frame, name, DeviceScalar.init(T, value));
 }

@@ -1033,6 +1033,29 @@ pub fn fillNullColumn(
     return withColumn(DeviceDataFrame, input, name, filled);
 }
 
+pub fn withColumnFillNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(input_name);
+    var filled = try source.fillNullWithScalar(scalar);
+    defer filled.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, filled);
+}
+
+pub fn withColumnFillNullScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNull(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
 fn fillNumericPredicateTyped(
     comptime T: type,
     allocator: std.mem.Allocator,

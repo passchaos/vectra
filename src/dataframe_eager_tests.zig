@@ -320,6 +320,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const filled_units_values = try (try filled_units.column("units")).i64.toOwnedSlice(gpa);
     defer gpa.free(filled_units_values);
     try std.testing.expectEqualSlices(i64, &.{ 1, 99, 3 }, filled_units_values);
+    var units_filled_expr = try table.withColumnFillNull("units_filled", "units", i64, -1);
+    defer units_filled_expr.deinit();
+    const original_units_validity = try (try units_filled_expr.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(original_units_validity);
+    const units_filled_values = try (try units_filled_expr.column("units_filled")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_filled_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, original_units_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, -1, 3 }, units_filled_values);
+    try std.testing.expectEqual(@as(usize, 0), (try units_filled_expr.column("units_filled")).nullCount());
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnFillNull("bad_units_filled", "units", f64, 0.0));
     try std.testing.expectError(error.TypeUnsupported, table.fillNullColumn("units", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNullColumn("missing", i64, 0));
 
