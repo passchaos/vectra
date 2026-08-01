@@ -84,6 +84,12 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     try std.testing.expectEqualSlices(f64, &.{ 10.0, 20.0, 30.0 }, distinct_values);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false }, distinct_validity);
 
+    var distinct_last = try table.distinctOnLast(&.{"id"});
+    defer distinct_last.deinit();
+    const distinct_last_values = try (try distinct_last.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(distinct_last_values);
+    try std.testing.expectEqualSlices(f64, &.{ 99.0, 21.0, 30.0 }, distinct_last_values);
+
     var full_distinct = try table.distinctRows();
     defer full_distinct.deinit();
     try std.testing.expectEqual(@as(usize, 4), full_distinct.height());
@@ -101,4 +107,17 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     const lazy_ids = try (try lazy_distinct.column("id")).i32.toOwnedSlice(gpa);
     defer gpa.free(lazy_ids);
     try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, lazy_ids);
+
+    var last_plan = try DeviceLazyFrame.init(gpa, table);
+    defer last_plan.deinit();
+    try last_plan.dropDuplicatesOnLast(&.{"id"});
+    try last_plan.select(&.{ "id", "value" });
+    const last_explained = try last_plan.explain(gpa);
+    defer gpa.free(last_explained);
+    try std.testing.expect(std.mem.indexOf(u8, last_explained, "distinct_on_last([id])") != null);
+    var lazy_last = try last_plan.collect();
+    defer lazy_last.deinit();
+    const lazy_last_values = try (try lazy_last.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_last_values);
+    try std.testing.expectEqualSlices(f64, &.{ 99.0, 21.0, 30.0 }, lazy_last_values);
 }

@@ -55,6 +55,29 @@ pub fn distinctRowIndices(allocator: std.mem.Allocator, frame: anytype, key_name
     return representatives.toOwnedSlice(allocator);
 }
 
+pub fn distinctRowIndicesLast(allocator: std.mem.Allocator, frame: anytype, key_names: []const []const u8) KeyMatchError![]usize {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |name| _ = try frame.column(name);
+
+    var representatives: std.ArrayList(usize) = .empty;
+    errdefer representatives.deinit(allocator);
+
+    // Preserve key-group order while replacing each group's representative with
+    // the latest valid-key row. This mirrors `drop_duplicates(keep=last)`
+    // without reversing the resulting groups.
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const maybe_seen = try findMultiKeyGroupIndex(allocator, frame, key_names, representatives.items, row);
+        if (maybe_seen) |seen| {
+            representatives.items[seen] = row;
+        } else {
+            try representatives.append(allocator, row);
+        }
+    }
+
+    return representatives.toOwnedSlice(allocator);
+}
+
 pub fn rowHasValidKeys(allocator: std.mem.Allocator, frame: anytype, key_names: []const []const u8, row: usize) KeyMatchError!bool {
     for (key_names) |key_name| {
         const key = try frame.column(key_name);
@@ -257,12 +280,26 @@ pub fn distinctRows(comptime DeviceDataFrame: type, frame: DeviceDataFrame) KeyM
     return distinctOn(DeviceDataFrame, frame, frame.names);
 }
 
+pub fn distinctRowsLast(comptime DeviceDataFrame: type, frame: DeviceDataFrame) KeyMatchError!DeviceDataFrame {
+    return distinctOnLast(DeviceDataFrame, frame, frame.names);
+}
+
 pub fn distinctOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
 ) KeyMatchError!DeviceDataFrame {
     const indices = try distinctRowIndices(frame.allocator, frame, key_names);
+    defer frame.allocator.free(indices);
+    return frame.take(indices);
+}
+
+pub fn distinctOnLast(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+) KeyMatchError!DeviceDataFrame {
+    const indices = try distinctRowIndicesLast(frame.allocator, frame, key_names);
     defer frame.allocator.free(indices);
     return frame.take(indices);
 }

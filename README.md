@@ -214,7 +214,9 @@ with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is ava
 operations below. `DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible
 fixed-width tables by rows while preserving nullable validity.
 `distinctRows`/`distinctOn` and `dropDuplicates*` keep the first row for each
-full-row or subset-key combination; the row concat and distinct operations are
+full-row or subset-key combination, while `distinctRowsLast`/`distinctOnLast`
+and `dropDuplicates*Last` keep the last representative; the row concat and
+distinct operations are
 available in lazy plans as well.
 `DeviceLazyFrame` stages derived-column expressions (`withColumnBinary`,
 `withColumnScalar`, `withColumnCompare`, and `withColumnCompareScalar`), lazy

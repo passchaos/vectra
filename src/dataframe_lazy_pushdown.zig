@@ -1219,7 +1219,17 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .distinct_rows => {
                 projection_blocked = true;
             },
+            .distinct_rows_last => {
+                projection_blocked = true;
+            },
             .distinct_on => |names| {
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .distinct_on_last => |names| {
                 for (names) |name| {
                     if (!nameInBorrowedList(name, derived_names.items)) {
                         try appendOwnedNameUnique(allocator, &required_names, name);
