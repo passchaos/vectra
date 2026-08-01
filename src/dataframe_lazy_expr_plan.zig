@@ -6565,7 +6565,7 @@ fn withRowNumericPredicateReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
+    comptime tag_name: enum { zero, non_zero, positive_zero, negative_zero, positive, signbit, negative, nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
     comptime reduction: enum { any, all },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
@@ -6576,6 +6576,41 @@ fn withRowNumericPredicateReduction(
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     switch (tag_name) {
+        .zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_zero = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_zero = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .non_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_non_zero = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_non_zero = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .positive_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_positive_zero = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_positive_zero = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .negative_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_negative_zero = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_negative_zero = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .positive => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_positive = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_positive = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .signbit => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_signbit = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_signbit = .{ .names = owned_names, .output_name = owned_output } });
+        },
+        .negative => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_any_negative = .{ .names = owned_names, .output_name = owned_output } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_all_negative = .{ .names = owned_names, .output_name = owned_output } });
+        },
         .nan => if (reduction == .any) {
             try frame.ops.append(frame.allocator, .{ .row_any_nan = .{ .names = owned_names, .output_name = owned_output } });
         } else {
@@ -6623,7 +6658,7 @@ fn withRowCumulativeNumericPredicateReduction(
     frame: anytype,
     names: []const []const u8,
     output_names: []const []const u8,
-    comptime tag_name: enum { nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
+    comptime tag_name: enum { zero, non_zero, positive_zero, negative_zero, positive, signbit, negative, nan, inf, positive_inf, negative_inf, finite, normal, subnormal, non_finite },
     comptime reduction: enum { any, all },
 ) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
@@ -6638,6 +6673,41 @@ fn withRowCumulativeNumericPredicateReduction(
         frame.allocator.free(owned_outputs);
     }
     switch (tag_name) {
+        .zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .non_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_non_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_non_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .positive_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_positive_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_positive_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .negative_zero => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_negative_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_negative_zero = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .positive => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_positive = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_positive = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .signbit => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_signbit = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_signbit = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .negative => if (reduction == .any) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_any_negative = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_all_negative = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
         .nan => if (reduction == .any) {
             try frame.ops.append(frame.allocator, .{ .row_cumulative_any_nan = .{ .names = owned_names, .output_names = owned_outputs } });
         } else {
@@ -6679,6 +6749,230 @@ fn withRowCumulativeNumericPredicateReduction(
             try frame.ops.append(frame.allocator, .{ .row_cumulative_all_non_finite = .{ .names = owned_names, .output_names = owned_outputs } });
         },
     }
+}
+
+pub fn withRowAnyZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .zero, .any);
+}
+
+pub fn withRowAllZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .zero, .all);
+}
+
+pub fn withRowCumulativeAnyZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .zero, .any);
+}
+
+pub fn withRowCumAnyZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyZero(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .zero, .all);
+}
+
+pub fn withRowCumAllZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllZero(frame, names, output_names);
+}
+
+pub fn withRowAnyNonZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .non_zero, .any);
+}
+
+pub fn withRowAllNonZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .non_zero, .all);
+}
+
+pub fn withRowCumulativeAnyNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .non_zero, .any);
+}
+
+pub fn withRowCumAnyNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNonZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNonZero(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .non_zero, .all);
+}
+
+pub fn withRowCumAllNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNonZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllNonZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNonZero(frame, names, output_names);
+}
+
+pub fn withRowAnyPositiveZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .positive_zero, .any);
+}
+
+pub fn withRowAllPositiveZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .positive_zero, .all);
+}
+
+pub fn withRowCumulativeAnyPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .positive_zero, .any);
+}
+
+pub fn withRowCumAnyPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyPositiveZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyPositiveZero(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .positive_zero, .all);
+}
+
+pub fn withRowCumAllPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllPositiveZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllPositiveZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllPositiveZero(frame, names, output_names);
+}
+
+pub fn withRowAnyNegativeZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .negative_zero, .any);
+}
+
+pub fn withRowAllNegativeZero(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .negative_zero, .all);
+}
+
+pub fn withRowCumulativeAnyNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .negative_zero, .any);
+}
+
+pub fn withRowCumAnyNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNegativeZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNegativeZero(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .negative_zero, .all);
+}
+
+pub fn withRowCumAllNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNegativeZero(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllNegativeZero(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNegativeZero(frame, names, output_names);
+}
+
+pub fn withRowAnyPositive(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .positive, .any);
+}
+
+pub fn withRowAllPositive(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .positive, .all);
+}
+
+pub fn withRowCumulativeAnyPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .positive, .any);
+}
+
+pub fn withRowCumAnyPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyPositive(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyPositive(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .positive, .all);
+}
+
+pub fn withRowCumAllPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllPositive(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllPositive(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllPositive(frame, names, output_names);
+}
+
+pub fn withRowAnySignBit(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .signbit, .any);
+}
+
+pub fn withRowAllSignBit(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .signbit, .all);
+}
+
+pub fn withRowCumulativeAnySignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .signbit, .any);
+}
+
+pub fn withRowCumAnySignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnySignBit(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnySignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnySignBit(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllSignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .signbit, .all);
+}
+
+pub fn withRowCumAllSignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllSignBit(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllSignBit(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllSignBit(frame, names, output_names);
+}
+
+pub fn withRowAnyNegative(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .negative, .any);
+}
+
+pub fn withRowAllNegative(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateReduction(frame, names, output_name, .negative, .all);
+}
+
+pub fn withRowCumulativeAnyNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .negative, .any);
+}
+
+pub fn withRowCumAnyNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNegative(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNegative(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateReduction(frame, names, output_names, .negative, .all);
+}
+
+pub fn withRowCumAllNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNegative(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllNegative(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNegative(frame, names, output_names);
 }
 
 pub fn withRowAnyNaN(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

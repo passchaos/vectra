@@ -12680,6 +12680,510 @@ pub fn withRowPrefixAllNonFinite(
     return withRowCumulativeAllNonFinite(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowAnyZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .zero, .any);
+}
+
+pub fn withRowAllZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .zero, .all);
+}
+
+pub fn withRowCumulativeAnyZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .zero, .any);
+}
+
+pub fn withRowCumAnyZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .zero, .all);
+}
+
+pub fn withRowCumAllZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnyNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .non_zero, .any);
+}
+
+pub fn withRowAllNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .non_zero, .all);
+}
+
+pub fn withRowCumulativeAnyNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .non_zero, .any);
+}
+
+pub fn withRowCumAnyNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNonZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNonZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .non_zero, .all);
+}
+
+pub fn withRowCumAllNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNonZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNonZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnyPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .positive_zero, .any);
+}
+
+pub fn withRowAllPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .positive_zero, .all);
+}
+
+pub fn withRowCumulativeAnyPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .positive_zero, .any);
+}
+
+pub fn withRowCumAnyPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyPositiveZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyPositiveZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .positive_zero, .all);
+}
+
+pub fn withRowCumAllPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllPositiveZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllPositiveZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnyNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .negative_zero, .any);
+}
+
+pub fn withRowAllNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .negative_zero, .all);
+}
+
+pub fn withRowCumulativeAnyNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .negative_zero, .any);
+}
+
+pub fn withRowCumAnyNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNegativeZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNegativeZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .negative_zero, .all);
+}
+
+pub fn withRowCumAllNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNegativeZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNegativeZero(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnyPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .positive, .any);
+}
+
+pub fn withRowAllPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .positive, .all);
+}
+
+pub fn withRowCumulativeAnyPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .positive, .any);
+}
+
+pub fn withRowCumAnyPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyPositive(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyPositive(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .positive, .all);
+}
+
+pub fn withRowCumAllPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllPositive(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllPositive(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnySignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .signbit, .any);
+}
+
+pub fn withRowAllSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .signbit, .all);
+}
+
+pub fn withRowCumulativeAnySignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .signbit, .any);
+}
+
+pub fn withRowCumAnySignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnySignBit(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnySignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnySignBit(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .signbit, .all);
+}
+
+pub fn withRowCumAllSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllSignBit(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllSignBit(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowAnyNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .negative, .any);
+}
+
+pub fn withRowAllNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateReduction(DeviceDataFrame, input, names, output_name, .negative, .all);
+}
+
+pub fn withRowCumulativeAnyNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .negative, .any);
+}
+
+pub fn withRowCumAnyNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNegative(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNegative(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateReduction(DeviceDataFrame, input, names, output_names, .negative, .all);
+}
+
+pub fn withRowCumAllNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNegative(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNegative(DeviceDataFrame, input, names, output_names);
+}
+
 const RowNumericPredicateIndexSearch = enum { first, last };
 
 fn withRowNumericPredicateIndex(
