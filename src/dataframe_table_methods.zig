@@ -6782,6 +6782,13 @@ pub fn dropColumns(self: anytype, names: []const []const u8) DeviceDataError!Fra
     return dataframe_array_mod.dropColumns(FrameType(@TypeOf(self)), frameValue(self), names);
 }
 
+pub fn selectExcept(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropColumns(self, names);
+}
+
+pub const selectAllExcept = selectExcept;
+pub const excludeColumns = selectExcept;
+
 pub fn dropColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.dropColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }

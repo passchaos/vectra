@@ -209,6 +209,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
 
+    var except_units = try table.selectExcept(&.{"units"});
+    defer except_units.deinit();
+    try std.testing.expectEqual(@as(usize, 2), except_units.width());
+    try std.testing.expectEqual(@as(?usize, 0), except_units.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), except_units.columnIndex("active"));
+
+    var all_except_sales = try table.selectAllExcept(&.{"sales"});
+    defer all_except_sales.deinit();
+    try std.testing.expectEqual(@as(usize, 2), all_except_sales.width());
+    try std.testing.expectEqual(@as(?usize, 0), all_except_sales.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 1), all_except_sales.columnIndex("active"));
+
+    var exclude_active = try table.excludeColumns(&.{"active"});
+    defer exclude_active.deinit();
+    try std.testing.expectEqual(@as(usize, 2), exclude_active.width());
+    try std.testing.expectEqual(@as(?usize, 0), exclude_active.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), exclude_active.columnIndex("units"));
+
     var reversed_columns = try table.reverseColumns();
     defer reversed_columns.deinit();
     try std.testing.expectEqual(@as(?usize, 0), reversed_columns.columnIndex("active"));

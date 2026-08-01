@@ -919,6 +919,18 @@ test "device lazy frame selects and drops columns by dtype" {
     try std.testing.expectEqual(@as(?usize, 0), drop_last.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), drop_last.columnIndex("units"));
 
+    var select_except_plan = try DeviceLazyFrame.init(gpa, table);
+    defer select_except_plan.deinit();
+    try select_except_plan.selectExcept(&.{"units"});
+    const select_except_explain = try select_except_plan.explain(gpa);
+    defer gpa.free(select_except_explain);
+    try std.testing.expect(std.mem.indexOf(u8, select_except_explain, "drop_columns[units]") != null);
+    var select_except = try select_except_plan.collect();
+    defer select_except.deinit();
+    try std.testing.expectEqual(@as(usize, 2), select_except.width());
+    try std.testing.expectEqual(@as(?usize, 0), select_except.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), select_except.columnIndex("active"));
+
     var reverse_columns_plan = try DeviceLazyFrame.init(gpa, table);
     defer reverse_columns_plan.deinit();
     try reverse_columns_plan.reverseColumns();

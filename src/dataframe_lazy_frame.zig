@@ -616,6 +616,13 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.dropColumns(self, names);
             }
 
+            pub fn selectExcept(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
+                return self.dropColumns(names);
+            }
+
+            pub const selectAllExcept = selectExcept;
+            pub const excludeColumns = selectExcept;
+
             pub fn dropColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropColumn(self, name);
             }
