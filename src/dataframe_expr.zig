@@ -1558,6 +1558,14 @@ pub fn logicalColumnScalar(frame: anytype, name: []const u8, scalar: bool, op: D
     };
 }
 
+pub fn logicalNotColumn(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    return logicalColumnScalar(frame, name, true, .xor);
+}
+
+pub fn notColumn(frame: anytype, name: []const u8) DeviceDataError!@TypeOf(frame.columns[0]) {
+    return logicalNotColumn(frame, name);
+}
+
 pub fn logicalColumns(frame: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frame.columns[0]) {
     const lhs = try frame.column(lhs_name);
     const rhs = try frame.column(rhs_name);

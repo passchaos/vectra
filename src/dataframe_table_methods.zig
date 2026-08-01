@@ -2106,6 +2106,14 @@ pub fn logicalColumnScalar(self: anytype, name: []const u8, scalar: bool, op: De
     return expr_mod.logicalColumnScalar(frameValue(self), name, scalar, op);
 }
 
+pub fn logicalNotColumn(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.logicalNotColumn(frameValue(self), name);
+}
+
+pub fn notColumn(self: anytype, name: []const u8) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.notColumn(frameValue(self), name);
+}
+
 pub fn withColumnLogicalScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool, op: DeviceColumnLogicalOp) DeviceDataError!FrameType(@TypeOf(self)) {
     var column = try logicalColumnScalar(self, input_name, scalar, op);
     defer column.deinit();
@@ -2122,6 +2130,16 @@ pub fn withColumnLogicalOrScalar(self: anytype, output_name: []const u8, input_n
 
 pub fn withColumnLogicalXorScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: bool) DeviceDataError!FrameType(@TypeOf(self)) {
     return withColumnLogicalScalar(self, output_name, input_name, scalar, .xor);
+}
+
+pub fn withColumnLogicalNot(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try logicalNotColumn(self, input_name);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnNot(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnLogicalNot(self, output_name, input_name);
 }
 
 pub fn logicalColumns(self: anytype, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {

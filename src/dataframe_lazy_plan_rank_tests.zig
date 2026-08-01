@@ -56,7 +56,7 @@ test "device lazy frame collects plan operations" {
     try plan.withColumnAddcdivScalar("sales_addcdiv", "sales", "sales", "sales_x2", f64, 0.5);
     try plan.withColumnClipArray("sales_clipped", "sales", "sales_recip", "sales_addcdiv");
     try plan.withColumnIscloseScalar("sales_close5", "sales", f64, 5.0, 0.0, 0.1);
-    try plan.withColumnLogicalXorScalar("active_not", "active", true);
+    try plan.withColumnLogicalNot("active_not", "active");
     try plan.withColumnWhereScalar("sales_when_active_not", "sales", "active_not", f64, -1.0);
     try plan.withColumnWhere("sales_where_active_not", "sales", "active_not", "sales_neg");
     try plan.withColumnMaskedPutScalar("sales_masked_active_not", "sales", "active_not", f64, -2.0);

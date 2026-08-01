@@ -1478,6 +1478,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnLogicalXorScalar(self, name, input_name, scalar);
             }
 
+            pub fn withColumnLogicalNot(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnLogicalNot(self, name, input_name);
+            }
+
+            pub fn withColumnNot(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNot(self, name, input_name);
+            }
+
             pub fn withColumnLogical(self: *DeviceLazyFrame, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: options_mod.DeviceColumnLogicalOp) DeviceDataError!void {
                 return lazy_expr_mod.withColumnLogical(self, name, lhs_name, rhs_name, op);
             }

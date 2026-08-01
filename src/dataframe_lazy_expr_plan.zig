@@ -2025,6 +2025,14 @@ pub fn withColumnLogicalXorScalar(frame: anytype, name: []const u8, input_name: 
     return withColumnLogicalScalar(frame, name, input_name, scalar, .xor);
 }
 
+pub fn withColumnLogicalNot(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    return withColumnLogicalXorScalar(frame, name, input_name, true);
+}
+
+pub fn withColumnNot(frame: anytype, name: []const u8, input_name: []const u8) DeviceDataError!void {
+    return withColumnLogicalNot(frame, name, input_name);
+}
+
 pub fn withColumnLogical(frame: anytype, name: []const u8, lhs_name: []const u8, rhs_name: []const u8, op: DeviceColumnLogicalOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
