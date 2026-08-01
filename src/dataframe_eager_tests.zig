@@ -1196,6 +1196,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(std.math.exp(@as(f64, -36.0))) - std.math.ln2, row_logmeanexp[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_logmeanexp_validity);
 
+    var row_centered_table = try validity_table.withRowCentered(&.{ "a", "b" }, &.{ "a_centered", "b_centered" });
+    defer row_centered_table.deinit();
+    const row_a_centered_column = try row_centered_table.column("a_centered");
+    const row_b_centered_column = try row_centered_table.column("b_centered");
+    try std.testing.expect(row_a_centered_column.f64.nullable());
+    try std.testing.expect(row_b_centered_column.f64.nullable());
+    const row_a_centered = try row_a_centered_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_centered);
+    const row_b_centered = try row_b_centered_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_centered);
+    const row_a_centered_validity = try row_a_centered_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_centered_validity);
+    const row_b_centered_validity = try row_b_centered_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_centered_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, -18.0 }, row_a_centered);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_b_centered);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_centered_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_centered_validity);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
+
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });
     defer row_softmax_table.deinit();
     const row_a_softmax_column = try row_softmax_table.column("a_softmax");

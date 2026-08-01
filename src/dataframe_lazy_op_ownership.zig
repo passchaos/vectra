@@ -1542,12 +1542,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
-        .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs, tag| blk: {
+        .row_centered, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs, tag| blk: {
             const names = try cloneNameList(allocator, row_outputs.names);
             errdefer freeNameList(allocator, names);
             const output_names = try cloneNameList(allocator, row_outputs.output_names);
             errdefer freeNameList(allocator, output_names);
             break :blk switch (tag) {
+                .row_centered => .{ .row_centered = .{
+                    .names = names,
+                    .output_names = output_names,
+                } },
                 .row_softmax => .{ .row_softmax = .{
                     .names = names,
                     .output_names = output_names,
