@@ -104,6 +104,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const n_unique_alias = try table.columnNUnique(gpa);
     defer gpa.free(n_unique_alias);
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 2 }, n_unique_alias);
+    const duplicate_counts = try table.columnDuplicateCounts(gpa);
+    defer gpa.free(duplicate_counts);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, duplicate_counts);
+    const repeated_counts = try table.columnRepeatedCounts(gpa);
+    defer gpa.free(repeated_counts);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, repeated_counts);
     const distinct_ratios = try table.columnDistinctRatios(gpa);
     defer gpa.free(distinct_ratios);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), distinct_ratios[0], 1e-12);

@@ -206,6 +206,17 @@ pub const DeviceDataFrame = struct {
         return self.columnDistinctCounts(allocator);
     }
 
+    pub fn columnDuplicateCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        const distinct_counts = try self.columnDistinctCounts(allocator);
+        errdefer allocator.free(distinct_counts);
+        for (distinct_counts) |*slot| slot.* = self.rows - slot.*;
+        return distinct_counts;
+    }
+
+    pub fn columnRepeatedCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDuplicateCounts(allocator);
+    }
+
     pub fn columnDistinctRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]f64 {
         const counts = try self.columnDistinctCounts(allocator);
         defer allocator.free(counts);
