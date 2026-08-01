@@ -2530,6 +2530,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .correction = row_dispersion.correction,
             } };
         },
+        .row_fano => |row_dispersion| blk: {
+            const names = try cloneNameList(allocator, row_dispersion.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_dispersion.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_fano = .{
+                .names = names,
+                .output_name = output_name,
+                .correction = row_dispersion.correction,
+            } };
+        },
         .with_column_compare => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

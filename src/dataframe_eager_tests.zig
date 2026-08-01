@@ -1409,6 +1409,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 18.0 / 22.0), row_cv[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_cv_validity);
+
+    var row_fano_table = try validity_table.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
+    defer row_fano_table.deinit();
+    const row_fano_column = try row_fano_table.column("row_fano");
+    try std.testing.expect(row_fano_column.f64.nullable());
+    const row_fano = try row_fano_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_fano);
+    const row_fano_validity = try row_fano_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_fano_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_fano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_fano[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_fano[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 162.0 / 11.0), row_fano[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_fano_validity);
+
     try std.testing.expectError(error.InvalidShape, validity_table.withRowVariance(&.{ "a", "b" }, "bad_row_variance", -1.0));
     try std.testing.expectError(error.TypeMismatch, validity_table.withRowSum(&.{"c"}, "bad_row_sum"));
 

@@ -764,6 +764,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_stddev => |row_dispersion| try current.withRowStddev(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
             .row_sem => |row_dispersion| try current.withRowSem(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
             .row_cv => |row_dispersion| try current.withRowCv(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
+            .row_fano => |row_dispersion| try current.withRowFano(row_dispersion.names, row_dispersion.output_name, row_dispersion.correction),
             .row_skewness => |row_count| try current.withRowSkewness(row_count.names, row_count.output_name),
             .row_kurtosis => |row_count| try current.withRowKurtosis(row_count.names, row_count.output_name),
             .row_true_count => |row_count| try current.withRowTrueCount(row_count.names, row_count.output_name),

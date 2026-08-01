@@ -3702,7 +3702,7 @@ fn withRowNumericDispersion(
     names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { variance, stddev, sem, cv },
+    comptime reduction: enum { variance, stddev, sem, cv, fano },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3732,6 +3732,11 @@ fn withRowNumericDispersion(
             .output_name = owned_output,
             .correction = correction,
         } }),
+        .fano => try frame.ops.append(frame.allocator, .{ .row_fano = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
     }
 }
 
@@ -3757,6 +3762,14 @@ pub fn withRowSem(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowNumericDispersion(frame, names, output_name, correction, .cv);
+}
+
+pub fn withRowFano(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .fano);
+}
+
+pub fn withRowIndexOfDispersion(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowFano(frame, names, output_name, correction);
 }
 
 fn withRowBoolPredicateCount(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
