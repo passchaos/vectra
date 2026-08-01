@@ -18,6 +18,14 @@ pub fn groupByCount(self: anytype, key_name: []const u8, output_name: []const u8
     return lazy_group_mod.groupByCount(self, key_name, output_name);
 }
 
+pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
+    return valueCountsAs(self, key_name, "count");
+}
+
+pub fn valueCountsAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByCount(key_name, output_name);
+}
+
 pub fn groupByValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return lazy_group_mod.groupByValue(self, key_name, value_name, output_name, aggregation);
 }

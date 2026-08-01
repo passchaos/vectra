@@ -5609,6 +5609,8 @@ pub fn DeviceLazyTypes(
             }
 
             pub const groupByCount = lazy_relation_methods_mod.groupByCount;
+            pub const valueCounts = lazy_relation_methods_mod.valueCounts;
+            pub const valueCountsAs = lazy_relation_methods_mod.valueCountsAs;
             pub const groupByValue = lazy_relation_methods_mod.groupByValue;
             pub const groupBySum = lazy_relation_methods_mod.groupBySum;
             pub const groupByMin = lazy_relation_methods_mod.groupByMin;

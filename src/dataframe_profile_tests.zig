@@ -101,6 +101,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, count_keys);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, counts);
 
+    var value_counts = try table.valueCounts("store");
+    defer value_counts.deinit();
+    const value_count_keys = try (try value_counts.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(value_count_keys);
+    const value_count_values = try (try value_counts.column("count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(value_count_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, value_count_keys);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, value_count_values);
+
+    var named_value_counts = try table.valueCountsAs("store", "rows_named");
+    defer named_value_counts.deinit();
+    const named_counts = try (try named_value_counts.column("rows_named")).i64.toOwnedSlice(gpa);
+    defer gpa.free(named_counts);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, named_counts);
+
+    var value_counts_plan = try DeviceLazyFrame.init(gpa, table);
+    defer value_counts_plan.deinit();
+    try value_counts_plan.valueCountsAs("store", "rows_lazy");
+    const value_counts_explained = try value_counts_plan.explain(gpa);
+    defer gpa.free(value_counts_explained);
+    try std.testing.expect(std.mem.indexOf(u8, value_counts_explained, "group_by_count(store -> rows_lazy)") != null);
+    var lazy_value_counts = try value_counts_plan.collect();
+    defer lazy_value_counts.deinit();
+    const lazy_value_count_keys = try (try lazy_value_counts.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_value_count_keys);
+    const lazy_value_count_values = try (try lazy_value_counts.column("rows_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_value_count_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, lazy_value_count_keys);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, lazy_value_count_values);
+
     var summed = try table.groupBySum("store", "sales", "sales_sum");
     defer summed.deinit();
     try std.testing.expectEqual(@as(usize, 2), summed.height());
