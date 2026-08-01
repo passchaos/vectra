@@ -7210,6 +7210,10 @@ pub fn sampleRows(self: anytype, count: usize, seed: u64) DeviceDataError!FrameT
     return dataframe_array_mod.sampleRows(FrameType(@TypeOf(self)), frameValue(self), count, seed);
 }
 
+pub fn shuffleRows(self: anytype, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return sampleRows(self, frameValue(self).rows, seed);
+}
+
 pub fn sampleRowsFraction(self: anytype, fraction: f64, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.sampleRowsFraction(FrameType(@TypeOf(self)), frameValue(self), fraction, seed);
 }

@@ -7503,6 +7503,17 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(sampled_again_sales);
     try std.testing.expectEqualSlices(f64, sampled_sales, sampled_again_sales);
 
+    var shuffle_plan = try DeviceLazyFrame.init(gpa, table);
+    defer shuffle_plan.deinit();
+    try shuffle_plan.shuffleRows(1234);
+    try shuffle_plan.select(&.{ "sales", "units" });
+    const shuffle_explain = try shuffle_plan.explain(gpa);
+    defer gpa.free(shuffle_explain);
+    try std.testing.expect(std.mem.indexOf(u8, shuffle_explain, "sample_rows_fraction(fraction=1, seed=1234)") != null);
+    var shuffled = try shuffle_plan.collect();
+    defer shuffled.deinit();
+    try std.testing.expectEqual(table.height(), shuffled.height());
+
     var sample_fraction_plan = try DeviceLazyFrame.init(gpa, table);
     defer sample_fraction_plan.deinit();
     try sample_fraction_plan.sampleRowsFraction(0.5, 1234);

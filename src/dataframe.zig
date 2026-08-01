@@ -2103,6 +2103,7 @@ pub const DeviceDataFrame = struct {
     pub const tileRows = table_methods_mod.tileRows;
     pub const repeatRowsByColumn = table_methods_mod.repeatRowsByColumn;
     pub const sampleRows = table_methods_mod.sampleRows;
+    pub const shuffleRows = table_methods_mod.shuffleRows;
     pub const sampleRowsFraction = table_methods_mod.sampleRowsFraction;
     pub const sampleFrac = table_methods_mod.sampleFrac;
     pub const sampleRowsWithReplacement = table_methods_mod.sampleRowsWithReplacement;

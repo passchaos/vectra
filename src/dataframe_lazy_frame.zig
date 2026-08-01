@@ -5917,6 +5917,10 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn shuffleRows(self: *DeviceLazyFrame, seed: u64) DeviceDataError!void {
+                return self.sampleRowsFraction(1.0, seed);
+            }
+
             pub fn sampleRowsFraction(self: *DeviceLazyFrame, fraction: f64, seed: u64) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .sample_rows_fraction = .{
                     .fraction = fraction,
