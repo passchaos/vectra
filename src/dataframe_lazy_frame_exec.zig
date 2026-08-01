@@ -1155,6 +1155,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                     try current.dropColumnMask(mask);
             },
             .group_by_count => |group| try current.groupByCount(group.key_name, group.output_name),
+            .group_by_count_on => |group| try current.groupByCountOn(group.key_names, group.output_name),
             .group_by_value => |group| switch (group.aggregation) {
                 .sum => try current.groupBySum(group.key_name, group.value_name, group.output_name),
                 .min => try current.groupByMin(group.key_name, group.value_name, group.output_name),

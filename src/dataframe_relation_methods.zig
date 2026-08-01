@@ -34,12 +34,24 @@ pub fn groupByCount(self: anytype, key_name: []const u8, output_name: []const u8
     return group_profile_mod.groupByCount(FrameType(@TypeOf(self)), frameValue(self), key_name, output_name);
 }
 
+pub fn groupByCountOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return valueCountsAs(self, key_name, "count");
 }
 
 pub fn valueCountsAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return groupByCount(self, key_name, output_name);
+}
+
+pub fn valueCountsOn(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return valueCountsOnAs(self, key_names, "count");
+}
+
+pub fn valueCountsOnAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return groupByCountOn(self, key_names, output_name);
 }
 
 pub fn valueCountsSorted(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
@@ -50,6 +62,24 @@ pub fn valueCountsSortedAs(self: anytype, key_name: []const u8, output_name: []c
     var counts = try valueCountsAs(self, key_name, output_name);
     defer counts.deinit();
     return counts.sortBy(output_name, .{ .descending = true });
+}
+
+pub fn valueCountsOnSorted(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return valueCountsOnSortedAs(self, key_names, "count");
+}
+
+pub fn valueCountsOnSortedAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var counts = try valueCountsOnAs(self, key_names, output_name);
+    defer counts.deinit();
+    return counts.sortBy(output_name, .{ .descending = true });
+}
+
+pub fn valueCountsSortedOn(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return valueCountsOnSorted(self, key_names);
+}
+
+pub fn valueCountsSortedOnAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return valueCountsOnSortedAs(self, key_names, output_name);
 }
 
 pub fn groupBySum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

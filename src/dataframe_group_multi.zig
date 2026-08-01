@@ -153,6 +153,51 @@ fn groupByStatsOnTyped(
     return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, allocator, names, columns, representative_rows.items.len, device_value);
 }
 
+pub fn groupByCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var counts: std.ArrayList(i64) = .empty;
+    defer counts.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        counts.items[group_index] += 1;
+    }
+
+    const total_cols = key_names.len + 1;
+    var names = try frame.allocator.alloc([]const u8, total_cols);
+    defer frame.allocator.free(names);
+    var columns = try frame.allocator.alloc(DeviceColumn, total_cols);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        frame.allocator.free(columns);
+    }
+
+    for (key_names) |key_name| {
+        names[initialized] = key_name;
+        columns[initialized] = try (try frame.column(key_name)).take(representative_rows.items);
+        initialized += 1;
+    }
+    names[initialized] = output_name;
+    columns[initialized] = try DeviceColumn.fromSlice(i64, frame.allocator, counts.items, frame.device);
+    initialized += 1;
+    return dataframe_array_mod.initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, frame.allocator, names, columns, representative_rows.items.len, frame.device);
+}
+
 pub fn groupByProfileOnDispatchValue(
     comptime DeviceDataFrame: type,
     allocator: std.mem.Allocator,

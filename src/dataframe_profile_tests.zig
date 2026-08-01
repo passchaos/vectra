@@ -233,6 +233,45 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     });
     defer multi.deinit();
 
+    var multi_counts = try multi.groupByCountOn(&.{ "store", "day" }, "rows");
+    defer multi_counts.deinit();
+    try std.testing.expectEqual(@as(usize, 3), multi_counts.width());
+    try std.testing.expectEqual(@as(usize, 4), multi_counts.height());
+    const mc_store = try (try multi_counts.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(mc_store);
+    const mc_day = try (try multi_counts.column("day")).i32.toOwnedSlice(gpa);
+    defer gpa.free(mc_day);
+    const mc_rows = try (try multi_counts.column("rows")).i64.toOwnedSlice(gpa);
+    defer gpa.free(mc_rows);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, mc_store);
+    try std.testing.expectEqualSlices(i32, &.{ 10, 11, 10, 11 }, mc_day);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2, 1 }, mc_rows);
+
+    var multi_value_counts = try multi.valueCountsOnAs(&.{ "store", "day" }, "freq");
+    defer multi_value_counts.deinit();
+    const mvc_rows = try (try multi_value_counts.column("freq")).i64.toOwnedSlice(gpa);
+    defer gpa.free(mvc_rows);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2, 1 }, mvc_rows);
+
+    var multi_sorted_counts = try multi.valueCountsOnSortedAs(&.{ "store", "day" }, "freq");
+    defer multi_sorted_counts.deinit();
+    const msc_rows = try (try multi_sorted_counts.column("freq")).i64.toOwnedSlice(gpa);
+    defer gpa.free(msc_rows);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 1, 1 }, msc_rows);
+
+    var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_counts_plan.deinit();
+    try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
+    const multi_counts_explained = try multi_counts_plan.explain(gpa);
+    defer gpa.free(multi_counts_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_counts_explained, "group_by_count_on([store,day] -> freq_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, multi_counts_explained, "sort_by(freq_lazy, desc=true)") != null);
+    var lazy_multi_counts = try multi_counts_plan.collect();
+    defer lazy_multi_counts.deinit();
+    const lazy_mc_rows = try (try lazy_multi_counts.column("freq_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mc_rows);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 1, 1 }, lazy_mc_rows);
+
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();
     try std.testing.expectEqual(@as(usize, 7), multi_stats.width());

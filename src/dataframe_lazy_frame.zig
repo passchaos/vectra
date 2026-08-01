@@ -5616,10 +5616,17 @@ pub fn DeviceLazyTypes(
             }
 
             pub const groupByCount = lazy_relation_methods_mod.groupByCount;
+            pub const groupByCountOn = lazy_relation_methods_mod.groupByCountOn;
             pub const valueCounts = lazy_relation_methods_mod.valueCounts;
             pub const valueCountsAs = lazy_relation_methods_mod.valueCountsAs;
+            pub const valueCountsOn = lazy_relation_methods_mod.valueCountsOn;
+            pub const valueCountsOnAs = lazy_relation_methods_mod.valueCountsOnAs;
             pub const valueCountsSorted = lazy_relation_methods_mod.valueCountsSorted;
             pub const valueCountsSortedAs = lazy_relation_methods_mod.valueCountsSortedAs;
+            pub const valueCountsOnSorted = lazy_relation_methods_mod.valueCountsOnSorted;
+            pub const valueCountsOnSortedAs = lazy_relation_methods_mod.valueCountsOnSortedAs;
+            pub const valueCountsSortedOn = lazy_relation_methods_mod.valueCountsSortedOn;
+            pub const valueCountsSortedOnAs = lazy_relation_methods_mod.valueCountsSortedOnAs;
             pub const groupByValue = lazy_relation_methods_mod.groupByValue;
             pub const groupBySum = lazy_relation_methods_mod.groupBySum;
             pub const groupByMin = lazy_relation_methods_mod.groupByMin;

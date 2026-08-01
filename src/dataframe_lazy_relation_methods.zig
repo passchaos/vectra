@@ -18,12 +18,24 @@ pub fn groupByCount(self: anytype, key_name: []const u8, output_name: []const u8
     return lazy_group_mod.groupByCount(self, key_name, output_name);
 }
 
+pub fn groupByCountOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByCountOn(self, key_names, output_name);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }
 
 pub fn valueCountsAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByCount(key_name, output_name);
+}
+
+pub fn valueCountsOn(self: anytype, key_names: []const []const u8) DeviceDataError!void {
+    return valueCountsOnAs(self, key_names, "count");
+}
+
+pub fn valueCountsOnAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByCountOn(key_names, output_name);
 }
 
 pub fn valueCountsSorted(self: anytype, key_name: []const u8) DeviceDataError!void {
@@ -33,6 +45,23 @@ pub fn valueCountsSorted(self: anytype, key_name: []const u8) DeviceDataError!vo
 pub fn valueCountsSortedAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     try self.valueCountsAs(key_name, output_name);
     try self.sortBy(output_name, .{ .descending = true });
+}
+
+pub fn valueCountsOnSorted(self: anytype, key_names: []const []const u8) DeviceDataError!void {
+    return valueCountsOnSortedAs(self, key_names, "count");
+}
+
+pub fn valueCountsOnSortedAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    try self.valueCountsOnAs(key_names, output_name);
+    try self.sortBy(output_name, .{ .descending = true });
+}
+
+pub fn valueCountsSortedOn(self: anytype, key_names: []const []const u8) DeviceDataError!void {
+    return valueCountsOnSorted(self, key_names);
+}
+
+pub fn valueCountsSortedOnAs(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return valueCountsOnSortedAs(self, key_names, output_name);
 }
 
 pub fn groupByValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {

@@ -353,6 +353,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             key_name: []const u8,
             output_name: []const u8,
         };
+        pub const GroupByCountOn = struct {
+            key_names: [][]const u8,
+            output_name: []const u8,
+        };
         pub const GroupByValue = struct {
             key_name: []const u8,
             value_name: []const u8,
