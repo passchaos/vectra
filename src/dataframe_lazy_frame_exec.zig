@@ -1310,10 +1310,33 @@ fn optimizedOps(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!std.
                     } };
                     continue;
                 }
+                if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .sort_by_columns) {
+                    const sort = optimized.items[optimized.items.len - 1].sort_by_columns;
+                    const names = try names_mod.cloneNameList(self.allocator, sort.names);
+                    errdefer names_mod.freeNameList(self.allocator, names);
+                    const options = try self.allocator.dupe(std.meta.Elem(@TypeOf(sort.options)), sort.options);
+                    errdefer self.allocator.free(options);
+                    optimized.items[optimized.items.len - 1].deinit(self.allocator);
+                    optimized.items[optimized.items.len - 1] = .{ .top_k_columns = .{
+                        .names = names,
+                        .options = options,
+                        .k = n,
+                    } };
+                    continue;
+                }
                 if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .top_k) {
                     const top = optimized.items[optimized.items.len - 1].top_k;
                     optimized.items[optimized.items.len - 1] = .{ .top_k = .{
                         .name = top.name,
+                        .options = top.options,
+                        .k = @min(top.k, n),
+                    } };
+                    continue;
+                }
+                if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .top_k_columns) {
+                    const top = optimized.items[optimized.items.len - 1].top_k_columns;
+                    optimized.items[optimized.items.len - 1] = .{ .top_k_columns = .{
+                        .names = top.names,
                         .options = top.options,
                         .k = @min(top.k, n),
                     } };

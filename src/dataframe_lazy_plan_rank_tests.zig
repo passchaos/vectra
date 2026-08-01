@@ -7083,6 +7083,14 @@ test "device lazy frame sorts by multiple columns" {
     var invalid = try DeviceLazyFrame.init(gpa, table);
     defer invalid.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid.sortByColumns(&.{"active"}, &.{ .{ .descending = true }, .{ .descending = true } }));
+
+    var optimized_topk_plan = try DeviceLazyFrame.init(gpa, table);
+    defer optimized_topk_plan.deinit();
+    try optimized_topk_plan.sortByColumns(&.{ "active", "units" }, &.{ .{ .descending = true }, .{ .descending = true } });
+    try optimized_topk_plan.head(2);
+    const optimized_topk_explain = try optimized_topk_plan.explain(gpa);
+    defer gpa.free(optimized_topk_explain);
+    try std.testing.expect(std.mem.indexOf(u8, optimized_topk_explain, "top_k_columns(k=2)[active:desc=true,units:desc=true]") != null);
 }
 
 test "device lazy frame collects multi-key topk operations" {
