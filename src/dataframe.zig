@@ -139,6 +139,16 @@ pub const DeviceDataFrame = struct {
         return self.names;
     }
 
+    pub fn columnDTypes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceDType {
+        const out = try allocator.alloc(DeviceDType, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype();
+        return out;
+    }
+
+    pub fn dtypes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceDType {
+        return self.columnDTypes(allocator);
+    }
+
     pub fn isEmpty(self: DeviceDataFrame) bool {
         return self.rows == 0 or self.columns.len == 0;
     }
