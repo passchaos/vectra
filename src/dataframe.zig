@@ -162,6 +162,44 @@ pub const DeviceDataFrame = struct {
         return self.columnDTypes(allocator);
     }
 
+    pub fn columnDTypeClassMask(self: DeviceDataFrame, allocator: std.mem.Allocator, class: DeviceDTypeClass) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = class.matches(column_value.dtype());
+        return out;
+    }
+
+    pub fn columnIsNumericMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .numeric);
+    }
+
+    pub fn columnIsRealMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .real);
+    }
+
+    pub fn columnIsFloatMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .float);
+    }
+
+    pub fn columnIsIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .integer);
+    }
+
+    pub fn columnIsSignedIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .signed_integer);
+    }
+
+    pub fn columnIsUnsignedIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .unsigned_integer);
+    }
+
+    pub fn columnIsBoolMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .bool);
+    }
+
+    pub fn columnIsComplexMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .complex);
+    }
+
     pub fn columnNullCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
         const out = try allocator.alloc(usize, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.nullCount();

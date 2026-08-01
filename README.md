@@ -204,7 +204,7 @@ construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,
 `rowCount`, `width`, `columnCount`, `columnNames`, `columnNameAt`, `columnDTypeAt`,
-`columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnNullCounts`, `columnValidCounts`, `columnNullRatios`, `columnValidRatios`, `columnDistinctCounts`, `columnNUniqueCounts`/`columnNUnique`, `columnDuplicateCounts`/`columnRepeatedCounts`, `columnDistinctRatios`/`columnNUniqueRatios`, `columnDuplicateRatios`, `columnIsUniqueMask`, `columnHasDuplicatesMask`,
+`columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnDTypeClassMask`, `columnIsNumericMask`, `columnIsFloatMask`, `columnIsIntegerMask`, `columnIsBoolMask`, `columnNullCounts`, `columnValidCounts`, `columnNullRatios`, `columnValidRatios`, `columnDistinctCounts`, `columnNUniqueCounts`/`columnNUnique`, `columnDuplicateCounts`/`columnRepeatedCounts`, `columnDistinctRatios`/`columnNUniqueRatios`, `columnDuplicateRatios`, `columnIsUniqueMask`, `columnHasDuplicatesMask`,
 `columnNullableMask`, `columnHasNullsMask`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `dataNbytes`, `validityNbytes`,
 `totalNbytes`, `columnSchemas`/`schemaSummary`, `equals`/`frameEquals`, `allClose`/`frameAllClose`, `schemaEquals`/`sameSchema`/`schemaCompatible`, `deviceBackendName`, `isCpu`,
