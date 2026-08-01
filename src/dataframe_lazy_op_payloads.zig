@@ -428,6 +428,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             count: usize,
             seed: u64,
         };
+        pub const RowSampleFraction = struct {
+            fraction: f64,
+            seed: u64,
+        };
         pub const RowTake = []usize;
         pub const RowTakeOptional = []?usize;
         pub const RowTakeMode = struct {

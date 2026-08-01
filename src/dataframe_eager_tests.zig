@@ -3803,6 +3803,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, sampled_sales, sampled_again_sales);
     try std.testing.expectError(error.InvalidShape, table.sampleRows(table.height() + 1, 1234));
 
+    var sampled_fraction = try table.sampleRowsFraction(0.5, 1234);
+    defer sampled_fraction.deinit();
+    try std.testing.expectEqual(@as(usize, 1), sampled_fraction.height());
+    var sampled_fraction_full = try table.sampleRowsFraction(1.0, 1234);
+    defer sampled_fraction_full.deinit();
+    try std.testing.expectEqual(table.height(), sampled_fraction_full.height());
+    try std.testing.expectError(error.InvalidShape, table.sampleRowsFraction(1.1, 1234));
+
     var sampled_replacement = try table.sampleRowsWithReplacement(table.height() + 2, 4321);
     defer sampled_replacement.deinit();
     try std.testing.expectEqual(table.height() + 2, sampled_replacement.height());
@@ -3814,6 +3822,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const sampled_replacement_again_sales = try (try sampled_replacement_again.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(sampled_replacement_again_sales);
     try std.testing.expectEqualSlices(f64, sampled_replacement_sales, sampled_replacement_again_sales);
+
+    var sampled_fraction_replacement = try table.sampleRowsFractionWithReplacement(1.5, 4321);
+    defer sampled_fraction_replacement.deinit();
+    try std.testing.expectEqual(@as(usize, 4), sampled_fraction_replacement.height());
 
     var strided = try table.strideRows(0, 2);
     defer strided.deinit();

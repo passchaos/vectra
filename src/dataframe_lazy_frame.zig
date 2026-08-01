@@ -5917,9 +5917,23 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sampleRowsFraction(self: *DeviceLazyFrame, fraction: f64, seed: u64) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .sample_rows_fraction = .{
+                    .fraction = fraction,
+                    .seed = seed,
+                } });
+            }
+
             pub fn sampleRowsWithReplacement(self: *DeviceLazyFrame, count: usize, seed: u64) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .sample_rows_with_replacement = .{
                     .count = count,
+                    .seed = seed,
+                } });
+            }
+
+            pub fn sampleRowsFractionWithReplacement(self: *DeviceLazyFrame, fraction: f64, seed: u64) DeviceDataError!void {
+                try self.ops.append(self.allocator, .{ .sample_rows_fraction_with_replacement = .{
+                    .fraction = fraction,
                     .seed = seed,
                 } });
             }

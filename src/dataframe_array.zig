@@ -17915,6 +17915,23 @@ pub fn sampleRows(
     return takeRows(DeviceDataFrame, input, row_indices[0..count]);
 }
 
+fn sampleFractionCount(rows: usize, fraction: f64, comptime allow_overflow: bool) DeviceFrameArrayError!usize {
+    if (std.math.isNan(fraction) or fraction < 0.0) return error.InvalidShape;
+    if (!allow_overflow and fraction > 1.0) return error.InvalidShape;
+    const count_float = @floor(fraction * @as(f64, @floatFromInt(rows)));
+    if (count_float > @as(f64, @floatFromInt(std.math.maxInt(usize)))) return error.InvalidShape;
+    return @intFromFloat(count_float);
+}
+
+pub fn sampleRowsFraction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    fraction: f64,
+    seed: u64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return sampleRows(DeviceDataFrame, input, try sampleFractionCount(input.rows, fraction, false), seed);
+}
+
 pub fn sampleRowsWithReplacement(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -17932,6 +17949,15 @@ pub fn sampleRowsWithReplacement(
         slot.* = rng.intRangeLessThan(usize, 0, input.rows);
     }
     return takeRows(DeviceDataFrame, input, row_indices);
+}
+
+pub fn sampleRowsFractionWithReplacement(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    fraction: f64,
+    seed: u64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return sampleRowsWithReplacement(DeviceDataFrame, input, try sampleFractionCount(input.rows, fraction, true), seed);
 }
 
 pub fn strideRows(

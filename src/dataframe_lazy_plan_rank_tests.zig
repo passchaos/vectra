@@ -7503,6 +7503,17 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(sampled_again_sales);
     try std.testing.expectEqualSlices(f64, sampled_sales, sampled_again_sales);
 
+    var sample_fraction_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sample_fraction_plan.deinit();
+    try sample_fraction_plan.sampleRowsFraction(0.5, 1234);
+    try sample_fraction_plan.select(&.{ "sales", "units" });
+    const sample_fraction_explain = try sample_fraction_plan.explain(gpa);
+    defer gpa.free(sample_fraction_explain);
+    try std.testing.expect(std.mem.indexOf(u8, sample_fraction_explain, "sample_rows_fraction(fraction=0.5, seed=1234)") != null);
+    var sampled_fraction = try sample_fraction_plan.collect();
+    defer sampled_fraction.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sampled_fraction.height());
+
     var invalid_sample_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_sample_plan.deinit();
     try invalid_sample_plan.sampleRows(table.height() + 1, 1234);
@@ -7531,6 +7542,17 @@ test "device lazy frame collects row slice operations" {
     const replacement_again_sales = try (try sampled_replacement_again.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(replacement_again_sales);
     try std.testing.expectEqualSlices(f64, replacement_sales, replacement_again_sales);
+
+    var replacement_fraction_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replacement_fraction_plan.deinit();
+    try replacement_fraction_plan.sampleRowsFractionWithReplacement(1.5, 4321);
+    try replacement_fraction_plan.select(&.{ "sales", "units" });
+    const replacement_fraction_explain = try replacement_fraction_plan.explain(gpa);
+    defer gpa.free(replacement_fraction_explain);
+    try std.testing.expect(std.mem.indexOf(u8, replacement_fraction_explain, "sample_rows_fraction_with_replacement(fraction=1.5, seed=4321)") != null);
+    var sampled_fraction_replacement = try replacement_fraction_plan.collect();
+    defer sampled_fraction_replacement.deinit();
+    try std.testing.expectEqual(@as(usize, 6), sampled_fraction_replacement.height());
 
     var put_flat_plan = try DeviceLazyFrame.init(gpa, table);
     defer put_flat_plan.deinit();
