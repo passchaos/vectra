@@ -4154,6 +4154,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixZeroCount(self, names, output_names);
             }
 
+            pub fn withRowCumulativeFirstZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastZeroIndex(self, names, output_names);
+            }
+
             pub fn withRowCumulativeNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeNonZeroCount(self, names, output_names);
             }
@@ -4164,6 +4180,38 @@ pub fn DeviceLazyTypes(
 
             pub fn withRowPrefixNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPrefixNonZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstNonZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstNonZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstNonzeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstNonzeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstNonZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstNonZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstNonzeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstNonzeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastNonZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastNonZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastNonzeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastNonzeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastNonZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastNonZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastNonzeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastNonzeroIndex(self, names, output_names);
             }
 
             pub fn withRowCumulativePositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

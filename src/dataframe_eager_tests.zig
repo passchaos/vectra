@@ -4031,6 +4031,38 @@ test "device dataframe derives zero predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 2, 0, 2, 2, 0 }, row_last_nonzero_index);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, row_last_nonzero_validity);
 
+    var row_cum_first_zero_indices = try table.withRowCumulativeFirstZeroIndex(&.{ "metric", "id", "flag" }, &.{ "metric_cum_first_zero", "id_cum_first_zero", "flag_cum_first_zero" });
+    defer row_cum_first_zero_indices.deinit();
+    const metric_cum_first_zero_column = try row_cum_first_zero_indices.column("metric_cum_first_zero");
+    try std.testing.expect(metric_cum_first_zero_column.i64.nullable());
+    const metric_cum_first_zero = try metric_cum_first_zero_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_first_zero);
+    const metric_cum_first_zero_validity = try metric_cum_first_zero_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_first_zero_validity);
+    const flag_cum_first_zero = try (try row_cum_first_zero_indices.column("flag_cum_first_zero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_first_zero);
+    const flag_cum_first_zero_validity = try (try row_cum_first_zero_indices.column("flag_cum_first_zero")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_first_zero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 0 }, metric_cum_first_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false }, metric_cum_first_zero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 1 }, flag_cum_first_zero);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, false, true }, flag_cum_first_zero_validity);
+
+    var row_prefix_last_nonzero_indices = try table.withRowPrefixLastNonZeroIndex(&.{ "metric", "id", "flag" }, &.{ "metric_prefix_last_nonzero", "id_prefix_last_nonzero", "flag_prefix_last_nonzero" });
+    defer row_prefix_last_nonzero_indices.deinit();
+    const id_prefix_last_nonzero = try (try row_prefix_last_nonzero_indices.column("id_prefix_last_nonzero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_last_nonzero);
+    const id_prefix_last_nonzero_validity = try (try row_prefix_last_nonzero_indices.column("id_prefix_last_nonzero")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_last_nonzero_validity);
+    const flag_prefix_last_nonzero = try (try row_prefix_last_nonzero_indices.column("flag_prefix_last_nonzero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_prefix_last_nonzero);
+    const flag_prefix_last_nonzero_validity = try (try row_prefix_last_nonzero_indices.column("flag_prefix_last_nonzero")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flag_prefix_last_nonzero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1, 1, 0 }, id_prefix_last_nonzero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, id_prefix_last_nonzero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 0, 2, 2, 0 }, flag_prefix_last_nonzero);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, flag_prefix_last_nonzero_validity);
+
     var row_cum_zero_counts = try table.withRowCumulativeZeroCount(&.{ "metric", "id", "flag" }, &.{ "metric_cum_zero", "id_cum_zero", "flag_cum_zero" });
     defer row_cum_zero_counts.deinit();
     const id_cum_zero = try (try row_cum_zero_counts.column("id_cum_zero")).i64.toOwnedSlice(gpa);
@@ -4093,6 +4125,8 @@ test "device dataframe derives zero predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowZeroCount(&.{"missing"}, "bad_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstZeroIndex(&.{"missing"}, "bad_zero_index"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowCumulativeFirstZeroIndex(&.{"missing"}, &.{"bad_first_zero"}));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixLastNonZeroIndex(&.{"metric"}, &.{ "metric_last_nonzero", "extra_last_nonzero" }));
     try std.testing.expectError(error.LengthMismatch, table.withRowCumZeroRatio(&.{"metric"}, &.{ "metric_cum_zero", "extra_cum_zero" }));
     try std.testing.expectError(error.ColumnNotFound, table.filterZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNonZerosColumn("missing"));
