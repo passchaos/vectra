@@ -3321,6 +3321,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(?usize, 0), stripped_suffix_names.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), stripped_suffix_names.columnIndex("units"));
     try std.testing.expectEqual(@as(?usize, 2), stripped_suffix_names.columnIndex("active"));
+
+    var replaced_prefix_names = try prefixed_names.replaceColumnNamePrefix("src_", "raw_");
+    defer replaced_prefix_names.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), replaced_prefix_names.columnIndex("raw_sales"));
+    try std.testing.expectEqual(@as(?usize, 1), replaced_prefix_names.columnIndex("raw_units"));
+    try std.testing.expectEqual(@as(?usize, 2), replaced_prefix_names.columnIndex("raw_active"));
+
+    var replaced_suffix_names = try suffixed_names.replaceColumnNameSuffix("_raw", "_clean");
+    defer replaced_suffix_names.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), replaced_suffix_names.columnIndex("sales_clean"));
+    try std.testing.expectEqual(@as(?usize, 1), replaced_suffix_names.columnIndex("units_clean"));
+    try std.testing.expectEqual(@as(?usize, 2), replaced_suffix_names.columnIndex("active_clean"));
     try std.testing.expectError(error.LengthMismatch, table.renameColumns(&.{"sales"}, &.{ "revenue", "extra" }));
     try std.testing.expectError(error.InvalidShape, table.renameColumns(&.{"sales"}, &.{"units"}));
     try std.testing.expectError(error.ColumnNotFound, table.renameColumns(&.{"missing"}, &.{"new_name"}));

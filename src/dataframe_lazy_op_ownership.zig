@@ -141,6 +141,26 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .add_column_name_suffix => |pattern| .{ .add_column_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .strip_column_name_prefix => |pattern| .{ .strip_column_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .strip_column_name_suffix => |pattern| .{ .strip_column_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .replace_column_name_prefix => |replace| blk: {
+            const old_pattern = try allocator.dupe(u8, replace.old_pattern);
+            errdefer allocator.free(old_pattern);
+            const new_pattern = try allocator.dupe(u8, replace.new_pattern);
+            errdefer allocator.free(new_pattern);
+            break :blk .{ .replace_column_name_prefix = .{
+                .old_pattern = old_pattern,
+                .new_pattern = new_pattern,
+            } };
+        },
+        .replace_column_name_suffix => |replace| blk: {
+            const old_pattern = try allocator.dupe(u8, replace.old_pattern);
+            errdefer allocator.free(old_pattern);
+            const new_pattern = try allocator.dupe(u8, replace.new_pattern);
+            errdefer allocator.free(new_pattern);
+            break :blk .{ .replace_column_name_suffix = .{
+                .old_pattern = old_pattern,
+                .new_pattern = new_pattern,
+            } };
+        },
         .move_column => |move| blk: {
             const name = try allocator.dupe(u8, move.name);
             break :blk .{ .move_column = .{

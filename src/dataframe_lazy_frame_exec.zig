@@ -129,6 +129,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .add_column_name_suffix => |pattern| try current.addColumnNameSuffix(pattern.pattern),
             .strip_column_name_prefix => |pattern| try current.stripColumnNamePrefix(pattern.pattern),
             .strip_column_name_suffix => |pattern| try current.stripColumnNameSuffix(pattern.pattern),
+            .replace_column_name_prefix => |replace| try current.replaceColumnNamePrefix(replace.old_pattern, replace.new_pattern),
+            .replace_column_name_suffix => |replace| try current.replaceColumnNameSuffix(replace.old_pattern, replace.new_pattern),
             .move_column => |move| try current.moveColumn(move.name, move.target_index),
             .move_column_before => |move| try current.moveColumnBefore(move.name, move.anchor_name),
             .move_column_after => |move| try current.moveColumnAfter(move.name, move.anchor_name),

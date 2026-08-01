@@ -6813,6 +6813,32 @@ test "device lazy frame renames and drops columns" {
     try std.testing.expectEqual(@as(?usize, 1), stripped_suffix.columnIndex("units"));
     try std.testing.expectEqual(@as(?usize, 2), stripped_suffix.columnIndex("active"));
 
+    var replace_prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replace_prefix_plan.deinit();
+    try replace_prefix_plan.addColumnNamePrefix("src_");
+    try replace_prefix_plan.replaceColumnNamePrefix("src_", "raw_");
+    const replace_prefix_explained = try replace_prefix_plan.explain(gpa);
+    defer gpa.free(replace_prefix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, replace_prefix_explained, "replace_column_name_prefix(src_->raw_)") != null);
+    var replaced_prefix = try replace_prefix_plan.collect();
+    defer replaced_prefix.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), replaced_prefix.columnIndex("raw_sales"));
+    try std.testing.expectEqual(@as(?usize, 1), replaced_prefix.columnIndex("raw_units"));
+    try std.testing.expectEqual(@as(?usize, 2), replaced_prefix.columnIndex("raw_active"));
+
+    var replace_suffix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replace_suffix_plan.deinit();
+    try replace_suffix_plan.addColumnNameSuffix("_raw");
+    try replace_suffix_plan.replaceColumnNameSuffix("_raw", "_clean");
+    const replace_suffix_explained = try replace_suffix_plan.explain(gpa);
+    defer gpa.free(replace_suffix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, replace_suffix_explained, "replace_column_name_suffix(_raw->_clean)") != null);
+    var replaced_suffix = try replace_suffix_plan.collect();
+    defer replaced_suffix.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), replaced_suffix.columnIndex("sales_clean"));
+    try std.testing.expectEqual(@as(?usize, 1), replaced_suffix.columnIndex("units_clean"));
+    try std.testing.expectEqual(@as(?usize, 2), replaced_suffix.columnIndex("active_clean"));
+
     var invalid_many_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_many_plan.deinit();
     try invalid_many_plan.renameColumns(&.{ "sales", "units" }, &.{ "revenue", "revenue" });

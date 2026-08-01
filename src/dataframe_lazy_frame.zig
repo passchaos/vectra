@@ -569,6 +569,14 @@ pub fn DeviceLazyTypes(
 
             pub const removeColumnNameSuffix = stripColumnNameSuffix;
 
+            pub fn replaceColumnNamePrefix(self: *DeviceLazyFrame, old_prefix: []const u8, new_prefix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.replaceColumnNamePrefix(self, old_prefix, new_prefix);
+            }
+
+            pub fn replaceColumnNameSuffix(self: *DeviceLazyFrame, old_suffix: []const u8, new_suffix: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.replaceColumnNameSuffix(self, old_suffix, new_suffix);
+            }
+
             pub fn moveColumn(self: *DeviceLazyFrame, name: []const u8, target_index: usize) DeviceDataError!void {
                 return lazy_expr_mod.moveColumn(self, name, target_index);
             }

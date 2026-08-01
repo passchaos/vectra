@@ -63,6 +63,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
         pub const RenameNamePattern = struct {
             pattern: []const u8,
         };
+        pub const RenameNameReplacement = struct {
+            old_pattern: []const u8,
+            new_pattern: []const u8,
+        };
         pub const MoveColumn = struct {
             name: []const u8,
             target_index: usize,

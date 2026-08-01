@@ -117,6 +117,14 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .add_column_name_suffix => |pattern| allocator.free(pattern.pattern),
         .strip_column_name_prefix => |pattern| allocator.free(pattern.pattern),
         .strip_column_name_suffix => |pattern| allocator.free(pattern.pattern),
+        .replace_column_name_prefix => |replace| {
+            allocator.free(replace.old_pattern);
+            allocator.free(replace.new_pattern);
+        },
+        .replace_column_name_suffix => |replace| {
+            allocator.free(replace.old_pattern);
+            allocator.free(replace.new_pattern);
+        },
         .move_column => |move| allocator.free(move.name),
         .move_column_before => |move| {
             allocator.free(move.name);

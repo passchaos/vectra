@@ -16663,6 +16663,58 @@ pub fn stripColumnNameSuffix(
 
 pub const removeColumnNameSuffix = stripColumnNameSuffix;
 
+pub fn replaceColumnNamePrefix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    old_prefix: []const u8,
+    new_prefix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    var initialized: usize = 0;
+    errdefer {
+        for (source_names[0..initialized]) |name| input.allocator.free(name);
+    }
+    for (input.names, source_names) |name, *slot| {
+        if (std.mem.startsWith(u8, name, old_prefix)) {
+            slot.* = try std.fmt.allocPrint(input.allocator, "{s}{s}", .{ new_prefix, name[old_prefix.len..] });
+        } else {
+            slot.* = try input.allocator.dupe(u8, name);
+        }
+        initialized += 1;
+    }
+    defer {
+        for (source_names) |name| input.allocator.free(name);
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
+pub fn replaceColumnNameSuffix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    old_suffix: []const u8,
+    new_suffix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    var initialized: usize = 0;
+    errdefer {
+        for (source_names[0..initialized]) |name| input.allocator.free(name);
+    }
+    for (input.names, source_names) |name, *slot| {
+        if (std.mem.endsWith(u8, name, old_suffix)) {
+            slot.* = try std.fmt.allocPrint(input.allocator, "{s}{s}", .{ name[0 .. name.len - old_suffix.len], new_suffix });
+        } else {
+            slot.* = try input.allocator.dupe(u8, name);
+        }
+        initialized += 1;
+    }
+    defer {
+        for (source_names) |name| input.allocator.free(name);
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
 pub fn moveColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

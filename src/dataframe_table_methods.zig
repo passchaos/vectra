@@ -6668,6 +6668,14 @@ pub fn stripColumnNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!
 
 pub const removeColumnNameSuffix = stripColumnNameSuffix;
 
+pub fn replaceColumnNamePrefix(self: anytype, old_prefix: []const u8, new_prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.replaceColumnNamePrefix(FrameType(@TypeOf(self)), frameValue(self), old_prefix, new_prefix);
+}
+
+pub fn replaceColumnNameSuffix(self: anytype, old_suffix: []const u8, new_suffix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.replaceColumnNameSuffix(FrameType(@TypeOf(self)), frameValue(self), old_suffix, new_suffix);
+}
+
 pub fn moveColumn(self: anytype, name: []const u8, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.moveColumn(FrameType(@TypeOf(self)), frameValue(self), name, target_index);
 }

@@ -191,6 +191,28 @@ pub fn stripColumnNameSuffix(frame: anytype, suffix: []const u8) DeviceDataError
 
 pub const removeColumnNameSuffix = stripColumnNameSuffix;
 
+pub fn replaceColumnNamePrefix(frame: anytype, old_prefix: []const u8, new_prefix: []const u8) DeviceDataError!void {
+    const owned_old = try frame.allocator.dupe(u8, old_prefix);
+    errdefer frame.allocator.free(owned_old);
+    const owned_new = try frame.allocator.dupe(u8, new_prefix);
+    errdefer frame.allocator.free(owned_new);
+    try frame.ops.append(frame.allocator, .{ .replace_column_name_prefix = .{
+        .old_pattern = owned_old,
+        .new_pattern = owned_new,
+    } });
+}
+
+pub fn replaceColumnNameSuffix(frame: anytype, old_suffix: []const u8, new_suffix: []const u8) DeviceDataError!void {
+    const owned_old = try frame.allocator.dupe(u8, old_suffix);
+    errdefer frame.allocator.free(owned_old);
+    const owned_new = try frame.allocator.dupe(u8, new_suffix);
+    errdefer frame.allocator.free(owned_new);
+    try frame.ops.append(frame.allocator, .{ .replace_column_name_suffix = .{
+        .old_pattern = owned_old,
+        .new_pattern = owned_new,
+    } });
+}
+
 pub fn moveColumn(frame: anytype, name: []const u8, target_index: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

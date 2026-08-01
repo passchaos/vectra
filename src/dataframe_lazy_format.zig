@@ -161,6 +161,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .add_column_name_suffix => |pattern| try writer.print("add_column_name_suffix({s})", .{pattern.pattern}),
         .strip_column_name_prefix => |pattern| try writer.print("strip_column_name_prefix({s})", .{pattern.pattern}),
         .strip_column_name_suffix => |pattern| try writer.print("strip_column_name_suffix({s})", .{pattern.pattern}),
+        .replace_column_name_prefix => |replace| try writer.print("replace_column_name_prefix({s}->{s})", .{ replace.old_pattern, replace.new_pattern }),
+        .replace_column_name_suffix => |replace| try writer.print("replace_column_name_suffix({s}->{s})", .{ replace.old_pattern, replace.new_pattern }),
         .move_column => |move| try writer.print("move_column({s} -> index={d})", .{ move.name, move.target_index }),
         .move_column_before => |move| try writer.print("move_column_before({s} before {s})", .{ move.name, move.anchor_name }),
         .move_column_after => |move| try writer.print("move_column_after({s} after {s})", .{ move.name, move.anchor_name }),
