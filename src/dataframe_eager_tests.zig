@@ -4009,6 +4009,24 @@ test "device dataframe derives zero predicate columns" {
     defer gpa.free(row_non_zero_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 0.0 }, row_non_zero_ratio);
 
+    var row_cum_zero_counts = try table.withRowCumulativeZeroCount(&.{ "metric", "id", "flag" }, &.{ "metric_cum_zero", "id_cum_zero", "flag_cum_zero" });
+    defer row_cum_zero_counts.deinit();
+    const id_cum_zero = try (try row_cum_zero_counts.column("id_cum_zero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_zero);
+    const flag_cum_zero = try (try row_cum_zero_counts.column("flag_cum_zero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_zero);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 0, 0, 1 }, id_cum_zero);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 1, 2, 0, 0, 2 }, flag_cum_zero);
+
+    var row_cum_non_zero_ratios = try table.withRowPrefixNonZeroRatio(&.{ "metric", "id", "flag" }, &.{ "metric_cum_nonzero", "id_cum_nonzero", "flag_cum_nonzero" });
+    defer row_cum_non_zero_ratios.deinit();
+    const metric_cum_nonzero = try (try row_cum_non_zero_ratios.column("metric_cum_nonzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_nonzero);
+    const flag_cum_nonzero = try (try row_cum_non_zero_ratios.column("flag_cum_nonzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_nonzero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 1.0, 1.0, 0.0 }, metric_cum_nonzero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 0.0 }, flag_cum_nonzero);
+
     var metric_zero_ratios = try table.withRowZeroRatio(&.{"metric"}, "metric_zero_ratio");
     defer metric_zero_ratios.deinit();
     const metric_zero_ratio_column = try metric_zero_ratios.column("metric_zero_ratio");
@@ -4052,6 +4070,7 @@ test "device dataframe derives zero predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isZeroColumn("missing", "missing_is_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowZeroCount(&.{"missing"}, "bad_zero_count"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowCumZeroRatio(&.{"metric"}, &.{ "metric_cum_zero", "extra_cum_zero" }));
     try std.testing.expectError(error.ColumnNotFound, table.filterZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNonZerosColumn("missing"));
 }
@@ -4193,6 +4212,24 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(row_negative_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, row_negative_ratio);
 
+    var row_cum_positive_counts = try table.withRowPrefixPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive" });
+    defer row_cum_positive_counts.deinit();
+    const metric_cum_positive = try (try row_cum_positive_counts.column("metric_cum_positive")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_positive);
+    const unsigned_cum_positive = try (try row_cum_positive_counts.column("unsigned_cum_positive")).i64.toOwnedSlice(gpa);
+    defer gpa.free(unsigned_cum_positive);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1, 0, 1, 0, 0 }, metric_cum_positive);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 2, 1, 2, 1, 1 }, unsigned_cum_positive);
+
+    var row_cum_negative_ratios = try table.withRowCumulativeNegativeRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_negative", "id_cum_negative", "unsigned_cum_negative", "flag_cum_negative" });
+    defer row_cum_negative_ratios.deinit();
+    const id_cum_negative = try (try row_cum_negative_ratios.column("id_cum_negative")).f64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_negative);
+    const flag_cum_negative = try (try row_cum_negative_ratios.column("flag_cum_negative")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_negative);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0 }, id_cum_negative);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, flag_cum_negative);
+
     var dropped_positive_rows = try table.dropPositivesColumn("metric");
     defer dropped_positive_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), dropped_positive_rows.height());
@@ -4259,6 +4296,7 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNegativeCount(&.{"metric"}, &.{ "metric_cum_negative", "extra_cum_negative" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSignBitCount(&.{"missing"}, "bad_signbit_count"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositiveZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativeZerosColumn("missing"));

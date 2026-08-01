@@ -11992,6 +11992,217 @@ pub fn withRowNonFiniteCount(
     return withRowNumericPredicateCount(DeviceDataFrame, input, names, output_name, .non_finite);
 }
 
+fn validateRowCumulativeOutputNames(
+    output_names: []const []const u8,
+    expected_len: usize,
+) DeviceFrameArrayError!void {
+    if (output_names.len != expected_len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+}
+
+fn withRowCumulativeNumericPredicateCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime predicate: RowNumericPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    try validateRowCumulativeOutputNames(output_names, check_names.len);
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                for (counts, host_values, 0..) |*slot, value, row| {
+                    const valid = if (maybe_validity) |validity| validity[row] else true;
+                    if (valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate)) slot.* += 1;
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+fn withRowCumulativeNumericPredicateRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime predicate: RowNumericPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    try validateRowCumulativeOutputNames(output_names, check_names.len);
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |name, output_name, col_index| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                for (counts, host_values, 0..) |*slot, value, row| {
+                    const valid = if (maybe_validity) |validity| validity[row] else true;
+                    if (valid and rowNumericPredicateMatches(@TypeOf(value), value, predicate)) slot.* += 1;
+                }
+            },
+        }
+
+        const denominator: f64 = @floatFromInt(col_index + 1);
+        for (ratios, counts) |*ratio, count| {
+            ratio.* = @as(f64, @floatFromInt(count)) / denominator;
+        }
+
+        var column = try DeviceColumn.fromSlice(f64, input.allocator, ratios, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .zero);
+}
+
+pub fn withRowCumZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNonZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .non_zero);
+}
+
+pub fn withRowCumNonZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNonZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativePositiveCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .positive);
+}
+
+pub fn withRowCumPositiveCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .negative);
+}
+
+pub fn withRowCumNegativeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeCount(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowNumericPredicateRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -12182,6 +12393,114 @@ pub fn withRowNonFiniteRatio(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .non_finite);
+}
+
+pub fn withRowCumulativeZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .zero);
+}
+
+pub fn withRowCumZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNonZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .non_zero);
+}
+
+pub fn withRowCumNonZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNonZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativePositiveRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .positive);
+}
+
+pub fn withRowCumPositiveRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .negative);
+}
+
+pub fn withRowCumNegativeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeRatio(DeviceDataFrame, input, names, output_names);
 }
 
 fn literalColumn(

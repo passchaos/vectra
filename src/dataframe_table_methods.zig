@@ -4624,6 +4624,102 @@ pub fn withRowNegativeRatio(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowNegativeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowCumulativeZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNonZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNonZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNonZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativePositiveCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativePositiveCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumPositiveCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumPositiveCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixPositiveCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixPositiveCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNegativeCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNegativeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNegativeCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNegativeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNegativeCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNegativeCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNonZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNonZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNonZeroRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativePositiveRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativePositiveRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumPositiveRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumPositiveRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixPositiveRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixPositiveRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNegativeRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNegativeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNegativeRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNegativeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNegativeRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNegativeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowFiniteCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

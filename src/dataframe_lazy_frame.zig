@@ -3734,6 +3734,102 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNegativeRatio(self, names, output_name);
             }
 
+            pub fn withRowCumulativeZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNonZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNonZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNonZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativePositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveCount(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNonZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNonZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNonZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNonZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNonZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNonZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativePositiveRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeRatio(self, names, output_names);
+            }
+
             pub fn withRowFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowFiniteCount(self, names, output_name);
             }
