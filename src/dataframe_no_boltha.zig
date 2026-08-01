@@ -171,6 +171,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     rms,
     l1_norm,
     l2_norm,
+    geometric_mean,
+    harmonic_mean,
     any,
     all,
     true_count,

@@ -458,6 +458,34 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), l2_delta_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 13.0), l2_delta_values[1], 1e-12);
 
+    var mean_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3, 4, 4 }, .cpu);
+    defer mean_key.deinit();
+    var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 8.0, 1.0, 4.0, 0.0, 5.0, -1.0, 4.0 }, .cpu);
+    defer ratio.deinit();
+    var mean_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = mean_key },
+        .{ .name = "ratio", .data = ratio },
+    });
+    defer mean_table.deinit();
+
+    var geometric_ratio = try mean_table.groupByGeometricMean("bucket", "ratio", "ratio_geometric");
+    defer geometric_ratio.deinit();
+    const geometric_ratio_values = try (try geometric_ratio.column("ratio_geometric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(geometric_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), geometric_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), geometric_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), geometric_ratio_values[2], 1e-12);
+    try std.testing.expect(std.math.isNan(geometric_ratio_values[3]));
+
+    var harmonic_ratio = try mean_table.groupByHarmonicMean("bucket", "ratio", "ratio_harmonic");
+    defer harmonic_ratio.deinit();
+    const harmonic_ratio_values = try (try harmonic_ratio.column("ratio_harmonic")).f64.toOwnedSlice(gpa);
+    defer gpa.free(harmonic_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 5.0), harmonic_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 8.0 / 5.0), harmonic_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), harmonic_ratio_values[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -8.0 / 3.0), harmonic_ratio_values[3], 1e-12);
+
     var skew_sales = try table.groupBySkewness("store", "sales", "sales_skewness_simple");
     defer skew_sales.deinit();
     const skew_sales_values = try (try skew_sales.column("sales_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -712,6 +740,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_l2[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_l2[3], 1e-12);
 
+    var multi_geometric = try multi.groupByGeometricMeanOn(&.{ "store", "day" }, "amount", "amount_geometric_simple");
+    defer multi_geometric.deinit();
+    const ms_simple_geometric = try (try multi_geometric.column("amount_geometric_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_geometric);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0)), ms_simple_geometric[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_geometric[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_geometric[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_geometric[3], 1e-12);
+
+    var multi_harmonic = try multi.groupByHarmonicMeanOn(&.{ "store", "day" }, "amount", "amount_harmonic_simple");
+    defer multi_harmonic.deinit();
+    const ms_simple_harmonic = try (try multi_harmonic.column("amount_harmonic_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_harmonic);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), ms_simple_harmonic[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_harmonic[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_harmonic[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_harmonic[3], 1e-12);
+
     var multi_skew = try multi.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_simple");
     defer multi_skew.deinit();
     const ms_simple_skew = try (try multi_skew.column("amount_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -915,6 +961,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_l2[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_l2[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_l2[3], 1e-12);
+
+    var multi_geometric_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_geometric_plan.deinit();
+    try multi_geometric_plan.groupByGeoMeanOn(&.{ "store", "day" }, "amount", "amount_geometric_lazy");
+    const multi_geometric_explained = try multi_geometric_plan.explain(gpa);
+    defer gpa.free(multi_geometric_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_geometric_explained, "group_by_geometric_mean_on([store,day], value=amount -> amount_geometric_lazy)") != null);
+    var lazy_multi_geometric = try multi_geometric_plan.collect();
+    defer lazy_multi_geometric.deinit();
+    const lazy_ms_geometric = try (try lazy_multi_geometric.column("amount_geometric_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_geometric);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0)), lazy_ms_geometric[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_geometric[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_geometric[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_geometric[3], 1e-12);
+
+    var multi_harmonic_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_harmonic_plan.deinit();
+    try multi_harmonic_plan.groupByHarmonicMeanOn(&.{ "store", "day" }, "amount", "amount_harmonic_lazy");
+    const multi_harmonic_explained = try multi_harmonic_plan.explain(gpa);
+    defer gpa.free(multi_harmonic_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_harmonic_explained, "group_by_harmonic_mean_on([store,day], value=amount -> amount_harmonic_lazy)") != null);
+    var lazy_multi_harmonic = try multi_harmonic_plan.collect();
+    defer lazy_multi_harmonic.deinit();
+    const lazy_ms_harmonic = try (try lazy_multi_harmonic.column("amount_harmonic_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_harmonic);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), lazy_ms_harmonic[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_harmonic[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_harmonic[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_harmonic[3], 1e-12);
 
     var multi_skew_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_skew_plan.deinit();

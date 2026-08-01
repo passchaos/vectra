@@ -46,11 +46,13 @@ const GroupByMomentAggregation = enum {
     kurtosis,
 };
 
-const GroupByMagnitudeAggregation = enum {
+const GroupByRealAggregation = enum {
     mean_abs,
     rms,
     l1_norm,
     l2_norm,
+    geometric_mean,
+    harmonic_mean,
 };
 
 const GroupByBoolAggregation = enum {
@@ -665,9 +667,9 @@ pub fn groupByKurtosisOn(
     return groupByMomentOn(DeviceDataFrame, .kurtosis, frame, key_names, value_name, output_name);
 }
 
-pub fn groupByMagnitudeOnDispatchValue(
+pub fn groupByRealOnDispatchValue(
     comptime DeviceDataFrame: type,
-    aggregation: GroupByMagnitudeAggregation,
+    aggregation: GroupByRealAggregation,
     allocator: std.mem.Allocator,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
@@ -676,27 +678,27 @@ pub fn groupByMagnitudeOnDispatchValue(
     device_value: array_mod.Device,
 ) GroupByOnError!DeviceDataFrame {
     return switch (value) {
-        .i8 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u8 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .usize => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .isize => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i8 => |typed| groupByRealOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByRealOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByRealOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByRealOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByRealOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByRealOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByRealOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByRealOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByRealOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByRealOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByRealOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByRealOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByRealOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
         .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
     };
 }
 
-fn groupByMagnitudeOnTyped(
+fn groupByRealOnTyped(
     comptime DeviceDataFrame: type,
     comptime V: type,
-    aggregation: GroupByMagnitudeAggregation,
+    aggregation: GroupByRealAggregation,
     allocator: std.mem.Allocator,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
@@ -716,6 +718,8 @@ fn groupByMagnitudeOnTyped(
     defer totals.deinit(allocator);
     var counts: std.ArrayList(i64) = .empty;
     defer counts.deinit(allocator);
+    var zero_seen: std.ArrayList(bool) = .empty;
+    defer zero_seen.deinit(allocator);
 
     for (values, 0..) |value_item, row| {
         if (maybe_value_validity) |validity| {
@@ -726,24 +730,44 @@ fn groupByMagnitudeOnTyped(
             try representative_rows.append(allocator, row);
             try totals.append(allocator, 0.0);
             try counts.append(allocator, 0);
+            try zero_seen.append(allocator, false);
             break :blk representative_rows.items.len - 1;
         };
         const value_f64 = castToF64(V, value_item);
         switch (aggregation) {
             .mean_abs, .l1_norm => totals.items[group_index] += @abs(value_f64),
             .rms, .l2_norm => totals.items[group_index] += value_f64 * value_f64,
+            .geometric_mean => {
+                if (value_f64 < 0.0) {
+                    totals.items[group_index] = std.math.nan(f64);
+                } else if (value_f64 == 0.0 and !std.math.isNan(totals.items[group_index])) {
+                    zero_seen.items[group_index] = true;
+                    totals.items[group_index] = 0.0;
+                } else if (!zero_seen.items[group_index] and !std.math.isNan(totals.items[group_index])) {
+                    totals.items[group_index] += std.math.log(f64, std.math.e, value_f64);
+                }
+            },
+            .harmonic_mean => {
+                if (value_f64 == 0.0 and !std.math.isNan(totals.items[group_index])) {
+                    totals.items[group_index] = std.math.inf(f64);
+                } else if (!std.math.isInf(totals.items[group_index])) {
+                    totals.items[group_index] += 1.0 / value_f64;
+                }
+            },
         }
         counts.items[group_index] += 1;
     }
 
     const out = try allocator.alloc(f64, totals.items.len);
     defer allocator.free(out);
-    for (totals.items, counts.items, out) |total, count, *slot| {
+    for (totals.items, counts.items, zero_seen.items, out) |total, count, has_zero, *slot| {
         slot.* = switch (aggregation) {
             .mean_abs => total / @as(f64, @floatFromInt(count)),
             .rms => std.math.sqrt(total / @as(f64, @floatFromInt(count))),
             .l1_norm => total,
             .l2_norm => std.math.sqrt(total),
+            .geometric_mean => if (std.math.isNan(total)) std.math.nan(f64) else if (has_zero) 0.0 else std.math.exp(total / @as(f64, @floatFromInt(count))),
+            .harmonic_mean => if (std.math.isInf(total)) 0.0 else @as(f64, @floatFromInt(count)) / total,
         };
     }
 
@@ -751,9 +775,9 @@ fn groupByMagnitudeOnTyped(
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
 }
 
-fn groupByMagnitudeOn(
+fn groupByRealOn(
     comptime DeviceDataFrame: type,
-    aggregation: GroupByMagnitudeAggregation,
+    aggregation: GroupByRealAggregation,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
     value_name: []const u8,
@@ -762,7 +786,7 @@ fn groupByMagnitudeOn(
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value = try frame.column(value_name);
-    return groupByMagnitudeOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+    return groupByRealOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
 pub fn groupByMeanAbsOn(
@@ -772,7 +796,7 @@ pub fn groupByMeanAbsOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByMagnitudeOn(DeviceDataFrame, .mean_abs, frame, key_names, value_name, output_name);
+    return groupByRealOn(DeviceDataFrame, .mean_abs, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByRmsOn(
@@ -782,7 +806,7 @@ pub fn groupByRmsOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByMagnitudeOn(DeviceDataFrame, .rms, frame, key_names, value_name, output_name);
+    return groupByRealOn(DeviceDataFrame, .rms, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByL1NormOn(
@@ -792,7 +816,7 @@ pub fn groupByL1NormOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByMagnitudeOn(DeviceDataFrame, .l1_norm, frame, key_names, value_name, output_name);
+    return groupByRealOn(DeviceDataFrame, .l1_norm, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByL2NormOn(
@@ -802,7 +826,27 @@ pub fn groupByL2NormOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByMagnitudeOn(DeviceDataFrame, .l2_norm, frame, key_names, value_name, output_name);
+    return groupByRealOn(DeviceDataFrame, .l2_norm, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByGeometricMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .geometric_mean, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByHarmonicMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .harmonic_mean, frame, key_names, value_name, output_name);
 }
 
 fn groupByQuantileLess(_: void, lhs: f64, rhs: f64) bool {
