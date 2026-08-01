@@ -2670,6 +2670,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixRms(self, names, output_names);
             }
 
+            pub fn withRowCumulativeMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMeanAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMeanAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMeanAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowCumMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMeanAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumMeanAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMeanAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMeanAbs(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMeanAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMeanAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMeanSquare(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMeanSquare(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMeanSquared(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMeanSquared(self, names, output_names);
+            }
+
+            pub fn withRowCumMeanSquare(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMeanSquare(self, names, output_names);
+            }
+
+            pub fn withRowCumMeanSquared(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMeanSquared(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMeanSquare(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMeanSquare(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMeanSquared(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMeanSquared(self, names, output_names);
+            }
+
             pub fn withRowCumulativeL1Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeL1Norm(self, names, output_names);
             }

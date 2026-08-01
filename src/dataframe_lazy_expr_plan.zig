@@ -4802,7 +4802,7 @@ pub fn withRowPrefixKurt(frame: anytype, names: []const []const u8, output_names
     return withRowCumulativeKurtosis(frame, names, output_names);
 }
 
-const RowCumulativeNorm = enum { rms, l1_norm, l2_norm };
+const RowCumulativeNorm = enum { rms, mean_abs, mean_square, l1_norm, l2_norm };
 
 fn withRowCumulativeNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime norm: RowCumulativeNorm) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
@@ -4818,6 +4818,8 @@ fn withRowCumulativeNorm(frame: anytype, names: []const []const u8, output_names
     }
     switch (norm) {
         .rms => try frame.ops.append(frame.allocator, .{ .row_cumulative_rms = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .mean_abs => try frame.ops.append(frame.allocator, .{ .row_cumulative_mean_abs = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .mean_square => try frame.ops.append(frame.allocator, .{ .row_cumulative_mean_square = .{ .names = owned_names, .output_names = owned_outputs } }),
         .l1_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l1_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
         .l2_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l2_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
     }
@@ -4833,6 +4835,54 @@ pub fn withRowCumRms(frame: anytype, names: []const []const u8, output_names: []
 
 pub fn withRowPrefixRms(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowCumulativeRms(frame, names, output_names);
+}
+
+pub fn withRowCumulativeMeanAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .mean_abs);
+}
+
+pub fn withRowCumulativeMeanAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMeanAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMeanAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMeanAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMeanAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanAbs(frame, names, output_names);
+}
+
+pub fn withRowCumulativeMeanSquare(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .mean_square);
+}
+
+pub fn withRowCumulativeMeanSquared(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanSquare(frame, names, output_names);
+}
+
+pub fn withRowCumMeanSquare(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanSquare(frame, names, output_names);
+}
+
+pub fn withRowCumMeanSquared(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanSquare(frame, names, output_names);
+}
+
+pub fn withRowPrefixMeanSquare(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanSquare(frame, names, output_names);
+}
+
+pub fn withRowPrefixMeanSquared(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMeanSquare(frame, names, output_names);
 }
 
 pub fn withRowCumulativeL1Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

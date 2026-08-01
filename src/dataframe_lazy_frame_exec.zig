@@ -788,6 +788,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_skewness => |row_outputs| try current.withRowCumulativeSkewness(row_outputs.names, row_outputs.output_names),
             .row_cumulative_kurtosis => |row_outputs| try current.withRowCumulativeKurtosis(row_outputs.names, row_outputs.output_names),
             .row_cumulative_rms => |row_outputs| try current.withRowCumulativeRms(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_mean_abs => |row_outputs| try current.withRowCumulativeMeanAbs(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_mean_square => |row_outputs| try current.withRowCumulativeMeanSquare(row_outputs.names, row_outputs.output_names),
             .row_cumulative_l1_norm => |row_outputs| try current.withRowCumulativeL1Norm(row_outputs.names, row_outputs.output_names),
             .row_cumulative_l2_norm => |row_outputs| try current.withRowCumulativeL2Norm(row_outputs.names, row_outputs.output_names),
             .row_cumulative_product => |row_outputs| try current.withRowCumulativeProduct(row_outputs.names, row_outputs.output_names),
