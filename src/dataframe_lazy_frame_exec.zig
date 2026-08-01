@@ -1169,6 +1169,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .quantile => try current.groupByQuantile(group.key_name, group.value_name, group.output_name, group.quantile),
                 .variance => try current.groupByVariance(group.key_name, group.value_name, group.output_name),
                 .stddev => try current.groupByStddev(group.key_name, group.value_name, group.output_name),
+                .skewness => try current.groupBySkewness(group.key_name, group.value_name, group.output_name),
+                .kurtosis => try current.groupByKurtosis(group.key_name, group.value_name, group.output_name),
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
@@ -1183,6 +1185,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .quantile => try current.groupByQuantileOn(group.key_names, group.value_name, group.output_name, group.quantile),
                 .variance => try current.groupByVarianceOn(group.key_names, group.value_name, group.output_name),
                 .stddev => try current.groupByStddevOn(group.key_names, group.value_name, group.output_name),
+                .skewness => try current.groupBySkewnessOn(group.key_names, group.value_name, group.output_name),
+                .kurtosis => try current.groupByKurtosisOn(group.key_names, group.value_name, group.output_name),
             },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),

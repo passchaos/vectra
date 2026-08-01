@@ -219,6 +219,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.5), stddev_sales_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), stddev_sales_values[1], 1e-12);
 
+    var skew_sales = try table.groupBySkewness("store", "sales", "sales_skewness_simple");
+    defer skew_sales.deinit();
+    const skew_sales_values = try (try skew_sales.column("sales_skewness_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(skew_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), skew_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), skew_sales_values[1], 1e-12);
+
+    var kurt_sales = try table.groupByKurtosis("store", "sales", "sales_kurtosis_simple");
+    defer kurt_sales.deinit();
+    const kurt_sales_values = try (try kurt_sales.column("sales_kurtosis_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(kurt_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), kurt_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), kurt_sales_values[1], 1e-12);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -387,6 +401,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[3], 1e-12);
 
+    var multi_skew = try multi.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_simple");
+    defer multi_skew.deinit();
+    const ms_simple_skew = try (try multi_skew.column("amount_skewness_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_skew);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_skew[0], 1e-12);
+    try std.testing.expect(std.math.isNan(ms_simple_skew[1]));
+    try std.testing.expect(std.math.isNan(ms_simple_skew[2]));
+    try std.testing.expect(std.math.isNan(ms_simple_skew[3]));
+
+    var multi_kurt = try multi.groupByKurtosisOn(&.{ "store", "day" }, "amount", "amount_kurtosis_simple");
+    defer multi_kurt.deinit();
+    const ms_simple_kurt = try (try multi_kurt.column("amount_kurtosis_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_kurt);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), ms_simple_kurt[0], 1e-12);
+    try std.testing.expect(std.math.isNan(ms_simple_kurt[1]));
+    try std.testing.expect(std.math.isNan(ms_simple_kurt[2]));
+    try std.testing.expect(std.math.isNan(ms_simple_kurt[3]));
+
     try std.testing.expectError(error.InvalidShape, multi.groupByQuantileOn(&.{ "store", "day" }, "amount", "bad_q", 1.5));
 
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
@@ -488,6 +520,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[3], 1e-12);
+
+    var multi_skew_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_skew_plan.deinit();
+    try multi_skew_plan.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_lazy");
+    const multi_skew_explained = try multi_skew_plan.explain(gpa);
+    defer gpa.free(multi_skew_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_skew_explained, "group_by_skewness_on([store,day], value=amount -> amount_skewness_lazy)") != null);
+    var lazy_multi_skew = try multi_skew_plan.collect();
+    defer lazy_multi_skew.deinit();
+    const lazy_ms_skew = try (try lazy_multi_skew.column("amount_skewness_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_skew);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_skew[0], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_ms_skew[1]));
+    try std.testing.expect(std.math.isNan(lazy_ms_skew[2]));
+    try std.testing.expect(std.math.isNan(lazy_ms_skew[3]));
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();

@@ -174,6 +174,27 @@ pub fn groupByStddevOn(self: anytype, key_names: []const []const u8, value_name:
 pub const groupByStd = groupByStddev;
 pub const groupByStdOn = groupByStddevOn;
 
+pub fn groupBySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .skewness);
+}
+
+pub fn groupBySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .skewness);
+}
+
+pub fn groupByKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .kurtosis);
+}
+
+pub fn groupByKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .kurtosis);
+}
+
+pub const groupBySkew = groupBySkewness;
+pub const groupBySkewOn = groupBySkewnessOn;
+pub const groupByKurt = groupByKurtosis;
+pub const groupByKurtOn = groupByKurtosisOn;
+
 pub fn groupByStats(self: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
     return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
 }

@@ -40,6 +40,8 @@ const GroupByOnError = std.mem.Allocator.Error || std.Io.Writer.Error || array_m
 const GroupByMomentAggregation = enum {
     variance,
     stddev,
+    skewness,
+    kurtosis,
 };
 
 pub fn groupByStatsOnDispatchValue(
@@ -548,6 +550,8 @@ fn groupByMomentOnTyped(
         slot.* = switch (aggregation) {
             .variance => profile.variance(),
             .stddev => profile.stddev(),
+            .skewness => profile.skewness(),
+            .kurtosis => profile.kurtosis(),
         };
     }
 
@@ -587,6 +591,26 @@ pub fn groupByStddevOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByMomentOn(DeviceDataFrame, .stddev, frame, key_names, value_name, output_name);
+}
+
+pub fn groupBySkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .skewness, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByKurtosisOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .kurtosis, frame, key_names, value_name, output_name);
 }
 
 fn groupByQuantileLess(_: void, lhs: f64, rhs: f64) bool {

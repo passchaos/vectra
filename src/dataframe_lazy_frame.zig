@@ -5657,6 +5657,14 @@ pub fn DeviceLazyTypes(
             pub const groupByStddevOn = lazy_relation_methods_mod.groupByStddevOn;
             pub const groupByStd = lazy_relation_methods_mod.groupByStd;
             pub const groupByStdOn = lazy_relation_methods_mod.groupByStdOn;
+            pub const groupBySkewness = lazy_relation_methods_mod.groupBySkewness;
+            pub const groupBySkewnessOn = lazy_relation_methods_mod.groupBySkewnessOn;
+            pub const groupByKurtosis = lazy_relation_methods_mod.groupByKurtosis;
+            pub const groupByKurtosisOn = lazy_relation_methods_mod.groupByKurtosisOn;
+            pub const groupBySkew = lazy_relation_methods_mod.groupBySkew;
+            pub const groupBySkewOn = lazy_relation_methods_mod.groupBySkewOn;
+            pub const groupByKurt = lazy_relation_methods_mod.groupByKurt;
+            pub const groupByKurtOn = lazy_relation_methods_mod.groupByKurtOn;
             pub const groupByStats = lazy_relation_methods_mod.groupByStats;
             pub const groupByStatsOn = lazy_relation_methods_mod.groupByStatsOn;
             pub const groupByProfile = lazy_relation_methods_mod.groupByProfile;
