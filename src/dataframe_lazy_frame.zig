@@ -2098,6 +2098,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMadZscore(self, names, output_names);
             }
 
+            pub fn withRowAverageRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAverageRank(self, names, output_names);
+            }
+
+            pub fn withRowAverageRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAverageRanks(self, names, output_names);
+            }
+
+            pub fn withRowAvgRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAvgRank(self, names, output_names);
+            }
+
+            pub fn withRowAvgRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAvgRanks(self, names, output_names);
+            }
+
+            pub fn withRowFractionalRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFractionalRank(self, names, output_names);
+            }
+
+            pub fn withRowFractionalRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFractionalRanks(self, names, output_names);
+            }
+
             pub fn withRowOrdinalRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowOrdinalRank(self, names, output_names);
             }

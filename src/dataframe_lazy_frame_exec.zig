@@ -751,6 +751,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_centered => |row_outputs| try current.withRowCentered(row_outputs.names, row_outputs.output_names),
             .row_zscore => |row_outputs| try current.withRowZScore(row_outputs.names, row_outputs.output_names),
             .row_robust_zscore => |row_outputs| try current.withRowRobustZScore(row_outputs.names, row_outputs.output_names),
+            .row_average_rank => |row_outputs| try current.withRowAverageRank(row_outputs.names, row_outputs.output_names),
             .row_ordinal_rank => |row_outputs| try current.withRowOrdinalRank(row_outputs.names, row_outputs.output_names),
             .row_dense_rank => |row_outputs| try current.withRowDenseRank(row_outputs.names, row_outputs.output_names),
             .row_competition_rank => |row_outputs| try current.withRowCompetitionRank(row_outputs.names, row_outputs.output_names),

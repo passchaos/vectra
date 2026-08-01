@@ -2987,6 +2987,30 @@ pub fn withRowMadZscore(self: anytype, names: []const []const u8, output_names: 
     return dataframe_array_mod.withRowMadZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowAverageRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAverageRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowAverageRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAverageRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowAvgRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAvgRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowAvgRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAvgRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowFractionalRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFractionalRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowFractionalRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFractionalRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowOrdinalRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowOrdinalRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

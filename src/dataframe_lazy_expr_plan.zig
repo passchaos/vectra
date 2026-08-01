@@ -3835,6 +3835,44 @@ pub fn withRowMadZscore(frame: anytype, names: []const []const u8, output_names:
     return withRowRobustZScore(frame, names, output_names);
 }
 
+pub fn withRowAverageRank(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_average_rank = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowAverageRanks(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowAverageRank(frame, names, output_names);
+}
+
+pub fn withRowAvgRank(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowAverageRank(frame, names, output_names);
+}
+
+pub fn withRowAvgRanks(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowAverageRank(frame, names, output_names);
+}
+
+pub fn withRowFractionalRank(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowAverageRank(frame, names, output_names);
+}
+
+pub fn withRowFractionalRanks(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowAverageRank(frame, names, output_names);
+}
+
 pub fn withRowOrdinalRank(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
