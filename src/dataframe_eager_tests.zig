@@ -1283,6 +1283,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_confidence[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_confidence[1], 1e-12);
     try std.testing.expectApproxEqAbs(row3_b_softmax, row_softmax_confidence[3], 1e-12);
+
+    var row_softmax_margin_table = try validity_table.withRowSoftmaxMargin(&.{ "a", "b" }, "row_softmax_margin");
+    defer row_softmax_margin_table.deinit();
+    const row_softmax_margin = try (try row_softmax_margin_table.column("row_softmax_margin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_margin);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_margin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_margin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_b_softmax - row3_a_softmax, row_softmax_margin[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2663,6 +2671,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), confidence[1], 1e-12);
     try std.testing.expect(std.math.isNan(confidence[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), confidence[3], 1e-12);
+
+    var margin_table = try table.withRowSoftmaxMargin(&.{ "low", "high" }, "row_softmax_margin");
+    defer margin_table.deinit();
+    const margin = try (try margin_table.column("row_softmax_margin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(margin);
+    try std.testing.expectApproxEqAbs(expected_high0 - expected_low0, margin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), margin[1], 1e-12);
+    try std.testing.expect(std.math.isNan(margin[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), margin[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {

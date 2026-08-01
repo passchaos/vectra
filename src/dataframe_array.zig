@@ -3645,6 +3645,8 @@ fn withRowSoftmaxColumns(
 
     const maxima = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(maxima);
+    const secondaries = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(secondaries);
     const denom = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(denom);
     const valid_counts = try input.allocator.alloc(usize, input.rows);
@@ -3654,6 +3656,7 @@ fn withRowSoftmaxColumns(
     const row_validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(row_validity);
     @memset(maxima, -std.math.inf(f64));
+    @memset(secondaries, -std.math.inf(f64));
     @memset(denom, 0.0);
     @memset(valid_counts, 0);
     @memset(pos_inf_counts, 0);
@@ -3816,7 +3819,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity, confidence };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3829,6 +3832,8 @@ fn withRowSoftmaxSummary(
     const check_names = if (names.len == 0) input.names else names;
     const maxima = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(maxima);
+    const secondaries = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(secondaries);
     const denom = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(denom);
     const shifted_weighted_sum = try input.allocator.alloc(f64, input.rows);
@@ -3840,6 +3845,7 @@ fn withRowSoftmaxSummary(
     const row_validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(row_validity);
     @memset(maxima, -std.math.inf(f64));
+    @memset(secondaries, -std.math.inf(f64));
     @memset(denom, 0.0);
     @memset(shifted_weighted_sum, 0.0);
     @memset(valid_counts, 0);
@@ -3864,8 +3870,14 @@ fn withRowSoftmaxSummary(
                     valid_counts[row] += 1;
                     if (std.math.isNan(value)) {
                         maxima[row] = std.math.nan(f64);
-                    } else if (!std.math.isNan(maxima[row]) and value > maxima[row]) {
-                        maxima[row] = value;
+                        secondaries[row] = std.math.nan(f64);
+                    } else if (!std.math.isNan(maxima[row])) {
+                        if (value >= maxima[row]) {
+                            secondaries[row] = maxima[row];
+                            maxima[row] = value;
+                        } else if (value > secondaries[row]) {
+                            secondaries[row] = value;
+                        }
                     }
                 }
             },
@@ -3900,18 +3912,28 @@ fn withRowSoftmaxSummary(
 
     const entropies = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(entropies);
-    for (entropies, row_validity, maxima, denom, shifted_weighted_sum, valid_counts, pos_inf_counts) |*entropy, valid, max_value, denominator, shifted_sum, valid_count, pos_inf_count| {
+    for (entropies, row_validity, maxima, secondaries, denom, shifted_weighted_sum, valid_counts, pos_inf_counts) |*entropy, valid, max_value, second_value, denominator, shifted_sum, valid_count, pos_inf_count| {
         if (!valid) {
             entropy.* = 0.0;
         } else if (std.math.isNan(max_value)) {
             entropy.* = std.math.nan(f64);
-        } else if (summary == .confidence) {
-            if (std.math.isPositiveInf(max_value)) {
-                entropy.* = 1.0 / @as(f64, @floatFromInt(pos_inf_count));
+        } else if (summary == .confidence or summary == .margin) {
+            const top_probability = if (std.math.isPositiveInf(max_value))
+                1.0 / @as(f64, @floatFromInt(pos_inf_count))
+            else if (std.math.isNegativeInf(max_value))
+                1.0 / @as(f64, @floatFromInt(valid_count))
+            else
+                1.0 / denominator;
+            if (summary == .confidence) {
+                entropy.* = top_probability;
+            } else if (std.math.isPositiveInf(max_value)) {
+                entropy.* = if (pos_inf_count > 1) 0.0 else top_probability;
+            } else if (valid_count <= 1) {
+                entropy.* = top_probability;
             } else if (std.math.isNegativeInf(max_value)) {
-                entropy.* = 1.0 / @as(f64, @floatFromInt(valid_count));
+                entropy.* = 0.0;
             } else {
-                entropy.* = 1.0 / denominator;
+                entropy.* = top_probability - std.math.exp(second_value - max_value) / denominator;
             }
         } else if (std.math.isPositiveInf(max_value)) {
             entropy.* = std.math.log(f64, std.math.e, @as(f64, @floatFromInt(pos_inf_count)));
@@ -3954,6 +3976,15 @@ pub fn withRowSoftmaxConfidence(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .confidence);
+}
+
+pub fn withRowSoftmaxMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .margin);
 }
 
 pub fn withRowGeometricMean(
