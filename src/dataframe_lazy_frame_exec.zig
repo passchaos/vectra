@@ -760,6 +760,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_softmax_concentration => |row_count| try current.withRowSoftmaxConcentration(row_count.names, row_count.output_name),
             .row_softmax_normalized_hhi => |row_count| try current.withRowSoftmaxNormalizedHhi(row_count.names, row_count.output_name),
             .row_softmax_gini_impurity => |row_count| try current.withRowSoftmaxGiniImpurity(row_count.names, row_count.output_name),
+            .row_softmax_inverse_simpson => |row_count| try current.withRowSoftmaxInverseSimpson(row_count.names, row_count.output_name),
+            .row_softmax_simpson_evenness => |row_count| try current.withRowSoftmaxSimpsonEvenness(row_count.names, row_count.output_name),
             .row_logit_margin => |row_count| try current.withRowLogitMargin(row_count.names, row_count.output_name),
             .row_magnitude_skewness => |row_count| try current.withRowMagnitudeSkewness(row_count.names, row_count.output_name),
             .row_magnitude_kurtosis => |row_count| try current.withRowMagnitudeKurtosis(row_count.names, row_count.output_name),

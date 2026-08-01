@@ -3023,6 +3023,18 @@ pub fn withRowSoftmaxGini(self: anytype, names: []const []const u8, output_name:
     return dataframe_array_mod.withRowSoftmaxGini(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSoftmaxInverseSimpson(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxSimpsonEvenness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxSimpsonEvenness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxSimpsonEven(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxSimpsonEven(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowLogitMargin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowLogitMargin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

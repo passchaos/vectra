@@ -1325,6 +1325,22 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_normalized_hhi[1], 1e-12);
     try std.testing.expectApproxEqAbs((row3_concentration - 0.5) / 0.5, row_softmax_normalized_hhi[3], 1e-12);
 
+    var row_softmax_inverse_table = try validity_table.withRowSoftmaxInverseSimpson(&.{ "a", "b" }, "row_softmax_inverse");
+    defer row_softmax_inverse_table.deinit();
+    const row_softmax_inverse = try (try row_softmax_inverse_table.column("row_softmax_inverse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_inverse);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_inverse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_inverse[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / row3_concentration, row_softmax_inverse[3], 1e-12);
+
+    var row_softmax_simpson_evenness_table = try validity_table.withRowSoftmaxSimpsonEvenness(&.{ "a", "b" }, "row_softmax_simpson_evenness");
+    defer row_softmax_simpson_evenness_table.deinit();
+    const row_softmax_simpson_evenness = try (try row_softmax_simpson_evenness_table.column("row_softmax_simpson_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_simpson_evenness);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_simpson_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_simpson_evenness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / (row3_concentration * 2.0), row_softmax_simpson_evenness[3], 1e-12);
+
     var row_logit_margin_table = try validity_table.withRowLogitMargin(&.{ "a", "b" }, "row_logit_margin");
     defer row_logit_margin_table.deinit();
     const row_logit_margin = try (try row_logit_margin_table.column("row_logit_margin")).f64.toOwnedSlice(gpa);
@@ -2758,6 +2774,24 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), normalized_hhi[1], 1e-12);
     try std.testing.expect(std.math.isNan(normalized_hhi[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), normalized_hhi[3], 1e-12);
+
+    var inverse_table = try table.withRowSoftmaxInverseSimpson(&.{ "low", "high" }, "row_softmax_inverse");
+    defer inverse_table.deinit();
+    const inverse = try (try inverse_table.column("row_softmax_inverse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inverse);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / expected_concentration0, inverse[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), inverse[1], 1e-12);
+    try std.testing.expect(std.math.isNan(inverse[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), inverse[3], 1e-12);
+
+    var simpson_evenness_table = try table.withRowSoftmaxSimpsonEven(&.{ "low", "high" }, "row_softmax_simpson_evenness");
+    defer simpson_evenness_table.deinit();
+    const simpson_evenness = try (try simpson_evenness_table.column("row_softmax_simpson_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(simpson_evenness);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / (expected_concentration0 * 2.0), simpson_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), simpson_evenness[1], 1e-12);
+    try std.testing.expect(std.math.isNan(simpson_evenness[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), simpson_evenness[3], 1e-12);
 
     var logit_margin_table = try table.withRowLogitMargin(&.{ "low", "high" }, "row_logit_margin");
     defer logit_margin_table.deinit();

@@ -3819,7 +3819,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, normalized_concentration, gini_impurity, logit_margin };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, normalized_concentration, gini_impurity, inverse_simpson, simpson_evenness, logit_margin };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3921,7 +3921,7 @@ fn withRowSoftmaxSummary(
             entropy.* = 0.0;
         } else if (std.math.isNan(max_value)) {
             entropy.* = std.math.nan(f64);
-        } else if (summary == .concentration or summary == .normalized_concentration or summary == .gini_impurity) {
+        } else if (summary == .concentration or summary == .normalized_concentration or summary == .gini_impurity or summary == .inverse_simpson or summary == .simpson_evenness) {
             const concentration = if (std.math.isPositiveInf(max_value))
                 1.0 / @as(f64, @floatFromInt(pos_inf_count))
             else if (std.math.isNegativeInf(max_value))
@@ -3932,6 +3932,10 @@ fn withRowSoftmaxSummary(
                 1.0 - concentration
             else if (summary == .normalized_concentration)
                 if (valid_count <= 1) 1.0 else (concentration - 1.0 / @as(f64, @floatFromInt(valid_count))) / (1.0 - 1.0 / @as(f64, @floatFromInt(valid_count)))
+            else if (summary == .inverse_simpson)
+                1.0 / concentration
+            else if (summary == .simpson_evenness)
+                1.0 / (concentration * @as(f64, @floatFromInt(valid_count)))
             else
                 concentration;
         } else if (summary == .logit_margin) {
@@ -4089,6 +4093,33 @@ pub fn withRowSoftmaxGini(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxGiniImpurity(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowSoftmaxInverseSimpson(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .inverse_simpson);
+}
+
+pub fn withRowSoftmaxSimpsonEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .simpson_evenness);
+}
+
+pub fn withRowSoftmaxSimpsonEven(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSimpsonEvenness(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowLogitMargin(

@@ -2134,6 +2134,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSoftmaxGini(self, names, output_name);
             }
 
+            pub fn withRowSoftmaxInverseSimpson(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxInverseSimpson(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxSimpsonEvenness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxSimpsonEvenness(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxSimpsonEven(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxSimpsonEven(self, names, output_name);
+            }
+
             pub fn withRowLogitMargin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowLogitMargin(self, names, output_name);
             }

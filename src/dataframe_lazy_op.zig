@@ -375,6 +375,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_softmax_concentration: Payloads.RowValidityCount,
         row_softmax_normalized_hhi: Payloads.RowValidityCount,
         row_softmax_gini_impurity: Payloads.RowValidityCount,
+        row_softmax_inverse_simpson: Payloads.RowValidityCount,
+        row_softmax_simpson_evenness: Payloads.RowValidityCount,
         row_logit_margin: Payloads.RowValidityCount,
         row_geometric_mean: Payloads.RowValidityCount,
         row_magnitude_geometric_mean: Payloads.RowValidityCount,
