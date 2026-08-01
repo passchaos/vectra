@@ -2098,6 +2098,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMadZscore(self, names, output_names);
             }
 
+            pub fn withRowDenseRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowDenseRank(self, names, output_names);
+            }
+
+            pub fn withRowDenseRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowDenseRanks(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }

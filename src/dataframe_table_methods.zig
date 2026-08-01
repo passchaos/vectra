@@ -2987,6 +2987,14 @@ pub fn withRowMadZscore(self: anytype, names: []const []const u8, output_names: 
     return dataframe_array_mod.withRowMadZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowDenseRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowDenseRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowDenseRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowDenseRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowIqrOutlier(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowIqrOutlier(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
