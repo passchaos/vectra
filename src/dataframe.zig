@@ -300,6 +300,30 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn nullCount(self: DeviceDataFrame) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| count += column_value.nullCount();
+        return count;
+    }
+
+    pub fn validCount(self: DeviceDataFrame) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| count += column_value.validCount();
+        return count;
+    }
+
+    pub fn cellCount(self: DeviceDataFrame) usize {
+        return self.rows * self.columns.len;
+    }
+
+    pub fn nullRatio(self: DeviceDataFrame) f64 {
+        return ratioFromCount(self.nullCount(), self.cellCount());
+    }
+
+    pub fn validRatio(self: DeviceDataFrame) f64 {
+        return ratioFromCount(self.validCount(), self.cellCount());
+    }
+
     fn ratioFromCount(count: usize, rows: usize) f64 {
         if (rows == 0) return std.math.nan(f64);
         return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));

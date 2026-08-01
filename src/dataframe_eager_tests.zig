@@ -148,6 +148,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const valid_counts = try table.columnValidCounts(gpa);
     defer gpa.free(valid_counts);
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 3 }, valid_counts);
+    try std.testing.expectEqual(@as(usize, 9), table.cellCount());
+    try std.testing.expectEqual(@as(usize, 1), table.nullCount());
+    try std.testing.expectEqual(@as(usize, 8), table.validCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 9.0), table.nullRatio(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 8.0 / 9.0), table.validRatio(), 1e-12);
     const null_ratios = try table.columnNullRatios(gpa);
     defer gpa.free(null_ratios);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), null_ratios[0], 1e-12);
