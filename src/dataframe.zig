@@ -149,6 +149,30 @@ pub const DeviceDataFrame = struct {
         return self.columnDTypes(allocator);
     }
 
+    pub fn columnNullCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.nullCount();
+        return out;
+    }
+
+    pub fn columnValidCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.validCount();
+        return out;
+    }
+
+    pub fn columnNullableMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.nullable();
+        return out;
+    }
+
+    pub fn columnHasNullsMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.hasNulls();
+        return out;
+    }
+
     pub fn isEmpty(self: DeviceDataFrame) bool {
         return self.rows == 0 or self.columns.len == 0;
     }
