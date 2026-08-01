@@ -9765,6 +9765,144 @@ pub fn withRowLastFalseIndex(
     return withRowBoolMatchIndex(DeviceDataFrame, input, names, output_name, .last_false);
 }
 
+fn withRowCumulativeBoolMatchIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime search: RowBoolMatchIndex,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const indices = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(indices);
+    const output_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(output_validity);
+    @memset(indices, 0);
+    @memset(output_validity, false);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |name, output_name, col_index| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |mask| input.allocator.free(mask);
+        const output_index = std.math.cast(i64, col_index) orelse return error.InvalidShape;
+
+        for (host_values, 0..) |value, row| {
+            const valid = if (maybe_validity) |mask| mask[row] else true;
+            if (!valid) continue;
+            const matches = switch (search) {
+                .first_true, .last_true => value,
+                .first_false, .last_false => !value,
+            };
+            if (!matches) continue;
+
+            switch (search) {
+                .first_true, .first_false => if (!output_validity[row]) {
+                    indices[row] = output_index;
+                    output_validity[row] = true;
+                },
+                .last_true, .last_false => {
+                    indices[row] = output_index;
+                    output_validity[row] = true;
+                },
+            }
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, indices, output_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeFirstTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolMatchIndex(DeviceDataFrame, input, names, output_names, .first_true);
+}
+
+pub fn withRowPrefixFirstTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstTrueIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolMatchIndex(DeviceDataFrame, input, names, output_names, .last_true);
+}
+
+pub fn withRowPrefixLastTrueIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastTrueIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFirstFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolMatchIndex(DeviceDataFrame, input, names, output_names, .first_false);
+}
+
+pub fn withRowPrefixFirstFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstFalseIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolMatchIndex(DeviceDataFrame, input, names, output_names, .last_false);
+}
+
+pub fn withRowPrefixLastFalseIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastFalseIndex(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowBoolPredicateRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -3102,6 +3102,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowLastFalseIndex(self, names, output_name);
             }
 
+            pub fn withRowCumulativeFirstTrueIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstTrueIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstTrueIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstTrueIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastTrueIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastTrueIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastTrueIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastTrueIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstFalseIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstFalseIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstFalseIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstFalseIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastFalseIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastFalseIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastFalseIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastFalseIndex(self, names, output_names);
+            }
+
             pub fn withRowTrueRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowTrueRatio(self, names, output_name);
             }

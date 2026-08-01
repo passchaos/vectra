@@ -5508,6 +5508,75 @@ pub fn withRowLastFalseIndex(frame: anytype, names: []const []const u8, output_n
     return withRowBoolMatchIndex(frame, names, output_name, .last_false);
 }
 
+fn withRowCumulativeBoolMatchIndex(
+    frame: anytype,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime search: enum { first_true, last_true, first_false, last_false },
+) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    switch (search) {
+        .first_true => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_true_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_true => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_true_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_false => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_false_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_false => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_false_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+    }
+}
+
+pub fn withRowCumulativeFirstTrueIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolMatchIndex(frame, names, output_names, .first_true);
+}
+
+pub fn withRowPrefixFirstTrueIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstTrueIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastTrueIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolMatchIndex(frame, names, output_names, .last_true);
+}
+
+pub fn withRowPrefixLastTrueIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastTrueIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstFalseIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolMatchIndex(frame, names, output_names, .first_false);
+}
+
+pub fn withRowPrefixFirstFalseIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstFalseIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastFalseIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolMatchIndex(frame, names, output_names, .last_false);
+}
+
+pub fn withRowPrefixLastFalseIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastFalseIndex(frame, names, output_names);
+}
+
 fn withRowBoolPredicateRatio(frame: anytype, names: []const []const u8, output_name: []const u8, comptime target: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
