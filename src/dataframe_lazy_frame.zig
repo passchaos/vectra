@@ -3710,6 +3710,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNonZeroRatio(self, names, output_name);
             }
 
+            pub fn withRowFirstNaNIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNaNIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstNanIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNanIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNaNIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNaNIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNanIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNanIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstInfIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstInfIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastInfIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastInfIndex(self, names, output_name);
+            }
+
             pub fn withRowFirstZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowFirstZeroIndex(self, names, output_name);
             }

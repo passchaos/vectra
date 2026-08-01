@@ -6565,7 +6565,7 @@ fn withRowNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime search: enum { first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
+    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -6575,6 +6575,10 @@ fn withRowNumericPredicateIndex(
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     switch (search) {
+        .first_nan => try frame.ops.append(frame.allocator, .{ .row_first_nan_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_nan => try frame.ops.append(frame.allocator, .{ .row_last_nan_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_inf => try frame.ops.append(frame.allocator, .{ .row_first_inf_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_inf => try frame.ops.append(frame.allocator, .{ .row_last_inf_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_zero => try frame.ops.append(frame.allocator, .{ .row_first_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_zero => try frame.ops.append(frame.allocator, .{ .row_last_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_non_zero => try frame.ops.append(frame.allocator, .{ .row_first_non_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
@@ -6584,6 +6588,30 @@ fn withRowNumericPredicateIndex(
         .first_negative => try frame.ops.append(frame.allocator, .{ .row_first_negative_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_negative => try frame.ops.append(frame.allocator, .{ .row_last_negative_index = .{ .names = owned_names, .output_name = owned_output } }),
     }
+}
+
+pub fn withRowFirstNaNIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_nan);
+}
+
+pub fn withRowFirstNanIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowFirstNaNIndex(frame, names, output_name);
+}
+
+pub fn withRowLastNaNIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_nan);
+}
+
+pub fn withRowLastNanIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowLastNaNIndex(frame, names, output_name);
+}
+
+pub fn withRowFirstInfIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_inf);
+}
+
+pub fn withRowLastInfIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_inf);
 }
 
 pub fn withRowFirstZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -2059,6 +2059,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_first_nan_index => |row_count| {
+            try writer.print("row_first_nan_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_last_nan_index => |row_count| {
+            try writer.print("row_last_nan_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_first_inf_index => |row_count| {
+            try writer.print("row_first_inf_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_last_inf_index => |row_count| {
+            try writer.print("row_last_inf_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_first_zero_index => |row_count| {
             try writer.print("row_first_zero_index([", .{});
             for (row_count.names, 0..) |name, i| {

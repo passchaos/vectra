@@ -4648,6 +4648,24 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(row_non_finite_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, row_non_finite_ratio);
 
+    var row_first_nan_indices = try table.withRowFirstNaNIndex(&.{ "metric", "id" }, "row_first_nan_index");
+    defer row_first_nan_indices.deinit();
+    const row_first_nan = try (try row_first_nan_indices.column("row_first_nan_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_nan);
+    const row_first_nan_validity = try (try row_first_nan_indices.column("row_first_nan_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_nan_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_first_nan);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, row_first_nan_validity);
+
+    var row_last_inf_indices = try table.withRowLastInfIndex(&.{ "metric", "id" }, "row_last_inf_index");
+    defer row_last_inf_indices.deinit();
+    const row_last_inf = try (try row_last_inf_indices.column("row_last_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_inf);
+    const row_last_inf_validity = try (try row_last_inf_indices.column("row_last_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_inf);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, row_last_inf_validity);
+
     var row_cum_nan_counts = try table.withRowCumulativeNaNCount(&.{ "metric", "id" }, &.{ "metric_cum_nan", "id_cum_nan" });
     defer row_cum_nan_counts.deinit();
     const id_cum_nan = try (try row_cum_nan_counts.column("id_cum_nan")).i64.toOwnedSlice(gpa);
@@ -4687,6 +4705,7 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, metric_nan_ratio_validity);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowFirstNaNIndex(&.{"missing"}, "bad_nan_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNonFiniteRatio(&.{"metric"}, &.{ "metric_cum_non_finite", "extra_cum_non_finite" }));
 }
 

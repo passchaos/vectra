@@ -12043,6 +12043,60 @@ fn withRowNumericPredicateIndex(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+pub fn withRowFirstNaNIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .nan, .first);
+}
+
+pub fn withRowFirstNanIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowFirstNaNIndex(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowLastNaNIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .nan, .last);
+}
+
+pub fn withRowLastNanIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowLastNaNIndex(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowFirstInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .inf, .first);
+}
+
+pub fn withRowLastInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .inf, .last);
+}
+
 pub fn withRowFirstZeroIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

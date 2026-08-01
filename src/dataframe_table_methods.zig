@@ -4600,6 +4600,30 @@ pub fn withRowNonZeroRatio(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowFirstNaNIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNaNIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstNanIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNanIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNaNIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNaNIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNanIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNanIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstInfIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstInfIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastInfIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastInfIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowFirstZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
