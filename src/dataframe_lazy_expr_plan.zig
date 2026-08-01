@@ -3617,6 +3617,49 @@ pub fn withRowPrefixModeRatio(frame: anytype, names: []const []const u8, output_
     return withRowCumulativeModeRatio(frame, names, output_names);
 }
 
+fn withRowCumulativeModeMarginBuilder(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime ratio: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (ratio) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_mode_margin_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_mode_margin = .{ .names = owned_names, .output_names = owned_outputs } });
+    }
+}
+
+pub fn withRowCumulativeModeMargin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMarginBuilder(frame, names, output_names, false);
+}
+
+pub fn withRowCumModeMargin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMargin(frame, names, output_names);
+}
+
+pub fn withRowPrefixModeMargin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMargin(frame, names, output_names);
+}
+
+pub fn withRowCumulativeModeMarginRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMarginBuilder(frame, names, output_names, true);
+}
+
+pub fn withRowCumModeMarginRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMarginRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixModeMarginRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeMarginRatio(frame, names, output_names);
+}
+
 pub fn withRowEntropy(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

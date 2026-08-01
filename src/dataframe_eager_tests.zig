@@ -980,6 +980,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 2.0 / 3.0, 1.0 / 3.0, 0.5, 0.5 }, wb_cummode_ratio);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixModeCount(&.{"a"}, &.{ "a_cummode_count", "extra_cummode_count" }));
 
+    var row_cummode_margin_table = try validity_table.withRowCumulativeModeMargin(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cummode_margin", "b_cummode_margin", "wa_cummode_margin", "wb_cummode_margin" },
+    );
+    defer row_cummode_margin_table.deinit();
+    const b_cummode_margin = try (try row_cummode_margin_table.column("b_cummode_margin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(b_cummode_margin);
+    const wb_cummode_margin = try (try row_cummode_margin_table.column("wb_cummode_margin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cummode_margin);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 0 }, b_cummode_margin);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1 }, wb_cummode_margin);
+
+    var row_cummode_margin_ratio_table = try validity_table.withRowPrefixModeMarginRatio(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cummode_margin_ratio", "b_cummode_margin_ratio", "wa_cummode_margin_ratio", "wb_cummode_margin_ratio" },
+    );
+    defer row_cummode_margin_ratio_table.deinit();
+    const b_cummode_margin_ratio = try (try row_cummode_margin_ratio_table.column("b_cummode_margin_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(b_cummode_margin_ratio);
+    const wb_cummode_margin_ratio = try (try row_cummode_margin_ratio_table.column("wb_cummode_margin_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cummode_margin_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 0.0, 0.0 }, b_cummode_margin_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0 / 3.0, 0.0, 0.0, 0.25 }, wb_cummode_margin_ratio);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixModeMargin(&.{"a"}, &.{ "a_cummode_margin", "extra_cummode_margin" }));
+
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
     const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");

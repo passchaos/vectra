@@ -2106,6 +2106,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixModeRatio(self, names, output_names);
             }
 
+            pub fn withRowCumulativeModeMargin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeModeMargin(self, names, output_names);
+            }
+
+            pub fn withRowCumModeMargin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumModeMargin(self, names, output_names);
+            }
+
+            pub fn withRowPrefixModeMargin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixModeMargin(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeModeMarginRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeModeMarginRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumModeMarginRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumModeMarginRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixModeMarginRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixModeMarginRatio(self, names, output_names);
+            }
+
             pub fn withRowEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowEntropy(self, names, output_name);
             }
