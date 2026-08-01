@@ -5503,6 +5503,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterColumnScalar(self, name, T, scalar, op);
             }
 
+            pub fn filterColumnScalarWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!void {
+                return lazy_expr_mod.filterColumnScalarWithDeviceScalar(self, name, scalar, op);
+            }
+
+            pub fn dropColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+                return lazy_expr_mod.dropColumnScalar(self, name, T, scalar, op);
+            }
+
+            pub fn dropColumnScalarWithDeviceScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!void {
+                return lazy_expr_mod.dropColumnScalarWithDeviceScalar(self, name, scalar, op);
+            }
+
             pub fn sortBy(self: *DeviceLazyFrame, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
                 return lazy_sort_mod.sortBy(self, name, options_value);
             }

@@ -246,11 +246,12 @@ Eager schema/expression helpers such as `selectByNamePrefix`, `selectByNameSuffi
 `withColumnLiteral`, `withColumnLiteralAt`, `withColumnLiteralBefore`, `withColumnLiteralAfter`,
 `copyColumn`, `copyColumnAt`, `copyColumnBefore`, `copyColumnAfter`,
 `withRowIndex`, `renameColumn`, `renameColumns`, `addColumnNamePrefix`, `addColumnNameSuffix`,
-`moveColumn`, `moveColumnBefore`, `moveColumnAfter`, `reverseColumns`, `sortColumnsByName`, `dropColumn`, `compareColumnScalar`, `betweenColumnScalar`, `betweenColumnWithDeviceScalars`, `withColumnBetween`, `withColumnIsBetween`, `withColumnBetweenClosed`, `withColumnBetweenWithDeviceScalars`, `withColumnBetweenExclusive`, `withColumnBetweenLeftClosed`, `withColumnBetweenRightClosed`, `notBetweenColumnScalar`, `notBetweenColumnWithDeviceScalars`, `withColumnNotBetween`, `withColumnOutside`, `withColumnNotBetweenClosed`, `withColumnNotBetweenWithDeviceScalars`, `withColumnNotBetweenExclusive`, `withColumnNotBetweenLeftClosed`, `withColumnNotBetweenRightClosed`, `addColumns`, `filterColumn`, `filterIsInColumn`, `filterNotInColumn`, `filterIsinColumn`, `dropIsInColumn`, `dropNotInColumn`, `filterBetweenColumn`, `filterBetweenColumnClosed`, `filterBetweenColumnWithDeviceScalars`, `filterOutsideColumn`, `filterOutsideColumnClosed`, `filterOutsideColumnWithDeviceScalars`, `dropBetweenColumn`, `dropOutsideColumn`, and `filterColumnMask` reuse Vectra `Array` operations, so supported dtypes route
+`moveColumn`, `moveColumnBefore`, `moveColumnAfter`, `reverseColumns`, `sortColumnsByName`, `dropColumn`, `compareColumnScalar`, `betweenColumnScalar`, `betweenColumnWithDeviceScalars`, `withColumnBetween`, `withColumnIsBetween`, `withColumnBetweenClosed`, `withColumnBetweenWithDeviceScalars`, `withColumnBetweenExclusive`, `withColumnBetweenLeftClosed`, `withColumnBetweenRightClosed`, `notBetweenColumnScalar`, `notBetweenColumnWithDeviceScalars`, `withColumnNotBetween`, `withColumnOutside`, `withColumnNotBetweenClosed`, `withColumnNotBetweenWithDeviceScalars`, `withColumnNotBetweenExclusive`, `withColumnNotBetweenLeftClosed`, `withColumnNotBetweenRightClosed`, `addColumns`, `filterColumn`, `filterColumnScalar`, `filterColumnScalarWithDeviceScalar`, `dropColumnScalar`, `dropColumnScalarWithDeviceScalar`, `filterIsInColumn`, `filterNotInColumn`, `filterIsinColumn`, `dropIsInColumn`, `dropNotInColumn`, `filterBetweenColumn`, `filterBetweenColumnClosed`, `filterBetweenColumnWithDeviceScalars`, `filterOutsideColumn`, `filterOutsideColumnClosed`, `filterOutsideColumnWithDeviceScalars`, `dropBetweenColumn`, `dropOutsideColumn`, `filterColumnMask`, and `dropColumnMask` reuse Vectra `Array` operations, so supported dtypes route
 through the same Axiom CPU/CUDA/MPS dispatch instead of a CUDA-only dataframe
 implementation. Nullable boolean predicate masks now follow query-engine semantics:
 null predicate rows are treated as not selected rather than requiring a prefilled
-host mask.
+host mask; complementary drop helpers only remove rows where the predicate is
+valid and true.
 `nullIfColumn` and `withColumnNullIf` provide SQL-style scalar nullification
 for replacing sentinel values with nulls in-place or into a derived output column;
 predicate variants such as `nullIfNaNColumn`, `withColumnNullIfZero`, and
@@ -461,6 +462,9 @@ predicate masks with closed, open, left-closed, and right-closed variants;
 `withColumnNotBetween`/`withColumnOutside` provide the complementary outside-range masks;
 `filterBetweenColumn`/`filterOutsideColumn` and `dropBetweenColumn`/`dropOutsideColumn`
 apply those range predicates directly as row filters.
+`filterColumnScalar`/`dropColumnScalar` apply scalar comparison predicates
+directly as keep/drop row filters without forcing callers to materialize an
+intermediate boolean column.
 `filterIsInColumn`/`filterNotInColumn` and `dropIsInColumn`/`dropNotInColumn`
 apply `isin` membership predicates directly as row filters, with `filterIsin*`
 aliases matching the derived-mask naming.

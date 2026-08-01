@@ -3834,6 +3834,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             .name = try allocator.dupe(u8, filter_op.name),
             .op = filter_op.op,
             .scalar = filter_op.scalar,
+            .keep_matches = filter_op.keep_matches,
         } },
         .group_by_count => |group| blk: {
             const key_name = try allocator.dupe(u8, group.key_name);

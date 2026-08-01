@@ -1632,6 +1632,33 @@ pub fn filterColumnMask(
     return frame.filter(host_values);
 }
 
+pub fn dropColumnMask(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    mask: anytype,
+) DeviceDataError!DeviceDataFrame {
+    const typed_mask = switch (mask) {
+        .bool => |typed| typed,
+        else => return error.TypeMismatch,
+    };
+    if (!typed_mask.device().sameDevice(frame.device)) return error.InvalidDevice;
+    if (typed_mask.len() != frame.rows) return error.LengthMismatch;
+    const host_values = try typed_mask.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(host_values);
+    const host_validity = if (typed_mask.validity) |validity_array| try validity_array.toOwnedSlice(frame.allocator) else null;
+    defer if (host_validity) |validity| frame.allocator.free(validity);
+    const keep_mask = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(keep_mask);
+    for (host_values, keep_mask, 0..) |value, *slot, row| {
+        // A nullable predicate only drops rows where the predicate is both
+        // valid and true. Null predicates behave like false, matching
+        // `filterColumnMask` and avoiding surprising row loss.
+        const should_drop = if (host_validity) |validity| validity[row] and value else value;
+        slot.* = !should_drop;
+    }
+    return frame.filter(keep_mask);
+}
+
 pub fn filterColumn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -1647,23 +1674,5 @@ pub fn dropRowsByColumnMask(
     name: []const u8,
 ) DeviceDataError!DeviceDataFrame {
     const mask = try frame.column(name);
-    const typed_mask = switch (mask.*) {
-        .bool => |typed| typed,
-        else => return error.TypeMismatch,
-    };
-    if (!typed_mask.device().sameDevice(frame.device)) return error.InvalidDevice;
-    if (typed_mask.len() != frame.rows) return error.LengthMismatch;
-    const host_values = try typed_mask.values.toOwnedSlice(frame.allocator);
-    defer frame.allocator.free(host_values);
-    const host_validity = if (typed_mask.validity) |validity_array| try validity_array.toOwnedSlice(frame.allocator) else null;
-    defer if (host_validity) |validity| frame.allocator.free(validity);
-    const keep_mask = try frame.allocator.alloc(bool, frame.rows);
-    defer frame.allocator.free(keep_mask);
-    for (host_values, keep_mask, 0..) |value, *slot, row| {
-        // Match filter semantics for nullable predicates: a null mask row is
-        // treated as false, so it is not dropped by this complementary API.
-        const should_drop = if (host_validity) |validity| validity[row] and value else value;
-        slot.* = !should_drop;
-    }
-    return frame.filter(keep_mask);
+    return dropColumnMask(DeviceDataFrame, frame, mask.*);
 }

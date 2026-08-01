@@ -1229,7 +1229,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
                 if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
-                if (filter_depends_on_source and range_predicate == null) {
+                if (filter_op.keep_matches and filter_depends_on_source and range_predicate == null) {
                     if (parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)) |predicate| {
                         range_predicate = .{
                             .column = try allocator.dupe(u8, filter_op.name),

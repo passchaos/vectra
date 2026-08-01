@@ -2210,8 +2210,32 @@ pub fn filterColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0]
     return expr_mod.filterColumnMask(FrameType(@TypeOf(self)), frameValue(self), mask);
 }
 
+pub fn dropColumnMask(self: anytype, mask: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
+    return expr_mod.dropColumnMask(FrameType(@TypeOf(self)), frameValue(self), mask);
+}
+
 pub fn filterColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return expr_mod.filterColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn filterColumnScalarWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    var mask = try compareColumnScalarWithDeviceScalar(self, name, scalar, op);
+    defer mask.deinit();
+    return filterColumnMask(self, mask);
+}
+
+pub fn filterColumnScalar(self: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterColumnScalarWithDeviceScalar(self, name, DeviceScalar.init(T, scalar), op);
+}
+
+pub fn dropColumnScalarWithDeviceScalar(self: anytype, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    var mask = try compareColumnScalarWithDeviceScalar(self, name, scalar, op);
+    defer mask.deinit();
+    return dropColumnMask(self, mask);
+}
+
+pub fn dropColumnScalar(self: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropColumnScalarWithDeviceScalar(self, name, DeviceScalar.init(T, scalar), op);
 }
 
 fn filterIsInColumnMode(self: anytype, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!FrameType(@TypeOf(self)) {

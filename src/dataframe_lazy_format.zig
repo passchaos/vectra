@@ -322,7 +322,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .filter_isin_column => |membership| try writer.print("filter_isin_column({s}, test:{s}, invert={any})", .{ membership.input_name, membership.test_name, membership.invert }),
         .drop_rows_by_mask_column => |name| try writer.print("drop_rows_by_mask_column({s})", .{name}),
         .where_indices_column => |predicate| try writer.print("where_indices_column({s}->{s})", .{ predicate.name, predicate.output_name }),
-        .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar) }),
+        .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s}, keep_matches={any})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar), filter_op.keep_matches }),
         .with_column_binary => |expr| try writer.print("with_column_binary({s}={s} {s} {s})", .{ expr.name, expr.lhs_name, @tagName(expr.op), expr.rhs_name }),
         .with_column_scalar => |expr| try writer.print("with_column_scalar({s}={s} {s} scalar:{s})", .{ expr.name, expr.input_name, @tagName(expr.op), @tagName(expr.scalar) }),
         .with_column_lerp_scalar => |expr| try writer.print("with_column_lerp_scalar({s}=lerp({s}, {s}, weight:{s}))", .{ expr.name, expr.lhs_name, expr.rhs_name, @tagName(expr.scalar) }),

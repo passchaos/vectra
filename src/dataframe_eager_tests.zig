@@ -8146,6 +8146,19 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(filtered_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, filtered_sales_values);
 
+    var scalar_filtered = try table.filterColumnScalar("sales", f64, 2.5, .gt);
+    defer scalar_filtered.deinit();
+    const scalar_filtered_sales = try (try scalar_filtered.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(scalar_filtered_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, scalar_filtered_sales);
+
+    var scalar_dropped = try table.dropColumnScalar("sales", f64, 2.5, .gt);
+    defer scalar_dropped.deinit();
+    const scalar_dropped_sales = try (try scalar_dropped.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(scalar_dropped_sales);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, scalar_dropped_sales);
+    try std.testing.expectError(error.TypeUnsupported, table.filterColumnScalar("units", f64, 0.0, .gt));
+
     var between_filtered = try table.filterBetweenColumn("sales", f64, 3.0, 5.0);
     defer between_filtered.deinit();
     const between_filtered_sales = try (try between_filtered.column("sales")).f64.toOwnedSlice(gpa);

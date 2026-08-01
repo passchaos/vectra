@@ -644,6 +644,37 @@ test "device lazy frame filters by named boolean columns" {
     try invalid_range_plan.filterBetweenColumn("active", f64, 0.0, 1.0);
     try std.testing.expectError(error.TypeUnsupported, invalid_range_plan.collect());
 
+    var scalar_filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer scalar_filter_plan.deinit();
+    try scalar_filter_plan.filterColumnScalar("sales", f64, 2.5, .gt);
+    try scalar_filter_plan.select(&.{"sales"});
+    const scalar_filter_explain = try scalar_filter_plan.explain(gpa);
+    defer gpa.free(scalar_filter_explain);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_filter_explain, "filter_scalar(sales, op=gt, dtype=f64, keep_matches=true)") != null);
+    var scalar_filter_result = try scalar_filter_plan.collect();
+    defer scalar_filter_result.deinit();
+    const scalar_filter_sales = try (try scalar_filter_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(scalar_filter_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0, 7.0 }, scalar_filter_sales);
+
+    var scalar_drop_plan = try DeviceLazyFrame.init(gpa, table);
+    defer scalar_drop_plan.deinit();
+    try scalar_drop_plan.dropColumnScalar("sales", f64, 2.5, .gt);
+    try scalar_drop_plan.select(&.{"sales"});
+    const scalar_drop_explain = try scalar_drop_plan.explain(gpa);
+    defer gpa.free(scalar_drop_explain);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_drop_explain, "filter_scalar(sales, op=gt, dtype=f64, keep_matches=false)") != null);
+    var scalar_drop_result = try scalar_drop_plan.collect();
+    defer scalar_drop_result.deinit();
+    const scalar_drop_sales = try (try scalar_drop_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(scalar_drop_sales);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, scalar_drop_sales);
+
+    var invalid_scalar_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_scalar_plan.deinit();
+    try invalid_scalar_plan.dropColumnScalar("active", f64, 0.0, .gt);
+    try std.testing.expectError(error.TypeUnsupported, invalid_scalar_plan.collect());
+
     var where_indices_plan = try DeviceLazyFrame.init(gpa, table);
     defer where_indices_plan.deinit();
     try where_indices_plan.whereIndicesColumn("active", "active_row");

@@ -328,6 +328,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             name: []const u8,
             op: DeviceColumnCompareOp,
             scalar: DeviceScalar,
+            keep_matches: bool = true,
         };
         pub const GroupByCount = struct {
             key_name: []const u8,

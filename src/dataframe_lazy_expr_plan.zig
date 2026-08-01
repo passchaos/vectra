@@ -9107,12 +9107,32 @@ pub fn withColumnCompareScalar(frame: anytype, name: []const u8, input_name: []c
     } });
 }
 
-pub fn filterColumnScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+pub fn filterColumnScalarWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     try frame.ops.append(frame.allocator, .{ .filter_scalar = .{
         .name = owned_name,
         .op = op,
-        .scalar = DeviceScalar.init(T, scalar),
+        .scalar = scalar,
+        .keep_matches = true,
     } });
+}
+
+pub fn filterColumnScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+    return filterColumnScalarWithDeviceScalar(frame, name, DeviceScalar.init(T, scalar), op);
+}
+
+pub fn dropColumnScalarWithDeviceScalar(frame: anytype, name: []const u8, scalar: DeviceScalar, op: DeviceColumnCompareOp) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_scalar = .{
+        .name = owned_name,
+        .op = op,
+        .scalar = scalar,
+        .keep_matches = false,
+    } });
+}
+
+pub fn dropColumnScalar(frame: anytype, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
+    return dropColumnScalarWithDeviceScalar(frame, name, DeviceScalar.init(T, scalar), op);
 }

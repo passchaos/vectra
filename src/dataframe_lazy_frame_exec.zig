@@ -1126,7 +1126,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .filter_scalar => |filter_op| blk: {
                 var mask = try current.compareColumnScalarWithDeviceScalar(filter_op.name, filter_op.scalar, filter_op.op);
                 defer mask.deinit();
-                break :blk try current.filterColumnMask(mask);
+                break :blk if (filter_op.keep_matches)
+                    try current.filterColumnMask(mask)
+                else
+                    try current.dropColumnMask(mask);
             },
             .group_by_count => |group| try current.groupByCount(group.key_name, group.output_name),
             .group_by_value => |group| switch (group.aggregation) {
