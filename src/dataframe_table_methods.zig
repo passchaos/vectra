@@ -3007,6 +3007,18 @@ pub fn withRowShare(self: anytype, names: []const []const u8, output_names: []co
     return dataframe_array_mod.withRowShare(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowMeanNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMeanNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMeanNormalized(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMeanNormalized(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMeanRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMeanRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowMaxAbsNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMaxAbsNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

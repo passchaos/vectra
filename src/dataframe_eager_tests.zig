@@ -1277,6 +1277,47 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 11.0), row_a_share[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), row_b_share[3], 1e-12);
 
+    var row_mean_ratio_table = try validity_table.withRowMeanNormalize(&.{ "a", "b" }, &.{ "a_mean_ratio", "b_mean_ratio" });
+    defer row_mean_ratio_table.deinit();
+    const row_a_mean_ratio_column = try row_mean_ratio_table.column("a_mean_ratio");
+    const row_b_mean_ratio_column = try row_mean_ratio_table.column("b_mean_ratio");
+    try std.testing.expect(row_a_mean_ratio_column.f64.nullable());
+    try std.testing.expect(row_b_mean_ratio_column.f64.nullable());
+    const row_a_mean_ratio = try row_a_mean_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_mean_ratio);
+    const row_b_mean_ratio = try row_b_mean_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_mean_ratio);
+    const row_a_mean_ratio_validity = try row_a_mean_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_mean_ratio_validity);
+    const row_b_mean_ratio_validity = try row_b_mean_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_mean_ratio_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_a_mean_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_mean_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 11.0), row_a_mean_ratio[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0 / 11.0), row_b_mean_ratio[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_mean_ratio_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_mean_ratio_validity);
+
+    var mean_zero_left = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 0.0 }, .cpu);
+    defer mean_zero_left.deinit();
+    var mean_zero_right = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 0.0 }, .cpu);
+    defer mean_zero_right.deinit();
+    var mean_zero_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "left", .data = mean_zero_left },
+        .{ .name = "right", .data = mean_zero_right },
+    });
+    defer mean_zero_table.deinit();
+    var mean_zero_ratio_table = try mean_zero_table.withRowMeanNormalized(&.{ "left", "right" }, &.{ "left_mean_ratio", "right_mean_ratio" });
+    defer mean_zero_ratio_table.deinit();
+    const left_mean_ratio = try (try mean_zero_ratio_table.column("left_mean_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(left_mean_ratio);
+    const right_mean_ratio = try (try mean_zero_ratio_table.column("right_mean_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(right_mean_ratio);
+    try std.testing.expect(std.math.isNan(left_mean_ratio[0]));
+    try std.testing.expect(std.math.isNan(right_mean_ratio[0]));
+    try std.testing.expect(std.math.isNan(left_mean_ratio[1]));
+    try std.testing.expect(std.math.isNan(right_mean_ratio[1]));
+
     var row_maxabs_table = try validity_table.withRowMaxAbsNormalize(&.{ "a", "b" }, &.{ "a_maxabs", "b_maxabs" });
     defer row_maxabs_table.deinit();
     const row_a_maxabs = try (try row_maxabs_table.column("a_maxabs")).f64.toOwnedSlice(gpa);
@@ -1288,6 +1329,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.1), row_a_maxabs[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_maxabs[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowMeanNormalize(&.{"a"}, &.{ "a_mean_ratio", "extra_mean_ratio" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });
     defer row_softmax_table.deinit();

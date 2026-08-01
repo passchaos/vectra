@@ -559,7 +559,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
         },
-        .row_centered, .row_zscore, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs| {
+        .row_centered, .row_zscore, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs| {
             freeNameList(allocator, row_outputs.names);
             freeNameList(allocator, row_outputs.output_names);
         },

@@ -2118,6 +2118,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowShare(self, names, output_names);
             }
 
+            pub fn withRowMeanNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMeanNormalize(self, names, output_names);
+            }
+
+            pub fn withRowMeanNormalized(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMeanNormalized(self, names, output_names);
+            }
+
+            pub fn withRowMeanRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMeanRatio(self, names, output_names);
+            }
+
             pub fn withRowMaxAbsNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMaxAbsNormalize(self, names, output_names);
             }

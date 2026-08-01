@@ -4203,6 +4203,109 @@ pub fn withRowShare(
     return withRowSumNormalize(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowMeanNormalize(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const means = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(means);
+    const counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(counts);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(means, 0.0);
+    @memset(counts, 0);
+    @memset(row_validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    means[row] += realValueAsF64(@TypeOf(raw_value), raw_value);
+                    counts[row] += 1;
+                    row_validity[row] = true;
+                }
+            },
+        }
+    }
+    for (means, counts, row_validity) |*mean, count, valid| {
+        if (valid) mean.* /= @as(f64, @floatFromInt(count));
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var ratios = try input.allocator.alloc(f64, input.rows);
+        defer input.allocator.free(ratios);
+        const ratio_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(ratio_validity);
+        @memset(ratios, 0.0);
+        @memset(ratio_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row]) continue;
+                    ratio_validity[row] = true;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    ratios[row] = if (means[row] == 0.0) std.math.nan(f64) else value / means[row];
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, ratios, ratio_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowMeanNormalized(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMeanNormalize(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowMeanRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMeanNormalize(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowMaxAbsNormalize(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
