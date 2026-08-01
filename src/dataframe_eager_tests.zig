@@ -1432,6 +1432,29 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_is_max_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_is_max_validity);
 
+    var row_min_indicator_table = try validity_table.withRowMinIndicator(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_row_is_min", "b_row_is_min", "wa_row_is_min", "wb_row_is_min" },
+    );
+    defer row_min_indicator_table.deinit();
+    const row_a_is_min_column = try row_min_indicator_table.column("a_row_is_min");
+    try std.testing.expectEqual(DeviceDType.bool, row_a_is_min_column.dtype());
+    try std.testing.expect(row_a_is_min_column.bool.nullable());
+    const row_a_is_min = try row_a_is_min_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(row_a_is_min);
+    const row_a_is_min_validity = try row_a_is_min_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_is_min_validity);
+    const row_b_is_min_column = try row_min_indicator_table.column("b_row_is_min");
+    try std.testing.expect(row_b_is_min_column.bool.nullable());
+    const row_b_is_min = try row_b_is_min_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(row_b_is_min);
+    const row_b_is_min_validity = try row_b_is_min_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_is_min_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, row_a_is_min);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, row_b_is_min);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_is_min_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_is_min_validity);
+
     var row_minmax_table = try validity_table.withRowMinMaxScale(&.{ "a", "b" }, &.{ "a_minmax", "b_minmax" });
     defer row_minmax_table.deinit();
     const row_a_minmax = try (try row_minmax_table.column("a_minmax")).f64.toOwnedSlice(gpa);
@@ -1539,6 +1562,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowTukeyOutliers(&.{"a"}, &.{ "a_iqr_outlier", "extra_iqr_outlier" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowIqrWinsorized(&.{"a"}, &.{ "a_tukey_winsor", "extra_tukey_winsor" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMaxMask(&.{"a"}, &.{ "a_row_is_max", "extra_row_is_max" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowMinMask(&.{"a"}, &.{ "a_row_is_min", "extra_row_is_min" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMeanNormalize(&.{"a"}, &.{ "a_mean_ratio", "extra_mean_ratio" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });

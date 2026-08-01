@@ -760,6 +760,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_iqr_outlier => |row_outputs| try current.withRowIqrOutlier(row_outputs.names, row_outputs.output_names),
             .row_tukey_winsorize => |row_outputs| try current.withRowTukeyWinsorize(row_outputs.names, row_outputs.output_names),
             .row_max_indicator => |row_outputs| try current.withRowMaxIndicator(row_outputs.names, row_outputs.output_names),
+            .row_min_indicator => |row_outputs| try current.withRowMinIndicator(row_outputs.names, row_outputs.output_names),
             .row_minmax_scale => |row_outputs| try current.withRowMinMaxScale(row_outputs.names, row_outputs.output_names),
             .row_l2_normalize => |row_outputs| try current.withRowL2Normalize(row_outputs.names, row_outputs.output_names),
             .row_l1_normalize => |row_outputs| try current.withRowL1Normalize(row_outputs.names, row_outputs.output_names),

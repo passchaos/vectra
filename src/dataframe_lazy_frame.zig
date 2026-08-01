@@ -2214,6 +2214,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMaxMask(self, names, output_names);
             }
 
+            pub fn withRowMinIndicator(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinIndicator(self, names, output_names);
+            }
+
+            pub fn withRowMinIndicators(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinIndicators(self, names, output_names);
+            }
+
+            pub fn withRowIsMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIsMin(self, names, output_names);
+            }
+
+            pub fn withRowMinMask(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinMask(self, names, output_names);
+            }
+
             pub fn withRowTukeyWinsorize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowTukeyWinsorize(self, names, output_names);
             }

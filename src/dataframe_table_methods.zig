@@ -3103,6 +3103,22 @@ pub fn withRowMaxMask(self: anytype, names: []const []const u8, output_names: []
     return dataframe_array_mod.withRowMaxMask(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowMinIndicator(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMinIndicator(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMinIndicators(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMinIndicators(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowIsMin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIsMin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMinMask(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMinMask(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowTukeyWinsorize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowTukeyWinsorize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
