@@ -1182,6 +1182,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .null_count => try current.groupByNullCount(group.key_name, group.value_name, group.output_name),
                 .valid_ratio => try current.groupByValidRatio(group.key_name, group.value_name, group.output_name),
                 .null_ratio => try current.groupByNullRatio(group.key_name, group.value_name, group.output_name),
+                .argmin => try current.groupByArgMin(group.key_name, group.value_name, group.output_name),
+                .argmax => try current.groupByArgMax(group.key_name, group.value_name, group.output_name),
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
@@ -1209,6 +1211,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .null_count => try current.groupByNullCountOn(group.key_names, group.value_name, group.output_name),
                 .valid_ratio => try current.groupByValidRatioOn(group.key_names, group.value_name, group.output_name),
                 .null_ratio => try current.groupByNullRatioOn(group.key_names, group.value_name, group.output_name),
+                .argmin => try current.groupByArgMinOn(group.key_names, group.value_name, group.output_name),
+                .argmax => try current.groupByArgMaxOn(group.key_names, group.value_name, group.output_name),
             },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),

@@ -552,6 +552,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_last);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, ms_simple_last);
 
+    var multi_argmin = try multi.groupByArgMinOn(&.{ "store", "day" }, "amount", "amount_argmin");
+    defer multi_argmin.deinit();
+    const ms_simple_argmin = try (try multi_argmin.column("amount_argmin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_argmin);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 3, 5 }, ms_simple_argmin);
+
+    var multi_argmax = try multi.groupByArgMaxOn(&.{ "store", "day" }, "amount", "amount_argmax");
+    defer multi_argmax.deinit();
+    const ms_simple_argmax = try (try multi_argmax.column("amount_argmax")).i64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_argmax);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 5 }, ms_simple_argmax);
+
     var multi_unique = try multi.groupByNUniqueOn(&.{ "store", "day" }, "amount", "amount_n_unique");
     defer multi_unique.deinit();
     const ms_simple_unique = try (try multi_unique.column("amount_n_unique")).i64.toOwnedSlice(gpa);
@@ -662,6 +674,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_last = try (try lazy_multi_last.column("amount_last_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_last);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, lazy_ms_last);
+
+    var multi_argmax_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_argmax_plan.deinit();
+    try multi_argmax_plan.groupByArgMaxOn(&.{ "store", "day" }, "amount", "amount_argmax_lazy");
+    const multi_argmax_explained = try multi_argmax_plan.explain(gpa);
+    defer gpa.free(multi_argmax_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_argmax_explained, "group_by_argmax_on([store,day], value=amount -> amount_argmax_lazy)") != null);
+    var lazy_multi_argmax = try multi_argmax_plan.collect();
+    defer lazy_multi_argmax.deinit();
+    const lazy_ms_argmax = try (try lazy_multi_argmax.column("amount_argmax_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_argmax);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3, 5 }, lazy_ms_argmax);
 
     var multi_unique_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_unique_plan.deinit();

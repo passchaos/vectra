@@ -60,6 +60,11 @@ const GroupByValidityAggregation = enum {
     null_ratio,
 };
 
+const GroupByArgAggregation = enum {
+    argmin,
+    argmax,
+};
+
 pub fn groupByStatsOnDispatchValue(
     comptime DeviceDataFrame: type,
     allocator: std.mem.Allocator,
@@ -987,6 +992,116 @@ pub fn groupByNullRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByValidityCountOn(DeviceDataFrame, .null_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByArgOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByArgAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByArgOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByArgOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByArgOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByArgOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByArgOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByArgOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByArgOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByArgOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByArgOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByArgOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByArgOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByArgOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByArgOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByArgOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByArgAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var best_rows: std.ArrayList(usize) = .empty;
+    defer best_rows.deinit(allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try best_rows.append(allocator, row);
+            break :blk representative_rows.items.len - 1;
+        };
+        const best_row = best_rows.items[group_index];
+        const better = switch (aggregation) {
+            .argmin => compareSortValues(V, value_item, values[best_row]) < 0,
+            .argmax => compareSortValues(V, value_item, values[best_row]) > 0,
+        };
+        if (better) best_rows.items[group_index] = row;
+    }
+
+    const out = try allocator.alloc(i64, best_rows.items.len);
+    defer allocator.free(out);
+    for (best_rows.items, out) |row, *slot| slot.* = @intCast(row);
+
+    const output_column = try DeviceColumn.fromSlice(i64, allocator, out, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByArgOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByArgAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByArgOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+pub fn groupByArgMinOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByArgOn(DeviceDataFrame, .argmin, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByArgMaxOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByArgOn(DeviceDataFrame, .argmax, frame, key_names, value_name, output_name);
 }
 
 fn initMultiKeyAggregatedDataFrame(

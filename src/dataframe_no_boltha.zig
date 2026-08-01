@@ -175,6 +175,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     null_count,
     valid_ratio,
     null_ratio,
+    argmin,
+    argmax,
 };
 
 pub const DeviceLazyJoinKind = enum {
