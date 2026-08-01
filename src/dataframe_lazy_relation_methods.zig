@@ -155,6 +155,25 @@ pub fn groupByQuantileOn(self: anytype, key_names: []const []const u8, value_nam
     return lazy_group_mod.groupByValueOnQuantile(self, key_names, value_name, output_name, .quantile, q);
 }
 
+pub fn groupByVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .variance);
+}
+
+pub fn groupByVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .variance);
+}
+
+pub fn groupByStddev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .stddev);
+}
+
+pub fn groupByStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .stddev);
+}
+
+pub const groupByStd = groupByStddev;
+pub const groupByStdOn = groupByStddevOn;
+
 pub fn groupByStats(self: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
     return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
 }

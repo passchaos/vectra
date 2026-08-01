@@ -1167,6 +1167,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .mode => try current.groupByMode(group.key_name, group.value_name, group.output_name),
                 .median => try current.groupByMedian(group.key_name, group.value_name, group.output_name),
                 .quantile => try current.groupByQuantile(group.key_name, group.value_name, group.output_name, group.quantile),
+                .variance => try current.groupByVariance(group.key_name, group.value_name, group.output_name),
+                .stddev => try current.groupByStddev(group.key_name, group.value_name, group.output_name),
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
@@ -1179,6 +1181,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .mode => try current.groupByModeOn(group.key_names, group.value_name, group.output_name),
                 .median => try current.groupByMedianOn(group.key_names, group.value_name, group.output_name),
                 .quantile => try current.groupByQuantileOn(group.key_names, group.value_name, group.output_name, group.quantile),
+                .variance => try current.groupByVarianceOn(group.key_names, group.value_name, group.output_name),
+                .stddev => try current.groupByStddevOn(group.key_names, group.value_name, group.output_name),
             },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),

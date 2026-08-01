@@ -205,6 +205,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(q1_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 4.75, 5.0 }, q1_sales_values);
 
+    var variance_sales = try table.groupByVariance("store", "sales", "sales_variance_simple");
+    defer variance_sales.deinit();
+    const variance_sales_values = try (try variance_sales.column("sales_variance_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(variance_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.25), variance_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0), variance_sales_values[1], 1e-12);
+
+    var stddev_sales = try table.groupByStddev("store", "sales", "sales_stddev_simple");
+    defer stddev_sales.deinit();
+    const stddev_sales_values = try (try stddev_sales.column("sales_stddev_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(stddev_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.5), stddev_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), stddev_sales_values[1], 1e-12);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -355,6 +369,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_q1);
     try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, ms_simple_q1);
 
+    var multi_variance = try multi.groupByVarianceOn(&.{ "store", "day" }, "amount", "amount_variance_simple");
+    defer multi_variance.deinit();
+    const ms_simple_variance = try (try multi_variance.column("amount_variance_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_variance);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), ms_simple_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_variance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_variance[3], 1e-12);
+
+    var multi_stddev = try multi.groupByStddevOn(&.{ "store", "day" }, "amount", "amount_stddev_simple");
+    defer multi_stddev.deinit();
+    const ms_simple_stddev = try (try multi_stddev.column("amount_stddev_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_stddev);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ms_simple_stddev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[3], 1e-12);
+
     try std.testing.expectError(error.InvalidShape, multi.groupByQuantileOn(&.{ "store", "day" }, "amount", "bad_q", 1.5));
 
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
@@ -441,6 +473,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_q1 = try (try lazy_multi_q1.column("amount_q1_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_q1);
     try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, lazy_ms_q1);
+
+    var multi_variance_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_variance_plan.deinit();
+    try multi_variance_plan.groupByVarianceOn(&.{ "store", "day" }, "amount", "amount_variance_lazy");
+    const multi_variance_explained = try multi_variance_plan.explain(gpa);
+    defer gpa.free(multi_variance_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_variance_explained, "group_by_variance_on([store,day], value=amount -> amount_variance_lazy)") != null);
+    var lazy_multi_variance = try multi_variance_plan.collect();
+    defer lazy_multi_variance.deinit();
+    const lazy_ms_variance = try (try lazy_multi_variance.column("amount_variance_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_variance);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_ms_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[3], 1e-12);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();

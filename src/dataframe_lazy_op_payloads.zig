@@ -28,6 +28,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     mode,
     median,
     quantile,
+    variance,
+    stddev,
 };
 
 pub const DeviceLazyJoinKind = enum {
