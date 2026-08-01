@@ -1704,6 +1704,263 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
+const RowValidityReduction = enum { any_null, all_null, any_valid, all_valid };
+
+fn rowValidityReductionSeed(comptime reduction: RowValidityReduction) bool {
+    return switch (reduction) {
+        .any_null, .any_valid => false,
+        .all_null, .all_valid => true,
+    };
+}
+
+fn rowValidityReductionTargetValid(comptime reduction: RowValidityReduction) bool {
+    return switch (reduction) {
+        .any_null, .all_null => false,
+        .any_valid, .all_valid => true,
+    };
+}
+
+fn rowValidityReductionIsAny(comptime reduction: RowValidityReduction) bool {
+    return switch (reduction) {
+        .any_null, .any_valid => true,
+        .all_null, .all_valid => false,
+    };
+}
+
+fn withRowValidityReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowValidityReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const values = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(values);
+    @memset(values, rowValidityReductionSeed(reduction));
+
+    const target_valid = rowValidityReductionTargetValid(reduction);
+    const is_any = rowValidityReductionIsAny(reduction);
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (values, validity) |*slot, valid| {
+                        const matches = valid == target_valid;
+                        slot.* = if (is_any) slot.* or matches else slot.* and matches;
+                    }
+                } else {
+                    const matches = target_valid;
+                    for (values) |*slot| {
+                        slot.* = if (is_any) slot.* or matches else slot.* and matches;
+                    }
+                }
+            },
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSlice(bool, input.allocator, values, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowAnyNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityReduction(DeviceDataFrame, input, names, output_name, .any_null);
+}
+
+pub fn withRowAllNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityReduction(DeviceDataFrame, input, names, output_name, .all_null);
+}
+
+pub fn withRowAnyValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityReduction(DeviceDataFrame, input, names, output_name, .any_valid);
+}
+
+pub fn withRowAllValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowValidityReduction(DeviceDataFrame, input, names, output_name, .all_valid);
+}
+
+fn withRowCumulativeValidityReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowValidityReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    try validateRowCumulativeOutputNames(output_names, check_names.len);
+
+    const running = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(running);
+    @memset(running, rowValidityReductionSeed(reduction));
+
+    const target_valid = rowValidityReductionTargetValid(reduction);
+    const is_any = rowValidityReductionIsAny(reduction);
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (running, validity) |*slot, valid| {
+                        const matches = valid == target_valid;
+                        slot.* = if (is_any) slot.* or matches else slot.* and matches;
+                    }
+                } else {
+                    const matches = target_valid;
+                    for (running) |*slot| {
+                        slot.* = if (is_any) slot.* or matches else slot.* and matches;
+                    }
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSlice(bool, input.allocator, running, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeAnyNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityReduction(DeviceDataFrame, input, names, output_names, .any_null);
+}
+
+pub fn withRowCumAnyNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNull(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyNull(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityReduction(DeviceDataFrame, input, names, output_names, .all_null);
+}
+
+pub fn withRowCumAllNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNull(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllNull(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllNull(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAnyValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityReduction(DeviceDataFrame, input, names, output_names, .any_valid);
+}
+
+pub fn withRowCumAnyValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyValid(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyValid(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityReduction(DeviceDataFrame, input, names, output_names, .all_valid);
+}
+
+pub fn withRowCumAllValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllValid(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllValid(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllValid(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowCumulativeValidityCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

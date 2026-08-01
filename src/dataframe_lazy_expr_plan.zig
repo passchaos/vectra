@@ -2457,6 +2457,140 @@ pub fn withRowValidCount(frame: anytype, names: []const []const u8, output_name:
     return withRowValidityCount(frame, names, output_name, true);
 }
 
+fn withRowValidityReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: enum { any_null, all_null, any_valid, all_valid },
+) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (reduction) {
+        .any_null => try frame.ops.append(frame.allocator, .{ .row_any_null = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .all_null => try frame.ops.append(frame.allocator, .{ .row_all_null = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .any_valid => try frame.ops.append(frame.allocator, .{ .row_any_valid = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .all_valid => try frame.ops.append(frame.allocator, .{ .row_all_valid = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+    }
+}
+
+pub fn withRowAnyNull(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityReduction(frame, names, output_name, .any_null);
+}
+
+pub fn withRowAllNull(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityReduction(frame, names, output_name, .all_null);
+}
+
+pub fn withRowAnyValid(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityReduction(frame, names, output_name, .any_valid);
+}
+
+pub fn withRowAllValid(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowValidityReduction(frame, names, output_name, .all_valid);
+}
+
+fn withRowCumulativeValidityReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: enum { any_null, all_null, any_valid, all_valid },
+) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    switch (reduction) {
+        .any_null => try frame.ops.append(frame.allocator, .{ .row_cumulative_any_null = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .all_null => try frame.ops.append(frame.allocator, .{ .row_cumulative_all_null = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .any_valid => try frame.ops.append(frame.allocator, .{ .row_cumulative_any_valid = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .all_valid => try frame.ops.append(frame.allocator, .{ .row_cumulative_all_valid = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+    }
+}
+
+pub fn withRowCumulativeAnyNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityReduction(frame, names, output_names, .any_null);
+}
+
+pub fn withRowCumAnyNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNull(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyNull(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityReduction(frame, names, output_names, .all_null);
+}
+
+pub fn withRowCumAllNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNull(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllNull(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllNull(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAnyValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityReduction(frame, names, output_names, .any_valid);
+}
+
+pub fn withRowCumAnyValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyValid(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyValid(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityReduction(frame, names, output_names, .all_valid);
+}
+
+pub fn withRowCumAllValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllValid(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllValid(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllValid(frame, names, output_names);
+}
+
 fn withRowCumulativeValidityCount(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime count_valid: bool) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

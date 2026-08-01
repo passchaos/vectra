@@ -370,6 +370,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_count);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valid_count);
 
+    var row_any_nulls = try table.withRowAnyNull(&.{ "sales", "units", "active" }, "row_any_null");
+    defer row_any_nulls.deinit();
+    const row_any_null = try (try row_any_nulls.column("row_any_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, row_any_null);
+
+    var row_all_nulls = try table.withRowAllNull(&.{ "sales", "units", "active" }, "row_all_null");
+    defer row_all_nulls.deinit();
+    const row_all_null = try (try row_all_nulls.column("row_all_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, row_all_null);
+
+    var row_any_valids = try table.withRowAnyValid(&.{ "sales", "units", "active" }, "row_any_valid");
+    defer row_any_valids.deinit();
+    const row_any_valid = try (try row_any_valids.column("row_any_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_any_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, row_any_valid);
+
+    var row_all_valids = try table.withRowAllValid(&.{ "sales", "units", "active" }, "row_all_valid");
+    defer row_all_valids.deinit();
+    const row_all_valid = try (try row_all_valids.column("row_all_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(row_all_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, row_all_valid);
+
     var row_cum_valid_counts = try table.withRowCumulativeValidCount(
         &.{ "sales", "units", "active" },
         &.{ "sales_cum_valid", "units_cum_valid", "active_cum_valid" },
@@ -385,6 +409,36 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, sales_cum_valid);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2 }, units_cum_valid);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, active_cum_valid);
+
+    var row_cum_any_nulls = try table.withRowCumulativeAnyNull(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_cum_any_null", "units_cum_any_null", "active_cum_any_null" },
+    );
+    defer row_cum_any_nulls.deinit();
+    const sales_cum_any_null = try (try row_cum_any_nulls.column("sales_cum_any_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_any_null);
+    const units_cum_any_null = try (try row_cum_any_nulls.column("units_cum_any_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(units_cum_any_null);
+    const active_cum_any_null = try (try row_cum_any_nulls.column("active_cum_any_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_any_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_cum_any_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, units_cum_any_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, active_cum_any_null);
+
+    var row_prefix_all_valids = try table.withRowPrefixAllValid(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_prefix_all_valid", "units_prefix_all_valid", "active_prefix_all_valid" },
+    );
+    defer row_prefix_all_valids.deinit();
+    const sales_prefix_all_valid = try (try row_prefix_all_valids.column("sales_prefix_all_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_prefix_all_valid);
+    const units_prefix_all_valid = try (try row_prefix_all_valids.column("units_prefix_all_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(units_prefix_all_valid);
+    const active_prefix_all_valid = try (try row_prefix_all_valids.column("active_prefix_all_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_prefix_all_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, sales_prefix_all_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, units_prefix_all_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_prefix_all_valid);
 
     var row_cum_null_counts = try table.withRowPrefixNullCount(
         &.{ "sales", "units", "active" },
