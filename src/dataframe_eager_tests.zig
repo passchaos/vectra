@@ -55,10 +55,23 @@ test "device dataframe owns fixed-width columns on a shared device" {
 
     try std.testing.expectEqual(@as(usize, 3), table.height());
     try std.testing.expectEqual(@as(usize, 3), table.width());
+    try std.testing.expectEqual(table.height(), table.rowCount());
+    try std.testing.expectEqual(table.width(), table.columnCount());
+    const names = table.columnNames();
+    try std.testing.expectEqual(@as(usize, 3), names.len);
+    try std.testing.expect(std.mem.eql(u8, "sales", names[0]));
+    try std.testing.expect(std.mem.eql(u8, "units", names[1]));
+    try std.testing.expect(std.mem.eql(u8, "active", names[2]));
     try std.testing.expect(table.isNonEmpty());
     try std.testing.expect(!table.isEmpty());
     try std.testing.expect(table.hasRows());
     try std.testing.expect(table.hasColumns());
+    try std.testing.expect(table.hasColumn("sales"));
+    try std.testing.expect(!table.hasColumn("missing"));
+    try std.testing.expect(table.hasAllColumns(&.{ "sales", "units" }));
+    try std.testing.expect(!table.hasAllColumns(&.{ "sales", "missing" }));
+    try std.testing.expect(table.hasAnyColumn(&.{ "missing", "active" }));
+    try std.testing.expect(!table.hasAnyColumn(&.{ "missing", "absent" }));
     try std.testing.expect(table.device.isCpu());
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
 

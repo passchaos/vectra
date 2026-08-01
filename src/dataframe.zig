@@ -123,8 +123,20 @@ pub const DeviceDataFrame = struct {
         return self.rows;
     }
 
+    pub fn rowCount(self: DeviceDataFrame) usize {
+        return self.height();
+    }
+
     pub fn width(self: DeviceDataFrame) usize {
         return self.columns.len;
+    }
+
+    pub fn columnCount(self: DeviceDataFrame) usize {
+        return self.width();
+    }
+
+    pub fn columnNames(self: DeviceDataFrame) []const []const u8 {
+        return self.names;
     }
 
     pub fn isEmpty(self: DeviceDataFrame) bool {
@@ -141,6 +153,24 @@ pub const DeviceDataFrame = struct {
 
     pub fn hasColumns(self: DeviceDataFrame) bool {
         return self.columns.len != 0;
+    }
+
+    pub fn hasColumn(self: DeviceDataFrame, name: []const u8) bool {
+        return self.columnIndex(name) != null;
+    }
+
+    pub fn hasAllColumns(self: DeviceDataFrame, names: []const []const u8) bool {
+        for (names) |name| {
+            if (!self.hasColumn(name)) return false;
+        }
+        return true;
+    }
+
+    pub fn hasAnyColumn(self: DeviceDataFrame, names: []const []const u8) bool {
+        for (names) |name| {
+            if (self.hasColumn(name)) return true;
+        }
+        return false;
     }
 
     pub fn shape(self: DeviceDataFrame) struct { rows: usize, cols: usize } {
