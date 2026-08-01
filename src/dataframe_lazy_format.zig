@@ -1387,6 +1387,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_magnitude_normalized_hhi => |row_count| {
+            try writer.print("row_magnitude_normalized_hhi([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_magnitude_entropy => |row_count| {
             try writer.print("row_magnitude_entropy([", .{});
             for (row_count.names, 0..) |name, i| {

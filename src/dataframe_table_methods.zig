@@ -2995,6 +2995,14 @@ pub fn withRowHerfindahlHirschman(self: anytype, names: []const []const u8, outp
     return dataframe_array_mod.withRowHerfindahlHirschman(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeNormalizedHhi(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeNormalizedHhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsNormalizedHhi(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsNormalizedHhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMagnitudeInverseSimpson(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMagnitudeInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -1309,6 +1309,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 101.0 / 121.0), row_hhi[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_hhi_validity);
 
+    var row_magnitude_normalized_hhi_table = try validity_table.withRowMagnitudeNormalizedHhi(&.{ "a", "b" }, "row_magnitude_normalized_hhi");
+    defer row_magnitude_normalized_hhi_table.deinit();
+    const row_magnitude_normalized_hhi_column = try row_magnitude_normalized_hhi_table.column("row_magnitude_normalized_hhi");
+    try std.testing.expect(row_magnitude_normalized_hhi_column.f64.nullable());
+    const row_magnitude_normalized_hhi = try row_magnitude_normalized_hhi_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_normalized_hhi);
+    const row_magnitude_normalized_hhi_validity = try row_magnitude_normalized_hhi_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_normalized_hhi_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_normalized_hhi[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_normalized_hhi[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_magnitude_normalized_hhi[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 81.0 / 121.0), row_magnitude_normalized_hhi[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_normalized_hhi_validity);
+
     var row_magnitude_inverse_table = try validity_table.withRowMagnitudeInverseSimpson(&.{ "a", "b" }, "row_magnitude_inverse");
     defer row_magnitude_inverse_table.deinit();
     const row_magnitude_inverse_column = try row_magnitude_inverse_table.column("row_magnitude_inverse");
