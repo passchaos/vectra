@@ -26,6 +26,7 @@ pub const DeviceLazyGroupByAggregation = enum {
     last,
     n_unique,
     mode,
+    median,
 };
 
 pub const DeviceLazyJoinKind = enum {

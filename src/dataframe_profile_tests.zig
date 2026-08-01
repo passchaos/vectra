@@ -193,6 +193,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(modal_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, modal_sales_values);
 
+    var median_sales = try table.groupByMedian("store", "sales", "sales_median");
+    defer median_sales.deinit();
+    const median_sales_values = try (try median_sales.column("sales_median")).f64.toOwnedSlice(gpa);
+    defer gpa.free(median_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, median_sales_values);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -331,6 +337,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_mode);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, ms_simple_mode);
 
+    var multi_median = try multi.groupByMedianOn(&.{ "store", "day" }, "amount", "amount_median");
+    defer multi_median.deinit();
+    const ms_simple_median = try (try multi_median.column("amount_median")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_median);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_median);
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -391,6 +403,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_mode = try (try lazy_multi_mode.column("amount_mode_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_mode);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, lazy_ms_mode);
+
+    var multi_median_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_median_plan.deinit();
+    try multi_median_plan.groupByMedianOn(&.{ "store", "day" }, "amount", "amount_median_lazy");
+    const multi_median_explained = try multi_median_plan.explain(gpa);
+    defer gpa.free(multi_median_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_median_explained, "group_by_median_on([store,day], value=amount -> amount_median_lazy)") != null);
+    var lazy_multi_median = try multi_median_plan.collect();
+    defer lazy_multi_median.deinit();
+    const lazy_ms_median = try (try lazy_multi_median.column("amount_median_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_median);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, lazy_ms_median);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();

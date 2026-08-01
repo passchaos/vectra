@@ -474,6 +474,112 @@ pub fn groupByModeOn(
     return groupByModeOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
+fn groupByQuantileLess(_: void, lhs: f64, rhs: f64) bool {
+    const lhs_nan = std.math.isNan(lhs);
+    const rhs_nan = std.math.isNan(rhs);
+    if (lhs_nan != rhs_nan) return !lhs_nan;
+    if (lhs_nan and rhs_nan) return false;
+    return lhs < rhs;
+}
+
+fn quantileFromSorted(sorted_values: []const f64, q: f64) f64 {
+    const max_index = sorted_values.len - 1;
+    const position = q * @as(f64, @floatFromInt(max_index));
+    const lower_float = @floor(position);
+    const lower: usize = @intFromFloat(lower_float);
+    const upper = @min(lower + 1, max_index);
+    const weight = position - lower_float;
+    return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight;
+}
+
+pub fn groupByMedianOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByMedianOnTyped(DeviceDataFrame, i8, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByMedianOnTyped(DeviceDataFrame, i16, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByMedianOnTyped(DeviceDataFrame, i32, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByMedianOnTyped(DeviceDataFrame, i64, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByMedianOnTyped(DeviceDataFrame, u8, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByMedianOnTyped(DeviceDataFrame, u16, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByMedianOnTyped(DeviceDataFrame, u32, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByMedianOnTyped(DeviceDataFrame, u64, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByMedianOnTyped(DeviceDataFrame, usize, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByMedianOnTyped(DeviceDataFrame, isize, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByMedianOnTyped(DeviceDataFrame, f16, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByMedianOnTyped(DeviceDataFrame, f32, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByMedianOnTyped(DeviceDataFrame, f64, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByMedianOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var group_values: std.ArrayList(std.ArrayList(f64)) = .empty;
+    defer {
+        for (group_values.items) |*rows| rows.deinit(allocator);
+        group_values.deinit(allocator);
+    }
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try group_values.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_values.items[group_index].append(allocator, castToF64(V, value_item));
+    }
+
+    const medians = try allocator.alloc(f64, group_values.items.len);
+    defer allocator.free(medians);
+    for (group_values.items, medians) |values_for_group, *slot| {
+        std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
+        slot.* = quantileFromSorted(values_for_group.items, 0.5);
+    }
+
+    const median_column = try DeviceColumn.fromSlice(f64, allocator, medians, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, median_column);
+}
+
+pub fn groupByMedianOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByMedianOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
 fn initMultiKeyAggregatedDataFrame(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

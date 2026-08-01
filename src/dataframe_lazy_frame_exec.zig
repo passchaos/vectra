@@ -1165,6 +1165,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .last => try current.groupByLast(group.key_name, group.value_name, group.output_name),
                 .n_unique => try current.groupByNUnique(group.key_name, group.value_name, group.output_name),
                 .mode => try current.groupByMode(group.key_name, group.value_name, group.output_name),
+                .median => try current.groupByMedian(group.key_name, group.value_name, group.output_name),
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
@@ -1175,6 +1176,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .last => try current.groupByLastOn(group.key_names, group.value_name, group.output_name),
                 .n_unique => try current.groupByNUniqueOn(group.key_names, group.value_name, group.output_name),
                 .mode => try current.groupByModeOn(group.key_names, group.value_name, group.output_name),
+                .median => try current.groupByMedianOn(group.key_names, group.value_name, group.output_name),
             },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),

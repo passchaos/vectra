@@ -139,6 +139,14 @@ pub fn groupByModeOn(self: anytype, key_names: []const []const u8, value_name: [
     return self.groupByValueOn(key_names, value_name, output_name, .mode);
 }
 
+pub fn groupByMedian(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .median);
+}
+
+pub fn groupByMedianOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .median);
+}
+
 pub fn groupByStats(self: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
     return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
 }
