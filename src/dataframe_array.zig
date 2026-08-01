@@ -3816,7 +3816,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3905,6 +3905,14 @@ fn withRowSoftmaxSummary(
             entropy.* = 0.0;
         } else if (std.math.isNan(max_value)) {
             entropy.* = std.math.nan(f64);
+        } else if (summary == .confidence) {
+            if (std.math.isPositiveInf(max_value)) {
+                entropy.* = 1.0 / @as(f64, @floatFromInt(pos_inf_count));
+            } else if (std.math.isNegativeInf(max_value)) {
+                entropy.* = 1.0 / @as(f64, @floatFromInt(valid_count));
+            } else {
+                entropy.* = 1.0 / denominator;
+            }
         } else if (std.math.isPositiveInf(max_value)) {
             entropy.* = std.math.log(f64, std.math.e, @as(f64, @floatFromInt(pos_inf_count)));
         } else if (std.math.isNegativeInf(max_value)) {
@@ -3937,6 +3945,15 @@ pub fn withRowSoftmaxPerplexity(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .perplexity);
+}
+
+pub fn withRowSoftmaxConfidence(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .confidence);
 }
 
 pub fn withRowGeometricMean(

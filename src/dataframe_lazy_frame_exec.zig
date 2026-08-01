@@ -754,6 +754,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_log_softmin => |row_softmax| try current.withRowLogSoftmin(row_softmax.names, row_softmax.output_names),
             .row_softmax_entropy => |row_count| try current.withRowSoftmaxEntropy(row_count.names, row_count.output_name),
             .row_softmax_perplexity => |row_count| try current.withRowSoftmaxPerplexity(row_count.names, row_count.output_name),
+            .row_softmax_confidence => |row_count| try current.withRowSoftmaxConfidence(row_count.names, row_count.output_name),
             .row_magnitude_skewness => |row_count| try current.withRowMagnitudeSkewness(row_count.names, row_count.output_name),
             .row_magnitude_kurtosis => |row_count| try current.withRowMagnitudeKurtosis(row_count.names, row_count.output_name),
             .row_geometric_mean => |row_count| try current.withRowGeometricMean(row_count.names, row_count.output_name),

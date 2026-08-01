@@ -851,6 +851,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowLogsoftmin = table_methods_mod.withRowLogsoftmin;
     pub const withRowSoftmaxEntropy = table_methods_mod.withRowSoftmaxEntropy;
     pub const withRowSoftmaxPerplexity = table_methods_mod.withRowSoftmaxPerplexity;
+    pub const withRowSoftmaxConfidence = table_methods_mod.withRowSoftmaxConfidence;
     pub const withRowGeometricMean = table_methods_mod.withRowGeometricMean;
     pub const withRowGeoMean = table_methods_mod.withRowGeoMean;
     pub const withRowMagnitudeGeometricMean = table_methods_mod.withRowMagnitudeGeometricMean;

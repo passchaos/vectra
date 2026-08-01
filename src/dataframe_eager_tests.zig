@@ -1275,6 +1275,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_perplexity[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_perplexity[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.exp(row3_softmax_entropy), row_softmax_perplexity[3], 1e-12);
+
+    var row_softmax_confidence_table = try validity_table.withRowSoftmaxConfidence(&.{ "a", "b" }, "row_softmax_confidence");
+    defer row_softmax_confidence_table.deinit();
+    const row_softmax_confidence = try (try row_softmax_confidence_table.column("row_softmax_confidence")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_confidence);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_confidence[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_confidence[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_b_softmax, row_softmax_confidence[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2646,6 +2654,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 2.0), perplexity[1], 1e-12);
     try std.testing.expect(std.math.isNan(perplexity[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), perplexity[3], 1e-12);
+
+    var confidence_table = try table.withRowSoftmaxConfidence(&.{ "low", "high" }, "row_softmax_confidence");
+    defer confidence_table.deinit();
+    const confidence = try (try confidence_table.column("row_softmax_confidence")).f64.toOwnedSlice(gpa);
+    defer gpa.free(confidence);
+    try std.testing.expectApproxEqAbs(expected_high0, confidence[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), confidence[1], 1e-12);
+    try std.testing.expect(std.math.isNan(confidence[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), confidence[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {
