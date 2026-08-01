@@ -4028,7 +4028,10 @@ test "device lazy frame derives sign predicate columns" {
     try plan.withRowNegativeRatio(&.{ "metric", "id", "unsigned", "flag" }, "row_negative_ratio");
     try plan.withRowCumulativePositiveCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive" });
     try plan.withRowPrefixNegativeRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_negative", "id_cum_negative", "unsigned_cum_negative", "flag_cum_negative" });
-    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "metric_signbit", "id_signbit", "metric_is_positive_zero", "metric_is_negative_zero", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_zero_count", "row_negative_zero_count", "row_positive_zero_ratio", "row_negative_zero_ratio", "row_positive_count", "row_signbit_count", "row_negative_count", "row_positive_ratio", "row_signbit_ratio", "row_negative_ratio", "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive", "metric_cum_negative", "id_cum_negative", "unsigned_cum_negative", "flag_cum_negative" });
+    try plan.withRowCumulativePositiveZeroCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_poszero", "id_cum_poszero", "unsigned_cum_poszero", "flag_cum_poszero" });
+    try plan.withRowPrefixNegativeZeroRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_negzero", "id_cum_negzero", "unsigned_cum_negzero", "flag_cum_negzero" });
+    try plan.withRowCumulativeSignBitRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_signbit", "id_cum_signbit", "unsigned_cum_signbit", "flag_cum_signbit" });
+    try plan.select(&.{ "metric_is_positive", "metric_is_negative", "metric_signbit", "id_signbit", "metric_is_positive_zero", "metric_is_negative_zero", "id_is_positive", "unsigned_is_negative", "flag_is_positive", "row_positive_zero_count", "row_negative_zero_count", "row_positive_zero_ratio", "row_negative_zero_ratio", "row_positive_count", "row_signbit_count", "row_negative_count", "row_positive_ratio", "row_signbit_ratio", "row_negative_ratio", "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive", "metric_cum_negative", "id_cum_negative", "unsigned_cum_negative", "flag_cum_negative", "metric_cum_poszero", "id_cum_poszero", "unsigned_cum_poszero", "flag_cum_poszero", "metric_cum_negzero", "id_cum_negzero", "unsigned_cum_negzero", "flag_cum_negzero", "metric_cum_signbit", "id_cum_signbit", "unsigned_cum_signbit", "flag_cum_signbit" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -4050,10 +4053,13 @@ test "device lazy frame derives sign predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_negative_ratio([metric,id,unsigned,flag]->row_negative_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_positive_count([metric,id,unsigned,flag]->[metric_cum_positive,id_cum_positive,unsigned_cum_positive,flag_cum_positive])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_negative_ratio([metric,id,unsigned,flag]->[metric_cum_negative,id_cum_negative,unsigned_cum_negative,flag_cum_negative])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_positive_zero_count([metric,id,unsigned,flag]->[metric_cum_poszero,id_cum_poszero,unsigned_cum_poszero,flag_cum_poszero])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_negative_zero_ratio([metric,id,unsigned,flag]->[metric_cum_negzero,id_cum_negzero,unsigned_cum_negzero,flag_cum_negzero])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_signbit_ratio([metric,id,unsigned,flag]->[metric_cum_signbit,id_cum_signbit,unsigned_cum_signbit,flag_cum_signbit])") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 27), result.width());
+    try std.testing.expectEqual(@as(usize, 39), result.width());
     const metric_is_positive = try (try result.column("metric_is_positive")).bool.toOwnedSlice(gpa);
     defer gpa.free(metric_is_positive);
     const metric_is_negative = try (try result.column("metric_is_negative")).bool.toOwnedSlice(gpa);
@@ -4100,6 +4106,18 @@ test "device lazy frame derives sign predicate columns" {
     defer gpa.free(id_cum_negative);
     const flag_cum_negative = try (try result.column("flag_cum_negative")).f64.toOwnedSlice(gpa);
     defer gpa.free(flag_cum_negative);
+    const metric_cum_poszero = try (try result.column("metric_cum_poszero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_poszero);
+    const flag_cum_poszero = try (try result.column("flag_cum_poszero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_poszero);
+    const metric_cum_negzero = try (try result.column("metric_cum_negzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_negzero);
+    const flag_cum_negzero = try (try result.column("flag_cum_negzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_negzero);
+    const metric_cum_signbit = try (try result.column("metric_cum_signbit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_signbit);
+    const flag_cum_signbit = try (try result.column("flag_cum_signbit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_signbit);
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_is_positive);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_is_negative);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, false, true, false }, metric_signbit);
@@ -4123,6 +4141,12 @@ test "device lazy frame derives sign predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 2, 1, 2, 1, 1 }, unsigned_cum_positive);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0 }, id_cum_negative);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, flag_cum_negative);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0, 0 }, metric_cum_poszero);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0, 0 }, flag_cum_poszero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, metric_cum_negzero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, flag_cum_negzero);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, metric_cum_signbit);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.25, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, flag_cum_signbit);
 
     var filter_positive_plan = try DeviceLazyFrame.init(gpa, table);
     defer filter_positive_plan.deinit();
@@ -4201,6 +4225,7 @@ test "device lazy frame derives sign predicate columns" {
     var invalid_prefix_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_prefix_plan.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixNegativeCount(&.{"metric"}, &.{ "metric_cum_negative", "extra_cum_negative" }));
+    try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixSignBitRatio(&.{"metric"}, &.{ "metric_cum_signbit", "extra_cum_signbit" }));
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

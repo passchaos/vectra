@@ -6589,7 +6589,7 @@ fn withRowCumulativeNumericPredicate(
     frame: anytype,
     names: []const []const u8,
     output_names: []const []const u8,
-    comptime tag_name: enum { nan, inf, finite, non_finite, zero, non_zero, positive, negative },
+    comptime tag_name: enum { positive_zero, negative_zero, signbit, nan, inf, finite, non_finite, zero, non_zero, positive, negative },
     comptime ratio: bool,
 ) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
@@ -6604,6 +6604,21 @@ fn withRowCumulativeNumericPredicate(
         frame.allocator.free(owned_outputs);
     }
     switch (tag_name) {
+        .positive_zero => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_positive_zero_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_positive_zero_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .negative_zero => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_negative_zero_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_negative_zero_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .signbit => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_signbit_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_signbit_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
         .nan => if (ratio) {
             try frame.ops.append(frame.allocator, .{ .row_cumulative_nan_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
         } else {
@@ -6645,6 +6660,42 @@ fn withRowCumulativeNumericPredicate(
             try frame.ops.append(frame.allocator, .{ .row_cumulative_negative_count = .{ .names = owned_names, .output_names = owned_outputs } });
         },
     }
+}
+
+pub fn withRowCumulativePositiveZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .positive_zero, false);
+}
+
+pub fn withRowCumPositiveZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePositiveZeroCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixPositiveZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePositiveZeroCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .negative_zero, false);
+}
+
+pub fn withRowCumNegativeZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNegativeZeroCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixNegativeZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNegativeZeroCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeSignBitCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .signbit, false);
+}
+
+pub fn withRowCumSignBitCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSignBitCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixSignBitCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSignBitCount(frame, names, output_names);
 }
 
 pub fn withRowCumulativeNaNCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
@@ -6741,6 +6792,42 @@ pub fn withRowCumNegativeCount(frame: anytype, names: []const []const u8, output
 
 pub fn withRowPrefixNegativeCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowCumulativeNegativeCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativePositiveZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .positive_zero, true);
+}
+
+pub fn withRowCumPositiveZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePositiveZeroRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixPositiveZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePositiveZeroRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .negative_zero, true);
+}
+
+pub fn withRowCumNegativeZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNegativeZeroRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixNegativeZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNegativeZeroRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeSignBitRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .signbit, true);
+}
+
+pub fn withRowCumSignBitRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSignBitRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixSignBitRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSignBitRatio(frame, names, output_names);
 }
 
 pub fn withRowCumulativeNaNRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

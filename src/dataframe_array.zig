@@ -12203,6 +12203,87 @@ pub fn withRowPrefixNonFiniteCount(
     return withRowCumulativeNonFiniteCount(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCumulativePositiveZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .positive_zero);
+}
+
+pub fn withRowCumPositiveZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .negative_zero);
+}
+
+pub fn withRowCumNegativeZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeZeroCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeZeroCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeSignBitCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .signbit);
+}
+
+pub fn withRowCumSignBitCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSignBitCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixSignBitCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSignBitCount(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowCumulativeZeroCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -12609,6 +12690,87 @@ pub fn withRowPrefixNonFiniteRatio(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeNonFiniteRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativePositiveZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .positive_zero);
+}
+
+pub fn withRowCumPositiveZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .negative_zero);
+}
+
+pub fn withRowCumNegativeZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeZeroRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeZeroRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeSignBitRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .signbit);
+}
+
+pub fn withRowCumSignBitRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSignBitRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixSignBitRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSignBitRatio(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeZeroRatio(

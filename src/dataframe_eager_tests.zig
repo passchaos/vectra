@@ -4230,6 +4230,33 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0 }, id_cum_negative);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, flag_cum_negative);
 
+    var row_cum_positive_zero_counts = try table.withRowCumulativePositiveZeroCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_poszero", "id_cum_poszero", "unsigned_cum_poszero", "flag_cum_poszero" });
+    defer row_cum_positive_zero_counts.deinit();
+    const metric_cum_poszero = try (try row_cum_positive_zero_counts.column("metric_cum_poszero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_poszero);
+    const flag_cum_poszero = try (try row_cum_positive_zero_counts.column("flag_cum_poszero")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_poszero);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0, 0 }, metric_cum_poszero);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 0, 0, 0 }, flag_cum_poszero);
+
+    var row_cum_negative_zero_ratios = try table.withRowPrefixNegativeZeroRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_negzero", "id_cum_negzero", "unsigned_cum_negzero", "flag_cum_negzero" });
+    defer row_cum_negative_zero_ratios.deinit();
+    const metric_cum_negzero = try (try row_cum_negative_zero_ratios.column("metric_cum_negzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_negzero);
+    const flag_cum_negzero = try (try row_cum_negative_zero_ratios.column("flag_cum_negzero")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_negzero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, metric_cum_negzero);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, flag_cum_negzero);
+
+    var row_cum_signbit_ratios = try table.withRowCumulativeSignBitRatio(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_signbit", "id_cum_signbit", "unsigned_cum_signbit", "flag_cum_signbit" });
+    defer row_cum_signbit_ratios.deinit();
+    const metric_cum_signbit = try (try row_cum_signbit_ratios.column("metric_cum_signbit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_signbit);
+    const flag_cum_signbit = try (try row_cum_signbit_ratios.column("flag_cum_signbit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_signbit);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, metric_cum_signbit);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.25, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, flag_cum_signbit);
+
     var dropped_positive_rows = try table.dropPositivesColumn("metric");
     defer dropped_positive_rows.deinit();
     try std.testing.expectEqual(@as(usize, 6), dropped_positive_rows.height());
@@ -4297,6 +4324,7 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNegativeCount(&.{"metric"}, &.{ "metric_cum_negative", "extra_cum_negative" }));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixSignBitRatio(&.{"metric"}, &.{ "metric_cum_signbit", "extra_cum_signbit" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSignBitCount(&.{"missing"}, "bad_signbit_count"));
     try std.testing.expectError(error.ColumnNotFound, table.filterPositiveZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNegativeZerosColumn("missing"));

@@ -3734,6 +3734,78 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNegativeRatio(self, names, output_name);
             }
 
+            pub fn withRowCumulativePositiveZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativePositiveZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeZeroCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeZeroRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeZeroRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeSignBitCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeSignBitCount(self, names, output_names);
+            }
+
+            pub fn withRowCumSignBitCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumSignBitCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixSignBitCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixSignBitCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeSignBitRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeSignBitRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumSignBitRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumSignBitRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixSignBitRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixSignBitRatio(self, names, output_names);
+            }
+
             pub fn withRowCumulativeNaNCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeNaNCount(self, names, output_names);
             }
