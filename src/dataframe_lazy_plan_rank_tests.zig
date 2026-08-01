@@ -6752,6 +6752,44 @@ test "device lazy frame filters null rows" {
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
 }
 
+test "device lazy frame filters all-null rows" {
+    const gpa = std.testing.allocator;
+    var left = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3, 4 }, &.{ false, true, false, true }, .cpu);
+    defer left.deinit();
+    var right = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, false, true, true }, .cpu);
+    defer right.deinit();
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "left", .data = left },
+        .{ .name = "right", .data = right },
+    });
+    defer table.deinit();
+
+    var drop_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_plan.deinit();
+    try drop_plan.dropAllNulls(&.{ "left", "right" });
+    const drop_explain = try drop_plan.explain(gpa);
+    defer gpa.free(drop_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_explain, "drop_all_nulls[left,right]") != null);
+    var dropped = try drop_plan.collect();
+    defer dropped.deinit();
+    const dropped_left = try (try dropped.column("left")).i64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_left);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 3, 4 }, dropped_left);
+
+    var filter_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_plan.deinit();
+    try filter_plan.filterAllNulls(&.{ "left", "right" });
+    const filter_explain = try filter_plan.explain(gpa);
+    defer gpa.free(filter_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_explain, "filter_all_nulls[left,right]") != null);
+    var filtered = try filter_plan.collect();
+    defer filtered.deinit();
+    try std.testing.expectEqual(@as(usize, 1), filtered.height());
+    const filtered_right_validity = try (try filtered.column("right")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(filtered_right_validity);
+    try std.testing.expectEqualSlices(bool, &.{false}, filtered_right_validity);
+}
+
 test "device lazy frame renames and drops columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

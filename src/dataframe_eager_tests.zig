@@ -3235,6 +3235,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), no_sales_nulls.height());
     try std.testing.expectEqual(table.width(), no_sales_nulls.width());
 
+    var left_nullable = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3, 4 }, &.{ false, true, false, true }, .cpu);
+    defer left_nullable.deinit();
+    var right_nullable = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, false, true, true }, .cpu);
+    defer right_nullable.deinit();
+    var all_null_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "left", .data = left_nullable },
+        .{ .name = "right", .data = right_nullable },
+    });
+    defer all_null_table.deinit();
+    var dropped_all_nulls = try all_null_table.dropAllNulls(&.{ "left", "right" });
+    defer dropped_all_nulls.deinit();
+    const dropped_all_left = try (try dropped_all_nulls.column("left")).i64.toOwnedSlice(gpa);
+    defer gpa.free(dropped_all_left);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 3, 4 }, dropped_all_left);
+    var only_all_nulls = try all_null_table.filterAllNulls(&.{ "left", "right" });
+    defer only_all_nulls.deinit();
+    const only_all_left_validity = try (try only_all_nulls.column("left")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(only_all_left_validity);
+    try std.testing.expectEqualSlices(bool, &.{false}, only_all_left_validity);
+
     var reversed = try table.reverseRows();
     defer reversed.deinit();
     try std.testing.expectEqual(table.height(), reversed.height());

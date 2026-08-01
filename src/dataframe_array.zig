@@ -17059,6 +17059,59 @@ pub fn dropNulls(
     return filterRows(DeviceDataFrame, input, keep);
 }
 
+fn allNullRowMask(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError![]bool {
+    const check_names = if (names.len == 0) input.names else names;
+    for (check_names) |name| {
+        _ = try input.column(name);
+    }
+
+    const all_null = try input.allocator.alloc(bool, input.rows);
+    errdefer input.allocator.free(all_null);
+    @memset(all_null, true);
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (all_null, validity) |*slot, valid| slot.* = slot.* and !valid;
+                } else {
+                    @memset(all_null, false);
+                }
+            },
+        }
+    }
+    return all_null;
+}
+
+pub fn dropAllNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const all_null = try allNullRowMask(DeviceDataFrame, input, names);
+    defer input.allocator.free(all_null);
+    const keep = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(keep);
+    for (all_null, keep) |is_all_null, *slot| slot.* = !is_all_null;
+    return filterRows(DeviceDataFrame, input, keep);
+}
+
+pub fn filterAllNulls(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const all_null = try allNullRowMask(DeviceDataFrame, input, names);
+    defer input.allocator.free(all_null);
+    return filterRows(DeviceDataFrame, input, all_null);
+}
+
 pub fn filterNullsColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

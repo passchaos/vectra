@@ -331,6 +331,24 @@ pub fn dropNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     return dropNulls(frame, &.{name});
 }
 
+pub fn dropAllNulls(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    try frame.ops.append(frame.allocator, .{ .drop_all_nulls = owned });
+}
+
+pub fn dropAllNullsOn(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    return dropAllNulls(frame, names);
+}
+
+pub fn filterAllNulls(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    const owned = try cloneNameList(frame.allocator, names);
+    try frame.ops.append(frame.allocator, .{ .filter_all_nulls = owned });
+}
+
+pub fn filterAllNullsOn(frame: anytype, names: []const []const u8) DeviceDataError!void {
+    return filterAllNulls(frame, names);
+}
+
 pub fn filterNullsColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

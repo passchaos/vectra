@@ -6798,6 +6798,22 @@ pub fn dropNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameTyp
     return dropNulls(self, &.{name});
 }
 
+pub fn dropAllNulls(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.dropAllNulls(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn dropAllNullsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dropAllNulls(self, names);
+}
+
+pub fn filterAllNulls(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.filterAllNulls(FrameType(@TypeOf(self)), frameValue(self), names);
+}
+
+pub fn filterAllNullsOn(self: anytype, names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterAllNulls(self, names);
+}
+
 pub fn filterNullsColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.filterNullsColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }

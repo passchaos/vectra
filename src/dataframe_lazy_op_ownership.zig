@@ -237,6 +237,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         },
         .drop_columns => |names| .{ .drop_columns = try cloneNameList(allocator, names) },
         .drop_nulls => |names| .{ .drop_nulls = try cloneNameList(allocator, names) },
+        .drop_all_nulls => |names| .{ .drop_all_nulls = try cloneNameList(allocator, names) },
+        .filter_all_nulls => |names| .{ .filter_all_nulls = try cloneNameList(allocator, names) },
         .filter_nulls_column => |name| .{ .filter_nulls_column = try allocator.dupe(u8, name) },
         .drop_nans => |names| .{ .drop_nans = try cloneNameList(allocator, names) },
         .filter_nans_column => |name| .{ .filter_nans_column = try allocator.dupe(u8, name) },

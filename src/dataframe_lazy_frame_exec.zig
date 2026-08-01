@@ -140,6 +140,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .copy_column_after => |copy| try current.copyColumnAfter(copy.source_name, copy.new_name, copy.anchor_name),
             .drop_columns => |names| try current.dropColumns(names),
             .drop_nulls => |names| try current.dropNulls(names),
+            .drop_all_nulls => |names| try current.dropAllNulls(names),
+            .filter_all_nulls => |names| try current.filterAllNulls(names),
             .filter_nulls_column => |name| try current.filterNullsColumn(name),
             .drop_nans => |names| try current.dropNaNs(names),
             .filter_nans_column => |name| try current.filterNaNsColumn(name),

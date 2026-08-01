@@ -186,6 +186,22 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]", .{});
         },
+        .drop_all_nulls => |names| {
+            try writer.print("drop_all_nulls[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]", .{});
+        },
+        .filter_all_nulls => |names| {
+            try writer.print("filter_all_nulls[", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]", .{});
+        },
         .filter_nulls_column => |name| try writer.print("filter_nulls_column({s})", .{name}),
         .drop_nans => |names| {
             try writer.print("drop_nans[", .{});
