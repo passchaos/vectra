@@ -2883,6 +2883,30 @@ pub fn withRowArgMax(self: anytype, names: []const []const u8, output_name: []co
     return dataframe_array_mod.withRowArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowCumulativeArgMin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumArgMin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixArgMin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixArgMin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeArgMax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumArgMax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixArgMax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixArgMax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowQuantile(self: anytype, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowQuantile(FrameType(@TypeOf(self)), frameValue(self), names, output_name, q);
 }

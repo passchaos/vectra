@@ -1994,6 +1994,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowArgMax(self, names, output_name);
             }
 
+            pub fn withRowCumulativeArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeArgMin(self, names, output_names);
+            }
+
+            pub fn withRowCumArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumArgMin(self, names, output_names);
+            }
+
+            pub fn withRowPrefixArgMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixArgMin(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeArgMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeArgMax(self, names, output_names);
+            }
+
+            pub fn withRowCumArgMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumArgMax(self, names, output_names);
+            }
+
+            pub fn withRowPrefixArgMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixArgMax(self, names, output_names);
+            }
+
             pub fn withRowQuantile(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowQuantile(self, names, output_name, q);
             }

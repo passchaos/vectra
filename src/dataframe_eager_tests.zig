@@ -651,6 +651,39 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1 }, row_argmax);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_argmax_validity);
 
+    var row_cum_argmin_table = try validity_table.withRowCumulativeArgMin(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cum_argmin", "b_cum_argmin", "wa_cum_argmin", "wb_cum_argmin" },
+    );
+    defer row_cum_argmin_table.deinit();
+    const a_cum_argmin_column = try row_cum_argmin_table.column("a_cum_argmin");
+    try std.testing.expect(a_cum_argmin_column.i64.nullable());
+    const a_cum_argmin = try a_cum_argmin_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(a_cum_argmin);
+    const a_cum_argmin_validity = try a_cum_argmin_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(a_cum_argmin_validity);
+    const b_cum_argmin = try (try row_cum_argmin_table.column("b_cum_argmin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(b_cum_argmin);
+    const wb_cum_argmin = try (try row_cum_argmin_table.column("wb_cum_argmin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cum_argmin);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, a_cum_argmin);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, a_cum_argmin_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, b_cum_argmin);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 3, 2, 3 }, wb_cum_argmin);
+
+    var row_cum_argmax_table = try validity_table.withRowCumulativeArgMax(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cum_argmax", "b_cum_argmax", "wa_cum_argmax", "wb_cum_argmax" },
+    );
+    defer row_cum_argmax_table.deinit();
+    const b_cum_argmax = try (try row_cum_argmax_table.column("b_cum_argmax")).i64.toOwnedSlice(gpa);
+    defer gpa.free(b_cum_argmax);
+    const wb_cum_argmax = try (try row_cum_argmax_table.column("wb_cum_argmax")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cum_argmax);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1 }, b_cum_argmax);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 1, 3, 1 }, wb_cum_argmax);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixArgMin(&.{"a"}, &.{ "a_cum_argmin", "extra_cum_argmin" }));
+
     var row_quantile_table = try validity_table.withRowQuantile(&.{ "a", "b" }, "row_quantile", 0.25);
     defer row_quantile_table.deinit();
     const row_quantile_column = try row_quantile_table.column("row_quantile");

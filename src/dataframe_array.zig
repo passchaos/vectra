@@ -3667,6 +3667,131 @@ pub fn withRowArgMax(
     return withRowNumericArgReduction(DeviceDataFrame, input, names, output_name, .argmax);
 }
 
+fn withRowCumulativeNumericArgReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowNumericArgReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const indices = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(indices);
+    const best_values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(best_values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(indices, 0);
+    @memset(best_values, 0.0);
+    @memset(validity, false);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |name, output_name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        const output_index = std.math.cast(i64, col_index) orelse return error.InvalidShape;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (!validity[row]) {
+                        best_values[row] = value;
+                        indices[row] = output_index;
+                        validity[row] = true;
+                        continue;
+                    }
+                    const replace = switch (reduction) {
+                        .argmin => std.math.isNan(value) or (!std.math.isNan(best_values[row]) and value < best_values[row]),
+                        .argmax => std.math.isNan(value) or (!std.math.isNan(best_values[row]) and value > best_values[row]),
+                    };
+                    if (replace) {
+                        best_values[row] = value;
+                        indices[row] = output_index;
+                    }
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, indices, validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeArgMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericArgReduction(DeviceDataFrame, input, names, output_names, .argmin);
+}
+
+pub fn withRowCumArgMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeArgMin(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixArgMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeArgMin(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeArgMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericArgReduction(DeviceDataFrame, input, names, output_names, .argmax);
+}
+
+pub fn withRowCumArgMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeArgMax(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixArgMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeArgMax(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowNumericReduction(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

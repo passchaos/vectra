@@ -3356,6 +3356,49 @@ pub fn withRowArgMax(frame: anytype, names: []const []const u8, output_name: []c
     return withRowNumericArgReduction(frame, names, output_name, .argmax);
 }
 
+fn withRowCumulativeNumericArgReduction(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime argmax: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (argmax) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_argmax = .{ .names = owned_names, .output_names = owned_outputs } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_argmin = .{ .names = owned_names, .output_names = owned_outputs } });
+    }
+}
+
+pub fn withRowCumulativeArgMin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericArgReduction(frame, names, output_names, false);
+}
+
+pub fn withRowCumArgMin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeArgMin(frame, names, output_names);
+}
+
+pub fn withRowPrefixArgMin(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeArgMin(frame, names, output_names);
+}
+
+pub fn withRowCumulativeArgMax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericArgReduction(frame, names, output_names, true);
+}
+
+pub fn withRowCumArgMax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeArgMax(frame, names, output_names);
+}
+
+pub fn withRowPrefixArgMax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeArgMax(frame, names, output_names);
+}
+
 pub fn withRowQuantile(frame: anytype, names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

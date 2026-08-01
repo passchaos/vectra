@@ -726,6 +726,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_beta => |row_paired| try current.withRowBeta(row_paired.value_names, row_paired.weight_names, row_paired.output_name),
             .row_argmin => |row_count| try current.withRowArgMin(row_count.names, row_count.output_name),
             .row_argmax => |row_count| try current.withRowArgMax(row_count.names, row_count.output_name),
+            .row_cumulative_argmin => |row_outputs| try current.withRowCumulativeArgMin(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_argmax => |row_outputs| try current.withRowCumulativeArgMax(row_outputs.names, row_outputs.output_names),
             .row_quantile => |row_quantile| try current.withRowQuantile(row_quantile.names, row_quantile.output_name, row_quantile.q),
             .row_quantile_range => |row_quantile_range| try current.withRowQuantileRange(row_quantile_range.names, row_quantile_range.output_name, row_quantile_range.low_q, row_quantile_range.high_q),
             .row_trimmed_mean => |row_trimmed_mean| try current.withRowTrimmedMean(row_trimmed_mean.names, row_trimmed_mean.output_name, row_trimmed_mean.trim_fraction),
