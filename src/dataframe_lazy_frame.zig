@@ -2046,6 +2046,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMean(self, names, output_name);
             }
 
+            pub fn withRowLogSumExp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLogSumExp(self, names, output_name);
+            }
+
+            pub fn withRowLogsumexp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLogsumexp(self, names, output_name);
+            }
+
             pub fn withRowGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowGeometricMean(self, names, output_name);
             }
