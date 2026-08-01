@@ -174,6 +174,23 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    fn ratioFromCount(count: usize, rows: usize) f64 {
+        if (rows == 0) return std.math.nan(f64);
+        return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));
+    }
+
+    pub fn columnNullRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]f64 {
+        const out = try allocator.alloc(f64, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = ratioFromCount(column_value.nullCount(), self.rows);
+        return out;
+    }
+
+    pub fn columnValidRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]f64 {
+        const out = try allocator.alloc(f64, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = ratioFromCount(column_value.validCount(), self.rows);
+        return out;
+    }
+
     pub fn columnDistinctCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
         const out = try allocator.alloc(usize, self.columns.len);
         errdefer allocator.free(out);
@@ -187,6 +204,25 @@ pub const DeviceDataFrame = struct {
 
     pub fn columnNUnique(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
         return self.columnDistinctCounts(allocator);
+    }
+
+    pub fn columnDistinctRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]f64 {
+        const counts = try self.columnDistinctCounts(allocator);
+        defer allocator.free(counts);
+        const out = try allocator.alloc(f64, counts.len);
+        for (counts, out) |count, *slot| slot.* = ratioFromCount(count, self.rows);
+        return out;
+    }
+
+    pub fn columnNUniqueRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]f64 {
+        return self.columnDistinctRatios(allocator);
+    }
+
+    pub fn columnDuplicateRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]f64 {
+        const distinct_ratios = try self.columnDistinctRatios(allocator);
+        errdefer allocator.free(distinct_ratios);
+        for (distinct_ratios) |*slot| slot.* = 1.0 - slot.*;
+        return distinct_ratios;
     }
 
     pub fn columnIsUniqueMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
