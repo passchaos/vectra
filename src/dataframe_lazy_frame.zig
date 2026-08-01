@@ -2106,6 +2106,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowDenseRanks(self, names, output_names);
             }
 
+            pub fn withRowCompetitionRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCompetitionRank(self, names, output_names);
+            }
+
+            pub fn withRowCompetitionRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCompetitionRanks(self, names, output_names);
+            }
+
+            pub fn withRowMinRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinRank(self, names, output_names);
+            }
+
+            pub fn withRowMinRanks(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinRanks(self, names, output_names);
+            }
+
             pub fn withRowPercentRank(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPercentRank(self, names, output_names);
             }

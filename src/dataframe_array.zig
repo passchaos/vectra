@@ -4139,6 +4139,78 @@ pub fn withRowDenseRanks(
     return withRowDenseRank(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCompetitionRank(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const ranks_storage = try computeRowRanks(DeviceDataFrame, input, check_names);
+    defer ranks_storage.deinit(input.allocator);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |_, output_name, col_index| {
+        var ranks = try input.allocator.alloc(i64, input.rows);
+        defer input.allocator.free(ranks);
+        const rank_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(rank_validity);
+        @memset(ranks, 0);
+        @memset(rank_validity, false);
+
+        for (0..input.rows) |row| {
+            const offset = row * check_names.len + col_index;
+            if (!ranks_storage.flat_validity[offset]) continue;
+            ranks[row] = ranks_storage.flat_competition_ranks[offset];
+            rank_validity[row] = true;
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, ranks, rank_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCompetitionRanks(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCompetitionRank(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowMinRank(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCompetitionRank(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowMinRanks(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCompetitionRank(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowPercentRank(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
