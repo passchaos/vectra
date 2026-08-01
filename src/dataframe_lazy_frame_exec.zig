@@ -750,6 +750,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_logmeanexp => |row_count| try current.withRowLogMeanExp(row_count.names, row_count.output_name),
             .row_centered => |row_outputs| try current.withRowCentered(row_outputs.names, row_outputs.output_names),
             .row_zscore => |row_outputs| try current.withRowZScore(row_outputs.names, row_outputs.output_names),
+            .row_robust_zscore => |row_outputs| try current.withRowRobustZScore(row_outputs.names, row_outputs.output_names),
             .row_minmax_scale => |row_outputs| try current.withRowMinMaxScale(row_outputs.names, row_outputs.output_names),
             .row_l2_normalize => |row_outputs| try current.withRowL2Normalize(row_outputs.names, row_outputs.output_names),
             .row_l1_normalize => |row_outputs| try current.withRowL1Normalize(row_outputs.names, row_outputs.output_names),

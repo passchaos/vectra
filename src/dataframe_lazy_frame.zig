@@ -2082,6 +2082,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowStandardize(self, names, output_names);
             }
 
+            pub fn withRowRobustZScore(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowRobustZScore(self, names, output_names);
+            }
+
+            pub fn withRowRobustZscore(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowRobustZscore(self, names, output_names);
+            }
+
+            pub fn withRowMadZScore(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMadZScore(self, names, output_names);
+            }
+
+            pub fn withRowMadZscore(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMadZscore(self, names, output_names);
+            }
+
             pub fn withRowMinMaxScale(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMinMaxScale(self, names, output_names);
             }

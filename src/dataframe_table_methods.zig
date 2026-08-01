@@ -2971,6 +2971,22 @@ pub fn withRowStandardize(self: anytype, names: []const []const u8, output_names
     return dataframe_array_mod.withRowStandardize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowRobustZScore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRobustZScore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowRobustZscore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRobustZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMadZScore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMadZScore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMadZscore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMadZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowMinMaxScale(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMinMaxScale(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
