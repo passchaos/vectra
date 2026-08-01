@@ -6565,7 +6565,7 @@ fn withRowNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_positive_inf, last_positive_inf, first_negative_inf, last_negative_inf, first_finite, last_finite, first_non_finite, last_non_finite, first_positive_zero, last_positive_zero, first_negative_zero, last_negative_zero, first_signbit, last_signbit, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
+    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_positive_inf, last_positive_inf, first_negative_inf, last_negative_inf, first_finite, last_finite, first_normal, last_normal, first_subnormal, last_subnormal, first_non_finite, last_non_finite, first_positive_zero, last_positive_zero, first_negative_zero, last_negative_zero, first_signbit, last_signbit, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -6585,6 +6585,10 @@ fn withRowNumericPredicateIndex(
         .last_negative_inf => try frame.ops.append(frame.allocator, .{ .row_last_negative_inf_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_finite => try frame.ops.append(frame.allocator, .{ .row_first_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_finite => try frame.ops.append(frame.allocator, .{ .row_last_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_normal => try frame.ops.append(frame.allocator, .{ .row_first_normal_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_normal => try frame.ops.append(frame.allocator, .{ .row_last_normal_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_subnormal => try frame.ops.append(frame.allocator, .{ .row_first_subnormal_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_subnormal => try frame.ops.append(frame.allocator, .{ .row_last_subnormal_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_non_finite => try frame.ops.append(frame.allocator, .{ .row_first_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_non_finite => try frame.ops.append(frame.allocator, .{ .row_last_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_positive_zero => try frame.ops.append(frame.allocator, .{ .row_first_positive_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
@@ -6674,6 +6678,22 @@ pub fn withRowFirstFiniteIndex(frame: anytype, names: []const []const u8, output
 
 pub fn withRowLastFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateIndex(frame, names, output_name, .last_finite);
+}
+
+pub fn withRowFirstNormalIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_normal);
+}
+
+pub fn withRowLastNormalIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_normal);
+}
+
+pub fn withRowFirstSubnormalIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_subnormal);
+}
+
+pub fn withRowLastSubnormalIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_subnormal);
 }
 
 pub fn withRowFirstNonFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

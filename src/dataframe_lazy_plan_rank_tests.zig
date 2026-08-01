@@ -5267,6 +5267,60 @@ test "device lazy frame derives normal predicate columns" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, metric_cum_subnormal);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, id_cum_subnormal);
 
+    var index_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 0.0, std.math.floatTrueMin(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer index_metric.deinit();
+    var index_peer = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, std.math.floatTrueMin(f64), 4.0, std.math.floatTrueMin(f64) }, .cpu);
+    defer index_peer.deinit();
+    var index_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer index_id.deinit();
+    var index_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = index_metric },
+        .{ .name = "peer", .data = index_peer },
+        .{ .name = "id", .data = index_id },
+    });
+    defer index_table.deinit();
+
+    var index_plan = try DeviceLazyFrame.init(gpa, index_table);
+    defer index_plan.deinit();
+    try index_plan.withRowFirstNormalIndex(&.{ "metric", "peer", "id" }, "row_first_normal_index");
+    try index_plan.withRowLastNormalIndex(&.{ "metric", "peer", "id" }, "row_last_normal_index");
+    try index_plan.withRowFirstSubnormalIndex(&.{ "metric", "peer", "id" }, "row_first_subnormal_index");
+    try index_plan.withRowLastSubnormalIndex(&.{ "metric", "peer", "id" }, "row_last_subnormal_index");
+    try index_plan.select(&.{ "row_first_normal_index", "row_last_normal_index", "row_first_subnormal_index", "row_last_subnormal_index" });
+    const index_explain = try index_plan.explain(gpa);
+    defer gpa.free(index_explain);
+    try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_first_normal_index([metric,peer,id]->row_first_normal_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_last_normal_index([metric,peer,id]->row_last_normal_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_first_subnormal_index([metric,peer,id]->row_first_subnormal_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, index_explain, "row_last_subnormal_index([metric,peer,id]->row_last_subnormal_index)") != null);
+    var index_result = try index_plan.collect();
+    defer index_result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), index_result.width());
+    const row_first_normal = try (try index_result.column("row_first_normal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_normal);
+    const row_first_normal_validity = try (try index_result.column("row_first_normal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_normal_validity);
+    const row_last_normal = try (try index_result.column("row_last_normal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_normal);
+    const row_last_normal_validity = try (try index_result.column("row_last_normal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_normal_validity);
+    const row_first_subnormal = try (try index_result.column("row_first_subnormal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_subnormal);
+    const row_first_subnormal_validity = try (try index_result.column("row_first_subnormal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_subnormal_validity);
+    const row_last_subnormal = try (try index_result.column("row_last_subnormal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_subnormal);
+    const row_last_subnormal_validity = try (try index_result.column("row_last_subnormal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_subnormal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1, 0 }, row_first_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false }, row_first_normal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 1, 0 }, row_last_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false }, row_last_normal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 1 }, row_first_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_first_subnormal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 1 }, row_last_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_last_subnormal_validity);
+
     var drop_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_normal_plan.deinit();
     try drop_normal_plan.dropNormalsColumn("metric");
@@ -5349,6 +5403,16 @@ test "device lazy frame derives normal predicate columns" {
     defer invalid_subnormal_count_plan.deinit();
     try invalid_subnormal_count_plan.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_subnormal_count_plan.collect());
+
+    var invalid_normal_index_plan = try DeviceLazyFrame.init(gpa, index_table);
+    defer invalid_normal_index_plan.deinit();
+    try invalid_normal_index_plan.withRowFirstNormalIndex(&.{"missing"}, "bad_normal_index");
+    try std.testing.expectError(error.ColumnNotFound, invalid_normal_index_plan.collect());
+
+    var invalid_subnormal_index_plan = try DeviceLazyFrame.init(gpa, index_table);
+    defer invalid_subnormal_index_plan.deinit();
+    try invalid_subnormal_index_plan.withRowFirstSubnormalIndex(&.{"missing"}, "bad_subnormal_index");
+    try std.testing.expectError(error.ColumnNotFound, invalid_subnormal_index_plan.collect());
 
     var invalid_filter_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_filter_plan.deinit();

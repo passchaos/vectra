@@ -4672,6 +4672,22 @@ pub fn withRowLastFiniteIndex(self: anytype, names: []const []const u8, output_n
     return dataframe_array_mod.withRowLastFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowFirstNormalIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNormalIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNormalIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNormalIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstSubnormalIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstSubnormalIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastSubnormalIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastSubnormalIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowFirstNonFiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstNonFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -5168,6 +5168,55 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(row_subnormal_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, row_subnormal_ratio);
 
+    var index_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 0.0, std.math.floatTrueMin(f64), std.math.inf(f64), -2.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer index_metric.deinit();
+    var index_peer = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, std.math.floatTrueMin(f64), 4.0, std.math.floatTrueMin(f64) }, .cpu);
+    defer index_peer.deinit();
+    var index_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer index_id.deinit();
+    var index_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = index_metric },
+        .{ .name = "peer", .data = index_peer },
+        .{ .name = "id", .data = index_id },
+    });
+    defer index_table.deinit();
+
+    var row_first_normal_indices = try index_table.withRowFirstNormalIndex(&.{ "metric", "peer", "id" }, "row_first_normal_index");
+    defer row_first_normal_indices.deinit();
+    const row_first_normal = try (try row_first_normal_indices.column("row_first_normal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_normal);
+    const row_first_normal_validity = try (try row_first_normal_indices.column("row_first_normal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_normal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 1, 0 }, row_first_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false }, row_first_normal_validity);
+
+    var row_last_normal_indices = try index_table.withRowLastNormalIndex(&.{ "metric", "peer", "id" }, "row_last_normal_index");
+    defer row_last_normal_indices.deinit();
+    const row_last_normal = try (try row_last_normal_indices.column("row_last_normal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_normal);
+    const row_last_normal_validity = try (try row_last_normal_indices.column("row_last_normal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_normal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 1, 0 }, row_last_normal);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false }, row_last_normal_validity);
+
+    var row_first_subnormal_indices = try index_table.withRowFirstSubnormalIndex(&.{ "metric", "peer", "id" }, "row_first_subnormal_index");
+    defer row_first_subnormal_indices.deinit();
+    const row_first_subnormal = try (try row_first_subnormal_indices.column("row_first_subnormal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_subnormal);
+    const row_first_subnormal_validity = try (try row_first_subnormal_indices.column("row_first_subnormal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_subnormal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 1 }, row_first_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_first_subnormal_validity);
+
+    var row_last_subnormal_indices = try index_table.withRowLastSubnormalIndex(&.{ "metric", "peer", "id" }, "row_last_subnormal_index");
+    defer row_last_subnormal_indices.deinit();
+    const row_last_subnormal = try (try row_last_subnormal_indices.column("row_last_subnormal_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_subnormal);
+    const row_last_subnormal_validity = try (try row_last_subnormal_indices.column("row_last_subnormal_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_subnormal_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 1 }, row_last_subnormal);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, true }, row_last_subnormal_validity);
+
     var row_cum_normal_counts = try table.withRowCumulativeNormalCount(&.{ "metric", "id" }, &.{ "metric_cum_normal", "id_cum_normal" });
     defer row_cum_normal_counts.deinit();
     const id_cum_normal = try (try row_cum_normal_counts.column("id_cum_normal")).i64.toOwnedSlice(gpa);
@@ -5227,6 +5276,8 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count"));
+    try std.testing.expectError(error.ColumnNotFound, index_table.withRowFirstNormalIndex(&.{"missing"}, "bad_normal_index"));
+    try std.testing.expectError(error.ColumnNotFound, index_table.withRowFirstSubnormalIndex(&.{"missing"}, "bad_subnormal_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixSubnormalRatio(&.{"metric"}, &.{ "metric_cum_subnormal", "extra_cum_subnormal" }));
     try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));

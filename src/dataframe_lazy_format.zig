@@ -2139,6 +2139,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_first_normal_index => |row_count| {
+            try writer.print("row_first_normal_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_last_normal_index => |row_count| {
+            try writer.print("row_last_normal_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_first_subnormal_index => |row_count| {
+            try writer.print("row_first_subnormal_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
+        .row_last_subnormal_index => |row_count| {
+            try writer.print("row_last_subnormal_index([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_first_non_finite_index => |row_count| {
             try writer.print("row_first_non_finite_index([", .{});
             for (row_count.names, 0..) |name, i| {

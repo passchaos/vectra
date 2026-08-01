@@ -12205,6 +12205,42 @@ pub fn withRowLastFiniteIndex(
     return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .finite, .last);
 }
 
+pub fn withRowFirstNormalIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .normal, .first);
+}
+
+pub fn withRowLastNormalIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .normal, .last);
+}
+
+pub fn withRowFirstSubnormalIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .subnormal, .first);
+}
+
+pub fn withRowLastSubnormalIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .subnormal, .last);
+}
+
 pub fn withRowFirstNonFiniteIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
