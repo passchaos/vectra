@@ -2198,6 +2198,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowTukeyOutliers(self, names, output_names);
             }
 
+            pub fn withRowMaxIndicator(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMaxIndicator(self, names, output_names);
+            }
+
+            pub fn withRowMaxIndicators(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMaxIndicators(self, names, output_names);
+            }
+
+            pub fn withRowIsMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIsMax(self, names, output_names);
+            }
+
+            pub fn withRowMaxMask(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMaxMask(self, names, output_names);
+            }
+
             pub fn withRowTukeyWinsorize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowTukeyWinsorize(self, names, output_names);
             }

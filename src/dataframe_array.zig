@@ -4752,6 +4752,114 @@ pub fn withRowIqrWinsorized(
     return withRowTukeyWinsorize(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowMaxIndicator(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const maxima = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(maxima);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(maxima, 0.0);
+    @memset(row_validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (!row_validity[row] or std.math.isNan(value) or (!std.math.isNan(maxima[row]) and value > maxima[row])) {
+                        maxima[row] = value;
+                    }
+                    row_validity[row] = true;
+                }
+            },
+        }
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var indicators = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(indicators);
+        const indicator_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(indicator_validity);
+        @memset(indicators, false);
+        @memset(indicator_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row]) continue;
+                    indicator_validity[row] = true;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    indicators[row] = (std.math.isNan(value) and std.math.isNan(maxima[row])) or value == maxima[row];
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(bool, input.allocator, indicators, indicator_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowMaxIndicators(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMaxIndicator(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowIsMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMaxIndicator(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowMaxMask(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMaxIndicator(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowMinMaxScale(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
