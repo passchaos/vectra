@@ -12544,6 +12544,114 @@ pub fn withRowPrefixLastNonzeroIndex(
     return withRowPrefixLastNonZeroIndex(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCumulativeFirstPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .positive, .first);
+}
+
+pub fn withRowPrefixFirstPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstPositiveIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .positive, .last);
+}
+
+pub fn withRowPrefixLastPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastPositiveIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFirstSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .signbit, .first);
+}
+
+pub fn withRowPrefixFirstSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstSignBitIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .signbit, .last);
+}
+
+pub fn withRowPrefixLastSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastSignBitIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFirstNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .negative, .first);
+}
+
+pub fn withRowPrefixFirstNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstNegativeIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .negative, .last);
+}
+
+pub fn withRowPrefixLastNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastNegativeIndex(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowCumulativeNumericPredicateCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

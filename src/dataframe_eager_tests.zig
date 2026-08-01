@@ -4305,6 +4305,51 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0, 0, 1, 0 }, row_last_negative);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true, false, false, true, false }, row_last_negative_validity);
 
+    var row_cum_first_positive_indices = try table.withRowCumulativeFirstPositiveIndex(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_first_positive", "id_cum_first_positive", "unsigned_cum_first_positive", "flag_cum_first_positive" });
+    defer row_cum_first_positive_indices.deinit();
+    const metric_cum_first_positive = try (try row_cum_first_positive_indices.column("metric_cum_first_positive")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_first_positive);
+    const metric_cum_first_positive_validity = try (try row_cum_first_positive_indices.column("metric_cum_first_positive")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_first_positive_validity);
+    const flag_cum_first_positive = try (try row_cum_first_positive_indices.column("flag_cum_first_positive")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_first_positive);
+    const flag_cum_first_positive_validity = try (try row_cum_first_positive_indices.column("flag_cum_first_positive")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_first_positive_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 0, 0, 0 }, metric_cum_first_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false, true, false, false }, metric_cum_first_positive_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 0, 1, 0, 2, 1 }, flag_cum_first_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true, true, true }, flag_cum_first_positive_validity);
+
+    var row_prefix_last_signbit_indices = try table.withRowPrefixLastSignBitIndex(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_prefix_last_signbit", "id_prefix_last_signbit", "unsigned_prefix_last_signbit", "flag_prefix_last_signbit" });
+    defer row_prefix_last_signbit_indices.deinit();
+    const id_prefix_last_signbit = try (try row_prefix_last_signbit_indices.column("id_prefix_last_signbit")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_last_signbit);
+    const id_prefix_last_signbit_validity = try (try row_prefix_last_signbit_indices.column("id_prefix_last_signbit")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(id_prefix_last_signbit_validity);
+    const flag_prefix_last_signbit = try (try row_prefix_last_signbit_indices.column("flag_prefix_last_signbit")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_prefix_last_signbit);
+    const flag_prefix_last_signbit_validity = try (try row_prefix_last_signbit_indices.column("flag_prefix_last_signbit")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flag_prefix_last_signbit_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0, 0, 1, 0 }, id_prefix_last_signbit);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false, false, true, false }, id_prefix_last_signbit_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0, 0, 1, 0 }, flag_prefix_last_signbit);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, false, false, true, false }, flag_prefix_last_signbit_validity);
+
+    var row_cum_last_negative_indices = try table.withRowCumulativeLastNegativeIndex(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_last_negative", "id_cum_last_negative", "unsigned_cum_last_negative", "flag_cum_last_negative" });
+    defer row_cum_last_negative_indices.deinit();
+    const metric_cum_last_negative = try (try row_cum_last_negative_indices.column("metric_cum_last_negative")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_last_negative);
+    const metric_cum_last_negative_validity = try (try row_cum_last_negative_indices.column("metric_cum_last_negative")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_last_negative_validity);
+    const flag_cum_last_negative = try (try row_cum_last_negative_indices.column("flag_cum_last_negative")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_last_negative);
+    const flag_cum_last_negative_validity = try (try row_cum_last_negative_indices.column("flag_cum_last_negative")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_last_negative_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 0, 0, 0, 0 }, metric_cum_last_negative);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, true, false }, metric_cum_last_negative_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0, 0, 1, 0 }, flag_cum_last_negative);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true, false, false, true, false }, flag_cum_last_negative_validity);
+
     var row_cum_positive_counts = try table.withRowPrefixPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive" });
     defer row_cum_positive_counts.deinit();
     const metric_cum_positive = try (try row_cum_positive_counts.column("metric_cum_positive")).i64.toOwnedSlice(gpa);
@@ -4417,6 +4462,8 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstPositiveIndex(&.{"missing"}, "bad_positive_index"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowCumulativeFirstPositiveIndex(&.{"missing"}, &.{"bad_positive_index"}));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixLastSignBitIndex(&.{"metric"}, &.{ "metric_last_signbit", "extra_last_signbit" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstSignBitIndex(&.{"missing"}, "bad_signbit_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNegativeCount(&.{"metric"}, &.{ "metric_cum_negative", "extra_cum_negative" }));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixSignBitRatio(&.{"metric"}, &.{ "metric_cum_signbit", "extra_cum_signbit" }));

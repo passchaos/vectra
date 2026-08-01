@@ -7021,7 +7021,7 @@ fn withRowCumulativeNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_names: []const []const u8,
-    comptime search: enum { first_zero, last_zero, first_non_zero, last_non_zero },
+    comptime search: enum { first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_signbit, last_signbit, first_negative, last_negative },
 ) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
@@ -7048,6 +7048,30 @@ fn withRowCumulativeNumericPredicateIndex(
             .output_names = owned_outputs,
         } }),
         .last_non_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_non_zero_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_positive => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_positive_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_positive => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_positive_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_signbit => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_signbit_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_signbit => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_signbit_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_negative => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_negative_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_negative => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_negative_index = .{
             .names = owned_names,
             .output_names = owned_outputs,
         } }),
@@ -7112,6 +7136,54 @@ pub fn withRowPrefixLastNonZeroIndex(frame: anytype, names: []const []const u8, 
 
 pub fn withRowPrefixLastNonzeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowPrefixLastNonZeroIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstPositiveIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .first_positive);
+}
+
+pub fn withRowPrefixFirstPositiveIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstPositiveIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastPositiveIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .last_positive);
+}
+
+pub fn withRowPrefixLastPositiveIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastPositiveIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstSignBitIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .first_signbit);
+}
+
+pub fn withRowPrefixFirstSignBitIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstSignBitIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastSignBitIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .last_signbit);
+}
+
+pub fn withRowPrefixLastSignBitIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastSignBitIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstNegativeIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .first_negative);
+}
+
+pub fn withRowPrefixFirstNegativeIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstNegativeIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastNegativeIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .last_negative);
+}
+
+pub fn withRowPrefixLastNegativeIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastNegativeIndex(frame, names, output_names);
 }
 
 pub fn withRowCumulativePositiveCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

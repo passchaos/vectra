@@ -4214,6 +4214,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixLastNonzeroIndex(self, names, output_names);
             }
 
+            pub fn withRowCumulativeFirstPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstPositiveIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstPositiveIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastPositiveIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastPositiveIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstSignBitIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstSignBitIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstSignBitIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstSignBitIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastSignBitIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastSignBitIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastSignBitIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastSignBitIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstNegativeIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstNegativeIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastNegativeIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastNegativeIndex(self, names, output_names);
+            }
+
             pub fn withRowCumulativePositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativePositiveCount(self, names, output_names);
             }
