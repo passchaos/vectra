@@ -2098,6 +2098,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowL2Normalized(self, names, output_names);
             }
 
+            pub fn withRowL1Normalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowL1Normalize(self, names, output_names);
+            }
+
+            pub fn withRowL1Normalized(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowL1Normalized(self, names, output_names);
+            }
+
             pub fn withRowSoftmax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSoftmax(self, names, output_names);
             }

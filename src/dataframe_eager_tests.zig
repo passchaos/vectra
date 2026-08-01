@@ -1254,6 +1254,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_l2[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0) / row3_l2_norm, row_a_l2[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 40.0) / row3_l2_norm, row_b_l2[3], 1e-12);
+
+    var row_l1_unit_table = try validity_table.withRowL1Normalize(&.{ "a", "b" }, &.{ "a_l1_unit", "b_l1_unit" });
+    defer row_l1_unit_table.deinit();
+    const row_a_l1 = try (try row_l1_unit_table.column("a_l1_unit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_l1);
+    const row_b_l1 = try (try row_l1_unit_table.column("b_l1_unit")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_l1);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_a_l1[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_l1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 11.0), row_a_l1[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), row_b_l1[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });
