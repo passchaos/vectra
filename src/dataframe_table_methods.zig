@@ -7066,9 +7066,17 @@ pub fn limit(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return head(self, n);
 }
 
+pub fn firstRow(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return head(self, 1);
+}
+
 pub fn tail(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     const count = @min(n, self.rows);
     return sliceRows(self, self.rows - count, self.rows);
+}
+
+pub fn lastRow(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return tail(self, 1);
 }
 
 pub fn sliceRows(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {

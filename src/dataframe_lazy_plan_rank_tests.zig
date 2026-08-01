@@ -7247,6 +7247,26 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(limited_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, limited_sales);
 
+    var first_plan = try DeviceLazyFrame.init(gpa, table);
+    defer first_plan.deinit();
+    try first_plan.firstRow();
+    try first_plan.select(&.{"sales"});
+    var first = try first_plan.collect();
+    defer first.deinit();
+    const first_sales = try (try first.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(first_sales);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, first_sales);
+
+    var last_plan = try DeviceLazyFrame.init(gpa, table);
+    defer last_plan.deinit();
+    try last_plan.lastRow();
+    try last_plan.select(&.{"sales"});
+    var last = try last_plan.collect();
+    defer last.deinit();
+    const last_sales = try (try last.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(last_sales);
+    try std.testing.expectEqualSlices(f64, &.{7.0}, last_sales);
+
     var offset_plan = try DeviceLazyFrame.init(gpa, table);
     defer offset_plan.deinit();
     try offset_plan.offset(2);

@@ -5955,8 +5955,16 @@ pub fn DeviceLazyTypes(
                 return self.head(n);
             }
 
+            pub fn firstRow(self: *DeviceLazyFrame) DeviceDataError!void {
+                return self.head(1);
+            }
+
             pub fn tail(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .tail = n });
+            }
+
+            pub fn lastRow(self: *DeviceLazyFrame) DeviceDataError!void {
+                return self.tail(1);
             }
 
             pub fn collect(self: DeviceLazyFrame) ParquetInteropError!DeviceDataFrame {
