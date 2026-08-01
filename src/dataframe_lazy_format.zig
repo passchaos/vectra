@@ -1419,6 +1419,24 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
+        .row_cumulative_variance, .row_cumulative_stddev => |row_dispersion, tag| {
+            const op_name = switch (tag) {
+                .row_cumulative_variance => "row_cumulative_variance",
+                .row_cumulative_stddev => "row_cumulative_stddev",
+                else => unreachable,
+            };
+            try writer.print("{s}([", .{op_name});
+            for (row_dispersion.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->[", .{});
+            for (row_dispersion.output_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], correction={d})", .{row_dispersion.correction});
+        },
         .row_geometric_mean => |row_count| {
             try writer.print("row_geometric_mean([", .{});
             for (row_count.names, 0..) |name, i| {

@@ -2418,6 +2418,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixAvg(self, names, output_names);
             }
 
+            pub fn withRowCumulativeVariance(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeVariance(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeVar(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeVar(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumVariance(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumVariance(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumVar(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumVar(self, names, output_names, correction);
+            }
+
+            pub fn withRowPrefixVariance(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixVariance(self, names, output_names, correction);
+            }
+
+            pub fn withRowPrefixVar(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixVar(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeStddev(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeStddev(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeStd(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeStd(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumStddev(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumStddev(self, names, output_names, correction);
+            }
+
+            pub fn withRowCumStd(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumStd(self, names, output_names, correction);
+            }
+
+            pub fn withRowPrefixStddev(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixStddev(self, names, output_names, correction);
+            }
+
+            pub fn withRowPrefixStd(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixStd(self, names, output_names, correction);
+            }
+
             pub fn withRowCumulativeProduct(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeProduct(self, names, output_names);
             }

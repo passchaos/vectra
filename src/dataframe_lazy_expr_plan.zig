@@ -4456,6 +4456,81 @@ pub fn withRowPrefixAvg(frame: anytype, names: []const []const u8, output_names:
     return withRowCumulativeMean(frame, names, output_names);
 }
 
+fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64, comptime stddev: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (stddev) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_stddev = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+            .correction = correction,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_variance = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+            .correction = correction,
+        } });
+    }
+}
+
+pub fn withRowCumulativeVariance(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeDispersion(frame, names, output_names, correction, false);
+}
+
+pub fn withRowCumulativeVar(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeVariance(frame, names, output_names, correction);
+}
+
+pub fn withRowCumVariance(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeVariance(frame, names, output_names, correction);
+}
+
+pub fn withRowCumVar(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeVariance(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixVariance(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeVariance(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixVar(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeVariance(frame, names, output_names, correction);
+}
+
+pub fn withRowCumulativeStddev(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeDispersion(frame, names, output_names, correction, true);
+}
+
+pub fn withRowCumulativeStd(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
+pub fn withRowCumStddev(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
+pub fn withRowCumStd(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixStddev(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixStd(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
 pub fn withRowCumulativeProduct(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

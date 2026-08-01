@@ -1643,6 +1643,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowCumeDist(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cume", "row_b_cume", "row_wa_cume", "row_wb_cume" });
     try plan.withRowCumulativeSum(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cumsum", "row_b_cumsum", "row_wa_cumsum", "row_wb_cumsum" });
     try plan.withRowCumulativeMean(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cummean", "row_b_cummean", "row_wa_cummean", "row_wb_cummean" });
+    try plan.withRowCumulativeVariance(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cumvar", "row_b_cumvar", "row_wa_cumvar", "row_wb_cumvar" }, 0.0);
+    try plan.withRowCumulativeStddev(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cumstd", "row_b_cumstd", "row_wa_cumstd", "row_wb_cumstd" }, 0.0);
     try plan.withRowCumulativeProduct(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cumprod", "row_b_cumprod", "row_wa_cumprod", "row_wb_cumprod" });
     try plan.withRowCumulativeMax(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cummax", "row_b_cummax", "row_wa_cummax", "row_wb_cummax" });
     try plan.withRowCumulativeMin(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_cummin", "row_b_cummin", "row_wa_cummin", "row_wb_cummin" });
@@ -1717,7 +1719,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowMagnitudeCv(&.{ "a", "b" }, "row_magnitude_cv", 0.0);
     try plan.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
     try plan.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_a_cum_argmin", "row_b_cum_argmin", "row_wa_cum_argmin", "row_wb_cum_argmin", "row_a_cum_argmax", "row_b_cum_argmax", "row_wa_cum_argmax", "row_wb_cum_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_a_cummode", "row_b_cummode", "row_wa_cummode", "row_wb_cummode", "row_a_cummode_count", "row_b_cummode_count", "row_wa_cummode_count", "row_wb_cummode_count", "row_a_cummode_ratio", "row_b_cummode_ratio", "row_wa_cummode_ratio", "row_wb_cummode_ratio", "row_a_cummode_margin", "row_b_cummode_margin", "row_wa_cummode_margin", "row_wb_cummode_margin", "row_a_cummode_margin_ratio", "row_b_cummode_margin_ratio", "row_wa_cummode_margin_ratio", "row_wb_cummode_margin_ratio", "row_a_cumdistinct", "row_b_cumdistinct", "row_wa_cumdistinct", "row_wb_cumdistinct", "row_a_cumunique", "row_b_cumunique", "row_wa_cumunique", "row_wb_cumunique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_centered", "row_b_centered", "row_a_zscore", "row_b_zscore", "row_a_dense_rank", "row_b_dense_rank", "row_wa_dense_rank", "row_wb_dense_rank", "row_a_ordinal_rank", "row_b_ordinal_rank", "row_wa_ordinal_rank", "row_wb_ordinal_rank", "row_a_average_rank", "row_b_average_rank", "row_wa_average_rank", "row_wb_average_rank", "row_a_competition_rank", "row_b_competition_rank", "row_wa_competition_rank", "row_wb_competition_rank", "row_a_percent_rank", "row_b_percent_rank", "row_wa_percent_rank", "row_wb_percent_rank", "row_a_cume", "row_b_cume", "row_wa_cume", "row_wb_cume", "row_a_cumsum", "row_b_cumsum", "row_wa_cumsum", "row_wb_cumsum", "row_a_cummean", "row_b_cummean", "row_wa_cummean", "row_wb_cummean", "row_a_cumprod", "row_b_cumprod", "row_wa_cumprod", "row_wb_cumprod", "row_a_cummax", "row_b_cummax", "row_wa_cummax", "row_wb_cummax", "row_a_cummin", "row_b_cummin", "row_wa_cummin", "row_wb_cummin", "row_a_cumrange", "row_b_cumrange", "row_wa_cumrange", "row_wb_cumrange", "row_a_robust_zscore", "row_b_robust_zscore", "row_a_iqr_outlier", "row_b_iqr_outlier", "row_wa_iqr_outlier", "row_wb_iqr_outlier", "row_a_tukey_winsor", "row_b_tukey_winsor", "row_wa_tukey_winsor", "row_wb_tukey_winsor", "row_a_is_max", "row_b_is_max", "row_wa_is_max", "row_wb_is_max", "row_a_is_min", "row_b_is_min", "row_wa_is_min", "row_wb_is_min", "row_a_minmax", "row_b_minmax", "row_a_l2_unit", "row_b_l2_unit", "row_a_l1_unit", "row_b_l1_unit", "row_a_share", "row_b_share", "row_a_mean_ratio", "row_b_mean_ratio", "row_a_maxabs", "row_b_maxabs", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_normalized_hhi", "row_softmax_gini", "row_softmax_inverse", "row_softmax_simpson_evenness", "row_logit_margin", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_a_cum_argmin", "row_b_cum_argmin", "row_wa_cum_argmin", "row_wb_cum_argmin", "row_a_cum_argmax", "row_b_cum_argmax", "row_wa_cum_argmax", "row_wb_cum_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_a_cummode", "row_b_cummode", "row_wa_cummode", "row_wb_cummode", "row_a_cummode_count", "row_b_cummode_count", "row_wa_cummode_count", "row_wb_cummode_count", "row_a_cummode_ratio", "row_b_cummode_ratio", "row_wa_cummode_ratio", "row_wb_cummode_ratio", "row_a_cummode_margin", "row_b_cummode_margin", "row_wa_cummode_margin", "row_wb_cummode_margin", "row_a_cummode_margin_ratio", "row_b_cummode_margin_ratio", "row_wa_cummode_margin_ratio", "row_wb_cummode_margin_ratio", "row_a_cumdistinct", "row_b_cumdistinct", "row_wa_cumdistinct", "row_wb_cumdistinct", "row_a_cumunique", "row_b_cumunique", "row_wa_cumunique", "row_wb_cumunique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_centered", "row_b_centered", "row_a_zscore", "row_b_zscore", "row_a_dense_rank", "row_b_dense_rank", "row_wa_dense_rank", "row_wb_dense_rank", "row_a_ordinal_rank", "row_b_ordinal_rank", "row_wa_ordinal_rank", "row_wb_ordinal_rank", "row_a_average_rank", "row_b_average_rank", "row_wa_average_rank", "row_wb_average_rank", "row_a_competition_rank", "row_b_competition_rank", "row_wa_competition_rank", "row_wb_competition_rank", "row_a_percent_rank", "row_b_percent_rank", "row_wa_percent_rank", "row_wb_percent_rank", "row_a_cume", "row_b_cume", "row_wa_cume", "row_wb_cume", "row_a_cumsum", "row_b_cumsum", "row_wa_cumsum", "row_wb_cumsum", "row_a_cummean", "row_b_cummean", "row_wa_cummean", "row_wb_cummean", "row_a_cumvar", "row_b_cumvar", "row_wa_cumvar", "row_wb_cumvar", "row_a_cumstd", "row_b_cumstd", "row_wa_cumstd", "row_wb_cumstd", "row_a_cumprod", "row_b_cumprod", "row_wa_cumprod", "row_wb_cumprod", "row_a_cummax", "row_b_cummax", "row_wa_cummax", "row_wb_cummax", "row_a_cummin", "row_b_cummin", "row_wa_cummin", "row_wb_cummin", "row_a_cumrange", "row_b_cumrange", "row_wa_cumrange", "row_wb_cumrange", "row_a_robust_zscore", "row_b_robust_zscore", "row_a_iqr_outlier", "row_b_iqr_outlier", "row_wa_iqr_outlier", "row_wb_iqr_outlier", "row_a_tukey_winsor", "row_b_tukey_winsor", "row_wa_tukey_winsor", "row_wb_tukey_winsor", "row_a_is_max", "row_b_is_max", "row_wa_is_max", "row_wb_is_max", "row_a_is_min", "row_b_is_min", "row_wa_is_min", "row_wb_is_min", "row_a_minmax", "row_b_minmax", "row_a_l2_unit", "row_b_l2_unit", "row_a_l1_unit", "row_b_l1_unit", "row_a_share", "row_b_share", "row_a_mean_ratio", "row_b_mean_ratio", "row_a_maxabs", "row_b_maxabs", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_normalized_hhi", "row_softmax_gini", "row_softmax_inverse", "row_softmax_simpson_evenness", "row_logit_margin", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1811,6 +1813,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cume_dist([a,b,wa,wb]->[row_a_cume,row_b_cume,row_wa_cume,row_wb_cume])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_sum([a,b,wa,wb]->[row_a_cumsum,row_b_cumsum,row_wa_cumsum,row_wb_cumsum])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_mean([a,b,wa,wb]->[row_a_cummean,row_b_cummean,row_wa_cummean,row_wb_cummean])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_variance([a,b,wa,wb]->[row_a_cumvar,row_b_cumvar,row_wa_cumvar,row_wb_cumvar], correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_stddev([a,b,wa,wb]->[row_a_cumstd,row_b_cumstd,row_wa_cumstd,row_wb_cumstd], correction=0)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_product([a,b,wa,wb]->[row_a_cumprod,row_b_cumprod,row_wa_cumprod,row_wb_cumprod])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_max([a,b,wa,wb]->[row_a_cummax,row_b_cummax,row_wa_cummax,row_wb_cummax])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_min([a,b,wa,wb]->[row_a_cummin,row_b_cummin,row_wa_cummin,row_wb_cummin])") != null);
@@ -1888,7 +1892,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 252), result.width());
+    try std.testing.expectEqual(@as(usize, 260), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -2351,6 +2355,22 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_b_cummean);
     const row_b_cummean_validity = try row_b_cummean_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_b_cummean_validity);
+    const row_b_cumvar_column = try result.column("row_b_cumvar");
+    try std.testing.expect(row_b_cumvar_column.f64.nullable());
+    const row_b_cumvar = try row_b_cumvar_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumvar);
+    const row_b_cumvar_validity = try row_b_cumvar_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumvar_validity);
+    const row_wb_cumvar = try (try result.column("row_wb_cumvar")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumvar);
+    const row_b_cumstd_column = try result.column("row_b_cumstd");
+    try std.testing.expect(row_b_cumstd_column.f64.nullable());
+    const row_b_cumstd = try row_b_cumstd_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumstd);
+    const row_b_cumstd_validity = try row_b_cumstd_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumstd_validity);
+    const row_wb_cumstd = try (try result.column("row_wb_cumstd")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumstd);
     const row_a_cumprod_column = try result.column("row_a_cumprod");
     try std.testing.expect(row_a_cumprod_column.f64.nullable());
     const row_a_cumprod = try row_a_cumprod_column.f64.toOwnedSlice(gpa);
@@ -3118,6 +3138,18 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 22.0 }, row_b_cummean);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cummean_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cummean_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 324.0 }, row_b_cumvar);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 9.0), row_wb_cumvar[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 686.0 / 9.0), row_wb_cumvar[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_wb_cumvar[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4131.0 / 16.0), row_wb_cumvar[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cumvar_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_b_cumstd);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 9.0)), row_wb_cumstd[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 686.0 / 9.0)), row_wb_cumstd[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_wb_cumstd[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4131.0 / 16.0)), row_wb_cumstd[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cumstd_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 4.0 }, row_a_cumprod);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 160.0 }, row_b_cumprod);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cumprod_validity);
@@ -3529,6 +3561,15 @@ test "device lazy frame derives row numeric reduction columns" {
     var invalid_cummean_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_cummean_plan.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid_cummean_plan.withRowCumAvg(&.{"a"}, &.{ "bad_a_cummean", "extra_cummean" }));
+
+    var invalid_cumvar_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_cumvar_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid_cumvar_plan.withRowCumVar(&.{"a"}, &.{ "bad_a_cumvar", "extra_cumvar" }, 0.0));
+
+    var invalid_cumstd_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_cumstd_plan.deinit();
+    try invalid_cumstd_plan.withRowPrefixStd(&.{"a"}, &.{"bad_a_cumstd"}, -1.0);
+    try std.testing.expectError(error.InvalidShape, invalid_cumstd_plan.collect());
 
     var invalid_cumprod_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_cumprod_plan.deinit();

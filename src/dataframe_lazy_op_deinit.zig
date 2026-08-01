@@ -563,6 +563,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_outputs.names);
             freeNameList(allocator, row_outputs.output_names);
         },
+        .row_cumulative_variance, .row_cumulative_stddev => |row_outputs| {
+            freeNameList(allocator, row_outputs.names);
+            freeNameList(allocator, row_outputs.output_names);
+        },
         .row_variance, .row_magnitude_variance, .row_stddev, .row_magnitude_stddev, .row_sem, .row_magnitude_sem, .row_cv, .row_magnitude_cv, .row_magnitude_fano, .row_fano => |row_dispersion| {
             freeNameList(allocator, row_dispersion.names);
             allocator.free(row_dispersion.output_name);
