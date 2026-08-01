@@ -2995,6 +2995,22 @@ pub fn withRowDenseRanks(self: anytype, names: []const []const u8, output_names:
     return dataframe_array_mod.withRowDenseRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowPercentRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPercentRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPercentRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPercentRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPercentileRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPercentileRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPercentileRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPercentileRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowIqrOutlier(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowIqrOutlier(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
