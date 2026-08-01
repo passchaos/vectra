@@ -2079,6 +2079,30 @@ pub fn withColumnFillNullScalar(frame: anytype, output_name: []const u8, input_n
     return fillNullColumnWithScalar(frame, output_name, scalar);
 }
 
+pub fn nullIfColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return nullIfColumnScalar(frame, name, DeviceScalar.init(T, value));
+}
+
+pub fn nullIfColumnScalar(frame: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_column = .{
+        .name = owned_name,
+        .scalar = scalar,
+    } });
+}
+
+pub fn withColumnNullIf(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnNullIfScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnNullIfScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfColumnScalar(frame, output_name, scalar);
+}
+
 pub fn withColumnFillNaN(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return withColumnFillNaNScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
 }

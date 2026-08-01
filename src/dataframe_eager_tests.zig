@@ -330,6 +330,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 1, -1, 3 }, units_filled_values);
     try std.testing.expectEqual(@as(usize, 0), (try units_filled_expr.column("units_filled")).nullCount());
     try std.testing.expectError(error.TypeUnsupported, table.withColumnFillNull("bad_units_filled", "units", f64, 0.0));
+    var units_null_if_expr = try table.withColumnNullIf("units_without_one", "units", i64, 1);
+    defer units_null_if_expr.deinit();
+    const units_without_one = try (try units_null_if_expr.column("units_without_one")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_without_one);
+    const units_without_one_validity = try (try units_null_if_expr.column("units_without_one")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(units_without_one_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 3 }, units_without_one);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, units_without_one_validity);
+    var units_null_if_in_place = try table.nullIfColumn("units", i64, 3);
+    defer units_null_if_in_place.deinit();
+    const units_null_if_in_place_validity = try (try units_null_if_in_place.column("units")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(units_null_if_in_place_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, units_null_if_in_place_validity);
+    try std.testing.expectError(error.TypeUnsupported, table.withColumnNullIf("bad_null_if", "units", f64, 1.0));
     try std.testing.expectError(error.TypeUnsupported, table.fillNullColumn("units", f64, 0.0));
     try std.testing.expectError(error.ColumnNotFound, table.fillNullColumn("missing", i64, 0));
 

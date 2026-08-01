@@ -1518,6 +1518,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnFillNullScalar(self, output_name, input_name, scalar);
             }
 
+            pub fn nullIfColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.nullIfColumn(self, name, T, value);
+            }
+
+            pub fn nullIfColumnScalar(self: *DeviceLazyFrame, name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.nullIfColumnScalar(self, name, scalar);
+            }
+
+            pub fn withColumnNullIf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIf(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnNullIfScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfScalar(self, output_name, input_name, scalar);
+            }
+
             pub fn withColumnFillNaN(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnFillNaN(self, output_name, input_name, T, value);
             }

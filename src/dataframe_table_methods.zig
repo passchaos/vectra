@@ -2576,6 +2576,22 @@ pub fn withColumnFillNullScalar(self: anytype, output_name: []const u8, input_na
     return dataframe_array_mod.withColumnFillNullScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
 }
 
+pub fn nullIfColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
+}
+
+pub fn nullIfColumnScalar(self: anytype, name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfColumnScalar(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
+}
+
+pub fn withColumnNullIf(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnNullIfScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
 pub fn withColumnFillNaN(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnFillNaN(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
 }
