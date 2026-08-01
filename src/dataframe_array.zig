@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3431,7 +3431,7 @@ fn withRowNumericReduction(
                                 if (value > maxima[row]) maxima[row] = value;
                             }
                         },
-                        .magnitude_ptp, .magnitude_range_coeff => {
+                        .magnitude_ptp, .magnitude_midrange, .magnitude_range_coeff => {
                             const magnitude = @abs(value);
                             if (!validity[row]) {
                                 values[row] = magnitude;
@@ -3507,7 +3507,7 @@ fn withRowNumericReduction(
             value.* = std.math.sqrt(value.*);
         } else if (reduction == .ptp or reduction == .magnitude_ptp) {
             value.* = aux_value - value.*;
-        } else if (reduction == .midrange) {
+        } else if (reduction == .midrange or reduction == .magnitude_midrange) {
             value.* = (value.* + aux_value) / 2.0;
         } else if (reduction == .range_coeff or reduction == .magnitude_range_coeff) {
             const denominator = aux_value + value.*;
@@ -3654,6 +3654,24 @@ pub fn withRowMidrange(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .midrange);
+}
+
+pub fn withRowMagnitudeMidrange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_midrange);
+}
+
+pub fn withRowAbsMidrange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeMidrange(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowRangeCoeff(

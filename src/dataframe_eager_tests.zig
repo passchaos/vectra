@@ -1281,6 +1281,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_midrange);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_midrange);
 
+    var row_magnitude_midrange_table = try validity_table.withRowMagnitudeMidrange(&.{ "a", "b" }, "row_magnitude_midrange");
+    defer row_magnitude_midrange_table.deinit();
+    const row_magnitude_midrange = try (try row_magnitude_midrange_table.column("row_magnitude_midrange")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_midrange);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_magnitude_midrange);
+
     var row_range_coeff_table = try validity_table.withRowRangeCoeff(&.{ "a", "b" }, "row_range_coeff");
     defer row_range_coeff_table.deinit();
     const row_range_coeff_column = try row_range_coeff_table.column("row_range_coeff");

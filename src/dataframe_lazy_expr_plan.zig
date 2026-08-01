@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3579,6 +3579,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .midrange => try frame.ops.append(frame.allocator, .{ .row_midrange = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .magnitude_midrange => try frame.ops.append(frame.allocator, .{ .row_magnitude_midrange = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3739,6 +3743,14 @@ pub fn withRowAbsPeakToPeak(frame: anytype, names: []const []const u8, output_na
 
 pub fn withRowMidrange(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .midrange);
+}
+
+pub fn withRowMagnitudeMidrange(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .magnitude_midrange);
+}
+
+pub fn withRowAbsMidrange(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowMagnitudeMidrange(frame, names, output_name);
 }
 
 pub fn withRowRangeCoeff(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
