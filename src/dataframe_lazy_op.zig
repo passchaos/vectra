@@ -286,6 +286,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         is_negative_inf_column: Payloads.NullPredicateColumn,
         row_null_count: Payloads.RowValidityCount,
         row_valid_count: Payloads.RowValidityCount,
+        row_cumulative_null_count: Payloads.RowColumnOutputs,
+        row_cumulative_valid_count: Payloads.RowColumnOutputs,
         row_null_ratio: Payloads.RowValidityCount,
         row_valid_ratio: Payloads.RowValidityCount,
         row_first_valid_index: Payloads.RowValidityCount,

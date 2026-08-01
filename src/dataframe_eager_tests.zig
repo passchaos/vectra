@@ -370,6 +370,38 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_count);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, row_valid_count);
 
+    var row_cum_valid_counts = try table.withRowCumulativeValidCount(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_cum_valid", "units_cum_valid", "active_cum_valid" },
+    );
+    defer row_cum_valid_counts.deinit();
+    try std.testing.expectEqual(DeviceDType.i64, try row_cum_valid_counts.columnDType("sales_cum_valid"));
+    const sales_cum_valid = try (try row_cum_valid_counts.column("sales_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_valid);
+    const units_cum_valid = try (try row_cum_valid_counts.column("units_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_cum_valid);
+    const active_cum_valid = try (try row_cum_valid_counts.column("active_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, sales_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2 }, units_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 3 }, active_cum_valid);
+
+    var row_cum_null_counts = try table.withRowPrefixNullCount(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_cum_null", "units_cum_null", "active_cum_null" },
+    );
+    defer row_cum_null_counts.deinit();
+    const sales_cum_null = try (try row_cum_null_counts.column("sales_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_null);
+    const units_cum_null = try (try row_cum_null_counts.column("units_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_cum_null);
+    const active_cum_null = try (try row_cum_null_counts.column("active_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, sales_cum_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, units_cum_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, active_cum_null);
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixValidCount(&.{"sales"}, &.{ "sales_cum_valid", "extra_cum_valid" }));
+
     var row_null_ratios = try table.withRowNullRatio(&.{ "sales", "units", "active" }, "row_null_ratio");
     defer row_null_ratios.deinit();
     const row_null_ratio = try (try row_null_ratios.column("row_null_ratio")).f64.toOwnedSlice(gpa);

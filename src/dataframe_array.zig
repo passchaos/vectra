@@ -1704,6 +1704,108 @@ pub fn withRowValidCount(
     return withRowValidityCount(DeviceDataFrame, input, names, output_name, true);
 }
 
+fn withRowCumulativeValidityCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime count_valid: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (counts, validity) |*slot, valid| {
+                        if (valid == count_valid) slot.* += 1;
+                    }
+                } else if (count_valid) {
+                    for (counts) |*slot| slot.* += 1;
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeNullCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityCount(DeviceDataFrame, input, names, output_names, false);
+}
+
+pub fn withRowCumNullCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNullCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNullCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNullCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeValidCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityCount(DeviceDataFrame, input, names, output_names, true);
+}
+
+pub fn withRowCumValidCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixValidCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidCount(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowValidityRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

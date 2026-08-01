@@ -1710,6 +1710,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowValidCount(self, names, output_name);
             }
 
+            pub fn withRowCumulativeNullCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNullCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNullCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNullCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNullCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNullCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeValidCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeValidCount(self, names, output_names);
+            }
+
+            pub fn withRowCumValidCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumValidCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixValidCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixValidCount(self, names, output_names);
+            }
+
             pub fn withRowNullRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNullRatio(self, names, output_name);
             }

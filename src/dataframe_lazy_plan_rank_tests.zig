@@ -1192,6 +1192,8 @@ test "device lazy frame derives row null and valid count columns" {
     defer plan.deinit();
     try plan.withRowValidCount(&.{}, "row_valids_all");
     try plan.withRowNullCount(&.{ "quality", "flag" }, "row_nulls");
+    try plan.withRowCumulativeValidCount(&.{ "sales", "quality", "flag" }, &.{ "sales_cum_valid", "quality_cum_valid", "flag_cum_valid" });
+    try plan.withRowCumulativeNullCount(&.{ "sales", "quality", "flag" }, &.{ "sales_cum_null", "quality_cum_null", "flag_cum_null" });
     try plan.withRowNullRatio(&.{ "quality", "flag" }, "row_null_ratio");
     try plan.withRowValidRatio(&.{ "quality", "flag" }, "row_valid_ratio");
     try plan.withRowTrueCount(&.{"flag"}, "row_true_count");
@@ -1202,12 +1204,14 @@ test "device lazy frame derives row null and valid count columns" {
     try plan.withRowAllFalse(&.{"flag"}, "row_all_false");
     try plan.withRowTrueRatio(&.{"flag"}, "row_true_ratio");
     try plan.withRowFalseRatio(&.{"flag"}, "row_false_ratio");
-    try plan.select(&.{ "row_nulls", "row_valids_all", "row_null_ratio", "row_valid_ratio", "row_true_count", "row_false_count", "row_any_true", "row_all_true", "row_any_false", "row_all_false", "row_true_ratio", "row_false_ratio" });
+    try plan.select(&.{ "row_nulls", "row_valids_all", "sales_cum_valid", "quality_cum_valid", "flag_cum_valid", "sales_cum_null", "quality_cum_null", "flag_cum_null", "row_null_ratio", "row_valid_ratio", "row_true_count", "row_false_count", "row_any_true", "row_all_true", "row_any_false", "row_all_false", "row_true_ratio", "row_false_ratio" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_null_count([quality,flag]->row_nulls)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_count([]->row_valids_all)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_valid_count([sales,quality,flag]->[sales_cum_valid,quality_cum_valid,flag_cum_valid])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_null_count([sales,quality,flag]->[sales_cum_null,quality_cum_null,flag_cum_null])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_null_ratio([quality,flag]->row_null_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_ratio([quality,flag]->row_valid_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_true_count([flag]->row_true_count)") != null);
@@ -1221,11 +1225,23 @@ test "device lazy frame derives row null and valid count columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 12), result.width());
+    try std.testing.expectEqual(@as(usize, 18), result.width());
     const row_nulls = try (try result.column("row_nulls")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_nulls);
     const row_valids_all = try (try result.column("row_valids_all")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_valids_all);
+    const sales_cum_valid = try (try result.column("sales_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_valid);
+    const quality_cum_valid = try (try result.column("quality_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(quality_cum_valid);
+    const flag_cum_valid = try (try result.column("flag_cum_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_valid);
+    const sales_cum_null = try (try result.column("sales_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_null);
+    const quality_cum_null = try (try result.column("quality_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(quality_cum_null);
+    const flag_cum_null = try (try result.column("flag_cum_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_cum_null);
     const row_null_ratio = try (try result.column("row_null_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_null_ratio);
     const row_valid_ratio = try (try result.column("row_valid_ratio")).f64.toOwnedSlice(gpa);
@@ -1272,6 +1288,12 @@ test "device lazy frame derives row null and valid count columns" {
     defer gpa.free(row_false_ratio_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_nulls);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2, 2 }, row_valids_all);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1, 1 }, sales_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 2, 2 }, quality_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2, 2 }, flag_cum_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, sales_cum_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, quality_cum_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, flag_cum_null);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.5 }, row_null_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 0.5 }, row_valid_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, row_true_count);
@@ -1293,6 +1315,10 @@ test "device lazy frame derives row null and valid count columns" {
     defer invalid_plan.deinit();
     try invalid_plan.withRowNullCount(&.{ "quality", "missing" }, "bad_count");
     try std.testing.expectError(error.ColumnNotFound, invalid_plan.collect());
+
+    var invalid_cumulative_count_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_cumulative_count_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid_cumulative_count_plan.withRowPrefixValidCount(&.{"sales"}, &.{ "sales_cum_valid", "extra_cum_valid" }));
 
     var invalid_bool_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_bool_plan.deinit();

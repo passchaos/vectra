@@ -671,6 +671,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .is_negative_inf_column => |predicate| try current.isNegativeInfColumn(predicate.name, predicate.output_name),
             .row_null_count => |row_count| try current.withRowNullCount(row_count.names, row_count.output_name),
             .row_valid_count => |row_count| try current.withRowValidCount(row_count.names, row_count.output_name),
+            .row_cumulative_null_count => |row_outputs| try current.withRowCumulativeNullCount(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_valid_count => |row_outputs| try current.withRowCumulativeValidCount(row_outputs.names, row_outputs.output_names),
             .row_null_ratio => |row_count| try current.withRowNullRatio(row_count.names, row_count.output_name),
             .row_valid_ratio => |row_count| try current.withRowValidRatio(row_count.names, row_count.output_name),
             .row_first_valid_index => |row_count| try current.withRowFirstValidIndex(row_count.names, row_count.output_name),
