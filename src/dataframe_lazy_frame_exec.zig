@@ -778,6 +778,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_mean => |row_outputs| try current.withRowCumulativeMean(row_outputs.names, row_outputs.output_names),
             .row_cumulative_logsumexp => |row_outputs| try current.withRowCumulativeLogSumExp(row_outputs.names, row_outputs.output_names),
             .row_cumulative_logmeanexp => |row_outputs| try current.withRowCumulativeLogMeanExp(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_geometric_mean => |row_outputs| try current.withRowCumulativeGeometricMean(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_harmonic_mean => |row_outputs| try current.withRowCumulativeHarmonicMean(row_outputs.names, row_outputs.output_names),
             .row_cumulative_variance => |row_outputs| try current.withRowCumulativeVariance(row_outputs.names, row_outputs.output_names, row_outputs.correction),
             .row_cumulative_stddev => |row_outputs| try current.withRowCumulativeStddev(row_outputs.names, row_outputs.output_names, row_outputs.correction),
             .row_cumulative_sem => |row_outputs| try current.withRowCumulativeSem(row_outputs.names, row_outputs.output_names, row_outputs.correction),

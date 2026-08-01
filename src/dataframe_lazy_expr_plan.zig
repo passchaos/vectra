@@ -4523,6 +4523,73 @@ pub fn withRowPrefixLogmeanexp(frame: anytype, names: []const []const u8, output
     return withRowCumulativeLogMeanExp(frame, names, output_names);
 }
 
+fn withRowCumulativePowerMean(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime harmonic: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (harmonic) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_harmonic_mean = .{ .names = owned_names, .output_names = owned_outputs } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_geometric_mean = .{ .names = owned_names, .output_names = owned_outputs } });
+    }
+}
+
+pub fn withRowCumulativeGeometricMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePowerMean(frame, names, output_names, false);
+}
+
+pub fn withRowCumulativeGeoMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeGeometricMean(frame, names, output_names);
+}
+
+pub fn withRowCumGeometricMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeGeometricMean(frame, names, output_names);
+}
+
+pub fn withRowCumGeoMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeGeometricMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixGeometricMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeGeometricMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixGeoMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeGeometricMean(frame, names, output_names);
+}
+
+pub fn withRowCumulativeHarmonicMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativePowerMean(frame, names, output_names, true);
+}
+
+pub fn withRowCumulativeHarmMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeHarmonicMean(frame, names, output_names);
+}
+
+pub fn withRowCumHarmonicMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeHarmonicMean(frame, names, output_names);
+}
+
+pub fn withRowCumHarmMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeHarmonicMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixHarmonicMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeHarmonicMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixHarmMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeHarmonicMean(frame, names, output_names);
+}
+
 const RowCumulativeDispersion = enum { variance, stddev, sem, cv, fano };
 
 fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64, comptime reduction: RowCumulativeDispersion) DeviceDataError!void {

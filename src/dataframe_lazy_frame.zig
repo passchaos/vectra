@@ -2466,6 +2466,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixLogmeanexp(self, names, output_names);
             }
 
+            pub fn withRowCumulativeGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeGeometricMean(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeGeoMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeGeoMean(self, names, output_names);
+            }
+
+            pub fn withRowCumGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumGeometricMean(self, names, output_names);
+            }
+
+            pub fn withRowCumGeoMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumGeoMean(self, names, output_names);
+            }
+
+            pub fn withRowPrefixGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixGeometricMean(self, names, output_names);
+            }
+
+            pub fn withRowPrefixGeoMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixGeoMean(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeHarmonicMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeHarmonicMean(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeHarmMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeHarmMean(self, names, output_names);
+            }
+
+            pub fn withRowCumHarmonicMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumHarmonicMean(self, names, output_names);
+            }
+
+            pub fn withRowCumHarmMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumHarmMean(self, names, output_names);
+            }
+
+            pub fn withRowPrefixHarmonicMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixHarmonicMean(self, names, output_names);
+            }
+
+            pub fn withRowPrefixHarmMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixHarmMean(self, names, output_names);
+            }
+
             pub fn withRowCumulativeVariance(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeVariance(self, names, output_names, correction);
             }

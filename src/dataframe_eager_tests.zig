@@ -1770,6 +1770,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(row_wb_cumlse[2] - std.math.ln2, row_wb_cumlme[2], 1e-12);
     try std.testing.expectApproxEqAbs(row_wb_cumlse[3] - std.math.log(f64, std.math.e, 4.0), row_wb_cumlme[3], 1e-12);
 
+    var row_cumgeo_table = try validity_table.withRowCumulativeGeometricMean(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumgeo", "b_row_cumgeo", "wa_row_cumgeo", "wb_row_cumgeo" });
+    defer row_cumgeo_table.deinit();
+    const row_wb_cumgeo = try (try row_cumgeo_table.column("wb_row_cumgeo")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumgeo);
+    try std.testing.expectApproxEqAbs(std.math.pow(f64, 2.0, 1.0 / 3.0), row_wb_cumgeo[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pow(f64, 40.0, 1.0 / 3.0), row_wb_cumgeo[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 15.0)), row_wb_cumgeo[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.pow(f64, 640.0, 0.25), row_wb_cumgeo[3], 1e-12);
+
+    var row_cumharm_table = try validity_table.withRowPrefixHarmonicMean(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumharm", "b_row_cumharm", "wa_row_cumharm", "wb_row_cumharm" });
+    defer row_cumharm_table.deinit();
+    const row_wb_cumharm = try (try row_cumharm_table.column("wb_row_cumharm")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumharm);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.2), row_wb_cumharm[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 60.0 / 31.0), row_wb_cumharm[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0 / 8.0), row_wb_cumharm[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 160.0 / 61.0), row_wb_cumharm[3], 1e-12);
+
     var row_cumvar_table = try validity_table.withRowCumulativeVariance(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumvar", "b_row_cumvar", "wa_row_cumvar", "wb_row_cumvar" }, 0.0);
     defer row_cumvar_table.deinit();
     const row_b_cumvar_column = try row_cumvar_table.column("b_row_cumvar");
@@ -1878,6 +1896,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1633.0)), row_wb_cuml2[3], 1e-12);
 
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixLogsumexp(&.{"a"}, &.{ "a_row_cumlse", "extra_row_cumlse" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumGeoMean(&.{"a"}, &.{ "a_row_cumgeo", "extra_row_cumgeo" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSkew(&.{"a"}, &.{ "a_row_cumskew", "extra_row_cumskew" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumL2Norm(&.{"a"}, &.{ "a_row_cuml2", "extra_row_cuml2" }));

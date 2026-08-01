@@ -4995,7 +4995,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, mean, logsumexp, logmeanexp, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, l1_norm, l2_norm, max, min, range };
+const RowCumulativeReduction = enum { sum, product, mean, logsumexp, logmeanexp, geometric_mean, harmonic_mean, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, l1_norm, l2_norm, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -5049,7 +5049,7 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .mean, .logsumexp, .logmeanexp, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
+            .sum, .mean, .logsumexp, .logmeanexp, .geometric_mean, .harmonic_mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
         };
         var running_mean: f64 = 0.0;
         var running_m2: f64 = 0.0;
@@ -5059,6 +5059,7 @@ fn withRowCumulativeRealColumns(
         var running_max: f64 = 0.0;
         var log_exp_sum: f64 = 0.0;
         var log_exp_max: f64 = 0.0;
+        var geometric_zero = false;
         var running_count: usize = 0;
         var running_valid = false;
         for (0..check_names.len) |col_index| {
@@ -5101,6 +5102,26 @@ fn withRowCumulativeRealColumns(
                     } else {
                         running = log_exp_max + std.math.log(f64, std.math.e, log_exp_sum);
                         if (reduction == .logmeanexp) running -= std.math.log(f64, std.math.e, @as(f64, @floatFromInt(running_count)));
+                    }
+                },
+                .geometric_mean => {
+                    running_count += 1;
+                    if (value < 0.0) {
+                        running = std.math.nan(f64);
+                    } else if (!std.math.isNan(running)) {
+                        if (value == 0.0) {
+                            geometric_zero = true;
+                        } else if (!geometric_zero) {
+                            running += std.math.log(f64, std.math.e, value);
+                        }
+                    }
+                },
+                .harmonic_mean => {
+                    running_count += 1;
+                    if (value == 0.0 and !std.math.isNan(running)) {
+                        running = std.math.inf(f64);
+                    } else if (!std.math.isInf(running)) {
+                        running += 1.0 / value;
                     }
                 },
                 .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => {
@@ -5164,6 +5185,8 @@ fn withRowCumulativeRealColumns(
             }
             cumulative[offset] = switch (reduction) {
                 .mean => running / @as(f64, @floatFromInt(running_count)),
+                .geometric_mean => if (std.math.isNan(running)) std.math.nan(f64) else if (geometric_zero) 0.0 else std.math.exp(running / @as(f64, @floatFromInt(running_count))),
+                .harmonic_mean => if (std.math.isInf(running)) 0.0 else @as(f64, @floatFromInt(running_count)) / running,
                 .rms => std.math.sqrt(running / @as(f64, @floatFromInt(running_count))),
                 .l2_norm => std.math.sqrt(running),
                 else => running,
@@ -5421,6 +5444,114 @@ pub fn withRowPrefixLogmeanexp(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeLogMeanExp(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .geometric_mean);
+}
+
+pub fn withRowCumulativeGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeGeometricMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeGeometricMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeGeometricMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeGeometricMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeGeometricMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .harmonic_mean);
+}
+
+pub fn withRowCumulativeHarmMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeHarmonicMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeHarmonicMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumHarmMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeHarmonicMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeHarmonicMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixHarmMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeHarmonicMean(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeVariance(

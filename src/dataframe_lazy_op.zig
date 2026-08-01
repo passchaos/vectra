@@ -393,6 +393,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_mean: Payloads.RowColumnOutputs,
         row_cumulative_logsumexp: Payloads.RowColumnOutputs,
         row_cumulative_logmeanexp: Payloads.RowColumnOutputs,
+        row_cumulative_geometric_mean: Payloads.RowColumnOutputs,
+        row_cumulative_harmonic_mean: Payloads.RowColumnOutputs,
         row_cumulative_variance: Payloads.RowColumnOutputsDispersion,
         row_cumulative_stddev: Payloads.RowColumnOutputsDispersion,
         row_cumulative_sem: Payloads.RowColumnOutputsDispersion,
