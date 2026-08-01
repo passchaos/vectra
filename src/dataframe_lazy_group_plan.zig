@@ -48,6 +48,21 @@ pub fn groupByValue(frame: anytype, key_name: []const u8, value_name: []const u8
     } });
 }
 
+pub fn groupByValueOn(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_by_value_on = .{
+        .key_names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .aggregation = aggregation,
+    } });
+}
+
 pub fn groupByStats(frame: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
     const owned_key = try frame.allocator.dupe(u8, key_name);
     errdefer frame.allocator.free(owned_key);

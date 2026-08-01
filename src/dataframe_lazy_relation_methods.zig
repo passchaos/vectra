@@ -68,20 +68,40 @@ pub fn groupByValue(self: anytype, key_name: []const u8, value_name: []const u8,
     return lazy_group_mod.groupByValue(self, key_name, value_name, output_name, aggregation);
 }
 
+pub fn groupByValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOn(self, key_names, value_name, output_name, aggregation);
+}
+
 pub fn groupBySum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .sum);
+}
+
+pub fn groupBySumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .sum);
 }
 
 pub fn groupByMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .min);
 }
 
+pub fn groupByMinOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .min);
+}
+
 pub fn groupByMax(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .max);
 }
 
+pub fn groupByMaxOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .max);
+}
+
 pub fn groupByMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .mean);
+}
+
+pub fn groupByMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .mean);
 }
 
 pub fn groupByStats(self: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {

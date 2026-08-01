@@ -259,6 +259,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(msc_rows);
     try std.testing.expectEqualSlices(i64, &.{ 2, 2, 1, 1 }, msc_rows);
 
+    var multi_sum = try multi.groupBySumOn(&.{ "store", "day" }, "amount", "amount_sum");
+    defer multi_sum.deinit();
+    const ms_simple_sum = try (try multi_sum.column("amount_sum")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_sum);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 9.0, 4.0, 12.0 }, ms_simple_sum);
+
+    var multi_min = try multi.groupByMinOn(&.{ "store", "day" }, "amount", "amount_min");
+    defer multi_min.deinit();
+    const ms_simple_min = try (try multi_min.column("amount_min")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_min);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, ms_simple_min);
+
+    var multi_max = try multi.groupByMaxOn(&.{ "store", "day" }, "amount", "amount_max");
+    defer multi_max.deinit();
+    const ms_simple_max = try (try multi_max.column("amount_max")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_max);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, ms_simple_max);
+
+    var multi_mean = try multi.groupByMeanOn(&.{ "store", "day" }, "amount", "amount_mean");
+    defer multi_mean.deinit();
+    const ms_simple_mean = try (try multi_mean.column("amount_mean")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mean);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_mean);
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -271,6 +295,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_mc_rows = try (try lazy_multi_counts.column("freq_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_mc_rows);
     try std.testing.expectEqualSlices(i64, &.{ 2, 2, 1, 1 }, lazy_mc_rows);
+
+    var multi_mean_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mean_plan.deinit();
+    try multi_mean_plan.groupByMeanOn(&.{ "store", "day" }, "amount", "amount_mean_lazy");
+    const multi_mean_explained = try multi_mean_plan.explain(gpa);
+    defer gpa.free(multi_mean_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mean_explained, "group_by_mean_on([store,day], value=amount -> amount_mean_lazy)") != null);
+    var lazy_multi_mean = try multi_mean_plan.collect();
+    defer lazy_multi_mean.deinit();
+    const lazy_ms_mean = try (try lazy_multi_mean.column("amount_mean_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mean);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, lazy_ms_mean);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();
