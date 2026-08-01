@@ -92,6 +92,25 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.len() - self.nullCount();
     }
 
+    // Validity gates use the standard fold identities for empty columns:
+    // `any*` is false and `all*` is true.  That keeps schema/data-quality
+    // predicates total even when an upstream filter materializes zero rows.
+    pub fn anyNull(self: DeviceColumn) bool {
+        return self.nullCount() != 0;
+    }
+
+    pub fn allNull(self: DeviceColumn) bool {
+        return self.validCount() == 0;
+    }
+
+    pub fn anyValid(self: DeviceColumn) bool {
+        return self.validCount() != 0;
+    }
+
+    pub fn allValid(self: DeviceColumn) bool {
+        return self.nullCount() == 0;
+    }
+
     pub fn nullRatio(self: DeviceColumn) f64 {
         const rows = self.len();
         if (rows == 0) return std.math.nan(f64);

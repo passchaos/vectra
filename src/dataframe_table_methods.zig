@@ -1716,6 +1716,22 @@ pub fn validCountColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.validCountColumn(frameValue(self), name);
 }
 
+pub fn anyNullColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNullColumn(frameValue(self), name);
+}
+
+pub fn allNullColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNullColumn(frameValue(self), name);
+}
+
+pub fn anyValidColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyValidColumn(frameValue(self), name);
+}
+
+pub fn allValidColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allValidColumn(frameValue(self), name);
+}
+
 pub fn nullRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.nullRatioColumn(frameValue(self), name);
 }

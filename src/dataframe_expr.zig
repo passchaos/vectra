@@ -1103,6 +1103,26 @@ pub fn validCountColumn(frame: anytype, name: []const u8) DeviceDataError!usize 
     return col.validCount();
 }
 
+pub fn anyNullColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.anyNull();
+}
+
+pub fn allNullColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.allNull();
+}
+
+pub fn anyValidColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.anyValid();
+}
+
+pub fn allValidColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return col.allValid();
+}
+
 pub fn nullRatioColumn(frame: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     const col = try frame.column(name);
     return .{ .f64 = col.nullRatio() };
