@@ -62,6 +62,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(std.mem.eql(u8, "sales", names[0]));
     try std.testing.expect(std.mem.eql(u8, "units", names[1]));
     try std.testing.expect(std.mem.eql(u8, "active", names[2]));
+    try std.testing.expect(table.columnNamesUnique());
+    try std.testing.expect(!table.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 0), table.duplicateColumnNameCount());
+    var duplicate_name_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "dup", .data = sales },
+        .{ .name = "dup", .data = units },
+    });
+    defer duplicate_name_table.deinit();
+    try std.testing.expect(!duplicate_name_table.columnNamesUnique());
+    try std.testing.expect(duplicate_name_table.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 1), duplicate_name_table.duplicateColumnNameCount());
     try std.testing.expect(std.mem.eql(u8, "sales", try table.columnNameAt(0)));
     try std.testing.expectEqual(DeviceDType.f64, try table.columnDTypeAt(0));
     try std.testing.expectEqual(DeviceDType.bool, (try table.columnAt(2)).dtype());

@@ -152,6 +152,32 @@ pub const DeviceDataFrame = struct {
         return self.names;
     }
 
+    pub fn columnNamesUnique(self: DeviceDataFrame) bool {
+        for (self.names, 0..) |name, index| {
+            for (self.names[0..index]) |previous| {
+                if (std.mem.eql(u8, name, previous)) return false;
+            }
+        }
+        return true;
+    }
+
+    pub fn hasDuplicateColumnNames(self: DeviceDataFrame) bool {
+        return !self.columnNamesUnique();
+    }
+
+    pub fn duplicateColumnNameCount(self: DeviceDataFrame) usize {
+        var duplicates: usize = 0;
+        for (self.names, 0..) |name, index| {
+            for (self.names[0..index]) |previous| {
+                if (std.mem.eql(u8, name, previous)) {
+                    duplicates += 1;
+                    break;
+                }
+            }
+        }
+        return duplicates;
+    }
+
     pub fn columnDTypes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceDType {
         const out = try allocator.alloc(DeviceDType, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype();
