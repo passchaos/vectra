@@ -1317,6 +1317,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0) - row3_concentration, row_softmax_gini[3], 1e-12);
 
+    var row_softmax_normalized_hhi_table = try validity_table.withRowSoftmaxNormalizedHhi(&.{ "a", "b" }, "row_softmax_normalized_hhi");
+    defer row_softmax_normalized_hhi_table.deinit();
+    const row_softmax_normalized_hhi = try (try row_softmax_normalized_hhi_table.column("row_softmax_normalized_hhi")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_normalized_hhi);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_normalized_hhi[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_normalized_hhi[1], 1e-12);
+    try std.testing.expectApproxEqAbs((row3_concentration - 0.5) / 0.5, row_softmax_normalized_hhi[3], 1e-12);
+
     var row_logit_margin_table = try validity_table.withRowLogitMargin(&.{ "a", "b" }, "row_logit_margin");
     defer row_logit_margin_table.deinit();
     const row_logit_margin = try (try row_logit_margin_table.column("row_logit_margin")).f64.toOwnedSlice(gpa);
@@ -2741,6 +2749,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), gini[1], 1e-12);
     try std.testing.expect(std.math.isNan(gini[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), gini[3], 1e-12);
+
+    var normalized_hhi_table = try table.withRowSoftmaxNhhi(&.{ "low", "high" }, "row_softmax_normalized_hhi");
+    defer normalized_hhi_table.deinit();
+    const normalized_hhi = try (try normalized_hhi_table.column("row_softmax_normalized_hhi")).f64.toOwnedSlice(gpa);
+    defer gpa.free(normalized_hhi);
+    try std.testing.expectApproxEqAbs((expected_concentration0 - 0.5) / 0.5, normalized_hhi[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), normalized_hhi[1], 1e-12);
+    try std.testing.expect(std.math.isNan(normalized_hhi[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), normalized_hhi[3], 1e-12);
 
     var logit_margin_table = try table.withRowLogitMargin(&.{ "low", "high" }, "row_logit_margin");
     defer logit_margin_table.deinit();

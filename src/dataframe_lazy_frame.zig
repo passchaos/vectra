@@ -2114,6 +2114,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSoftmaxConcentration(self, names, output_name);
             }
 
+            pub fn withRowSoftmaxNormalizedHhi(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxNormalizedHhi(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxNormalizedHHI(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxNormalizedHHI(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxNhhi(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxNhhi(self, names, output_name);
+            }
+
             pub fn withRowSoftmaxGiniImpurity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSoftmaxGiniImpurity(self, names, output_name);
             }

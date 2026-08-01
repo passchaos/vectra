@@ -3003,6 +3003,18 @@ pub fn withRowSoftmaxConcentration(self: anytype, names: []const []const u8, out
     return dataframe_array_mod.withRowSoftmaxConcentration(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSoftmaxNormalizedHhi(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxNormalizedHhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxNormalizedHHI(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxNormalizedHHI(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxNhhi(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxNhhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowSoftmaxGiniImpurity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSoftmaxGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

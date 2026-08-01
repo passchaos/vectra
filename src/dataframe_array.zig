@@ -3819,7 +3819,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, gini_impurity, logit_margin };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, normalized_concentration, gini_impurity, logit_margin };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3921,14 +3921,19 @@ fn withRowSoftmaxSummary(
             entropy.* = 0.0;
         } else if (std.math.isNan(max_value)) {
             entropy.* = std.math.nan(f64);
-        } else if (summary == .concentration or summary == .gini_impurity) {
+        } else if (summary == .concentration or summary == .normalized_concentration or summary == .gini_impurity) {
             const concentration = if (std.math.isPositiveInf(max_value))
                 1.0 / @as(f64, @floatFromInt(pos_inf_count))
             else if (std.math.isNegativeInf(max_value))
                 1.0 / @as(f64, @floatFromInt(valid_count))
             else
                 squared_sum / (denominator * denominator);
-            entropy.* = if (summary == .gini_impurity) 1.0 - concentration else concentration;
+            entropy.* = if (summary == .gini_impurity)
+                1.0 - concentration
+            else if (summary == .normalized_concentration)
+                if (valid_count <= 1) 1.0 else (concentration - 1.0 / @as(f64, @floatFromInt(valid_count))) / (1.0 - 1.0 / @as(f64, @floatFromInt(valid_count)))
+            else
+                concentration;
         } else if (summary == .logit_margin) {
             entropy.* = if (valid_count <= 1)
                 std.math.inf(f64)
@@ -4039,6 +4044,33 @@ pub fn withRowSoftmaxConcentration(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .concentration);
+}
+
+pub fn withRowSoftmaxNormalizedHhi(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .normalized_concentration);
+}
+
+pub fn withRowSoftmaxNormalizedHHI(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxNormalizedHhi(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowSoftmaxNhhi(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxNormalizedHhi(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowSoftmaxGiniImpurity(
