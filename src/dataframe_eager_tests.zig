@@ -1323,6 +1323,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 121.0 / 101.0), row_magnitude_inverse[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_inverse_validity);
 
+    var row_magnitude_dominance_table = try validity_table.withRowMagnitudeDominance(&.{ "a", "b" }, "row_magnitude_dominance");
+    defer row_magnitude_dominance_table.deinit();
+    const row_magnitude_dominance_column = try row_magnitude_dominance_table.column("row_magnitude_dominance");
+    try std.testing.expect(row_magnitude_dominance_column.f64.nullable());
+    const row_magnitude_dominance = try row_magnitude_dominance_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_dominance);
+    const row_magnitude_dominance_validity = try row_magnitude_dominance_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_dominance_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_dominance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_dominance[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_magnitude_dominance[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0 / 11.0), row_magnitude_dominance[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_dominance_validity);
+
     var row_magnitude_entropy_table = try validity_table.withRowMagnitudeEntropy(&.{ "a", "b" }, "row_magnitude_entropy");
     defer row_magnitude_entropy_table.deinit();
     const row_magnitude_entropy_column = try row_magnitude_entropy_table.column("row_magnitude_entropy");
