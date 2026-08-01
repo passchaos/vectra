@@ -3816,6 +3816,107 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowSoftmaxEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    const maxima = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(maxima);
+    const denom = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(denom);
+    const shifted_weighted_sum = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(shifted_weighted_sum);
+    const valid_counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(valid_counts);
+    const pos_inf_counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(pos_inf_counts);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(maxima, -std.math.inf(f64));
+    @memset(denom, 0.0);
+    @memset(shifted_weighted_sum, 0.0);
+    @memset(valid_counts, 0);
+    @memset(pos_inf_counts, 0);
+    @memset(row_validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    row_validity[row] = true;
+                    valid_counts[row] += 1;
+                    if (std.math.isNan(value)) {
+                        maxima[row] = std.math.nan(f64);
+                    } else if (!std.math.isNan(maxima[row]) and value > maxima[row]) {
+                        maxima[row] = value;
+                    }
+                }
+            },
+        }
+    }
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row] or std.math.isNan(maxima[row])) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (std.math.isPositiveInf(maxima[row])) {
+                        if (std.math.isPositiveInf(value)) pos_inf_counts[row] += 1;
+                    } else if (!std.math.isNegativeInf(maxima[row])) {
+                        const shifted = value - maxima[row];
+                        const weight = std.math.exp(shifted);
+                        denom[row] += weight;
+                        shifted_weighted_sum[row] += weight * shifted;
+                    }
+                }
+            },
+        }
+    }
+
+    const entropies = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(entropies);
+    for (entropies, row_validity, maxima, denom, shifted_weighted_sum, valid_counts, pos_inf_counts) |*entropy, valid, max_value, denominator, shifted_sum, valid_count, pos_inf_count| {
+        if (!valid) {
+            entropy.* = 0.0;
+        } else if (std.math.isNan(max_value)) {
+            entropy.* = std.math.nan(f64);
+        } else if (std.math.isPositiveInf(max_value)) {
+            entropy.* = std.math.log(f64, std.math.e, @as(f64, @floatFromInt(pos_inf_count)));
+        } else if (std.math.isNegativeInf(max_value)) {
+            entropy.* = std.math.log(f64, std.math.e, @as(f64, @floatFromInt(valid_count)));
+        } else {
+            entropy.* = std.math.log(f64, std.math.e, denominator) - shifted_sum / denominator;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, entropies, row_validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 pub fn withRowGeometricMean(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

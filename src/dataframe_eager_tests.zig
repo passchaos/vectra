@@ -1253,6 +1253,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_b_softmax), row_a_log_softmin[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_b_log_softmin[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_a_softmax), row_b_log_softmin[3], 1e-12);
+
+    var row_softmax_entropy_table = try validity_table.withRowSoftmaxEntropy(&.{ "a", "b" }, "row_softmax_entropy");
+    defer row_softmax_entropy_table.deinit();
+    const row_softmax_entropy_column = try row_softmax_entropy_table.column("row_softmax_entropy");
+    try std.testing.expect(row_softmax_entropy_column.f64.nullable());
+    const row_softmax_entropy = try row_softmax_entropy_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_entropy);
+    const row_softmax_entropy_validity = try row_softmax_entropy_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_entropy_validity);
+    const row3_softmax_entropy = -(row3_a_softmax * std.math.log(f64, std.math.e, row3_a_softmax) + row3_b_softmax * std.math.log(f64, std.math.e, row3_b_softmax));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_entropy[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_entropy[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_softmax_entropy, row_softmax_entropy[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_softmax_entropy_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2600,6 +2614,21 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(-std.math.ln2, high_log_softmin[1], 1e-12);
     try std.testing.expect(std.math.isNan(low_log_softmin[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), high_log_softmin[3], 1e-12);
+
+    var entropy_table = try table.withRowSoftmaxEntropy(&.{ "low", "high" }, "row_softmax_entropy");
+    defer entropy_table.deinit();
+    const entropy_column = try entropy_table.column("row_softmax_entropy");
+    try std.testing.expect(entropy_column.f64.nullable());
+    const entropy = try entropy_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(entropy);
+    const entropy_validity = try entropy_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(entropy_validity);
+    const expected_entropy0 = -(expected_low0 * std.math.log(f64, std.math.e, expected_low0) + expected_high0 * std.math.log(f64, std.math.e, expected_high0));
+    try std.testing.expectApproxEqAbs(expected_entropy0, entropy[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.ln2, entropy[1], 1e-12);
+    try std.testing.expect(std.math.isNan(entropy[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), entropy[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, entropy_validity);
 }
 
 test "device dataframe selects and drops columns by nullability" {
