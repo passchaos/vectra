@@ -1139,6 +1139,34 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnBetweenWithDeviceScalars(self, name, input_name, lower, upper, lower_inclusive, upper_inclusive);
             }
 
+            pub fn withColumnNotBetween(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetween(self, name, input_name, T, lower, upper);
+            }
+
+            pub fn withColumnOutside(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnOutside(self, name, input_name, T, lower, upper);
+            }
+
+            pub fn withColumnNotBetweenClosed(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetweenClosed(self, name, input_name, T, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
+            pub fn withColumnNotBetweenExclusive(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetweenExclusive(self, name, input_name, T, lower, upper);
+            }
+
+            pub fn withColumnNotBetweenLeftClosed(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetweenLeftClosed(self, name, input_name, T, lower, upper);
+            }
+
+            pub fn withColumnNotBetweenRightClosed(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetweenRightClosed(self, name, input_name, T, lower, upper);
+            }
+
+            pub fn withColumnNotBetweenWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNotBetweenWithDeviceScalars(self, name, input_name, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
             pub fn withColumnMaximumScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnMaximumScalar(self, name, input_name, T, scalar);
             }

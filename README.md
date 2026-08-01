@@ -246,7 +246,7 @@ Eager schema/expression helpers such as `selectByNamePrefix`, `selectByNameSuffi
 `withColumnLiteral`, `withColumnLiteralAt`, `withColumnLiteralBefore`, `withColumnLiteralAfter`,
 `copyColumn`, `copyColumnAt`, `copyColumnBefore`, `copyColumnAfter`,
 `withRowIndex`, `renameColumn`, `renameColumns`, `addColumnNamePrefix`, `addColumnNameSuffix`,
-`moveColumn`, `moveColumnBefore`, `moveColumnAfter`, `reverseColumns`, `sortColumnsByName`, `dropColumn`, `compareColumnScalar`, `betweenColumnScalar`, `betweenColumnWithDeviceScalars`, `withColumnBetween`, `withColumnIsBetween`, `withColumnBetweenClosed`, `withColumnBetweenWithDeviceScalars`, `withColumnBetweenExclusive`, `withColumnBetweenLeftClosed`, `withColumnBetweenRightClosed`, `addColumns`, `filterColumn`, and `filterColumnMask` reuse Vectra `Array` operations, so supported dtypes route
+`moveColumn`, `moveColumnBefore`, `moveColumnAfter`, `reverseColumns`, `sortColumnsByName`, `dropColumn`, `compareColumnScalar`, `betweenColumnScalar`, `betweenColumnWithDeviceScalars`, `withColumnBetween`, `withColumnIsBetween`, `withColumnBetweenClosed`, `withColumnBetweenWithDeviceScalars`, `withColumnBetweenExclusive`, `withColumnBetweenLeftClosed`, `withColumnBetweenRightClosed`, `notBetweenColumnScalar`, `notBetweenColumnWithDeviceScalars`, `withColumnNotBetween`, `withColumnOutside`, `withColumnNotBetweenClosed`, `withColumnNotBetweenWithDeviceScalars`, `withColumnNotBetweenExclusive`, `withColumnNotBetweenLeftClosed`, `withColumnNotBetweenRightClosed`, `addColumns`, `filterColumn`, and `filterColumnMask` reuse Vectra `Array` operations, so supported dtypes route
 through the same Axiom CPU/CUDA/MPS dispatch instead of a CUDA-only dataframe
 implementation. Nullable boolean predicate masks now follow query-engine semantics:
 null predicate rows are treated as not selected rather than requiring a prefilled
@@ -457,7 +457,8 @@ rows.
 `withRowCumulativeLastNullIndex`/`withRowPrefixLastNullIndex` append per-input
 horizontal prefix positions of the first/last valid or null cell seen so far.
 `withColumnBetween`/`withColumnIsBetween` append SQL/Polars-style range
-predicate masks with closed, open, left-closed, and right-closed variants.
+predicate masks with closed, open, left-closed, and right-closed variants;
+`withColumnNotBetween`/`withColumnOutside` provide the complementary outside-range masks.
 Column-level predicate gates such as `anyZeroColumn`, `allFiniteColumn`,
 `anyNanColumn`/`allNaNColumn`, and `anySignBitColumn`/`allSignBitColumn` provide
 boolean quality checks beside the corresponding count, ratio, and first/last

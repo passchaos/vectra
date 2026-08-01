@@ -737,6 +737,38 @@ pub fn betweenColumnScalar(
     );
 }
 
+pub fn notBetweenColumnWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    lower: DeviceScalar,
+    upper: DeviceScalar,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    var between_mask = try betweenColumnWithDeviceScalars(frame, name, lower, upper, lower_inclusive, upper_inclusive);
+    defer between_mask.deinit();
+    return between_mask.logicalXorScalar(true);
+}
+
+pub fn notBetweenColumnScalar(
+    frame: anytype,
+    name: []const u8,
+    comptime T: type,
+    lower: T,
+    upper: T,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    return notBetweenColumnWithDeviceScalars(
+        frame,
+        name,
+        DeviceScalar.init(T, lower),
+        DeviceScalar.init(T, upper),
+        lower_inclusive,
+        upper_inclusive,
+    );
+}
+
 pub fn iscloseColumnScalar(
     frame: anytype,
     name: []const u8,

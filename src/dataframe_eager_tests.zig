@@ -7652,6 +7652,21 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     const ratio_between_right = try (try ratio_between_right_table.column("ratio_between_right")).bool.toOwnedSlice(gpa);
     defer gpa.free(ratio_between_right);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true }, ratio_between_right);
+    var ratio_not_between_table = try inverse_trig_table.withColumnNotBetween("ratio_not_between", "ratio", f64, -0.5, 0.0);
+    defer ratio_not_between_table.deinit();
+    const ratio_not_between = try (try ratio_not_between_table.column("ratio_not_between")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_not_between);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, ratio_not_between);
+    var ratio_outside_table = try inverse_trig_table.withColumnOutside("ratio_outside", "ratio", f64, -0.5, 0.5);
+    defer ratio_outside_table.deinit();
+    const ratio_outside = try (try ratio_outside_table.column("ratio_outside")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_outside);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, ratio_outside);
+    var ratio_not_between_open_table = try inverse_trig_table.withColumnNotBetweenExclusive("ratio_not_between_open", "ratio", f64, -0.5, 0.5);
+    defer ratio_not_between_open_table.deinit();
+    const ratio_not_between_open = try (try ratio_not_between_open_table.column("ratio_not_between_open")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_not_between_open);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, ratio_not_between_open);
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnBetween("bad_between", "active", f64, -0.25, 0.25));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnBetween("missing_between", "missing", f64, -0.25, 0.25));
 

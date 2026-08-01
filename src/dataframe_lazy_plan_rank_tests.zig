@@ -540,16 +540,19 @@ test "device lazy frame derives between predicate columns" {
     try plan.withColumnBetweenExclusive("sales_between_open", "sales", f64, 2.0, 7.0);
     try plan.withColumnBetweenLeftClosed("sales_between_left", "sales", f64, 2.0, 7.0);
     try plan.withColumnBetweenRightClosed("sales_between_right", "sales", f64, 2.0, 7.0);
-    try plan.select(&.{ "sales_between_closed", "sales_between_open", "sales_between_left", "sales_between_right" });
+    try plan.withColumnNotBetween("sales_not_between", "sales", f64, 3.0, 5.0);
+    try plan.withColumnOutside("sales_outside", "sales", f64, 2.0, 7.0);
+    try plan.select(&.{ "sales_between_closed", "sales_between_open", "sales_between_left", "sales_between_right", "sales_not_between", "sales_outside" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_between(sales_between_closed=between(sales, lower:f64, upper:f64, lower_inclusive=true, upper_inclusive=true))") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_between(sales_between_open=between(sales, lower:f64, upper:f64, lower_inclusive=false, upper_inclusive=false))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_logical_scalar(sales_not_between=logical_xor(sales_not_between, scalar:true))") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 4), result.width());
+    try std.testing.expectEqual(@as(usize, 6), result.width());
     const closed = try (try result.column("sales_between_closed")).bool.toOwnedSlice(gpa);
     defer gpa.free(closed);
     const open = try (try result.column("sales_between_open")).bool.toOwnedSlice(gpa);
@@ -558,10 +561,16 @@ test "device lazy frame derives between predicate columns" {
     defer gpa.free(left);
     const right = try (try result.column("sales_between_right")).bool.toOwnedSlice(gpa);
     defer gpa.free(right);
+    const not_between = try (try result.column("sales_not_between")).bool.toOwnedSlice(gpa);
+    defer gpa.free(not_between);
+    const outside = try (try result.column("sales_outside")).bool.toOwnedSlice(gpa);
+    defer gpa.free(outside);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, closed);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, open);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, left);
     try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, right);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, not_between);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, outside);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();

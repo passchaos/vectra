@@ -1216,6 +1216,37 @@ pub fn withColumnBetweenWithDeviceScalars(
     } });
 }
 
+pub fn withColumnNotBetween(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    try withColumnBetween(frame, name, input_name, T, lower, upper);
+    return withColumnLogicalNot(frame, name, name);
+}
+
+pub fn withColumnOutside(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnNotBetween(frame, name, input_name, T, lower, upper);
+}
+
+pub fn withColumnNotBetweenClosed(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    try withColumnBetweenClosed(frame, name, input_name, T, lower, upper, lower_inclusive, upper_inclusive);
+    return withColumnLogicalNot(frame, name, name);
+}
+
+pub fn withColumnNotBetweenExclusive(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnNotBetweenClosed(frame, name, input_name, T, lower, upper, false, false);
+}
+
+pub fn withColumnNotBetweenLeftClosed(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnNotBetweenClosed(frame, name, input_name, T, lower, upper, true, false);
+}
+
+pub fn withColumnNotBetweenRightClosed(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnNotBetweenClosed(frame, name, input_name, T, lower, upper, false, true);
+}
+
+pub fn withColumnNotBetweenWithDeviceScalars(frame: anytype, name: []const u8, input_name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    try withColumnBetweenWithDeviceScalars(frame, name, input_name, lower, upper, lower_inclusive, upper_inclusive);
+    return withColumnLogicalNot(frame, name, name);
+}
+
 pub fn withColumnMaximumScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
     return withColumnMaximumWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
 }

@@ -1414,6 +1414,48 @@ pub fn withColumnBetweenRightClosed(self: anytype, output_name: []const u8, inpu
     return withColumnBetweenClosed(self, output_name, input_name, T, lower, upper, false, true);
 }
 
+pub fn notBetweenColumnScalar(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.notBetweenColumnScalar(frameValue(self), name, T, lower, upper, lower_inclusive, upper_inclusive);
+}
+
+pub fn notBetweenColumnWithDeviceScalars(self: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
+    return expr_mod.notBetweenColumnWithDeviceScalars(frameValue(self), name, lower, upper, lower_inclusive, upper_inclusive);
+}
+
+pub fn withColumnNotBetween(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try notBetweenColumnScalar(self, input_name, T, lower, upper, true, true);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnOutside(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnNotBetween(self, output_name, input_name, T, lower, upper);
+}
+
+pub fn withColumnNotBetweenClosed(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try notBetweenColumnScalar(self, input_name, T, lower, upper, lower_inclusive, upper_inclusive);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnNotBetweenWithDeviceScalars(self: anytype, output_name: []const u8, input_name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var column = try notBetweenColumnWithDeviceScalars(self, input_name, lower, upper, lower_inclusive, upper_inclusive);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, column);
+}
+
+pub fn withColumnNotBetweenExclusive(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnNotBetweenClosed(self, output_name, input_name, T, lower, upper, false, false);
+}
+
+pub fn withColumnNotBetweenLeftClosed(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnNotBetweenClosed(self, output_name, input_name, T, lower, upper, true, false);
+}
+
+pub fn withColumnNotBetweenRightClosed(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return withColumnNotBetweenClosed(self, output_name, input_name, T, lower, upper, false, true);
+}
+
 pub fn iscloseColumnScalar(self: anytype, name: []const u8, comptime T: type, scalar: T, rtol: T, atol: T) DeviceDataError!@TypeOf(frameValue(self).columns[0]) {
     return expr_mod.iscloseColumnScalar(frameValue(self), name, T, scalar, rtol, atol, false);
 }
