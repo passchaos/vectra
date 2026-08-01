@@ -5054,37 +5054,50 @@ test "device lazy frame derives normal predicate columns" {
     defer row_normal_plan.deinit();
     try row_normal_plan.withRowNormalCount(&.{ "metric", "id" }, "row_normal_count");
     try row_normal_plan.withRowNormalRatio(&.{ "metric", "id" }, "row_normal_ratio");
-    try row_normal_plan.select(&.{ "row_normal_count", "row_normal_ratio" });
+    try row_normal_plan.withRowCumulativeNormalCount(&.{ "metric", "id" }, &.{ "metric_cum_normal", "id_cum_normal" });
+    try row_normal_plan.select(&.{ "row_normal_count", "row_normal_ratio", "metric_cum_normal", "id_cum_normal" });
     const row_normal_explain = try row_normal_plan.explain(gpa);
     defer gpa.free(row_normal_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_count([metric,id]->row_normal_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_normal_ratio([metric,id]->row_normal_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_normal_explain, "row_cumulative_normal_count([metric,id]->[metric_cum_normal,id_cum_normal])") != null);
     var row_normal = try row_normal_plan.collect();
     defer row_normal.deinit();
     const row_normal_count = try (try row_normal.column("row_normal_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_normal_count);
     const row_normal_ratio = try (try row_normal.column("row_normal_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_normal_ratio);
+    const id_cum_normal = try (try row_normal.column("id_cum_normal")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_normal);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, row_normal_count);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0, 0.0 }, row_normal_ratio);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, id_cum_normal);
 
     var row_subnormal_plan = try DeviceLazyFrame.init(gpa, table);
     defer row_subnormal_plan.deinit();
     try row_subnormal_plan.withRowSubnormalCount(&.{ "metric", "id" }, "row_subnormal_count");
     try row_subnormal_plan.withRowSubnormalRatio(&.{ "metric", "id" }, "row_subnormal_ratio");
-    try row_subnormal_plan.select(&.{ "row_subnormal_count", "row_subnormal_ratio" });
+    try row_subnormal_plan.withRowPrefixSubnormalRatio(&.{ "metric", "id" }, &.{ "metric_cum_subnormal", "id_cum_subnormal" });
+    try row_subnormal_plan.select(&.{ "row_subnormal_count", "row_subnormal_ratio", "metric_cum_subnormal", "id_cum_subnormal" });
     const row_subnormal_explain = try row_subnormal_plan.explain(gpa);
     defer gpa.free(row_subnormal_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_subnormal_explain, "row_subnormal_count([metric,id]->row_subnormal_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_subnormal_explain, "row_subnormal_ratio([metric,id]->row_subnormal_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_subnormal_explain, "row_cumulative_subnormal_ratio([metric,id]->[metric_cum_subnormal,id_cum_subnormal])") != null);
     var row_subnormal = try row_subnormal_plan.collect();
     defer row_subnormal.deinit();
     const row_subnormal_count = try (try row_subnormal.column("row_subnormal_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_subnormal_count);
     const row_subnormal_ratio = try (try row_subnormal.column("row_subnormal_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_subnormal_ratio);
+    const metric_cum_subnormal = try (try row_subnormal.column("metric_cum_subnormal")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_subnormal);
+    const id_cum_subnormal = try (try row_subnormal.column("id_cum_subnormal")).f64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_subnormal);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_subnormal_count);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, row_subnormal_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, metric_cum_subnormal);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, id_cum_subnormal);
 
     var drop_normal_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_normal_plan.deinit();
@@ -5723,13 +5736,17 @@ test "device lazy frame filters signed Inf rows" {
     try row_signed_plan.withRowNegativeInfCount(&.{"metric"}, "row_negative_inf_count");
     try row_signed_plan.withRowPositiveInfRatio(&.{"metric"}, "row_positive_inf_ratio");
     try row_signed_plan.withRowNegativeInfRatio(&.{"metric"}, "row_negative_inf_ratio");
-    try row_signed_plan.select(&.{ "row_positive_inf_count", "row_negative_inf_count", "row_positive_inf_ratio", "row_negative_inf_ratio" });
+    try row_signed_plan.withRowPrefixPositiveInfCount(&.{"metric"}, &.{"metric_cum_pos_inf"});
+    try row_signed_plan.withRowCumulativeNegativeInfRatio(&.{"metric"}, &.{"metric_cum_neg_inf"});
+    try row_signed_plan.select(&.{ "row_positive_inf_count", "row_negative_inf_count", "row_positive_inf_ratio", "row_negative_inf_ratio", "metric_cum_pos_inf", "metric_cum_neg_inf" });
     const row_signed_explain = try row_signed_plan.explain(gpa);
     defer gpa.free(row_signed_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_positive_inf_count([]->row_positive_inf_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_negative_inf_count([metric]->row_negative_inf_count)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_positive_inf_ratio([metric]->row_positive_inf_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_negative_inf_ratio([metric]->row_negative_inf_ratio)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_cumulative_positive_inf_count([metric]->[metric_cum_pos_inf])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_signed_explain, "row_cumulative_negative_inf_ratio([metric]->[metric_cum_neg_inf])") != null);
     var row_signed = try row_signed_plan.collect();
     defer row_signed.deinit();
     const row_positive_inf_count = try (try row_signed.column("row_positive_inf_count")).i64.toOwnedSlice(gpa);
@@ -5740,10 +5757,16 @@ test "device lazy frame filters signed Inf rows" {
     defer gpa.free(row_positive_inf_ratio);
     const row_negative_inf_ratio = try (try row_signed.column("row_negative_inf_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_negative_inf_ratio);
+    const metric_cum_pos_inf = try (try row_signed.column("metric_cum_pos_inf")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_pos_inf);
+    const metric_cum_neg_inf = try (try row_signed.column("metric_cum_neg_inf")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_neg_inf);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, row_positive_inf_count);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0 }, row_negative_inf_count);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0, 0.0, 0.0 }, row_positive_inf_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, row_negative_inf_ratio);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, metric_cum_pos_inf);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, metric_cum_neg_inf);
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
@@ -5759,6 +5782,10 @@ test "device lazy frame filters signed Inf rows" {
     defer invalid_ratio_plan.deinit();
     try invalid_ratio_plan.withRowPositiveInfRatio(&.{"missing"}, "bad_ratio");
     try std.testing.expectError(error.ColumnNotFound, invalid_ratio_plan.collect());
+
+    var invalid_prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_prefix_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid_prefix_plan.withRowPrefixNegativeInfRatio(&.{"metric"}, &.{ "metric_cum_neg_inf", "extra_cum_neg_inf" }));
 }
 
 test "device lazy frame drops null rows" {

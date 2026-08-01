@@ -3854,6 +3854,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixInfRatio(self, names, output_names);
             }
 
+            pub fn withRowCumulativePositiveInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveInfCount(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveInfCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveInfCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativePositiveInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePositiveInfRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumPositiveInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPositiveInfRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPositiveInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPositiveInfRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeInfCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeInfCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeInfCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeInfCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNegativeInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNegativeInfRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNegativeInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNegativeInfRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNegativeInfRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNegativeInfRatio(self, names, output_names);
+            }
+
             pub fn withRowCumulativeFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeFiniteCount(self, names, output_names);
             }
@@ -3876,6 +3924,54 @@ pub fn DeviceLazyTypes(
 
             pub fn withRowPrefixFiniteRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPrefixFiniteRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNormalCount(self, names, output_names);
+            }
+
+            pub fn withRowCumNormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNormalCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNormalCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNormalRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNormalRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNormalRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeSubnormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeSubnormalCount(self, names, output_names);
+            }
+
+            pub fn withRowCumSubnormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumSubnormalCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixSubnormalCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixSubnormalCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeSubnormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeSubnormalRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumSubnormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumSubnormalRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixSubnormalRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixSubnormalRatio(self, names, output_names);
             }
 
             pub fn withRowCumulativeNonFiniteCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

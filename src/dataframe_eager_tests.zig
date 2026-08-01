@@ -5019,6 +5019,21 @@ test "device dataframe derives normal predicate columns" {
     defer gpa.free(row_subnormal_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, row_subnormal_ratio);
 
+    var row_cum_normal_counts = try table.withRowCumulativeNormalCount(&.{ "metric", "id" }, &.{ "metric_cum_normal", "id_cum_normal" });
+    defer row_cum_normal_counts.deinit();
+    const id_cum_normal = try (try row_cum_normal_counts.column("id_cum_normal")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_normal);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0 }, id_cum_normal);
+
+    var row_cum_subnormal_ratios = try table.withRowPrefixSubnormalRatio(&.{ "metric", "id" }, &.{ "metric_cum_subnormal", "id_cum_subnormal" });
+    defer row_cum_subnormal_ratios.deinit();
+    const metric_cum_subnormal = try (try row_cum_subnormal_ratios.column("metric_cum_subnormal")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_subnormal);
+    const id_cum_subnormal = try (try row_cum_subnormal_ratios.column("id_cum_subnormal")).f64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_subnormal);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, metric_cum_subnormal);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.5, 0.0, 0.0 }, id_cum_subnormal);
+
     var dropped_normal_rows = try table.dropNormalsColumn("metric");
     defer dropped_normal_rows.deinit();
     try std.testing.expectEqual(@as(usize, 4), dropped_normal_rows.height());
@@ -5063,6 +5078,7 @@ test "device dataframe derives normal predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isSubnormalColumn("missing", "missing_is_subnormal"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNormalCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSubnormalCount(&.{"missing"}, "bad_subnormal_count"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixSubnormalRatio(&.{"metric"}, &.{ "metric_cum_subnormal", "extra_cum_subnormal" }));
     try std.testing.expectError(error.ColumnNotFound, table.dropNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNormalsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropSubnormalsColumn("missing"));
@@ -5559,9 +5575,22 @@ test "device dataframe filters signed Inf rows" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, row_negative_inf_ratio);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, row_negative_inf_ratio_validity);
 
+    var row_cum_positive_inf_counts = try table.withRowPrefixPositiveInfCount(&.{"metric"}, &.{"metric_cum_pos_inf"});
+    defer row_cum_positive_inf_counts.deinit();
+    const metric_cum_pos_inf = try (try row_cum_positive_inf_counts.column("metric_cum_pos_inf")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_pos_inf);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 0 }, metric_cum_pos_inf);
+
+    var row_cum_negative_inf_ratios = try table.withRowCumulativeNegativeInfRatio(&.{"metric"}, &.{"metric_cum_neg_inf"});
+    defer row_cum_negative_inf_ratios.deinit();
+    const metric_cum_neg_inf = try (try row_cum_negative_inf_ratios.column("metric_cum_neg_inf")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_neg_inf);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 1.0, 0.0, 0.0 }, metric_cum_neg_inf);
+
     try std.testing.expectError(error.ColumnNotFound, table.dropPositiveInfsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.filterNegativeInfsColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveInfCount(&.{"missing"}, "bad_count"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowCumPositiveInfRatio(&.{"metric"}, &.{ "metric_cum_pos_inf", "extra_cum_pos_inf" }));
 }
 
 test "device dataframe selects and drops columns by name pattern" {

@@ -12149,6 +12149,60 @@ pub fn withRowPrefixInfCount(
     return withRowCumulativeInfCount(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCumulativePositiveInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .positive_inf);
+}
+
+pub fn withRowCumPositiveInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveInfCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveInfCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .negative_inf);
+}
+
+pub fn withRowCumNegativeInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeInfCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeInfCount(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowCumulativeFiniteCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -12201,6 +12255,60 @@ pub fn withRowPrefixNonFiniteCount(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeNonFiniteCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .normal);
+}
+
+pub fn withRowCumNormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNormalCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNormalCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeSubnormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .subnormal);
+}
+
+pub fn withRowCumSubnormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSubnormalCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixSubnormalCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSubnormalCount(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativePositiveZeroCount(
@@ -12638,6 +12746,60 @@ pub fn withRowPrefixInfRatio(
     return withRowCumulativeInfRatio(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCumulativePositiveInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .positive_inf);
+}
+
+pub fn withRowCumPositiveInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPositiveInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativePositiveInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNegativeInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .negative_inf);
+}
+
+pub fn withRowCumNegativeInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNegativeInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNegativeInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowCumulativeFiniteRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -12690,6 +12852,60 @@ pub fn withRowPrefixNonFiniteRatio(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeNonFiniteRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .normal);
+}
+
+pub fn withRowCumNormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNormalRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNormalRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeSubnormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .subnormal);
+}
+
+pub fn withRowCumSubnormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSubnormalRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixSubnormalRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeSubnormalRatio(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativePositiveZeroRatio(
