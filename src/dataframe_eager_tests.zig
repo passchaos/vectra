@@ -55,6 +55,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
 
     try std.testing.expectEqual(@as(usize, 3), table.height());
     try std.testing.expectEqual(@as(usize, 3), table.width());
+    try std.testing.expect(table.isNonEmpty());
+    try std.testing.expect(!table.isEmpty());
+    try std.testing.expect(table.hasRows());
+    try std.testing.expect(table.hasColumns());
     try std.testing.expect(table.device.isCpu());
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
 
@@ -74,6 +78,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer selected.deinit();
     try std.testing.expectEqual(@as(usize, 1), selected.width());
     try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
+
+    var no_columns = try table.select(&.{});
+    defer no_columns.deinit();
+    try std.testing.expect(no_columns.isEmpty());
+    try std.testing.expect(no_columns.hasRows());
+    try std.testing.expect(!no_columns.hasColumns());
+
+    var no_rows = try table.head(0);
+    defer no_rows.deinit();
+    try std.testing.expect(no_rows.isEmpty());
+    try std.testing.expect(!no_rows.hasRows());
+    try std.testing.expect(no_rows.hasColumns());
 
     var positional_selected = try table.selectByColumnIndices(&.{ 2, 0 });
     defer positional_selected.deinit();

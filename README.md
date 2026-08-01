@@ -202,7 +202,9 @@ with a PyTorch-like `tensor(...)` representation, e.g. `try writer.print("{f}", 
 construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 `DeviceDataFrameView` metadata for backend bridges, and transfer the whole table
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
-`DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible
+`DeviceDataFrame` exposes shape and emptiness metadata (`height`, `width`,
+`shape`, `isEmpty`, `isNonEmpty`, `hasRows`, `hasColumns`) alongside the table
+operations below. `DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible
 fixed-width tables by rows while preserving nullable validity.
 `distinctRows`/`distinctOn` and `dropDuplicates*` keep the first row for each
 full-row or subset-key combination; the row concat and distinct operations are

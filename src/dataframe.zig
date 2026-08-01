@@ -127,6 +127,22 @@ pub const DeviceDataFrame = struct {
         return self.columns.len;
     }
 
+    pub fn isEmpty(self: DeviceDataFrame) bool {
+        return self.rows == 0 or self.columns.len == 0;
+    }
+
+    pub fn isNonEmpty(self: DeviceDataFrame) bool {
+        return !self.isEmpty();
+    }
+
+    pub fn hasRows(self: DeviceDataFrame) bool {
+        return self.rows != 0;
+    }
+
+    pub fn hasColumns(self: DeviceDataFrame) bool {
+        return self.columns.len != 0;
+    }
+
     pub fn shape(self: DeviceDataFrame) struct { rows: usize, cols: usize } {
         return dataframe_core_mod.shape(self);
     }
