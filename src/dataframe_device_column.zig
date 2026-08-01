@@ -129,6 +129,14 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn validityNbytes(self: DeviceColumn) usize {
+        return self.view().validity_nbytes;
+    }
+
+    pub fn totalNbytes(self: DeviceColumn) usize {
+        return self.dataNbytes() + self.validityNbytes();
+    }
+
     pub fn view(self: DeviceColumn) DeviceColumnView {
         return switch (self) {
             inline else => |typed| typed.view(),

@@ -205,7 +205,9 @@ with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is ava
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,
 `rowCount`, `width`, `columnCount`, `columnNames`, `columnNameAt`, `columnDTypeAt`,
 `columnAt`, `columnDTypes`/`dtypes`, `columnNullCounts`, `columnValidCounts`,
-`columnNullableMask`, `columnHasNullsMask`, `shape`, `isEmpty`,
+`columnNullableMask`, `columnHasNullsMask`, `columnDataNbytes`,
+`columnValidityNbytes`, `columnTotalNbytes`, `dataNbytes`, `validityNbytes`,
+`totalNbytes`, `shape`, `isEmpty`,
 `isNonEmpty`, `hasRows`, `hasColumns`, `hasColumn`, `hasAllColumns`,
 `hasAnyColumn`) alongside the table
 operations below. `DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible

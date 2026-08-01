@@ -173,6 +173,40 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn columnDataNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dataNbytes();
+        return out;
+    }
+
+    pub fn columnValidityNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.validityNbytes();
+        return out;
+    }
+
+    pub fn columnTotalNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.totalNbytes();
+        return out;
+    }
+
+    pub fn dataNbytes(self: DeviceDataFrame) usize {
+        var total: usize = 0;
+        for (self.columns) |column_value| total += column_value.dataNbytes();
+        return total;
+    }
+
+    pub fn validityNbytes(self: DeviceDataFrame) usize {
+        var total: usize = 0;
+        for (self.columns) |column_value| total += column_value.validityNbytes();
+        return total;
+    }
+
+    pub fn totalNbytes(self: DeviceDataFrame) usize {
+        return self.dataNbytes() + self.validityNbytes();
+    }
+
     pub fn isEmpty(self: DeviceDataFrame) bool {
         return self.rows == 0 or self.columns.len == 0;
     }
