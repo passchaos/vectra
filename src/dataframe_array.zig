@@ -5288,7 +5288,7 @@ pub fn withRowNUnique(
     return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
 }
 
-const RowNumericDispersion = enum { variance, stddev, sem, cv, fano, skewness, kurtosis };
+const RowNumericDispersion = enum { variance, stddev, sem, cv, magnitude_cv, fano, skewness, kurtosis };
 
 fn withRowNumericDispersion(
     comptime DeviceDataFrame: type,
@@ -5340,7 +5340,8 @@ fn withRowNumericDispersion(
                     // moment updates give stable variance/skew/kurtosis while
                     // skipping nulls without materializing a dense row matrix.
                     const previous_count = counts[row];
-                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    const real_value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    const value = if (reduction == .magnitude_cv) @abs(real_value) else real_value;
                     counts[row] += 1;
                     const n: f64 = @floatFromInt(counts[row]);
                     const previous_n: f64 = @floatFromInt(previous_count);
@@ -5374,7 +5375,7 @@ fn withRowNumericDispersion(
             .variance => variance,
             .stddev => stddev_value,
             .sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
-            .cv => stddev_value / mean,
+            .cv, .magnitude_cv => if (mean == 0.0) std.math.nan(f64) else stddev_value / mean,
             .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
             .skewness => if (count < 2 or m2 == 0.0) std.math.nan(f64) else std.math.sqrt(@as(f64, @floatFromInt(count))) * m3 / std.math.pow(f64, m2, 1.5),
             .kurtosis => if (count < 2 or m2 == 0.0) std.math.nan(f64) else @as(f64, @floatFromInt(count)) * m4 / (m2 * m2) - 3.0,
@@ -5425,6 +5426,26 @@ pub fn withRowCv(
     correction: f64,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .cv);
+}
+
+pub fn withRowMagnitudeCv(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .magnitude_cv);
+}
+
+pub fn withRowAbsCv(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeCv(DeviceDataFrame, input, names, output_name, correction);
 }
 
 pub fn withRowFano(

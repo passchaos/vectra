@@ -559,7 +559,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
         },
-        .row_variance, .row_stddev, .row_sem, .row_cv, .row_fano => |row_dispersion| {
+        .row_variance, .row_stddev, .row_sem, .row_cv, .row_magnitude_cv, .row_fano => |row_dispersion| {
             freeNameList(allocator, row_dispersion.names);
             allocator.free(row_dispersion.output_name);
         },

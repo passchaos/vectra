@@ -2250,6 +2250,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowCv(self, names, output_name, correction);
             }
 
+            pub fn withRowMagnitudeCv(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeCv(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsCv(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsCv(self, names, output_name, correction);
+            }
+
             pub fn withRowFano(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowFano(self, names, output_name, correction);
             }

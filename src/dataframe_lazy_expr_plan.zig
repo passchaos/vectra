@@ -3850,7 +3850,7 @@ fn withRowNumericDispersion(
     names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { variance, stddev, sem, cv, fano },
+    comptime reduction: enum { variance, stddev, sem, cv, magnitude_cv, fano },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3876,6 +3876,11 @@ fn withRowNumericDispersion(
             .correction = correction,
         } }),
         .cv => try frame.ops.append(frame.allocator, .{ .row_cv = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .magnitude_cv => try frame.ops.append(frame.allocator, .{ .row_magnitude_cv = .{
             .names = owned_names,
             .output_name = owned_output,
             .correction = correction,
@@ -3910,6 +3915,14 @@ pub fn withRowSem(frame: anytype, names: []const []const u8, output_name: []cons
 
 pub fn withRowCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowNumericDispersion(frame, names, output_name, correction, .cv);
+}
+
+pub fn withRowMagnitudeCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .magnitude_cv);
+}
+
+pub fn withRowAbsCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowMagnitudeCv(frame, names, output_name, correction);
 }
 
 pub fn withRowFano(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {

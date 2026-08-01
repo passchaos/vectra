@@ -3123,6 +3123,14 @@ pub fn withRowCv(self: anytype, names: []const []const u8, output_name: []const 
     return dataframe_array_mod.withRowCv(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }
 
+pub fn withRowMagnitudeCv(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeCv(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsCv(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsCv(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
 pub fn withRowFano(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFano(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }
