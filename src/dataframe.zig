@@ -189,6 +189,25 @@ pub const DeviceDataFrame = struct {
         return self.columnDistinctCounts(allocator);
     }
 
+    pub fn columnIsUniqueMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        const counts = try self.columnDistinctCounts(allocator);
+        defer allocator.free(counts);
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (out, counts) |*slot, count| slot.* = count == self.rows;
+        return out;
+    }
+
+    pub fn columnHasDuplicatesMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        const unique = try self.columnIsUniqueMask(allocator);
+        errdefer allocator.free(unique);
+        for (unique) |*slot| slot.* = !slot.*;
+        return unique;
+    }
+
+    pub fn columnHasDuplicateValues(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnHasDuplicatesMask(allocator);
+    }
+
     pub fn columnNullableMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
         const out = try allocator.alloc(bool, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.nullable();
