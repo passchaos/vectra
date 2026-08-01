@@ -3780,6 +3780,34 @@ pub fn withRowIqr(
     return withRowIqrCore(DeviceDataFrame, input, names, output_name);
 }
 
+pub fn withRowInterdecileRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .difference = .{ .hi = 0.90, .lo = 0.10 } });
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowIdr(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowInterdecileRange(DeviceDataFrame, input, names, output_name);
+}
+
 pub fn withRowMidhinge(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

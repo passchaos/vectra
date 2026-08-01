@@ -1926,6 +1926,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowIqr(self, names, output_name);
             }
 
+            pub fn withRowInterdecileRange(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowInterdecileRange(self, names, output_name);
+            }
+
+            pub fn withRowIdr(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIdr(self, names, output_name);
+            }
+
             pub fn withRowMidhinge(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMidhinge(self, names, output_name);
             }

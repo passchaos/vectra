@@ -3208,7 +3208,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness, mad, mode, count_distinct, n_unique },
+    comptime reduction: enum { median, iqr, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness, mad, mode, count_distinct, n_unique },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3223,6 +3223,10 @@ fn withRowQuantileAlias(
             .output_name = owned_output,
         } }),
         .iqr => try frame.ops.append(frame.allocator, .{ .row_iqr = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .interdecile_range => try frame.ops.append(frame.allocator, .{ .row_interdecile_range = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3271,6 +3275,14 @@ pub fn withRowMedian(frame: anytype, names: []const []const u8, output_name: []c
 
 pub fn withRowIqr(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuantileAlias(frame, names, output_name, .iqr);
+}
+
+pub fn withRowInterdecileRange(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .interdecile_range);
+}
+
+pub fn withRowIdr(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowInterdecileRange(frame, names, output_name);
 }
 
 pub fn withRowMidhinge(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

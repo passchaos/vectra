@@ -2815,6 +2815,14 @@ pub fn withRowIqr(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowIqr(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowInterdecileRange(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowInterdecileRange(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowIdr(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIdr(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMidhinge(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMidhinge(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

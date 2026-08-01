@@ -452,6 +452,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_median);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
 
+    var row_idr_table = try validity_table.withRowInterdecileRange(&.{ "a", "b" }, "row_idr");
+    defer row_idr_table.deinit();
+    const row_idr_column = try row_idr_table.column("row_idr");
+    try std.testing.expect(row_idr_column.f64.nullable());
+    const row_idr = try row_idr_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_idr);
+    const row_idr_validity = try row_idr_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_idr_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_idr[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_idr[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_idr[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 28.8), row_idr[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_idr_validity);
+
     var row_midhinge_table = try validity_table.withRowMidhinge(&.{ "a", "b" }, "row_midhinge");
     defer row_midhinge_table.deinit();
     const row_midhinge = try (try row_midhinge_table.column("row_midhinge")).f64.toOwnedSlice(gpa);

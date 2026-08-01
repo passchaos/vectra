@@ -336,6 +336,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_quantile: Payloads.RowQuantile,
         row_median: Payloads.RowValidityCount,
         row_iqr: Payloads.RowValidityCount,
+        row_interdecile_range: Payloads.RowValidityCount,
         row_midhinge: Payloads.RowValidityCount,
         row_trimean: Payloads.RowValidityCount,
         row_bowley_skewness: Payloads.RowValidityCount,

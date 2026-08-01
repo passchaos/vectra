@@ -721,6 +721,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_quantile => |row_quantile| try current.withRowQuantile(row_quantile.names, row_quantile.output_name, row_quantile.q),
             .row_median => |row_count| try current.withRowMedian(row_count.names, row_count.output_name),
             .row_iqr => |row_count| try current.withRowIqr(row_count.names, row_count.output_name),
+            .row_interdecile_range => |row_count| try current.withRowInterdecileRange(row_count.names, row_count.output_name),
             .row_midhinge => |row_count| try current.withRowMidhinge(row_count.names, row_count.output_name),
             .row_trimean => |row_count| try current.withRowTrimean(row_count.names, row_count.output_name),
             .row_bowley_skewness => |row_count| try current.withRowBowleySkewness(row_count.names, row_count.output_name),
