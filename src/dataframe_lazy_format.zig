@@ -450,6 +450,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_ldexp_scalar => |expr| try writer.print("with_column_ldexp_scalar({s}=ldexp({s}, exponent:{d}))", .{ expr.name, expr.input_name, expr.exponent }),
         .with_column_threshold => |expr| try writer.print("with_column_threshold({s}=threshold({s}, threshold:{s}, replacement:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
         .with_column_hardtanh => |expr| try writer.print("with_column_hardtanh({s}=hardtanh({s}, min:{s}, max:{s}))", .{ expr.name, expr.input_name, @tagName(expr.lhs_scalar), @tagName(expr.rhs_scalar) }),
+        .with_column_between => |expr| try writer.print("with_column_between({s}=between({s}, lower:{s}, upper:{s}, lower_inclusive={any}, upper_inclusive={any}))", .{ expr.name, expr.input_name, @tagName(expr.lower), @tagName(expr.upper), expr.lower_inclusive, expr.upper_inclusive }),
         .with_column_maximum_scalar => |expr| try writer.print("with_column_maximum_scalar({s}=maximum({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_minimum_scalar => |expr| try writer.print("with_column_minimum_scalar({s}=minimum({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),
         .with_column_clip_min => |expr| try writer.print("with_column_clip_min({s}=clip_min({s}, scalar:{s}))", .{ expr.name, expr.input_name, @tagName(expr.scalar) }),

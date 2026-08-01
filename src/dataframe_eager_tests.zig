@@ -7616,6 +7616,29 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnThreshold("bad_threshold", "active", f64, -0.25, 1.0));
     try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnThreshold("missing_threshold", "missing", f64, -0.25, 1.0));
 
+    var ratio_between_table = try inverse_trig_table.withColumnBetween("ratio_between", "ratio", f64, -0.5, 0.0);
+    defer ratio_between_table.deinit();
+    const ratio_between = try (try ratio_between_table.column("ratio_between")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_between);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, ratio_between);
+    var ratio_between_exclusive_table = try inverse_trig_table.withColumnBetweenExclusive("ratio_between_exclusive", "ratio", f64, -0.5, 0.5);
+    defer ratio_between_exclusive_table.deinit();
+    const ratio_between_exclusive = try (try ratio_between_exclusive_table.column("ratio_between_exclusive")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_between_exclusive);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, ratio_between_exclusive);
+    var ratio_between_left_table = try inverse_trig_table.withColumnBetweenLeftClosed("ratio_between_left", "ratio", f64, -0.5, 0.5);
+    defer ratio_between_left_table.deinit();
+    const ratio_between_left = try (try ratio_between_left_table.column("ratio_between_left")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_between_left);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, ratio_between_left);
+    var ratio_between_right_table = try inverse_trig_table.withColumnBetweenRightClosed("ratio_between_right", "ratio", f64, -0.5, 0.5);
+    defer ratio_between_right_table.deinit();
+    const ratio_between_right = try (try ratio_between_right_table.column("ratio_between_right")).bool.toOwnedSlice(gpa);
+    defer gpa.free(ratio_between_right);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, ratio_between_right);
+    try std.testing.expectError(error.TypeUnsupported, rounding_type_table.withColumnBetween("bad_between", "active", f64, -0.25, 0.25));
+    try std.testing.expectError(error.ColumnNotFound, inverse_trig_table.withColumnBetween("missing_between", "missing", f64, -0.25, 0.25));
+
     var threshold_units_table = try table.withColumnThreshold("units_threshold", "units", i64, 2, 0);
     defer threshold_units_table.deinit();
     try std.testing.expectEqual(DeviceDType.i64, try threshold_units_table.columnDType("units_threshold"));

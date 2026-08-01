@@ -190,6 +190,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         with_column_ldexp_scalar: Payloads.WithColumnLdexpScalar,
         with_column_threshold: Payloads.WithColumnParamUnary2,
         with_column_hardtanh: Payloads.WithColumnParamUnary2,
+        with_column_between: Payloads.WithColumnBetween,
         with_column_maximum_scalar: Payloads.WithColumnParamUnary,
         with_column_minimum_scalar: Payloads.WithColumnParamUnary,
         with_column_clip_min: Payloads.WithColumnParamUnary,

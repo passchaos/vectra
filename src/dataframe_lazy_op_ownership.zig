@@ -606,6 +606,19 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .rhs_scalar = expr.rhs_scalar,
             } };
         },
+        .with_column_between => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            break :blk .{ .with_column_between = .{
+                .name = name,
+                .input_name = input_name,
+                .lower = expr.lower,
+                .upper = expr.upper,
+                .lower_inclusive = expr.lower_inclusive,
+                .upper_inclusive = expr.upper_inclusive,
+            } };
+        },
         .with_column_maximum_scalar => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);

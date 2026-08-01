@@ -355,6 +355,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_between => |expr| blk: {
+                var column_value = try current.betweenColumnWithDeviceScalars(expr.input_name, expr.lower, expr.upper, expr.lower_inclusive, expr.upper_inclusive);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_maximum_scalar => |expr| blk: {
                 var column_value = try current.unaryColumnMaximumWithDeviceScalar(expr.input_name, expr.scalar);
                 defer column_value.deinit();

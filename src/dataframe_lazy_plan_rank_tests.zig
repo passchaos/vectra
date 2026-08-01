@@ -529,6 +529,46 @@ test "device lazy frame collects plan operations" {
     try std.testing.expectEqualSlices(bool, &.{ true, false }, result_big_sale);
 }
 
+test "device lazy frame derives between predicate columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withColumnBetween("sales_between_closed", "sales", f64, 3.0, 5.0);
+    try plan.withColumnBetweenExclusive("sales_between_open", "sales", f64, 2.0, 7.0);
+    try plan.withColumnBetweenLeftClosed("sales_between_left", "sales", f64, 2.0, 7.0);
+    try plan.withColumnBetweenRightClosed("sales_between_right", "sales", f64, 2.0, 7.0);
+    try plan.select(&.{ "sales_between_closed", "sales_between_open", "sales_between_left", "sales_between_right" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_between(sales_between_closed=between(sales, lower:f64, upper:f64, lower_inclusive=true, upper_inclusive=true))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_between(sales_between_open=between(sales, lower:f64, upper:f64, lower_inclusive=false, upper_inclusive=false))") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 4), result.width());
+    const closed = try (try result.column("sales_between_closed")).bool.toOwnedSlice(gpa);
+    defer gpa.free(closed);
+    const open = try (try result.column("sales_between_open")).bool.toOwnedSlice(gpa);
+    defer gpa.free(open);
+    const left = try (try result.column("sales_between_left")).bool.toOwnedSlice(gpa);
+    defer gpa.free(left);
+    const right = try (try result.column("sales_between_right")).bool.toOwnedSlice(gpa);
+    defer gpa.free(right);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, closed);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, open);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, left);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, right);
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withColumnBetween("bad_between", "active", f64, 0.0, 1.0);
+    try std.testing.expectError(error.TypeUnsupported, invalid_plan.collect());
+}
+
 test "device lazy frame filters by named boolean columns" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

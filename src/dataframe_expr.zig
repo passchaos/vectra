@@ -703,6 +703,40 @@ pub fn compareColumnScalarWithDeviceScalar(frame: anytype, name: []const u8, sca
     };
 }
 
+pub fn betweenColumnWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    lower: DeviceScalar,
+    upper: DeviceScalar,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    var lower_mask = try compareColumnScalarWithDeviceScalar(frame, name, lower, if (lower_inclusive) .ge else .gt);
+    defer lower_mask.deinit();
+    var upper_mask = try compareColumnScalarWithDeviceScalar(frame, name, upper, if (upper_inclusive) .le else .lt);
+    defer upper_mask.deinit();
+    return lower_mask.logical(upper_mask, .@"and");
+}
+
+pub fn betweenColumnScalar(
+    frame: anytype,
+    name: []const u8,
+    comptime T: type,
+    lower: T,
+    upper: T,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!@TypeOf(frame.columns[0]) {
+    return betweenColumnWithDeviceScalars(
+        frame,
+        name,
+        DeviceScalar.init(T, lower),
+        DeviceScalar.init(T, upper),
+        lower_inclusive,
+        upper_inclusive,
+    );
+}
+
 pub fn iscloseColumnScalar(
     frame: anytype,
     name: []const u8,

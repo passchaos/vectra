@@ -1146,6 +1146,76 @@ pub fn withColumnHardtanhWithDeviceScalars(
     } });
 }
 
+pub fn withColumnBetween(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    lower: T,
+    upper: T,
+) DeviceDataError!void {
+    return withColumnBetweenWithDeviceScalars(frame, name, input_name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), true, true);
+}
+
+pub fn withColumnIsBetween(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    lower: T,
+    upper: T,
+) DeviceDataError!void {
+    return withColumnBetween(frame, name, input_name, T, lower, upper);
+}
+
+pub fn withColumnBetweenClosed(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    lower: T,
+    upper: T,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!void {
+    return withColumnBetweenWithDeviceScalars(frame, name, input_name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), lower_inclusive, upper_inclusive);
+}
+
+pub fn withColumnBetweenExclusive(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnBetweenClosed(frame, name, input_name, T, lower, upper, false, false);
+}
+
+pub fn withColumnBetweenLeftClosed(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnBetweenClosed(frame, name, input_name, T, lower, upper, true, false);
+}
+
+pub fn withColumnBetweenRightClosed(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return withColumnBetweenClosed(frame, name, input_name, T, lower, upper, false, true);
+}
+
+pub fn withColumnBetweenWithDeviceScalars(
+    frame: anytype,
+    name: []const u8,
+    input_name: []const u8,
+    lower: DeviceScalar,
+    upper: DeviceScalar,
+    lower_inclusive: bool,
+    upper_inclusive: bool,
+) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    try frame.ops.append(frame.allocator, .{ .with_column_between = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .lower = lower,
+        .upper = upper,
+        .lower_inclusive = lower_inclusive,
+        .upper_inclusive = upper_inclusive,
+    } });
+}
+
 pub fn withColumnMaximumScalar(frame: anytype, name: []const u8, input_name: []const u8, comptime T: type, scalar: T) DeviceDataError!void {
     return withColumnMaximumWithDeviceScalar(frame, name, input_name, DeviceScalar.init(T, scalar));
 }
