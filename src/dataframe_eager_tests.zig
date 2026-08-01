@@ -189,9 +189,13 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const nullable_mask = try table.columnNullableMask(gpa);
     defer gpa.free(nullable_mask);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, nullable_mask);
+    try std.testing.expectEqual(@as(usize, 1), table.nullableColumnCount());
+    try std.testing.expectEqual(@as(usize, 2), table.nonNullableColumnCount());
     const has_nulls_mask = try table.columnHasNullsMask(gpa);
     defer gpa.free(has_nulls_mask);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, has_nulls_mask);
+    try std.testing.expectEqual(@as(usize, 1), table.columnsWithNullsCount());
+    try std.testing.expectEqual(@as(usize, 2), table.columnsWithoutNullsCount());
     const data_nbytes = try table.columnDataNbytes(gpa);
     defer gpa.free(data_nbytes);
     try std.testing.expectEqualSlices(usize, &.{ 3 * @sizeOf(f64), 3 * @sizeOf(i64), 3 * @sizeOf(bool) }, data_nbytes);

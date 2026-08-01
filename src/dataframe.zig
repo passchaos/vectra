@@ -361,10 +361,34 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn nullableColumnCount(self: DeviceDataFrame) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (column_value.nullable()) count += 1;
+        }
+        return count;
+    }
+
+    pub fn nonNullableColumnCount(self: DeviceDataFrame) usize {
+        return self.columns.len - self.nullableColumnCount();
+    }
+
     pub fn columnHasNullsMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
         const out = try allocator.alloc(bool, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.hasNulls();
         return out;
+    }
+
+    pub fn columnsWithNullsCount(self: DeviceDataFrame) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (column_value.hasNulls()) count += 1;
+        }
+        return count;
+    }
+
+    pub fn columnsWithoutNullsCount(self: DeviceDataFrame) usize {
+        return self.columns.len - self.columnsWithNullsCount();
     }
 
     pub fn columnDataNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
