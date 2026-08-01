@@ -7347,6 +7347,14 @@ pub fn argsortBy(self: anytype, name: []const u8, options_value: DeviceSortOptio
     return rank_mod.argsortBy(frameValue(self), name, options_value);
 }
 
+pub fn isSortedBy(self: anytype, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!bool {
+    return rank_mod.isSortedBy(frameValue(self), name, options_value);
+}
+
+pub fn isSortedByColumn(self: anytype, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!bool {
+    return isSortedBy(self, name, options_value);
+}
+
 pub fn sortBy(self: anytype, name: []const u8, options_value: DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
     return rank_mod.sortBy(FrameType(@TypeOf(self)), frameValue(self), name, options_value);
 }
@@ -7357,6 +7365,10 @@ pub fn sortByColumn(self: anytype, name: []const u8, options_value: DeviceSortOp
 
 pub fn argsortByColumns(self: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) DeviceDataError![]usize {
     return rank_mod.argsortByColumns(frameValue(self), names, options_values);
+}
+
+pub fn isSortedByColumns(self: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) DeviceDataError!bool {
+    return rank_mod.isSortedByColumns(frameValue(self), names, options_values);
 }
 
 pub fn sortByColumns(self: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {

@@ -30,9 +30,12 @@ test "device dataframe sorts and rank profiles" {
     const asc = try table.argsortBy("score", .{ .descending = false, .nulls = .last });
     defer gpa.free(asc);
     try std.testing.expectEqualSlices(usize, &.{ 1, 0, 3, 2 }, asc);
+    try std.testing.expect(!try table.isSortedBy("score", .{ .descending = false, .nulls = .last }));
 
     var sorted = try table.sortBy("score", .{ .descending = false, .nulls = .last });
     defer sorted.deinit();
+    try std.testing.expect(try sorted.isSortedBy("score", .{ .descending = false, .nulls = .last }));
+    try std.testing.expect(try sorted.isSortedByColumn("score", .{ .descending = false, .nulls = .last }));
     const sorted_id = try sorted.column("id");
     const sorted_id_values = try sorted_id.i64.toOwnedSlice(gpa);
     defer gpa.free(sorted_id_values);
@@ -71,6 +74,8 @@ test "device dataframe sorts and rank profiles" {
 
     var multi_sorted = try multi_table.sortByColumns(&.{ "group", "score" }, &.{ .{ .descending = false }, .{ .descending = true } });
     defer multi_sorted.deinit();
+    try std.testing.expect(try multi_sorted.isSortedByColumns(&.{ "group", "score" }, &.{ .{ .descending = false }, .{ .descending = true } }));
+    try std.testing.expect(!try multi_table.isSortedByColumns(&.{ "group", "score" }, &.{ .{ .descending = false }, .{ .descending = true } }));
     const multi_sorted_id = try (try multi_sorted.column("id")).i64.toOwnedSlice(gpa);
     defer gpa.free(multi_sorted_id);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 2, 4 }, multi_sorted_id);

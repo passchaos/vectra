@@ -44,6 +44,15 @@ pub fn argsortBy(frame: anytype, name: []const u8, options_value: DeviceSortOpti
     return sort_key.argsort(frame.allocator, options_value);
 }
 
+pub fn isSortedBy(frame: anytype, name: []const u8, options_value: DeviceSortOptions) RankFrameError!bool {
+    const order = try argsortBy(frame, name, options_value);
+    defer frame.allocator.free(order);
+    for (order, 0..) |row, expected| {
+        if (row != expected) return false;
+    }
+    return true;
+}
+
 pub fn sortBy(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -77,6 +86,15 @@ pub fn argsortByColumns(frame: anytype, names: []const []const u8, options_value
         order = next_order;
     }
     return order;
+}
+
+pub fn isSortedByColumns(frame: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) RankFrameError!bool {
+    const order = try argsortByColumns(frame, names, options_values);
+    defer frame.allocator.free(order);
+    for (order, 0..) |row, expected| {
+        if (row != expected) return false;
+    }
+    return true;
 }
 
 pub fn sortByColumns(
