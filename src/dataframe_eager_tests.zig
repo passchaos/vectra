@@ -330,6 +330,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 1, -1, 3 }, units_filled_values);
     try std.testing.expectEqual(@as(usize, 0), (try units_filled_expr.column("units_filled")).nullCount());
     try std.testing.expectError(error.TypeUnsupported, table.withColumnFillNull("bad_units_filled", "units", f64, 0.0));
+
+    var directional_units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, false }, .cpu);
+    defer directional_units.deinit();
+    var directional_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "units", .data = directional_units }});
+    defer directional_table.deinit();
+    var forward_filled = try directional_table.withColumnFillNullForward("units_ffill", "units");
+    defer forward_filled.deinit();
+    const forward_values = try (try forward_filled.column("units_ffill")).i64.toOwnedSlice(gpa);
+    defer gpa.free(forward_values);
+    const forward_validity = try (try forward_filled.column("units_ffill")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(forward_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 10, 20, 20, 20 }, forward_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, forward_validity);
+    var backward_filled = try directional_table.withColumnFillNullBackward("units_bfill", "units");
+    defer backward_filled.deinit();
+    const backward_values = try (try backward_filled.column("units_bfill")).i64.toOwnedSlice(gpa);
+    defer gpa.free(backward_values);
+    const backward_validity = try (try backward_filled.column("units_bfill")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(backward_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 20, 20, 30, 40 }, backward_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false }, backward_validity);
+
     var units_null_if_expr = try table.withColumnNullIf("units_without_one", "units", i64, 1);
     defer units_null_if_expr.deinit();
     const units_without_one = try (try units_null_if_expr.column("units_without_one")).i64.toOwnedSlice(gpa);

@@ -1410,6 +1410,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .fill_null_forward_column => |name| .{ .fill_null_forward_column = try allocator.dupe(u8, name) },
+        .fill_null_backward_column => |name| .{ .fill_null_backward_column = try allocator.dupe(u8, name) },
         .null_if_column => |fill| blk: {
             const name = try allocator.dupe(u8, fill.name);
             break :blk .{ .null_if_column = .{

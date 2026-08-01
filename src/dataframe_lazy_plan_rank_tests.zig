@@ -1337,6 +1337,8 @@ test "device lazy frame fills nullable columns" {
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
     try plan.withColumnFillNull("quality_filled_copy", "quality", f64, -2.0);
+    try plan.withColumnFillNullForward("quality_ffill", "quality");
+    try plan.withColumnFillNullBackward("quality_bfill", "quality");
     try plan.withColumnNullIf("quality_without_three", "quality", f64, 3.0);
     try plan.withColumnNullIfValues("quality_without_values", "quality", f64, &.{ 1.0, 4.0 });
     try plan.fillNullColumn("quality", f64, -1.0);
@@ -1346,6 +1348,8 @@ test "device lazy frame fills nullable columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_column(quality=scalar:f64)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "copy_column(quality->quality_filled_copy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_column(quality_filled_copy=scalar:f64)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_forward_column(quality_ffill)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "fill_null_backward_column(quality_bfill)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "copy_column(quality->quality_without_three)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "null_if_column(quality_without_three=scalar:f64)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "null_if_values_column(quality_without_values, values_dtype=f64, values_len=2)") != null);
@@ -1360,6 +1364,12 @@ test "device lazy frame fills nullable columns" {
     const quality_filled_copy = try (try filled.column("quality_filled_copy")).f64.toOwnedSlice(gpa);
     defer gpa.free(quality_filled_copy);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, -2.0, 3.0, 4.0 }, quality_filled_copy);
+    const quality_ffill = try (try filled.column("quality_ffill")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality_ffill);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 3.0, 4.0 }, quality_ffill);
+    const quality_bfill = try (try filled.column("quality_bfill")).f64.toOwnedSlice(gpa);
+    defer gpa.free(quality_bfill);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 3.0, 3.0, 4.0 }, quality_bfill);
     const quality_without_three = try (try filled.column("quality_without_three")).f64.toOwnedSlice(gpa);
     defer gpa.free(quality_without_three);
     const quality_without_three_validity = try (try filled.column("quality_without_three")).f64.validity.?.toOwnedSlice(gpa);

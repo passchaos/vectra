@@ -1720,6 +1720,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnFillNullScalar(self, output_name, input_name, scalar);
             }
 
+            pub fn fillNullForwardColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.fillNullForwardColumn(self, name);
+            }
+
+            pub fn fillNullBackwardColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.fillNullBackwardColumn(self, name);
+            }
+
+            pub fn withColumnFillNullForward(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNullForward(self, output_name, input_name);
+            }
+
+            pub fn withColumnFillNullBackward(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNullBackward(self, output_name, input_name);
+            }
+
             pub fn nullIfColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.nullIfColumn(self, name, T, value);
             }

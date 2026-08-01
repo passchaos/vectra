@@ -667,6 +667,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .fill_normal_column => |fill| try current.fillNormalColumnWithScalar(fill.name, fill.scalar),
             .fill_subnormal_column => |fill| try current.fillSubnormalColumnWithScalar(fill.name, fill.scalar),
             .fill_non_finite_column => |fill| try current.fillNonFiniteColumnWithScalar(fill.name, fill.scalar),
+            .fill_null_forward_column => |name| try current.fillNullForwardColumn(name),
+            .fill_null_backward_column => |name| try current.fillNullBackwardColumn(name),
             .null_if_column => |fill| try current.nullIfColumnScalar(fill.name, fill.scalar),
             .null_if_values_column => |null_if| try current.nullIfValuesColumnWithDeviceColumn(null_if.name, null_if.values),
             .null_if_nan_column => |name| try current.nullIfNaNColumn(name),

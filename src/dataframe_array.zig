@@ -1108,6 +1108,114 @@ pub fn withColumnFillNullScalar(
     return withColumnFillNull(DeviceDataFrame, input, output_name, input_name, scalar);
 }
 
+const FillNullDirection = enum {
+    forward,
+    backward,
+};
+
+fn fillNullDirectionalTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: anytype,
+    direction: FillNullDirection,
+) array_mod.ArrayError!@TypeOf(column) {
+    const maybe_validity = try validityValues(column, allocator);
+    const existing_validity = maybe_validity orelse return column.clone();
+    defer allocator.free(existing_validity);
+
+    const values = try column.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const validity = try allocator.dupe(bool, existing_validity);
+    defer allocator.free(validity);
+
+    switch (direction) {
+        .forward => {
+            var last_valid: ?T = null;
+            for (values, validity) |*value, *valid| {
+                if (valid.*) {
+                    last_valid = value.*;
+                } else if (last_valid) |replacement| {
+                    value.* = replacement;
+                    valid.* = true;
+                }
+            }
+        },
+        .backward => {
+            var next_valid: ?T = null;
+            var index = values.len;
+            while (index > 0) {
+                index -= 1;
+                if (validity[index]) {
+                    next_valid = values[index];
+                } else if (next_valid) |replacement| {
+                    values[index] = replacement;
+                    validity[index] = true;
+                }
+            }
+        },
+    }
+
+    if (countNulls(validity) == 0) return @TypeOf(column).fromSlice(allocator, values, column.device());
+    return @TypeOf(column).fromSliceWithValidity(allocator, values, validity, column.device());
+}
+
+fn fillNullDirectionalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    direction: FillNullDirection,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(input_name);
+    return switch (source.*) {
+        inline else => |typed, tag| blk: {
+            const T = tag.Type();
+            const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+            var filled: DeviceColumn = @unionInit(
+                DeviceColumn,
+                @tagName(tag),
+                try fillNullDirectionalTyped(T, input.allocator, typed, direction),
+            );
+            defer filled.deinit();
+            break :blk try withColumn(DeviceDataFrame, input, output_name, filled);
+        },
+    };
+}
+
+pub fn fillNullForwardColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNullDirectionalColumn(DeviceDataFrame, input, name, name, .forward);
+}
+
+pub fn fillNullBackwardColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNullDirectionalColumn(DeviceDataFrame, input, name, name, .backward);
+}
+
+pub fn withColumnFillNullForward(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNullDirectionalColumn(DeviceDataFrame, input, output_name, input_name, .forward);
+}
+
+pub fn withColumnFillNullBackward(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return fillNullDirectionalColumn(DeviceDataFrame, input, output_name, input_name, .backward);
+}
+
 fn nullIfScalarTyped(
     comptime T: type,
     allocator: std.mem.Allocator,

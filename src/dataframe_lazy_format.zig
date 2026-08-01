@@ -397,6 +397,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .fill_normal_column => |fill| try writer.print("fill_normal_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_subnormal_column => |fill| try writer.print("fill_subnormal_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_non_finite_column => |fill| try writer.print("fill_non_finite_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
+        .fill_null_forward_column => |name| try writer.print("fill_null_forward_column({s})", .{name}),
+        .fill_null_backward_column => |name| try writer.print("fill_null_backward_column({s})", .{name}),
         .null_if_column => |fill| try writer.print("null_if_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .null_if_values_column => |null_if| try writer.print("null_if_values_column({s}, values_dtype={s}, values_len={d})", .{ null_if.name, null_if.values.dtype().name(), null_if.values.len() }),
         .null_if_nan_column => |name| try writer.print("null_if_nan_column({s})", .{name}),

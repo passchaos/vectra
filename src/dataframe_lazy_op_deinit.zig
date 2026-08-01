@@ -567,6 +567,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         },
         .cast_column => |cast| allocator.free(cast.name),
         .fill_null_column, .fill_nan_column, .fill_inf_column, .fill_positive_inf_column, .fill_negative_inf_column, .fill_zero_column, .fill_positive_zero_column, .fill_negative_zero_column, .fill_non_zero_column, .fill_positive_column, .fill_signbit_column, .fill_negative_column, .fill_finite_column, .fill_normal_column, .fill_subnormal_column, .fill_non_finite_column, .null_if_column => |fill| allocator.free(fill.name),
+        .fill_null_forward_column, .fill_null_backward_column => |name| allocator.free(name),
         .null_if_values_column => |*null_if| {
             allocator.free(null_if.name);
             null_if.values.deinit();

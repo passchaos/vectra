@@ -261,7 +261,10 @@ predicate variants such as `nullIfNaNColumn`, `withColumnNullIfZero`, and
 into nulls without inventing replacement sentinel values. `withColumnFillNull`/
 `withColumnFillNullScalar` create a filled output column while
 leaving the source column intact, complementing in-place `fillNullColumn` for
-feature-engineering pipelines. Matching predicate-fill expression variants such
+feature-engineering pipelines; `fillNullForwardColumn`/`fillNullBackwardColumn`
+and `withColumnFillNullForward`/`withColumnFillNullBackward` provide
+Pandas/Polars-style directional null propagation while leaving leading or
+trailing gaps null when no valid neighbor exists. Matching predicate-fill expression variants such
 as `withColumnFillNaN`, `withColumnFillZero`, and `withColumnFillFinite` extend
 that non-destructive pattern to the existing NaN/Inf/zero/sign/finite fill APIs.
 `coalesceColumnsMany`/`coalesceManyColumns`/

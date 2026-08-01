@@ -2834,6 +2834,22 @@ pub fn withColumnFillNullScalar(self: anytype, output_name: []const u8, input_na
     return dataframe_array_mod.withColumnFillNullScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
 }
 
+pub fn fillNullForwardColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNullForwardColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn fillNullBackwardColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.fillNullBackwardColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnFillNullForward(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNullForward(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn withColumnFillNullBackward(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNullBackward(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
 pub fn nullIfColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.nullIfColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
 }
