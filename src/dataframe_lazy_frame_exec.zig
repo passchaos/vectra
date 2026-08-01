@@ -1357,6 +1357,14 @@ fn optimizedOps(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!std.
                     } };
                     continue;
                 }
+                if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .slice_rows) {
+                    const slice = optimized.items[optimized.items.len - 1].slice_rows;
+                    optimized.items[optimized.items.len - 1] = .{ .slice_rows = .{
+                        .start = slice.start,
+                        .stop = @min(slice.stop, std.math.add(usize, slice.start, n) catch std.math.maxInt(usize)),
+                    } };
+                    continue;
+                }
                 if (optimized.items.len != 0 and optimized.items[optimized.items.len - 1] == .head) {
                     const prev = optimized.items[optimized.items.len - 1].head;
                     optimized.items[optimized.items.len - 1] = .{ .head = @min(prev, n) };

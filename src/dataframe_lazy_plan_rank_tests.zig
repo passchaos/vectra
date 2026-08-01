@@ -7257,6 +7257,20 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(offset_sales);
     try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, offset_sales);
 
+    var offset_limit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer offset_limit_plan.deinit();
+    try offset_limit_plan.offset(1);
+    try offset_limit_plan.limit(2);
+    try offset_limit_plan.select(&.{"sales"});
+    const offset_limit_explain = try offset_limit_plan.explain(gpa);
+    defer gpa.free(offset_limit_explain);
+    try std.testing.expect(std.mem.indexOf(u8, offset_limit_explain, "slice_rows(1..3)") != null);
+    var offset_limited = try offset_limit_plan.collect();
+    defer offset_limited.deinit();
+    const offset_limited_sales = try (try offset_limited.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(offset_limited_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, offset_limited_sales);
+
     var slice_len_plan = try DeviceLazyFrame.init(gpa, table);
     defer slice_len_plan.deinit();
     try slice_len_plan.sliceRowsLen(1, 2);
