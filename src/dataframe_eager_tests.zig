@@ -85,6 +85,15 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const valid_counts = try table.columnValidCounts(gpa);
     defer gpa.free(valid_counts);
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 3 }, valid_counts);
+    const distinct_counts = try table.columnDistinctCounts(gpa);
+    defer gpa.free(distinct_counts);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2, 2 }, distinct_counts);
+    const n_unique_counts = try table.columnNUniqueCounts(gpa);
+    defer gpa.free(n_unique_counts);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2, 2 }, n_unique_counts);
+    const n_unique_alias = try table.columnNUnique(gpa);
+    defer gpa.free(n_unique_alias);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 2, 2 }, n_unique_alias);
     const nullable_mask = try table.columnNullableMask(gpa);
     defer gpa.free(nullable_mask);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false }, nullable_mask);

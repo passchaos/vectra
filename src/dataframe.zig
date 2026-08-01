@@ -174,6 +174,21 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn columnDistinctCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        errdefer allocator.free(out);
+        for (self.names, out) |name, *slot| slot.* = try self.countDistinctColumn(name);
+        return out;
+    }
+
+    pub fn columnNUniqueCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDistinctCounts(allocator);
+    }
+
+    pub fn columnNUnique(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDistinctCounts(allocator);
+    }
+
     pub fn columnNullableMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
         const out = try allocator.alloc(bool, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.nullable();
