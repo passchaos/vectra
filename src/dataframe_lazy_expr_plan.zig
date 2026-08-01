@@ -5207,6 +5207,55 @@ pub fn withRowPrefixFalseCount(frame: anytype, names: []const []const u8, output
     return withRowCumulativeFalseCount(frame, names, output_names);
 }
 
+fn withRowCumulativeBoolPredicateRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime target: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (target) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_true_ratio = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_false_ratio = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeTrueRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolPredicateRatio(frame, names, output_names, true);
+}
+
+pub fn withRowCumTrueRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeTrueRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixTrueRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeTrueRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFalseRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolPredicateRatio(frame, names, output_names, false);
+}
+
+pub fn withRowCumFalseRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFalseRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixFalseRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFalseRatio(frame, names, output_names);
+}
+
 fn withRowBoolReduction(
     frame: anytype,
     names: []const []const u8,

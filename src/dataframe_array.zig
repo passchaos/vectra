@@ -9149,6 +9149,113 @@ pub fn withRowPrefixFalseCount(
     return withRowCumulativeFalseCount(DeviceDataFrame, input, names, output_names);
 }
 
+fn withRowCumulativeBoolPredicateRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime target: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |name, output_name, col_index| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |validity| input.allocator.free(validity);
+
+        for (counts, host_values, 0..) |*slot, value, row| {
+            const valid = if (maybe_validity) |validity| validity[row] else true;
+            if (valid and value == target) slot.* += 1;
+        }
+
+        const denominator: f64 = @floatFromInt(col_index + 1);
+        for (ratios, counts) |*ratio, count| {
+            ratio.* = @as(f64, @floatFromInt(count)) / denominator;
+        }
+
+        var column = try DeviceColumn.fromSlice(f64, input.allocator, ratios, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeTrueRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolPredicateRatio(DeviceDataFrame, input, names, output_names, true);
+}
+
+pub fn withRowCumTrueRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeTrueRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixTrueRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeTrueRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFalseRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolPredicateRatio(DeviceDataFrame, input, names, output_names, false);
+}
+
+pub fn withRowCumFalseRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFalseRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixFalseRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFalseRatio(DeviceDataFrame, input, names, output_names);
+}
+
 const RowBoolReduction = enum { any_true, all_true, any_false, all_false };
 
 fn withRowBoolReduction(

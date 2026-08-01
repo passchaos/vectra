@@ -3855,6 +3855,30 @@ pub fn withRowPrefixFalseCount(self: anytype, names: []const []const u8, output_
     return dataframe_array_mod.withRowPrefixFalseCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowCumulativeTrueRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeTrueRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumTrueRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumTrueRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixTrueRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixTrueRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeFalseRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFalseRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumFalseRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumFalseRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixFalseRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFalseRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowAnyTrue(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowAnyTrue(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

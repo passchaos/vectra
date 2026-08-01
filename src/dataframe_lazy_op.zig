@@ -455,6 +455,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_false_count: Payloads.RowValidityCount,
         row_cumulative_true_count: Payloads.RowColumnOutputs,
         row_cumulative_false_count: Payloads.RowColumnOutputs,
+        row_cumulative_true_ratio: Payloads.RowColumnOutputs,
+        row_cumulative_false_ratio: Payloads.RowColumnOutputs,
         row_any_true: Payloads.RowValidityCount,
         row_all_true: Payloads.RowValidityCount,
         row_any_false: Payloads.RowValidityCount,

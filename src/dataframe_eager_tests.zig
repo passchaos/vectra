@@ -465,8 +465,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(alt_cum_false);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, active_cum_false);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, alt_cum_false);
+    var row_cum_true_ratios = try bool_table.withRowCumulativeTrueRatio(&.{ "active", "bool_alt" }, &.{ "active_cum_true_ratio", "alt_cum_true_ratio" });
+    defer row_cum_true_ratios.deinit();
+    const active_cum_true_ratio = try (try row_cum_true_ratios.column("active_cum_true_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_true_ratio);
+    const alt_cum_true_ratio = try (try row_cum_true_ratios.column("alt_cum_true_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_true_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 1.0 }, active_cum_true_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.5 }, alt_cum_true_ratio);
+    var row_cum_false_ratios = try bool_table.withRowPrefixFalseRatio(&.{ "active", "bool_alt" }, &.{ "active_cum_false_ratio", "alt_cum_false_ratio" });
+    defer row_cum_false_ratios.deinit();
+    const active_cum_false_ratio = try (try row_cum_false_ratios.column("active_cum_false_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_false_ratio);
+    const alt_cum_false_ratio = try (try row_cum_false_ratios.column("alt_cum_false_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_false_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0 }, active_cum_false_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.5, 0.5 }, alt_cum_false_ratio);
     try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixTrueCount(&.{"active"}, &.{ "active_cum_true", "extra_cum_true" }));
+    try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixTrueRatio(&.{"active"}, &.{ "active_cum_true_ratio", "extra_cum_true_ratio" }));
     try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeTrueCount(&.{"sales"}, &.{"sales_cum_true"}));
+    try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeTrueRatio(&.{"sales"}, &.{"sales_cum_true_ratio"}));
 
     var validity_a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
     defer validity_a.deinit();
