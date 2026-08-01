@@ -12097,6 +12097,60 @@ pub fn withRowLastInfIndex(
     return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .inf, .last);
 }
 
+pub fn withRowFirstPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive_zero, .first);
+}
+
+pub fn withRowLastPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive_zero, .last);
+}
+
+pub fn withRowFirstNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative_zero, .first);
+}
+
+pub fn withRowLastNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative_zero, .last);
+}
+
+pub fn withRowFirstSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .signbit, .first);
+}
+
+pub fn withRowLastSignBitIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .signbit, .last);
+}
+
 pub fn withRowFirstFiniteIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

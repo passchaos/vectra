@@ -6565,7 +6565,7 @@ fn withRowNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_finite, last_finite, first_non_finite, last_non_finite, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
+    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_finite, last_finite, first_non_finite, last_non_finite, first_positive_zero, last_positive_zero, first_negative_zero, last_negative_zero, first_signbit, last_signbit, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -6583,6 +6583,12 @@ fn withRowNumericPredicateIndex(
         .last_finite => try frame.ops.append(frame.allocator, .{ .row_last_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_non_finite => try frame.ops.append(frame.allocator, .{ .row_first_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_non_finite => try frame.ops.append(frame.allocator, .{ .row_last_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_positive_zero => try frame.ops.append(frame.allocator, .{ .row_first_positive_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_positive_zero => try frame.ops.append(frame.allocator, .{ .row_last_positive_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_negative_zero => try frame.ops.append(frame.allocator, .{ .row_first_negative_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_negative_zero => try frame.ops.append(frame.allocator, .{ .row_last_negative_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_signbit => try frame.ops.append(frame.allocator, .{ .row_first_signbit_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_signbit => try frame.ops.append(frame.allocator, .{ .row_last_signbit_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_zero => try frame.ops.append(frame.allocator, .{ .row_first_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_zero => try frame.ops.append(frame.allocator, .{ .row_last_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_non_zero => try frame.ops.append(frame.allocator, .{ .row_first_non_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
@@ -6616,6 +6622,30 @@ pub fn withRowFirstInfIndex(frame: anytype, names: []const []const u8, output_na
 
 pub fn withRowLastInfIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateIndex(frame, names, output_name, .last_inf);
+}
+
+pub fn withRowFirstPositiveZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_positive_zero);
+}
+
+pub fn withRowLastPositiveZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_positive_zero);
+}
+
+pub fn withRowFirstNegativeZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_negative_zero);
+}
+
+pub fn withRowLastNegativeZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_negative_zero);
+}
+
+pub fn withRowFirstSignBitIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_signbit);
+}
+
+pub fn withRowLastSignBitIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_signbit);
 }
 
 pub fn withRowFirstFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
