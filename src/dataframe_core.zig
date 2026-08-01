@@ -91,7 +91,22 @@ pub fn column(frame: anytype, name: []const u8) DataError!*const std.meta.Elem(@
     return &frame.columns[idx];
 }
 
+pub fn columnAt(frame: anytype, index: usize) DeviceDataError!*const std.meta.Elem(@TypeOf(frame.columns)) {
+    if (index >= frame.columns.len) return error.IndexOutOfBounds;
+    return &frame.columns[index];
+}
+
+pub fn columnNameAt(frame: anytype, index: usize) DeviceDataError![]const u8 {
+    if (index >= frame.names.len) return error.IndexOutOfBounds;
+    return frame.names[index];
+}
+
 pub fn columnDType(frame: anytype, name: []const u8) DataError!array_mod.DType {
     const idx = columnIndex(frame, name) orelse return error.ColumnNotFound;
     return frame.columns[idx].dtype();
+}
+
+pub fn columnDTypeAt(frame: anytype, index: usize) DeviceDataError!array_mod.DType {
+    const col = try columnAt(frame, index);
+    return col.dtype();
 }

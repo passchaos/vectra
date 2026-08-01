@@ -62,6 +62,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(std.mem.eql(u8, "sales", names[0]));
     try std.testing.expect(std.mem.eql(u8, "units", names[1]));
     try std.testing.expect(std.mem.eql(u8, "active", names[2]));
+    try std.testing.expect(std.mem.eql(u8, "sales", try table.columnNameAt(0)));
+    try std.testing.expectEqual(DeviceDType.f64, try table.columnDTypeAt(0));
+    try std.testing.expectEqual(DeviceDType.bool, (try table.columnAt(2)).dtype());
+    try std.testing.expectError(error.IndexOutOfBounds, table.columnNameAt(3));
+    try std.testing.expectError(error.IndexOutOfBounds, table.columnDTypeAt(3));
+    try std.testing.expectError(error.IndexOutOfBounds, table.columnAt(3));
     try std.testing.expect(table.isNonEmpty());
     try std.testing.expect(!table.isEmpty());
     try std.testing.expect(table.hasRows());

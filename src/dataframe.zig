@@ -185,8 +185,20 @@ pub const DeviceDataFrame = struct {
         return dataframe_core_mod.column(self, name);
     }
 
+    pub fn columnAt(self: *const DeviceDataFrame, index: usize) DeviceDataError!*const DeviceColumn {
+        return dataframe_core_mod.columnAt(self, index);
+    }
+
+    pub fn columnNameAt(self: DeviceDataFrame, index: usize) DeviceDataError![]const u8 {
+        return dataframe_core_mod.columnNameAt(self, index);
+    }
+
     pub fn columnDType(self: DeviceDataFrame, name: []const u8) DataError!DeviceDType {
         return dataframe_core_mod.columnDType(self, name);
+    }
+
+    pub fn columnDTypeAt(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceDType {
+        return dataframe_core_mod.columnDTypeAt(self, index);
     }
 
     pub const unaryColumnAbs = table_methods_mod.unaryColumnAbs;
