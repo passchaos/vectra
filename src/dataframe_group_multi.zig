@@ -361,6 +361,119 @@ pub fn groupByNUniqueOn(
     return groupByNUniqueOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
+pub fn groupByModeOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .bool => |typed| groupByModeOnTyped(DeviceDataFrame, bool, allocator, frame, key_names, output_name, typed, device_value),
+        .i8 => |typed| groupByModeOnTyped(DeviceDataFrame, i8, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByModeOnTyped(DeviceDataFrame, i16, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByModeOnTyped(DeviceDataFrame, i32, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByModeOnTyped(DeviceDataFrame, i64, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByModeOnTyped(DeviceDataFrame, u8, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByModeOnTyped(DeviceDataFrame, u16, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByModeOnTyped(DeviceDataFrame, u32, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByModeOnTyped(DeviceDataFrame, u64, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByModeOnTyped(DeviceDataFrame, usize, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByModeOnTyped(DeviceDataFrame, isize, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByModeOnTyped(DeviceDataFrame, f16, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByModeOnTyped(DeviceDataFrame, f32, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByModeOnTyped(DeviceDataFrame, f64, allocator, frame, key_names, output_name, typed, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByModeOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(allocator);
+        group_value_rows.deinit(allocator);
+    }
+
+    for (values, 0..) |_, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try group_value_rows.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_value_rows.items[group_index].append(allocator, row);
+    }
+
+    const mode_rows = try allocator.alloc(usize, group_value_rows.items.len);
+    defer allocator.free(mode_rows);
+    for (group_value_rows.items, mode_rows) |rows, *slot| {
+        var best_row: usize = rows.items[0];
+        var best_count: usize = 0;
+        for (rows.items, 0..) |candidate_row, candidate_index| {
+            var seen = false;
+            for (rows.items[0..candidate_index]) |previous_row| {
+                if (groupKeyEqual(V, values[previous_row], values[candidate_row])) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen) continue;
+
+            var count: usize = 0;
+            for (rows.items[candidate_index..]) |match_row| {
+                if (groupKeyEqual(V, values[candidate_row], values[match_row])) count += 1;
+            }
+            if (count > best_count) {
+                best_row = candidate_row;
+                best_count = count;
+            }
+        }
+        slot.* = best_row;
+    }
+
+    const mode_values = try allocator.alloc(V, mode_rows.len);
+    defer allocator.free(mode_values);
+    for (mode_rows, mode_values) |row, *slot| slot.* = values[row];
+
+    const mode_column = try DeviceColumn.fromSlice(V, allocator, mode_values, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, mode_column);
+}
+
+pub fn groupByModeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByModeOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
 fn initMultiKeyAggregatedDataFrame(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

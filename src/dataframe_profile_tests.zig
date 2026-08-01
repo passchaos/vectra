@@ -187,6 +187,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(unique_sales_values);
     try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, unique_sales_values);
 
+    var modal_sales = try table.groupByMode("store", "sales", "sales_mode");
+    defer modal_sales.deinit();
+    const modal_sales_values = try (try modal_sales.column("sales_mode")).f64.toOwnedSlice(gpa);
+    defer gpa.free(modal_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, modal_sales_values);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -319,6 +325,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_unique);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, ms_simple_unique);
 
+    var multi_mode = try multi.groupByModeOn(&.{ "store", "day" }, "amount", "amount_mode");
+    defer multi_mode.deinit();
+    const ms_simple_mode = try (try multi_mode.column("amount_mode")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mode);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, ms_simple_mode);
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -367,6 +379,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_unique = try (try lazy_multi_unique.column("amount_n_unique_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_unique);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, lazy_ms_unique);
+
+    var multi_mode_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mode_plan.deinit();
+    try multi_mode_plan.groupByModeOn(&.{ "store", "day" }, "amount", "amount_mode_lazy");
+    const multi_mode_explained = try multi_mode_plan.explain(gpa);
+    defer gpa.free(multi_mode_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mode_explained, "group_by_mode_on([store,day], value=amount -> amount_mode_lazy)") != null);
+    var lazy_multi_mode = try multi_mode_plan.collect();
+    defer lazy_multi_mode.deinit();
+    const lazy_ms_mode = try (try lazy_multi_mode.column("amount_mode_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mode);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, lazy_ms_mode);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();
