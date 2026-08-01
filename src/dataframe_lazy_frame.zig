@@ -2062,6 +2062,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowLogmeanexp(self, names, output_name);
             }
 
+            pub fn withRowSoftmax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmax(self, names, output_names);
+            }
+
             pub fn withRowGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowGeometricMean(self, names, output_name);
             }
