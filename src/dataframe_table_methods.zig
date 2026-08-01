@@ -2983,6 +2983,18 @@ pub fn withRowMeanAbs(self: anytype, names: []const []const u8, output_name: []c
     return dataframe_array_mod.withRowMeanAbs(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowHhi(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowHhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowHerfindahl(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowHerfindahl(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowHerfindahlHirschman(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowHerfindahlHirschman(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMeanAbsDev(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMeanAbsDev(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

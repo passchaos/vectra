@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, range_coeff, mean_abs, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, range_coeff, mean_abs, hhi, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3583,6 +3583,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .mean_abs => try frame.ops.append(frame.allocator, .{ .row_mean_abs = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .hhi => try frame.ops.append(frame.allocator, .{ .row_hhi = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3687,6 +3691,18 @@ pub fn withRowRangeCoefficient(frame: anytype, names: []const []const u8, output
 
 pub fn withRowMeanAbs(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .mean_abs);
+}
+
+pub fn withRowHhi(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .hhi);
+}
+
+pub fn withRowHerfindahl(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowHhi(frame, names, output_name);
+}
+
+pub fn withRowHerfindahlHirschman(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowHhi(frame, names, output_name);
 }
 
 pub fn withRowMeanAbsDev(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -2110,6 +2110,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMeanAbs(self, names, output_name);
             }
 
+            pub fn withRowHhi(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowHhi(self, names, output_name);
+            }
+
+            pub fn withRowHerfindahl(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowHerfindahl(self, names, output_name);
+            }
+
+            pub fn withRowHerfindahlHirschman(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowHerfindahlHirschman(self, names, output_name);
+            }
+
             pub fn withRowMeanAbsDev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMeanAbsDev(self, names, output_name);
             }

@@ -1295,6 +1295,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean_abs);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_abs_validity);
 
+    var row_hhi_table = try validity_table.withRowHhi(&.{ "a", "b" }, "row_hhi");
+    defer row_hhi_table.deinit();
+    const row_hhi_column = try row_hhi_table.column("row_hhi");
+    try std.testing.expect(row_hhi_column.f64.nullable());
+    const row_hhi = try row_hhi_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_hhi);
+    const row_hhi_validity = try row_hhi_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_hhi_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_hhi[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_hhi[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_hhi[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 101.0 / 121.0), row_hhi[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_hhi_validity);
+
     var row_mean_abs_dev_table = try validity_table.withRowMeanAbsDev(&.{ "a", "b" }, "row_mean_abs_dev");
     defer row_mean_abs_dev_table.deinit();
     const row_mean_abs_dev_column = try row_mean_abs_dev_table.column("row_mean_abs_dev");

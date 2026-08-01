@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3344,6 +3344,10 @@ fn withRowNumericReduction(
                     switch (reduction) {
                         .sum, .mean => values[row] += value,
                         .mean_abs, .l1_norm => values[row] += @abs(value),
+                        .hhi => {
+                            values[row] += @abs(value);
+                            maxima[row] += value * value;
+                        },
                         .rms, .l2_norm => values[row] += value * value,
                         .geometric_mean => {
                             if (value < 0.0) {
@@ -3422,6 +3426,8 @@ fn withRowNumericReduction(
             value.* = if (std.math.isInf(value.*)) 0.0 else @as(f64, @floatFromInt(count)) / value.*;
         } else if (reduction == .mean_abs) {
             value.* /= @floatFromInt(count);
+        } else if (reduction == .hhi) {
+            value.* = if (value.* == 0.0) std.math.nan(f64) else aux_value / (value.* * value.*);
         } else if (reduction == .rms) {
             value.* = std.math.sqrt(value.* / @as(f64, @floatFromInt(count)));
         } else if (reduction == .l2_norm) {
@@ -3566,6 +3572,33 @@ pub fn withRowMeanAbs(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .mean_abs);
+}
+
+pub fn withRowHhi(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .hhi);
+}
+
+pub fn withRowHerfindahl(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowHhi(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowHerfindahlHirschman(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowHhi(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMeanAbsDev(
