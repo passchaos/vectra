@@ -4456,7 +4456,9 @@ pub fn withRowPrefixAvg(frame: anytype, names: []const []const u8, output_names:
     return withRowCumulativeMean(frame, names, output_names);
 }
 
-fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64, comptime stddev: bool) DeviceDataError!void {
+const RowCumulativeDispersion = enum { variance, stddev, sem, cv, fano };
+
+fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64, comptime reduction: RowCumulativeDispersion) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -4468,23 +4470,37 @@ fn withRowCumulativeDispersion(frame: anytype, names: []const []const u8, output
         for (owned_outputs) |name| frame.allocator.free(name);
         frame.allocator.free(owned_outputs);
     }
-    if (stddev) {
-        try frame.ops.append(frame.allocator, .{ .row_cumulative_stddev = .{
+    switch (reduction) {
+        .variance => try frame.ops.append(frame.allocator, .{ .row_cumulative_variance = .{
             .names = owned_names,
             .output_names = owned_outputs,
             .correction = correction,
-        } });
-    } else {
-        try frame.ops.append(frame.allocator, .{ .row_cumulative_variance = .{
+        } }),
+        .stddev => try frame.ops.append(frame.allocator, .{ .row_cumulative_stddev = .{
             .names = owned_names,
             .output_names = owned_outputs,
             .correction = correction,
-        } });
+        } }),
+        .sem => try frame.ops.append(frame.allocator, .{ .row_cumulative_sem = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+            .correction = correction,
+        } }),
+        .cv => try frame.ops.append(frame.allocator, .{ .row_cumulative_cv = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+            .correction = correction,
+        } }),
+        .fano => try frame.ops.append(frame.allocator, .{ .row_cumulative_fano = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+            .correction = correction,
+        } }),
     }
 }
 
 pub fn withRowCumulativeVariance(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
-    return withRowCumulativeDispersion(frame, names, output_names, correction, false);
+    return withRowCumulativeDispersion(frame, names, output_names, correction, .variance);
 }
 
 pub fn withRowCumulativeVar(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
@@ -4508,7 +4524,7 @@ pub fn withRowPrefixVar(frame: anytype, names: []const []const u8, output_names:
 }
 
 pub fn withRowCumulativeStddev(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
-    return withRowCumulativeDispersion(frame, names, output_names, correction, true);
+    return withRowCumulativeDispersion(frame, names, output_names, correction, .stddev);
 }
 
 pub fn withRowCumulativeStd(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
@@ -4529,6 +4545,54 @@ pub fn withRowPrefixStddev(frame: anytype, names: []const []const u8, output_nam
 
 pub fn withRowPrefixStd(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
     return withRowCumulativeStddev(frame, names, output_names, correction);
+}
+
+pub fn withRowCumulativeSem(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeDispersion(frame, names, output_names, correction, .sem);
+}
+
+pub fn withRowCumSem(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeSem(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixSem(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeSem(frame, names, output_names, correction);
+}
+
+pub fn withRowCumulativeCv(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeDispersion(frame, names, output_names, correction, .cv);
+}
+
+pub fn withRowCumCv(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeCv(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixCv(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeCv(frame, names, output_names, correction);
+}
+
+pub fn withRowCumulativeFano(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeDispersion(frame, names, output_names, correction, .fano);
+}
+
+pub fn withRowCumFano(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeFano(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixFano(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeFano(frame, names, output_names, correction);
+}
+
+pub fn withRowCumulativeIndexOfDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeFano(frame, names, output_names, correction);
+}
+
+pub fn withRowCumIndexOfDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeFano(frame, names, output_names, correction);
+}
+
+pub fn withRowPrefixIndexOfDispersion(frame: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeFano(frame, names, output_names, correction);
 }
 
 pub fn withRowCumulativeProduct(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

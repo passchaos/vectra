@@ -1783,7 +1783,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 else => unreachable,
             };
         },
-        .row_cumulative_variance, .row_cumulative_stddev => |row_outputs, tag| blk: {
+        .row_cumulative_variance, .row_cumulative_stddev, .row_cumulative_sem, .row_cumulative_cv, .row_cumulative_fano => |row_outputs, tag| blk: {
             const names = try cloneNameList(allocator, row_outputs.names);
             errdefer freeNameList(allocator, names);
             const output_names = try cloneNameList(allocator, row_outputs.output_names);
@@ -1795,6 +1795,21 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .correction = row_outputs.correction,
                 } },
                 .row_cumulative_stddev => .{ .row_cumulative_stddev = .{
+                    .names = names,
+                    .output_names = output_names,
+                    .correction = row_outputs.correction,
+                } },
+                .row_cumulative_sem => .{ .row_cumulative_sem = .{
+                    .names = names,
+                    .output_names = output_names,
+                    .correction = row_outputs.correction,
+                } },
+                .row_cumulative_cv => .{ .row_cumulative_cv = .{
+                    .names = names,
+                    .output_names = output_names,
+                    .correction = row_outputs.correction,
+                } },
+                .row_cumulative_fano => .{ .row_cumulative_fano = .{
                     .names = names,
                     .output_names = output_names,
                     .correction = row_outputs.correction,

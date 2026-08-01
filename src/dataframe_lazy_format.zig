@@ -1419,10 +1419,13 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("])", .{});
         },
-        .row_cumulative_variance, .row_cumulative_stddev => |row_dispersion, tag| {
+        .row_cumulative_variance, .row_cumulative_stddev, .row_cumulative_sem, .row_cumulative_cv, .row_cumulative_fano => |row_dispersion, tag| {
             const op_name = switch (tag) {
                 .row_cumulative_variance => "row_cumulative_variance",
                 .row_cumulative_stddev => "row_cumulative_stddev",
+                .row_cumulative_sem => "row_cumulative_sem",
+                .row_cumulative_cv => "row_cumulative_cv",
+                .row_cumulative_fano => "row_cumulative_fano",
                 else => unreachable,
             };
             try writer.print("{s}([", .{op_name});

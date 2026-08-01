@@ -1782,6 +1782,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_wb_cumstd[2], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4131.0 / 16.0)), row_wb_cumstd[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cumstd_validity);
+
+    var row_cumsem_table = try validity_table.withRowCumulativeSem(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumsem", "b_row_cumsem", "wa_row_cumsem", "wb_row_cumsem" }, 0.0);
+    defer row_cumsem_table.deinit();
+    const row_wb_cumsem = try (try row_cumsem_table.column("wb_row_cumsem")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumsem);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 9.0)) / std.math.sqrt(@as(f64, 3.0)), row_wb_cumsem[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 686.0 / 9.0)) / std.math.sqrt(@as(f64, 3.0)), row_wb_cumsem[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / std.math.sqrt(@as(f64, 2.0)), row_wb_cumsem[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4131.0 / 16.0)) / 2.0, row_wb_cumsem[3], 1e-12);
+
+    var row_cumcv_table = try validity_table.withRowPrefixCv(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumcv", "b_row_cumcv", "wa_row_cumcv", "wb_row_cumcv" }, 0.0);
+    defer row_cumcv_table.deinit();
+    const row_wb_cumcv = try (try row_cumcv_table.column("wb_row_cumcv")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumcv);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0 / 9.0)) / @as(f64, 4.0 / 3.0), row_wb_cumcv[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 686.0 / 9.0)) / @as(f64, 23.0 / 3.0), row_wb_cumcv[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), row_wb_cumcv[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 4131.0 / 16.0)) / @as(f64, 12.25), row_wb_cumcv[3], 1e-12);
+
+    var row_cumfano_table = try validity_table.withRowCumulativeIndexOfDispersion(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumfano", "b_row_cumfano", "wa_row_cumfano", "wb_row_cumfano" }, 0.0);
+    defer row_cumfano_table.deinit();
+    const row_wb_cumfano = try (try row_cumfano_table.column("wb_row_cumfano")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumfano);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 6.0), row_wb_cumfano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 686.0 / 69.0), row_wb_cumfano[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), row_wb_cumfano[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4131.0 / 196.0), row_wb_cumfano[3], 1e-12);
+
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowPrefixStd(&.{"a"}, &.{"a_row_cumstd"}, -1.0));
 

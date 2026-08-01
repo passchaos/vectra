@@ -19,6 +19,7 @@ const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 
 fn FrameType(comptime Frame: type) type {
+    @setEvalBranchQuota(4000);
     return switch (@typeInfo(Frame)) {
         .pointer => |ptr| ptr.child,
         else => Frame,
@@ -3355,6 +3356,54 @@ pub fn withRowPrefixStd(self: anytype, names: []const []const u8, output_names: 
     return dataframe_array_mod.withRowPrefixStd(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
 }
 
+pub fn withRowCumulativeSem(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeSem(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumSem(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumSem(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowPrefixSem(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixSem(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumulativeCv(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeCv(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumCv(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumCv(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowPrefixCv(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixCv(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumulativeFano(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFano(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumFano(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumFano(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowPrefixFano(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFano(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumulativeIndexOfDispersion(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeIndexOfDispersion(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowCumIndexOfDispersion(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumIndexOfDispersion(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
+pub fn withRowPrefixIndexOfDispersion(self: anytype, names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixIndexOfDispersion(FrameType(@TypeOf(self)), frameValue(self), names, output_names, correction);
+}
+
 pub fn withRowCumulativeProduct(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeProduct(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
@@ -4767,6 +4816,7 @@ pub fn sampleRows(self: anytype, count: usize, seed: u64) DeviceDataError!FrameT
 }
 
 pub fn sampleRowsWithReplacement(self: anytype, count: usize, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
+    @setEvalBranchQuota(2000);
     return dataframe_array_mod.sampleRowsWithReplacement(FrameType(@TypeOf(self)), frameValue(self), count, seed);
 }
 

@@ -920,7 +920,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_cumulative_variance, .row_cumulative_stddev => |row_outputs| {
+            .row_cumulative_variance, .row_cumulative_stddev, .row_cumulative_sem, .row_cumulative_cv, .row_cumulative_fano => |row_outputs| {
                 for (row_outputs.output_names) |output_name| {
                     try appendBorrowedNameUnique(allocator, &derived_names, output_name);
                 }
