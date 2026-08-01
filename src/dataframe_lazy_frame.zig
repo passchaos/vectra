@@ -2138,6 +2138,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowAbsDominance(self, names, output_name);
             }
 
+            pub fn withRowMagnitudeDominanceMargin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeDominanceMargin(self, names, output_name);
+            }
+
+            pub fn withRowAbsDominanceMargin(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsDominanceMargin(self, names, output_name);
+            }
+
             pub fn withRowMagnitudeEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMagnitudeEntropy(self, names, output_name);
             }

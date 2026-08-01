@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_inverse_simpson, magnitude_dominance, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_inverse_simpson, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3321,10 +3321,13 @@ fn withRowNumericReduction(
     defer input.allocator.free(counts);
     const maxima = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(maxima);
+    const secondaries = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(secondaries);
     @memset(values, 0.0);
     @memset(validity, false);
     @memset(counts, 0);
     @memset(maxima, 0.0);
+    @memset(secondaries, 0.0);
 
     for (check_names) |name| {
         const source = try input.column(name);
@@ -3353,6 +3356,18 @@ fn withRowNumericReduction(
                             const magnitude = @abs(value);
                             values[row] += magnitude;
                             maxima[row] = if (validity[row]) @max(maxima[row], magnitude) else magnitude;
+                        },
+                        .magnitude_dominance_margin => {
+                            const magnitude = @abs(value);
+                            values[row] += magnitude;
+                            if (!validity[row]) {
+                                maxima[row] = magnitude;
+                            } else if (magnitude > maxima[row]) {
+                                secondaries[row] = maxima[row];
+                                maxima[row] = magnitude;
+                            } else if (magnitude > secondaries[row]) {
+                                secondaries[row] = magnitude;
+                            }
                         },
                         .magnitude_entropy, .magnitude_perplexity, .magnitude_evenness => {
                             const magnitude = @abs(value);
@@ -3424,7 +3439,7 @@ fn withRowNumericReduction(
         }
     }
 
-    for (values, validity, counts, maxima) |*value, valid, count, aux_value| {
+    for (values, validity, counts, maxima, secondaries) |*value, valid, count, aux_value, secondary_value| {
         if (!valid) {
             value.* = 0.0;
         } else if (reduction == .mean) {
@@ -3443,6 +3458,8 @@ fn withRowNumericReduction(
             value.* = if (value.* == 0.0 or aux_value == 0.0) std.math.nan(f64) else (value.* * value.*) / aux_value;
         } else if (reduction == .magnitude_dominance) {
             value.* = if (value.* == 0.0) std.math.nan(f64) else aux_value / value.*;
+        } else if (reduction == .magnitude_dominance_margin) {
+            value.* = if (value.* == 0.0) std.math.nan(f64) else (aux_value - secondary_value) / value.*;
         } else if (reduction == .magnitude_entropy) {
             value.* = if (value.* == 0.0) std.math.nan(f64) else std.math.log(f64, std.math.e, value.*) - aux_value / value.*;
         } else if (reduction == .magnitude_perplexity) {
@@ -3656,6 +3673,24 @@ pub fn withRowAbsDominance(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowMagnitudeDominance(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeDominanceMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_dominance_margin);
+}
+
+pub fn withRowAbsDominanceMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeDominanceMargin(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMagnitudeEntropy(

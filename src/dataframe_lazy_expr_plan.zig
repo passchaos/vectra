@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_inverse_simpson, magnitude_dominance, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_inverse_simpson, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3595,6 +3595,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .magnitude_dominance => try frame.ops.append(frame.allocator, .{ .row_magnitude_dominance = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .magnitude_dominance_margin => try frame.ops.append(frame.allocator, .{ .row_magnitude_dominance_margin = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3739,6 +3743,14 @@ pub fn withRowMagnitudeDominance(frame: anytype, names: []const []const u8, outp
 
 pub fn withRowAbsDominance(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowMagnitudeDominance(frame, names, output_name);
+}
+
+pub fn withRowMagnitudeDominanceMargin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .magnitude_dominance_margin);
+}
+
+pub fn withRowAbsDominanceMargin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowMagnitudeDominanceMargin(frame, names, output_name);
 }
 
 pub fn withRowMagnitudeEntropy(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -3011,6 +3011,14 @@ pub fn withRowAbsDominance(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowAbsDominance(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeDominanceMargin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeDominanceMargin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsDominanceMargin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsDominanceMargin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMagnitudeEntropy(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMagnitudeEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
