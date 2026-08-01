@@ -2811,6 +2811,10 @@ pub fn withRowQuantileRange(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowQuantileRange(FrameType(@TypeOf(self)), frameValue(self), names, output_name, low_q, high_q);
 }
 
+pub fn withRowTrimmedMean(self: anytype, names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowTrimmedMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name, trim_fraction);
+}
+
 pub fn withRowMedian(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMedian(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

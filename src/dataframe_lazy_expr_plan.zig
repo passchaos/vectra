@@ -3220,6 +3220,21 @@ pub fn withRowQuantileRange(frame: anytype, names: []const []const u8, output_na
     } });
 }
 
+pub fn withRowTrimmedMean(frame: anytype, names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_trimmed_mean = .{
+        .names = owned_names,
+        .output_name = owned_output,
+        .trim_fraction = trim_fraction,
+    } });
+}
+
 fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,

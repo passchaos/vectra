@@ -942,6 +942,18 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .row_trimmed_mean => |row_trimmed_mean| {
+                try appendBorrowedNameUnique(allocator, &derived_names, row_trimmed_mean.output_name);
+                if (row_trimmed_mean.names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_trimmed_mean.names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .row_pair_count, .row_weighted_mean, .row_weighted_median, .row_weighted_iqr, .row_weighted_mad, .row_weighted_mode, .row_weighted_mode_weight, .row_weighted_mode_ratio, .row_weighted_mode_margin, .row_weighted_mode_margin_ratio, .row_weighted_entropy, .row_weighted_gini_impurity, .row_weighted_perplexity, .row_weighted_inverse_simpson, .row_weighted_simpson_concentration, .row_weighted_evenness, .row_dot, .row_cosine_similarity, .row_squared_euclidean_distance, .row_euclidean_distance, .row_manhattan_distance, .row_chebyshev_distance, .row_canberra_distance, .row_bray_curtis_distance, .row_mean_error, .row_mae, .row_mse, .row_rmse, .row_mape, .row_smape, .row_covariance, .row_correlation, .row_beta => |row_weighted| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
                 if (row_weighted.value_names.len == 0 or row_weighted.weight_names.len == 0) {

@@ -265,6 +265,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             low_q: f64,
             high_q: f64,
         };
+        pub const RowTrimmedMean = struct {
+            names: [][]const u8,
+            output_name: []const u8,
+            trim_fraction: f64,
+        };
         pub const RowNumericDispersion = struct {
             names: [][]const u8,
             output_name: []const u8,

@@ -3600,6 +3600,7 @@ const RowQuantileOutput = struct {
 const RowQuantileMeasure = union(enum) {
     quantile: f64,
     difference: struct { hi: f64, lo: f64 },
+    trimmed_mean: f64,
     midhinge,
     trimean,
     bowley_skewness,
@@ -3622,6 +3623,9 @@ fn withRowQuantileValues(
         .difference => |qs| {
             try validateRowQuantile(qs.hi);
             try validateRowQuantile(qs.lo);
+        },
+        .trimmed_mean => |trim_fraction| {
+            if (std.math.isNan(trim_fraction) or trim_fraction < 0.0 or trim_fraction >= 0.5) return error.InvalidShape;
         },
         .midhinge, .trimean, .bowley_skewness, .quartile_coeff_dispersion, .kelley_skewness => {},
     }
@@ -3682,6 +3686,13 @@ fn withRowQuantileValues(
         values[row] = switch (measure) {
             .quantile => |q| rowQuantileFromSorted(scratch[0..count], q),
             .difference => |qs| rowQuantileFromSorted(scratch[0..count], qs.hi) - rowQuantileFromSorted(scratch[0..count], qs.lo),
+            .trimmed_mean => |trim_fraction| blk: {
+                const trim_count: usize = @intFromFloat(@floor(@as(f64, @floatFromInt(count)) * trim_fraction));
+                const trimmed = scratch[trim_count .. count - trim_count];
+                var total: f64 = 0.0;
+                for (trimmed) |value| total += value;
+                break :blk total / @as(f64, @floatFromInt(trimmed.len));
+            },
             .midhinge => (rowQuantileFromSorted(scratch[0..count], 0.25) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 2.0,
             .trimean => (rowQuantileFromSorted(scratch[0..count], 0.25) + 2.0 * rowQuantileFromSorted(scratch[0..count], 0.5) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 4.0,
             .bowley_skewness => blk: {
@@ -3757,6 +3768,28 @@ pub fn withRowQuantileRange(
 
     const check_names = if (names.len == 0) input.names else names;
     const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .difference = .{ .hi = high_q, .lo = low_q } });
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowTrimmedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    trim_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(trim_fraction) or trim_fraction < 0.0 or trim_fraction >= 0.5) return error.InvalidShape;
+
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .trimmed_mean = trim_fraction });
     defer {
         input.allocator.free(output.values);
         input.allocator.free(output.validity);

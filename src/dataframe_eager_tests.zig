@@ -455,6 +455,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 21.6), row_quantile_range[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_quantile_range_validity);
 
+    var row_trimmed_mean_table = try validity_table.withRowTrimmedMean(&.{ "a", "b" }, "row_trimmed_mean", 0.25);
+    defer row_trimmed_mean_table.deinit();
+    const row_trimmed_mean_column = try row_trimmed_mean_table.column("row_trimmed_mean");
+    try std.testing.expect(row_trimmed_mean_column.f64.nullable());
+    const row_trimmed_mean = try row_trimmed_mean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_trimmed_mean);
+    const row_trimmed_mean_validity = try row_trimmed_mean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_trimmed_mean_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_trimmed_mean[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_trimmed_mean[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_trimmed_mean[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 22.0), row_trimmed_mean[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_trimmed_mean_validity);
+
     var row_median_table = try validity_table.withRowMedian(&.{ "a", "b" }, "row_median");
     defer row_median_table.deinit();
     const row_median_column = try row_median_table.column("row_median");
@@ -1115,6 +1129,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_unique);
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantileRange(&.{ "a", "b" }, "bad_row_quantile_range", 0.8, 0.2));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowTrimmedMean(&.{ "a", "b" }, "bad_row_trimmed_mean", 0.5));
 
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");
     defer row_sum_table.deinit();

@@ -1414,6 +1414,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowArgMax(&.{ "a", "b" }, "row_argmax");
     try plan.withRowQuantile(&.{ "a", "b" }, "row_quantile", 0.25);
     try plan.withRowQuantileRange(&.{ "a", "b" }, "row_quantile_range", 0.2, 0.8);
+    try plan.withRowTrimmedMean(&.{ "a", "b" }, "row_trimmed_mean", 0.25);
     try plan.withRowMedian(&.{ "a", "b" }, "row_median");
     try plan.withRowIqr(&.{ "a", "b" }, "row_iqr");
     try plan.withRowInterdecileRange(&.{ "a", "b" }, "row_idr");
@@ -1494,7 +1495,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowStddev(&.{ "a", "b" }, "row_stddev", 1.0);
     try plan.withRowSem(&.{ "a", "b" }, "row_sem", 1.0);
     try plan.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_midrange", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_midrange", "row_mean_abs", "row_rms", "row_l1", "row_l2", "row_variance", "row_stddev", "row_sem", "row_cv" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1502,6 +1503,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_argmax([a,b]->row_argmax)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_quantile([a,b]->row_quantile, q=0.25)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_quantile_range([a,b]->row_quantile_range, low_q=0.2, high_q=0.8)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_trimmed_mean([a,b]->row_trimmed_mean, trim_fraction=0.25)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_median([a,b]->row_median)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr([a,b]->row_iqr)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_interdecile_range([a,b]->row_idr)") != null);
@@ -1584,7 +1586,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 84), result.width());
+    try std.testing.expectEqual(@as(usize, 85), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1609,6 +1611,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_quantile_range);
     const row_quantile_range_validity = try row_quantile_range_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_quantile_range_validity);
+    const row_trimmed_mean_column = try result.column("row_trimmed_mean");
+    try std.testing.expect(row_trimmed_mean_column.f64.nullable());
+    const row_trimmed_mean = try row_trimmed_mean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_trimmed_mean);
+    const row_trimmed_mean_validity = try row_trimmed_mean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_trimmed_mean_validity);
     const row_median_column = try result.column("row_median");
     try std.testing.expect(row_median_column.f64.nullable());
     const row_median = try row_median_column.f64.toOwnedSlice(gpa);
@@ -1983,6 +1991,11 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectEqual(@as(f64, 0.0), row_quantile_range[2]);
     try std.testing.expectApproxEqAbs(@as(f64, 21.6), row_quantile_range[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_quantile_range_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_trimmed_mean[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_trimmed_mean[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_trimmed_mean[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 22.0), row_trimmed_mean[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_trimmed_mean_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_median);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_median_validity);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_iqr);
@@ -2304,6 +2317,11 @@ test "device lazy frame derives row numeric reduction columns" {
     defer invalid_quantile_range_plan.deinit();
     try invalid_quantile_range_plan.withRowQuantileRange(&.{ "a", "b" }, "bad_row_quantile_range", 0.8, 0.2);
     try std.testing.expectError(error.InvalidShape, invalid_quantile_range_plan.collect());
+
+    var invalid_trimmed_mean_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_trimmed_mean_plan.deinit();
+    try invalid_trimmed_mean_plan.withRowTrimmedMean(&.{ "a", "b" }, "bad_row_trimmed_mean", 0.5);
+    try std.testing.expectError(error.InvalidShape, invalid_trimmed_mean_plan.collect());
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
