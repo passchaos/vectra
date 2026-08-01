@@ -1291,6 +1291,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_margin[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_margin[1], 1e-12);
     try std.testing.expectApproxEqAbs(row3_b_softmax - row3_a_softmax, row_softmax_margin[3], 1e-12);
+
+    var row_softmax_evenness_table = try validity_table.withRowSoftmaxEvenness(&.{ "a", "b" }, "row_softmax_evenness");
+    defer row_softmax_evenness_table.deinit();
+    const row_softmax_evenness = try (try row_softmax_evenness_table.column("row_softmax_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_evenness);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_evenness[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_softmax_entropy / std.math.ln2, row_softmax_evenness[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2680,6 +2688,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), margin[1], 1e-12);
     try std.testing.expect(std.math.isNan(margin[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), margin[3], 1e-12);
+
+    var evenness_table = try table.withRowSoftmaxNormalizedEntropy(&.{ "low", "high" }, "row_softmax_evenness");
+    defer evenness_table.deinit();
+    const evenness = try (try evenness_table.column("row_softmax_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(evenness);
+    try std.testing.expectApproxEqAbs(expected_entropy0 / std.math.ln2, evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), evenness[1], 1e-12);
+    try std.testing.expect(std.math.isNan(evenness[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), evenness[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {

@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, logsumexp, logmeanexp, softmax_entropy, softmax_perplexity, softmax_confidence, softmax_margin, geometric_mean, magnitude_geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, logsumexp, logmeanexp, softmax_entropy, softmax_perplexity, softmax_confidence, softmax_margin, softmax_evenness, geometric_mean, magnitude_geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3563,6 +3563,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .softmax_margin => try frame.ops.append(frame.allocator, .{ .row_softmax_margin = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .softmax_evenness => try frame.ops.append(frame.allocator, .{ .row_softmax_evenness = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3799,6 +3803,14 @@ pub fn withRowSoftmaxConfidence(frame: anytype, names: []const []const u8, outpu
 
 pub fn withRowSoftmaxMargin(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .softmax_margin);
+}
+
+pub fn withRowSoftmaxEvenness(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .softmax_evenness);
+}
+
+pub fn withRowSoftmaxNormalizedEntropy(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowSoftmaxEvenness(frame, names, output_name);
 }
 
 pub fn withRowGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
