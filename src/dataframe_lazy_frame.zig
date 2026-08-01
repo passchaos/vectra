@@ -2246,6 +2246,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixMin(self, names, output_names);
             }
 
+            pub fn withRowCumulativeRange(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeRange(self, names, output_names);
+            }
+
+            pub fn withRowCumRange(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumRange(self, names, output_names);
+            }
+
+            pub fn withRowPrefixRange(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixRange(self, names, output_names);
+            }
+
+            pub fn withRowCumulativePtp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativePtp(self, names, output_names);
+            }
+
+            pub fn withRowCumPtp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumPtp(self, names, output_names);
+            }
+
+            pub fn withRowPrefixPtp(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixPtp(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }

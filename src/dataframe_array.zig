@@ -4508,7 +4508,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, max, min };
+const RowCumulativeReduction = enum { sum, product, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -4560,8 +4560,10 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .max, .min => 0.0,
+            .sum, .max, .min, .range => 0.0,
         };
+        var running_min: f64 = 0.0;
+        var running_max: f64 = 0.0;
         var running_valid = false;
         for (0..check_names.len) |col_index| {
             const offset = row * check_names.len + col_index;
@@ -4581,6 +4583,17 @@ fn withRowCumulativeRealColumns(
                         running = value;
                     }
                     running_valid = true;
+                },
+                .range => {
+                    if (!running_valid or std.math.isNan(value)) {
+                        running_min = value;
+                        running_max = value;
+                    } else if (!std.math.isNan(running_min)) {
+                        if (value < running_min) running_min = value;
+                        if (value > running_max) running_max = value;
+                    }
+                    running_valid = true;
+                    running = running_max - running_min;
                 },
             }
             cumulative[offset] = running;
@@ -4756,6 +4769,60 @@ pub fn withRowPrefixMin(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeMin(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .range);
+}
+
+pub fn withRowCumRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRange(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRange(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativePtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRange(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumPtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRange(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixPtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRange(DeviceDataFrame, input, names, output_names);
 }
 
 const RowTukeyFences = struct {

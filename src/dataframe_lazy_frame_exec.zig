@@ -761,6 +761,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_product => |row_outputs| try current.withRowCumulativeProduct(row_outputs.names, row_outputs.output_names),
             .row_cumulative_max => |row_outputs| try current.withRowCumulativeMax(row_outputs.names, row_outputs.output_names),
             .row_cumulative_min => |row_outputs| try current.withRowCumulativeMin(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_range => |row_outputs| try current.withRowCumulativeRange(row_outputs.names, row_outputs.output_names),
             .row_iqr_outlier => |row_outputs| try current.withRowIqrOutlier(row_outputs.names, row_outputs.output_names),
             .row_tukey_winsorize => |row_outputs| try current.withRowTukeyWinsorize(row_outputs.names, row_outputs.output_names),
             .row_max_indicator => |row_outputs| try current.withRowMaxIndicator(row_outputs.names, row_outputs.output_names),

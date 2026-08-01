@@ -4123,6 +4123,44 @@ pub fn withRowPrefixMin(frame: anytype, names: []const []const u8, output_names:
     return withRowCumulativeMin(frame, names, output_names);
 }
 
+pub fn withRowCumulativeRange(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_cumulative_range = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowCumRange(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRange(frame, names, output_names);
+}
+
+pub fn withRowPrefixRange(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRange(frame, names, output_names);
+}
+
+pub fn withRowCumulativePtp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRange(frame, names, output_names);
+}
+
+pub fn withRowCumPtp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRange(frame, names, output_names);
+}
+
+pub fn withRowPrefixPtp(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRange(frame, names, output_names);
+}
+
 pub fn withRowIqrOutlier(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
