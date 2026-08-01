@@ -4595,6 +4595,79 @@ pub fn withRowPrefixIndexOfDispersion(frame: anytype, names: []const []const u8,
     return withRowCumulativeFano(frame, names, output_names, correction);
 }
 
+fn withRowCumulativeShape(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime kurtosis: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (kurtosis) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_kurtosis = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_skewness = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeSkewness(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeShape(frame, names, output_names, false);
+}
+
+pub fn withRowCumulativeSkew(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSkewness(frame, names, output_names);
+}
+
+pub fn withRowCumSkewness(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSkewness(frame, names, output_names);
+}
+
+pub fn withRowCumSkew(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSkewness(frame, names, output_names);
+}
+
+pub fn withRowPrefixSkewness(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSkewness(frame, names, output_names);
+}
+
+pub fn withRowPrefixSkew(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeSkewness(frame, names, output_names);
+}
+
+pub fn withRowCumulativeKurtosis(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeShape(frame, names, output_names, true);
+}
+
+pub fn withRowCumulativeKurt(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeKurtosis(frame, names, output_names);
+}
+
+pub fn withRowCumKurtosis(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeKurtosis(frame, names, output_names);
+}
+
+pub fn withRowCumKurt(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeKurtosis(frame, names, output_names);
+}
+
+pub fn withRowPrefixKurtosis(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeKurtosis(frame, names, output_names);
+}
+
+pub fn withRowPrefixKurt(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeKurtosis(frame, names, output_names);
+}
+
 pub fn withRowCumulativeProduct(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

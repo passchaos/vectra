@@ -1810,7 +1810,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), row_wb_cumfano[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4131.0 / 196.0), row_wb_cumfano[3], 1e-12);
 
+    var row_cumskew_table = try validity_table.withRowCumulativeSkewness(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumskew", "b_row_cumskew", "wa_row_cumskew", "wb_row_cumskew" });
+    defer row_cumskew_table.deinit();
+    const row_wb_cumskew = try (try row_cumskew_table.column("wb_row_cumskew")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumskew);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.7071067811865479), row_wb_cumskew[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.7001554400787792), row_wb_cumskew[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_wb_cumskew[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.134257375254061), row_wb_cumskew[3], 1e-12);
+
+    var row_cumkurt_table = try validity_table.withRowPrefixKurtosis(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumkurt", "b_row_cumkurt", "wa_row_cumkurt", "wb_row_cumkurt" });
+    defer row_cumkurt_table.deinit();
+    const row_wb_cumkurt = try (try row_cumkurt_table.column("wb_row_cumkurt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumkurt);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), row_wb_cumkurt[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -1.5), row_wb_cumkurt[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_wb_cumkurt[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.6812479530664843), row_wb_cumkurt[3], 1e-12);
+
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSkew(&.{"a"}, &.{ "a_row_cumskew", "extra_row_cumskew" }));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowPrefixStd(&.{"a"}, &.{"a_row_cumstd"}, -1.0));
 
     var row_cumprod_table = try validity_table.withRowCumulativeProduct(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumprod", "b_row_cumprod", "wa_row_cumprod", "wb_row_cumprod" });
