@@ -751,6 +751,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_centered => |row_outputs| try current.withRowCentered(row_outputs.names, row_outputs.output_names),
             .row_zscore => |row_outputs| try current.withRowZScore(row_outputs.names, row_outputs.output_names),
             .row_minmax_scale => |row_outputs| try current.withRowMinMaxScale(row_outputs.names, row_outputs.output_names),
+            .row_l2_normalize => |row_outputs| try current.withRowL2Normalize(row_outputs.names, row_outputs.output_names),
             .row_softmax => |row_softmax| try current.withRowSoftmax(row_softmax.names, row_softmax.output_names),
             .row_log_softmax => |row_softmax| try current.withRowLogSoftmax(row_softmax.names, row_softmax.output_names),
             .row_softmin => |row_softmax| try current.withRowSoftmin(row_softmax.names, row_softmax.output_names),

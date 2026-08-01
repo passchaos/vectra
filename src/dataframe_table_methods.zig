@@ -2979,6 +2979,14 @@ pub fn withRowMinmaxScale(self: anytype, names: []const []const u8, output_names
     return dataframe_array_mod.withRowMinmaxScale(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowL2Normalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowL2Normalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowL2Normalized(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowL2Normalized(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowSoftmax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

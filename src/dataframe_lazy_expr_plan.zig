@@ -3827,6 +3827,28 @@ pub fn withRowMinmaxScale(frame: anytype, names: []const []const u8, output_name
     return withRowMinMaxScale(frame, names, output_names);
 }
 
+pub fn withRowL2Normalize(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_l2_normalize = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowL2Normalized(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowL2Normalize(frame, names, output_names);
+}
+
 fn withRowSoftmaxLike(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime mode: enum { softmax, log_softmax, softmin, log_softmin }) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
