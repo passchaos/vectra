@@ -5649,6 +5649,8 @@ pub fn DeviceLazyTypes(
             pub const groupByModeOn = lazy_relation_methods_mod.groupByModeOn;
             pub const groupByMedian = lazy_relation_methods_mod.groupByMedian;
             pub const groupByMedianOn = lazy_relation_methods_mod.groupByMedianOn;
+            pub const groupByQuantile = lazy_relation_methods_mod.groupByQuantile;
+            pub const groupByQuantileOn = lazy_relation_methods_mod.groupByQuantileOn;
             pub const groupByStats = lazy_relation_methods_mod.groupByStats;
             pub const groupByStatsOn = lazy_relation_methods_mod.groupByStatsOn;
             pub const groupByProfile = lazy_relation_methods_mod.groupByProfile;

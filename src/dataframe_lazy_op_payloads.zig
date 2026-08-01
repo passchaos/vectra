@@ -27,6 +27,7 @@ pub const DeviceLazyGroupByAggregation = enum {
     n_unique,
     mode,
     median,
+    quantile,
 };
 
 pub const DeviceLazyJoinKind = enum {
@@ -367,12 +368,14 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             value_name: []const u8,
             output_name: []const u8,
             aggregation: DeviceLazyGroupByAggregation,
+            quantile: f64 = 0.5,
         };
         pub const GroupByValueOn = struct {
             key_names: [][]const u8,
             value_name: []const u8,
             output_name: []const u8,
             aggregation: DeviceLazyGroupByAggregation,
+            quantile: f64 = 0.5,
         };
         pub const GroupByOutput = struct {
             key_name: []const u8,

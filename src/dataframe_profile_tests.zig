@@ -199,6 +199,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(median_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, median_sales_values);
 
+    var q1_sales = try table.groupByQuantile("store", "sales", "sales_q1", 0.25);
+    defer q1_sales.deinit();
+    const q1_sales_values = try (try q1_sales.column("sales_q1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(q1_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 4.75, 5.0 }, q1_sales_values);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -343,6 +349,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_median);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_median);
 
+    var multi_q1 = try multi.groupByQuantileOn(&.{ "store", "day" }, "amount", "amount_q1", 0.25);
+    defer multi_q1.deinit();
+    const ms_simple_q1 = try (try multi_q1.column("amount_q1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_q1);
+    try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, ms_simple_q1);
+
+    try std.testing.expectError(error.InvalidShape, multi.groupByQuantileOn(&.{ "store", "day" }, "amount", "bad_q", 1.5));
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -415,6 +429,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_median = try (try lazy_multi_median.column("amount_median_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_median);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, lazy_ms_median);
+
+    var multi_q1_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_q1_plan.deinit();
+    try multi_q1_plan.groupByQuantileOn(&.{ "store", "day" }, "amount", "amount_q1_lazy", 0.25);
+    const multi_q1_explained = try multi_q1_plan.explain(gpa);
+    defer gpa.free(multi_q1_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_q1_explained, "group_by_quantile_on([store,day], value=amount, q=0.25 -> amount_q1_lazy)") != null);
+    var lazy_multi_q1 = try multi_q1_plan.collect();
+    defer lazy_multi_q1.deinit();
+    const lazy_ms_q1 = try (try lazy_multi_q1.column("amount_q1_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_q1);
+    try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, lazy_ms_q1);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();

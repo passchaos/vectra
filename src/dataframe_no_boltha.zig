@@ -159,6 +159,7 @@ pub const DeviceLazyGroupByAggregation = enum {
     n_unique,
     mode,
     median,
+    quantile,
 };
 
 pub const DeviceLazyJoinKind = enum {

@@ -147,6 +147,14 @@ pub fn groupByMedianOn(self: anytype, key_names: []const []const u8, value_name:
     return self.groupByValueOn(key_names, value_name, output_name, .median);
 }
 
+pub fn groupByQuantile(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueQuantile(self, key_name, value_name, output_name, .quantile, q);
+}
+
+pub fn groupByQuantileOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOnQuantile(self, key_names, value_name, output_name, .quantile, q);
+}
+
 pub fn groupByStats(self: anytype, key_name: []const u8, value_name: []const u8, output_prefix: []const u8) DeviceDataError!void {
     return lazy_group_mod.groupByStats(self, key_name, value_name, output_prefix);
 }
