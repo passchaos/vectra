@@ -3976,6 +3976,7 @@ const RowRankStorage = struct {
     flat_validity: []bool,
     flat_dense_ranks: []i64,
     flat_competition_ranks: []i64,
+    flat_cume_counts: []usize,
     counts: []usize,
 
     fn deinit(self: @This(), allocator: std.mem.Allocator) void {
@@ -3983,6 +3984,7 @@ const RowRankStorage = struct {
         allocator.free(self.flat_validity);
         allocator.free(self.flat_dense_ranks);
         allocator.free(self.flat_competition_ranks);
+        allocator.free(self.flat_cume_counts);
         allocator.free(self.counts);
     }
 };
@@ -4001,12 +4003,15 @@ fn computeRowRanks(
     errdefer input.allocator.free(flat_dense_ranks);
     const flat_competition_ranks = try input.allocator.alloc(i64, total_slots);
     errdefer input.allocator.free(flat_competition_ranks);
+    const flat_cume_counts = try input.allocator.alloc(usize, total_slots);
+    errdefer input.allocator.free(flat_cume_counts);
     const counts = try input.allocator.alloc(usize, input.rows);
     errdefer input.allocator.free(counts);
     @memset(flat_values, 0.0);
     @memset(flat_validity, false);
     @memset(flat_dense_ranks, 0);
     @memset(flat_competition_ranks, 0);
+    @memset(flat_cume_counts, 0);
     @memset(counts, 0);
 
     for (check_names, 0..) |name, col_index| {
@@ -4060,9 +4065,11 @@ fn computeRowRanks(
 
             dense_rank += 1;
             const competition_rank: i64 = @intCast(group_start + 1);
+            const cume_count = group_end;
             for (order[group_start..group_end]) |offset| {
                 flat_dense_ranks[offset] = dense_rank;
                 flat_competition_ranks[offset] = competition_rank;
+                flat_cume_counts[offset] = cume_count;
             }
             group_start = group_end;
         }
@@ -4073,6 +4080,7 @@ fn computeRowRanks(
         .flat_validity = flat_validity,
         .flat_dense_ranks = flat_dense_ranks,
         .flat_competition_ranks = flat_competition_ranks,
+        .flat_cume_counts = flat_cume_counts,
         .counts = counts,
     };
 }
@@ -4202,6 +4210,69 @@ pub fn withRowPercentileRanks(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowPercentRank(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumeDist(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const ranks_storage = try computeRowRanks(DeviceDataFrame, input, check_names);
+    defer ranks_storage.deinit(input.allocator);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |_, output_name, col_index| {
+        var cume_dist = try input.allocator.alloc(f64, input.rows);
+        defer input.allocator.free(cume_dist);
+        const cume_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(cume_validity);
+        @memset(cume_dist, 0.0);
+        @memset(cume_validity, false);
+
+        for (0..input.rows) |row| {
+            const offset = row * check_names.len + col_index;
+            if (!ranks_storage.flat_validity[offset]) continue;
+            cume_dist[row] = @as(f64, @floatFromInt(ranks_storage.flat_cume_counts[offset])) / @as(f64, @floatFromInt(ranks_storage.counts[row]));
+            cume_validity[row] = true;
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, cume_dist, cume_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumeDistribution(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumeDist(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeDistribution(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
 const RowTukeyFences = struct {

@@ -2122,6 +2122,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPercentileRanks(self, names, output_names);
             }
 
+            pub fn withRowCumeDist(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumeDist(self, names, output_names);
+            }
+
+            pub fn withRowCumeDistribution(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumeDistribution(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeDistribution(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeDistribution(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }

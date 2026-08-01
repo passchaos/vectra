@@ -1274,6 +1274,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_percent_rank_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_percent_rank_validity);
 
+    var row_cume_dist_table = try validity_table.withRowCumeDist(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cume", "b_row_cume", "wa_row_cume", "wb_row_cume" });
+    defer row_cume_dist_table.deinit();
+    const row_a_cume_column = try row_cume_dist_table.column("a_row_cume");
+    try std.testing.expectEqual(DeviceDType.f64, row_a_cume_column.dtype());
+    try std.testing.expect(row_a_cume_column.f64.nullable());
+    const row_a_cume = try row_a_cume_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cume);
+    const row_a_cume_validity = try row_a_cume_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cume_validity);
+    const row_b_cume_column = try row_cume_dist_table.column("b_row_cume");
+    try std.testing.expect(row_b_cume_column.f64.nullable());
+    const row_b_cume = try row_b_cume_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cume);
+    const row_b_cume_validity = try row_b_cume_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cume_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), row_a_cume[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), row_a_cume[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_cume[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_cume[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cume_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cume_validity);
+
     var row_robust_zscore_table = try validity_table.withRowRobustZScore(&.{ "a", "b" }, &.{ "a_robust_zscore", "b_robust_zscore" });
     defer row_robust_zscore_table.deinit();
     const row_a_robust_zscore_column = try row_robust_zscore_table.column("a_robust_zscore");
@@ -1424,6 +1446,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDenseRanks(&.{"a"}, &.{ "a_row_dense_rank", "extra_row_dense_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPercentileRanks(&.{"a"}, &.{ "a_row_percent_rank", "extra_row_percent_rank" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeDistribution(&.{"a"}, &.{ "a_row_cume", "extra_row_cume" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowRobustZscore(&.{"a"}, &.{ "a_robust_zscore", "extra_robust_zscore" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowTukeyOutliers(&.{"a"}, &.{ "a_iqr_outlier", "extra_iqr_outlier" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowIqrWinsorized(&.{"a"}, &.{ "a_tukey_winsor", "extra_tukey_winsor" }));

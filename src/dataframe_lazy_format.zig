@@ -1345,13 +1345,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
-        .row_centered, .row_zscore, .row_robust_zscore, .row_dense_rank, .row_percent_rank, .row_iqr_outlier, .row_tukey_winsorize, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_softmax, tag| {
+        .row_centered, .row_zscore, .row_robust_zscore, .row_dense_rank, .row_percent_rank, .row_cume_dist, .row_iqr_outlier, .row_tukey_winsorize, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_softmax, tag| {
             const op_name = switch (tag) {
                 .row_centered => "row_centered",
                 .row_zscore => "row_zscore",
                 .row_robust_zscore => "row_robust_zscore",
                 .row_dense_rank => "row_dense_rank",
                 .row_percent_rank => "row_percent_rank",
+                .row_cume_dist => "row_cume_dist",
                 .row_iqr_outlier => "row_iqr_outlier",
                 .row_tukey_winsorize => "row_tukey_winsorize",
                 .row_minmax_scale => "row_minmax_scale",

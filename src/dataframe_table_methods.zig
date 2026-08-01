@@ -3011,6 +3011,18 @@ pub fn withRowPercentileRanks(self: anytype, names: []const []const u8, output_n
     return dataframe_array_mod.withRowPercentileRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowCumeDist(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumeDist(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumeDistribution(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumeDistribution(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeDistribution(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeDistribution(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowIqrOutlier(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowIqrOutlier(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
