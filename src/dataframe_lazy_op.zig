@@ -745,6 +745,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         join_on: Payloads.JoinOn,
         asof_join: Payloads.AsofJoin,
         concat_rows: Payloads.ConcatRows,
+        concat_columns: Payloads.ConcatRows,
         distinct_rows,
         distinct_rows_last,
         distinct_rows_none,

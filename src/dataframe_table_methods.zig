@@ -7264,6 +7264,18 @@ pub fn vstack(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!Fr
     return concatRows(self, other);
 }
 
+pub fn concatColumns(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.concatDeviceDataFramesColumns(FrameType(@TypeOf(self)), frameValue(self), other);
+}
+
+pub fn appendColumns(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!FrameType(@TypeOf(self)) {
+    return concatColumns(self, other);
+}
+
+pub fn hstack(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!FrameType(@TypeOf(self)) {
+    return concatColumns(self, other);
+}
+
 pub fn distinctRows(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return keys_mod.distinctRows(FrameType(@TypeOf(self)), frameValue(self));
 }

@@ -4020,6 +4020,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             } };
         },
         .concat_rows => |right| .{ .concat_rows = try right.clone() },
+        .concat_columns => |right| .{ .concat_columns = try right.clone() },
         .distinct_rows => .{ .distinct_rows = {} },
         .distinct_rows_last => .{ .distinct_rows_last = {} },
         .distinct_rows_none => .{ .distinct_rows_none = {} },

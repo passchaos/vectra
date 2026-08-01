@@ -1216,6 +1216,10 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .concat_rows => {
                 break :op_loop;
             },
+            .concat_columns => {
+                projection_blocked = true;
+                break :op_loop;
+            },
             .distinct_rows => {
                 projection_blocked = true;
             },

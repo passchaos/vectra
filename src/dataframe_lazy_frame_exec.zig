@@ -1174,6 +1174,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .asof_join => |join| try current.asofJoin(join.right, join.left_key_name, join.right_key_name, join.options),
             .concat_rows => |right| try current.concatRows(right),
+            .concat_columns => |right| try current.concatColumns(right),
             .distinct_rows => try current.distinctRows(),
             .distinct_rows_last => try current.distinctRowsLast(),
             .distinct_rows_none => try current.distinctRowsNone(),

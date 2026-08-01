@@ -5628,6 +5628,9 @@ pub fn DeviceLazyTypes(
             pub const concatRows = lazy_relation_methods_mod.concatRows;
             pub const appendRows = lazy_relation_methods_mod.appendRows;
             pub const vstack = lazy_relation_methods_mod.vstack;
+            pub const concatColumns = lazy_relation_methods_mod.concatColumns;
+            pub const appendColumns = lazy_relation_methods_mod.appendColumns;
+            pub const hstack = lazy_relation_methods_mod.hstack;
             pub const distinctRows = lazy_relation_methods_mod.distinctRows;
             pub const distinctRowsLast = lazy_relation_methods_mod.distinctRowsLast;
             pub const distinctRowsNone = lazy_relation_methods_mod.distinctRowsNone;

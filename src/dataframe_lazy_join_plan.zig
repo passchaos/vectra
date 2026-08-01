@@ -72,6 +72,12 @@ pub fn concatRows(frame: anytype, right: anytype) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .concat_rows = owned_right });
 }
 
+pub fn concatColumns(frame: anytype, right: anytype) DeviceDataError!void {
+    var owned_right = try right.clone();
+    errdefer owned_right.deinit();
+    try frame.ops.append(frame.allocator, .{ .concat_columns = owned_right });
+}
+
 pub fn distinctOn(frame: anytype, key_names: []const []const u8) DeviceDataError!void {
     if (key_names.len == 0) return error.LengthMismatch;
     try frame.ops.append(frame.allocator, .{ .distinct_on = try cloneNameList(frame.allocator, key_names) });

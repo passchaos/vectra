@@ -29,6 +29,7 @@ pub const concatDeviceColumns = array_helpers_mod.concatDeviceColumns;
 pub const coalesceJoinKeys = array_helpers_mod.coalesceJoinKeys;
 pub const initDeviceDataFrameFromOwnedColumns = array_helpers_mod.initDeviceDataFrameFromOwnedColumns;
 pub const concatDeviceDataFramesRows = array_helpers_mod.concatDeviceDataFramesRows;
+pub const concatDeviceDataFramesColumns = array_helpers_mod.concatDeviceDataFramesColumns;
 pub const takeOptionalRows = array_helpers_mod.takeOptionalRows;
 pub const columnsRowsEqual = array_helpers_mod.columnsRowsEqual;
 pub const columnsRowsEqualTyped = array_helpers_mod.columnsRowsEqualTyped;

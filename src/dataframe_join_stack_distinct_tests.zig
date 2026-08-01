@@ -16,6 +16,10 @@ test "device dataframe concatenates rows eagerly and lazily" {
     defer right_id.deinit();
     var right_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 30.0, 40.0 }, .cpu);
     defer right_value.deinit();
+    var quality = try DeviceColumn.fromSlice(i32, gpa, &.{ 100, 200 }, .cpu);
+    defer quality.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false }, .cpu);
+    defer active.deinit();
 
     var left = try DeviceDataFrame.init(gpa, &.{
         .{ .name = "id", .data = left_id },
@@ -27,6 +31,11 @@ test "device dataframe concatenates rows eagerly and lazily" {
         .{ .name = "value", .data = right_value },
     });
     defer right.deinit();
+    var side = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "quality", .data = quality },
+        .{ .name = "active", .data = active },
+    });
+    defer side.deinit();
 
     var stacked = try left.concatRows(right);
     defer stacked.deinit();
@@ -42,6 +51,18 @@ test "device dataframe concatenates rows eagerly and lazily" {
     try std.testing.expectEqualSlices(f64, &.{ 10.0, 20.0, 30.0, 40.0 }, stacked_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, stacked_validity);
 
+    var wide = try left.hstack(side);
+    defer wide.deinit();
+    try std.testing.expectEqual(@as(usize, 2), wide.height());
+    try std.testing.expectEqual(@as(usize, 4), wide.width());
+    const wide_quality = try (try wide.column("quality")).i32.toOwnedSlice(gpa);
+    defer gpa.free(wide_quality);
+    const wide_active = try (try wide.column("active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(wide_active);
+    try std.testing.expectEqualSlices(i32, &.{ 100, 200 }, wide_quality);
+    try std.testing.expectEqualSlices(bool, &.{ true, false }, wide_active);
+    try std.testing.expectError(error.InvalidShape, left.hstack(right));
+
     var plan = try DeviceLazyFrame.init(gpa, left);
     defer plan.deinit();
     try plan.concatRows(right);
@@ -55,6 +76,20 @@ test "device dataframe concatenates rows eagerly and lazily" {
     const lazy_ids = try (try lazy_stacked.column("id")).i32.toOwnedSlice(gpa);
     defer gpa.free(lazy_ids);
     try std.testing.expectEqualSlices(i32, &.{ 2, 3, 4 }, lazy_ids);
+
+    var hstack_plan = try DeviceLazyFrame.init(gpa, left);
+    defer hstack_plan.deinit();
+    try hstack_plan.hstack(side);
+    try hstack_plan.select(&.{ "id", "quality", "active" });
+    const hstack_explained = try hstack_plan.explain(gpa);
+    defer gpa.free(hstack_explained);
+    try std.testing.expect(std.mem.indexOf(u8, hstack_explained, "concat_columns(rows=2, cols=2)") != null);
+    var lazy_wide = try hstack_plan.collect();
+    defer lazy_wide.deinit();
+    try std.testing.expectEqual(@as(usize, 3), lazy_wide.width());
+    const lazy_quality = try (try lazy_wide.column("quality")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_quality);
+    try std.testing.expectEqualSlices(i32, &.{ 100, 200 }, lazy_quality);
 }
 
 test "device dataframe drops duplicate rows eagerly and lazily" {

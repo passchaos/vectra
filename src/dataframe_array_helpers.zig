@@ -260,6 +260,46 @@ pub fn concatDeviceDataFramesRows(
     return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, first.allocator, first.names, columns, first.rows + second.rows, first.device);
 }
 
+pub fn concatDeviceDataFramesColumns(
+    comptime DeviceDataFrame: type,
+    first: DeviceDataFrame,
+    second: DeviceDataFrame,
+) (std.mem.Allocator.Error || array_mod.ArrayError || error{ LengthMismatch, InvalidDevice })!DeviceDataFrame {
+    if (first.rows != second.rows) return error.LengthMismatch;
+    if (!first.device.sameDevice(second.device)) return error.InvalidDevice;
+    for (second.names, 0..) |name, index| {
+        if (first.columnIndex(name) != null) return error.InvalidShape;
+        for (second.names[0..index]) |previous| {
+            if (std.mem.eql(u8, name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(first.columns));
+    const total_columns = first.columns.len + second.columns.len;
+    var source_names = try first.allocator.alloc([]const u8, total_columns);
+    defer first.allocator.free(source_names);
+    var columns = try first.allocator.alloc(DeviceColumn, total_columns);
+    var initialized: usize = 0;
+    errdefer {
+        for (columns[0..initialized]) |*col| col.deinit();
+        first.allocator.free(columns);
+    }
+
+    for (first.names, first.columns, 0..) |name, column, index| {
+        source_names[index] = name;
+        columns[index] = try column.clone();
+        initialized += 1;
+    }
+    for (second.names, second.columns, 0..) |name, column, second_index| {
+        const output_index = first.columns.len + second_index;
+        source_names[output_index] = name;
+        columns[output_index] = try column.clone();
+        initialized += 1;
+    }
+
+    return initDeviceDataFrameFromOwnedColumns(DeviceDataFrame, first.allocator, source_names, columns, first.rows, first.device);
+}
+
 pub fn takeOptionalRows(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

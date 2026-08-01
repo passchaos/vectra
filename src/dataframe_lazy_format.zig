@@ -2649,6 +2649,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .asof_join => |join| try writer.print("asof_join({s}->{s}, strategy={s})", .{ join.left_key_name, join.right_key_name, @tagName(join.options.strategy) }),
         .concat_rows => |right| try writer.print("concat_rows(rows={d}, cols={d})", .{ right.height(), right.width() }),
+        .concat_columns => |right| try writer.print("concat_columns(rows={d}, cols={d})", .{ right.height(), right.width() }),
         .distinct_rows => try writer.print("distinct_rows", .{}),
         .distinct_rows_last => try writer.print("distinct_rows_last", .{}),
         .distinct_rows_none => try writer.print("distinct_rows_none", .{}),

@@ -107,6 +107,18 @@ pub fn vstack(self: anytype, right: anytype) DeviceDataError!void {
     return self.concatRows(right);
 }
 
+pub fn concatColumns(self: anytype, right: anytype) DeviceDataError!void {
+    return lazy_join_mod.concatColumns(self, right);
+}
+
+pub fn appendColumns(self: anytype, right: anytype) DeviceDataError!void {
+    return self.concatColumns(right);
+}
+
+pub fn hstack(self: anytype, right: anytype) DeviceDataError!void {
+    return self.concatColumns(right);
+}
+
 pub fn distinctRows(self: anytype) DeviceDataError!void {
     try self.ops.append(self.allocator, .{ .distinct_rows = {} });
 }

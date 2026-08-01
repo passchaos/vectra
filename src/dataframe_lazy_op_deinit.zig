@@ -706,7 +706,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(join.right_key_name);
             allocator.free(join.options.right_suffix);
         },
-        .concat_rows => |*right| right.deinit(),
+        .concat_rows, .concat_columns => |*right| right.deinit(),
         .distinct_on, .distinct_on_last, .distinct_on_none => |names| freeNameList(allocator, names),
         .sort_by => |sort| allocator.free(sort.name),
         .sort_by_columns => |sort| {
