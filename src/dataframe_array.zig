@@ -3623,11 +3623,14 @@ pub fn withRowLogmeanexp(
     return withRowLogMeanExp(DeviceDataFrame, input, names, output_name);
 }
 
-pub fn withRowSoftmax(
+const RowSoftmaxOutput = enum { probability, log_probability };
+
+fn withRowSoftmaxColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
     output_names: []const []const u8,
+    comptime output: RowSoftmaxOutput,
 ) DeviceFrameArrayError!DeviceDataFrame {
     @setEvalBranchQuota(2000);
     const check_names = if (names.len == 0) input.names else names;
@@ -3731,9 +3734,13 @@ pub fn withRowSoftmax(
                     if (std.math.isNan(maxima[row]) or std.math.isNan(value)) {
                         probabilities[row] = std.math.nan(f64);
                     } else if (std.math.isPositiveInf(maxima[row])) {
-                        probabilities[row] = if (std.math.isPositiveInf(value)) 1.0 / @as(f64, @floatFromInt(pos_inf_counts[row])) else 0.0;
+                        const probability = if (std.math.isPositiveInf(value)) 1.0 / @as(f64, @floatFromInt(pos_inf_counts[row])) else 0.0;
+                        probabilities[row] = if (output == .log_probability) std.math.log(f64, std.math.e, probability) else probability;
                     } else if (std.math.isNegativeInf(maxima[row])) {
-                        probabilities[row] = 1.0 / @as(f64, @floatFromInt(valid_counts[row]));
+                        const probability = 1.0 / @as(f64, @floatFromInt(valid_counts[row]));
+                        probabilities[row] = if (output == .log_probability) std.math.log(f64, std.math.e, probability) else probability;
+                    } else if (output == .log_probability) {
+                        probabilities[row] = value - maxima[row] - std.math.log(f64, std.math.e, denom[row]);
                     } else {
                         probabilities[row] = std.math.exp(value - maxima[row]) / denom[row];
                     }
@@ -3748,6 +3755,33 @@ pub fn withRowSoftmax(
         result = next;
     }
     return result;
+}
+
+pub fn withRowSoftmax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .probability);
+}
+
+pub fn withRowLogSoftmax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .log_probability);
+}
+
+pub fn withRowLogsoftmax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowLogSoftmax(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowGeometricMean(

@@ -3713,7 +3713,7 @@ pub fn withRowLogmeanexp(frame: anytype, names: []const []const u8, output_name:
     return withRowLogMeanExp(frame, names, output_name);
 }
 
-pub fn withRowSoftmax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+fn withRowSoftmaxLike(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime log_output: bool) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3725,10 +3725,29 @@ pub fn withRowSoftmax(frame: anytype, names: []const []const u8, output_names: [
         for (owned_outputs) |name| frame.allocator.free(name);
         frame.allocator.free(owned_outputs);
     }
-    try frame.ops.append(frame.allocator, .{ .row_softmax = .{
-        .names = owned_names,
-        .output_names = owned_outputs,
-    } });
+    if (log_output) {
+        try frame.ops.append(frame.allocator, .{ .row_log_softmax = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_softmax = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowSoftmax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowSoftmaxLike(frame, names, output_names, false);
+}
+
+pub fn withRowLogSoftmax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowSoftmaxLike(frame, names, output_names, true);
+}
+
+pub fn withRowLogsoftmax(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowLogSoftmax(frame, names, output_names);
 }
 
 pub fn withRowGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

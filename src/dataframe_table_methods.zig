@@ -2955,6 +2955,14 @@ pub fn withRowSoftmax(self: anytype, names: []const []const u8, output_names: []
     return dataframe_array_mod.withRowSoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowLogSoftmax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogSoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowLogsoftmax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogsoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
