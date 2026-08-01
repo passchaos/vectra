@@ -2277,6 +2277,29 @@ pub fn coalesceColumns(frame: anytype, primary_name: []const u8, fallback_name: 
     } });
 }
 
+pub fn coalesceColumnsMany(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    if (names.len == 0) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .coalesce_columns_many = .{
+        .names = owned_names,
+        .output_name = owned_output,
+    } });
+}
+
+pub fn coalesceManyColumns(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return coalesceColumnsMany(frame, names, output_name);
+}
+
+pub fn coalesceFirstValidColumns(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return coalesceColumnsMany(frame, names, output_name);
+}
+
 pub fn isNullColumn(frame: anytype, name: []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

@@ -1250,6 +1250,49 @@ pub fn coalesceColumns(
     return withColumn(DeviceDataFrame, input, output_name, coalesced);
 }
 
+pub fn coalesceColumnsMany(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (names.len == 0) return error.LengthMismatch;
+
+    const first = try input.column(names[0]);
+    var coalesced = try first.clone();
+    errdefer coalesced.deinit();
+
+    for (names[1..]) |name| {
+        const fallback = try input.column(name);
+        if (coalesced.dtype() != fallback.dtype()) return error.TypeMismatch;
+
+        const next = try coalesceJoinKeys(coalesced, fallback.*);
+        coalesced.deinit();
+        coalesced = next;
+    }
+
+    defer coalesced.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, coalesced);
+}
+
+pub fn coalesceManyColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return coalesceColumnsMany(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn coalesceFirstValidColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return coalesceColumnsMany(DeviceDataFrame, input, names, output_name);
+}
+
 pub fn isNullColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

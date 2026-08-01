@@ -1634,6 +1634,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.coalesceColumns(self, primary_name, fallback_name, output_name);
             }
 
+            pub fn coalesceColumnsMany(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.coalesceColumnsMany(self, names, output_name);
+            }
+
+            pub fn coalesceManyColumns(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.coalesceManyColumns(self, names, output_name);
+            }
+
+            pub fn coalesceFirstValidColumns(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.coalesceFirstValidColumns(self, names, output_name);
+            }
+
             pub fn isNullColumn(self: *DeviceLazyFrame, name: []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.isNullColumn(self, name, output_name);
             }

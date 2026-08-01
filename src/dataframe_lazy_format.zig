@@ -388,6 +388,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .fill_subnormal_column => |fill| try writer.print("fill_subnormal_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .fill_non_finite_column => |fill| try writer.print("fill_non_finite_column({s}=scalar:{s})", .{ fill.name, @tagName(fill.scalar) }),
         .coalesce_columns => |coalesce| try writer.print("coalesce_columns({s},{s}->{s})", .{ coalesce.primary_name, coalesce.fallback_name, coalesce.output_name }),
+        .coalesce_columns_many => |coalesce| {
+            try writer.print("coalesce_columns_many([", .{});
+            for (coalesce.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{coalesce.output_name});
+        },
         .with_column_abs => |expr| try writer.print("with_column_abs({s}=abs({s}))", .{ expr.name, expr.input_name }),
         .with_column_neg => |expr| try writer.print("with_column_neg({s}=neg({s}))", .{ expr.name, expr.input_name }),
         .with_column_square => |expr| try writer.print("with_column_square({s}=square({s}))", .{ expr.name, expr.input_name }),

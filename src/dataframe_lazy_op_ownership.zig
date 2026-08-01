@@ -1372,6 +1372,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .coalesce_columns_many => |coalesce| blk: {
+            const names = try cloneNameList(allocator, coalesce.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, coalesce.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .coalesce_columns_many = .{
+                .names = names,
+                .output_name = output_name,
+            } };
+        },
         .is_null_column => |predicate| blk: {
             const name = try allocator.dupe(u8, predicate.name);
             errdefer allocator.free(name);

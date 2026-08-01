@@ -267,6 +267,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         fill_subnormal_column: Payloads.FillNullColumn,
         fill_non_finite_column: Payloads.FillNullColumn,
         coalesce_columns: Payloads.CoalesceColumns,
+        coalesce_columns_many: Payloads.RowValidityCount,
         is_null_column: Payloads.NullPredicateColumn,
         is_valid_column: Payloads.NullPredicateColumn,
         is_nan_column: Payloads.NullPredicateColumn,

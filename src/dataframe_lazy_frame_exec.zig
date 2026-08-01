@@ -652,6 +652,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .fill_subnormal_column => |fill| try current.fillSubnormalColumnWithScalar(fill.name, fill.scalar),
             .fill_non_finite_column => |fill| try current.fillNonFiniteColumnWithScalar(fill.name, fill.scalar),
             .coalesce_columns => |coalesce| try current.coalesceColumns(coalesce.primary_name, coalesce.fallback_name, coalesce.output_name),
+            .coalesce_columns_many => |coalesce| try current.coalesceColumnsMany(coalesce.names, coalesce.output_name),
             .is_null_column => |predicate| try current.isNullColumn(predicate.name, predicate.output_name),
             .is_valid_column => |predicate| try current.isValidColumn(predicate.name, predicate.output_name),
             .is_nan_column => |predicate| try current.isNanColumn(predicate.name, predicate.output_name),

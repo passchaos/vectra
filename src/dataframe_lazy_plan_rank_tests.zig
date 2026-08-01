@@ -1121,11 +1121,14 @@ test "device lazy frame coalesces nullable columns" {
     defer plan.deinit();
     try plan.withColumnLiteral("fallback_quality", f64, 9.0);
     try plan.coalesceColumns("quality", "fallback_quality", "quality_coalesced");
+    try plan.withColumnLiteral("secondary_quality", f64, 10.0);
+    try plan.coalesceColumnsMany(&.{ "quality", "fallback_quality", "secondary_quality" }, "quality_coalesced_many");
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "with_column_literal(fallback_quality=scalar:f64)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "coalesce_columns(quality,fallback_quality->quality_coalesced)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "coalesce_columns_many([quality,fallback_quality,secondary_quality]->quality_coalesced_many)") != null);
 
     var result = try plan.collect();
     defer result.deinit();
@@ -1133,12 +1136,20 @@ test "device lazy frame coalesces nullable columns" {
     const values = try (try result.column("quality_coalesced")).f64.toOwnedSlice(gpa);
     defer gpa.free(values);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 3.0, 4.0 }, values);
+    try std.testing.expectEqual(@as(usize, 0), (try result.column("quality_coalesced_many")).nullCount());
+    const many_values = try (try result.column("quality_coalesced_many")).f64.toOwnedSlice(gpa);
+    defer gpa.free(many_values);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 3.0, 4.0 }, many_values);
 
     var mismatch_plan = try DeviceLazyFrame.init(gpa, table);
     defer mismatch_plan.deinit();
     try mismatch_plan.withColumnLiteral("fallback_i64", i64, 9);
-    try mismatch_plan.coalesceColumns("quality", "fallback_i64", "bad");
+    try mismatch_plan.coalesceColumnsMany(&.{ "quality", "fallback_i64" }, "bad");
     try std.testing.expectError(error.TypeMismatch, mismatch_plan.collect());
+
+    var empty_plan = try DeviceLazyFrame.init(gpa, table);
+    defer empty_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, empty_plan.coalesceFirstValidColumns(&.{}, "bad_empty"));
 }
 
 test "device lazy frame derives null predicate columns" {

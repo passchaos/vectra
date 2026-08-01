@@ -2692,6 +2692,18 @@ pub fn coalesceColumns(self: anytype, primary_name: []const u8, fallback_name: [
     return dataframe_array_mod.coalesceColumns(FrameType(@TypeOf(self)), frameValue(self), primary_name, fallback_name, output_name);
 }
 
+pub fn coalesceColumnsMany(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.coalesceColumnsMany(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn coalesceManyColumns(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.coalesceManyColumns(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn coalesceFirstValidColumns(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.coalesceFirstValidColumns(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn isNullColumn(self: anytype, name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.isNullColumn(FrameType(@TypeOf(self)), frameValue(self), name, output_name);
 }

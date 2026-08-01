@@ -327,6 +327,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer fallback_units_col.deinit();
     var fallback_table = try table.withColumn("fallback_units", fallback_units_col);
     defer fallback_table.deinit();
+    var empty_fallback_units_col = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30 }, &.{ false, false, false }, .cpu);
+    defer empty_fallback_units_col.deinit();
+    var second_fallback_units_col = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 100, 200, 300 }, &.{ false, true, true }, .cpu);
+    defer second_fallback_units_col.deinit();
+    var multi_fallback_table = try fallback_table.withColumn("empty_fallback_units", empty_fallback_units_col);
+    defer multi_fallback_table.deinit();
+    var multi_source_table = try multi_fallback_table.withColumn("second_fallback_units", second_fallback_units_col);
+    defer multi_source_table.deinit();
     var coalesced_units = try fallback_table.coalesceColumns("units", "fallback_units", "units_coalesced");
     defer coalesced_units.deinit();
     try std.testing.expectEqual(DeviceDType.i64, try coalesced_units.columnDType("units_coalesced"));
@@ -334,6 +342,22 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const coalesced_values = try (try coalesced_units.column("units_coalesced")).i64.toOwnedSlice(gpa);
     defer gpa.free(coalesced_values);
     try std.testing.expectEqualSlices(i64, &.{ 1, 20, 3 }, coalesced_values);
+    var coalesced_many_units = try multi_source_table.coalesceColumnsMany(&.{ "units", "empty_fallback_units", "second_fallback_units" }, "units_coalesced_many");
+    defer coalesced_many_units.deinit();
+    try std.testing.expectEqual(@as(usize, 0), (try coalesced_many_units.column("units_coalesced_many")).nullCount());
+    const coalesced_many_values = try (try coalesced_many_units.column("units_coalesced_many")).i64.toOwnedSlice(gpa);
+    defer gpa.free(coalesced_many_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 200, 3 }, coalesced_many_values);
+    var coalesced_alias_units = try multi_source_table.coalesceManyColumns(&.{ "empty_fallback_units", "second_fallback_units" }, "units_coalesced_alias");
+    defer coalesced_alias_units.deinit();
+    const coalesced_alias = try (try coalesced_alias_units.column("units_coalesced_alias")).i64.toOwnedSlice(gpa);
+    defer gpa.free(coalesced_alias);
+    const coalesced_alias_validity = try (try coalesced_alias_units.column("units_coalesced_alias")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(coalesced_alias_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 200, 300 }, coalesced_alias);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, coalesced_alias_validity);
+    try std.testing.expectError(error.LengthMismatch, multi_source_table.coalesceFirstValidColumns(&.{}, "bad_empty_coalesce"));
+    try std.testing.expectError(error.TypeMismatch, multi_source_table.coalesceColumnsMany(&.{ "units", "sales" }, "bad_type_coalesce"));
     try std.testing.expectError(error.TypeMismatch, fallback_table.coalesceColumns("units", "sales", "bad"));
     try std.testing.expectError(error.ColumnNotFound, fallback_table.coalesceColumns("missing", "fallback_units", "bad"));
 
