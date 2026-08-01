@@ -3624,6 +3624,7 @@ pub fn withRowLogmeanexp(
 }
 
 const RowSoftmaxOutput = enum { probability, log_probability };
+const RowSoftmaxDirection = enum { max, min };
 
 fn withRowSoftmaxColumns(
     comptime DeviceDataFrame: type,
@@ -3631,6 +3632,7 @@ fn withRowSoftmaxColumns(
     names: []const []const u8,
     output_names: []const []const u8,
     comptime output: RowSoftmaxOutput,
+    comptime direction: RowSoftmaxDirection,
 ) DeviceFrameArrayError!DeviceDataFrame {
     @setEvalBranchQuota(2000);
     const check_names = if (names.len == 0) input.names else names;
@@ -3671,12 +3673,13 @@ fn withRowSoftmaxColumns(
                     const valid = if (maybe_validity) |mask| mask[row] else true;
                     if (!valid) continue;
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    const score = if (direction == .min) -value else value;
                     row_validity[row] = true;
                     valid_counts[row] += 1;
-                    if (std.math.isNan(value)) {
+                    if (std.math.isNan(score)) {
                         maxima[row] = std.math.nan(f64);
-                    } else if (!std.math.isNan(maxima[row]) and value > maxima[row]) {
-                        maxima[row] = value;
+                    } else if (!std.math.isNan(maxima[row]) and score > maxima[row]) {
+                        maxima[row] = score;
                     }
                 }
             },
@@ -3696,10 +3699,11 @@ fn withRowSoftmaxColumns(
                     const valid = if (maybe_validity) |mask| mask[row] else true;
                     if (!valid or !row_validity[row] or std.math.isNan(maxima[row])) continue;
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    const score = if (direction == .min) -value else value;
                     if (std.math.isPositiveInf(maxima[row])) {
-                        if (std.math.isPositiveInf(value)) pos_inf_counts[row] += 1;
+                        if (std.math.isPositiveInf(score)) pos_inf_counts[row] += 1;
                     } else if (!std.math.isNegativeInf(maxima[row])) {
-                        denom[row] += std.math.exp(value - maxima[row]);
+                        denom[row] += std.math.exp(score - maxima[row]);
                     }
                 }
             },
@@ -3731,18 +3735,19 @@ fn withRowSoftmaxColumns(
                     probability_validity[row] = row_validity[row];
                     if (!row_validity[row]) continue;
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    if (std.math.isNan(maxima[row]) or std.math.isNan(value)) {
+                    const score = if (direction == .min) -value else value;
+                    if (std.math.isNan(maxima[row]) or std.math.isNan(score)) {
                         probabilities[row] = std.math.nan(f64);
                     } else if (std.math.isPositiveInf(maxima[row])) {
-                        const probability = if (std.math.isPositiveInf(value)) 1.0 / @as(f64, @floatFromInt(pos_inf_counts[row])) else 0.0;
+                        const probability = if (std.math.isPositiveInf(score)) 1.0 / @as(f64, @floatFromInt(pos_inf_counts[row])) else 0.0;
                         probabilities[row] = if (output == .log_probability) std.math.log(f64, std.math.e, probability) else probability;
                     } else if (std.math.isNegativeInf(maxima[row])) {
                         const probability = 1.0 / @as(f64, @floatFromInt(valid_counts[row]));
                         probabilities[row] = if (output == .log_probability) std.math.log(f64, std.math.e, probability) else probability;
                     } else if (output == .log_probability) {
-                        probabilities[row] = value - maxima[row] - std.math.log(f64, std.math.e, denom[row]);
+                        probabilities[row] = score - maxima[row] - std.math.log(f64, std.math.e, denom[row]);
                     } else {
-                        probabilities[row] = std.math.exp(value - maxima[row]) / denom[row];
+                        probabilities[row] = std.math.exp(score - maxima[row]) / denom[row];
                     }
                 }
             },
@@ -3763,7 +3768,7 @@ pub fn withRowSoftmax(
     names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .probability);
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .probability, .max);
 }
 
 pub fn withRowLogSoftmax(
@@ -3772,7 +3777,7 @@ pub fn withRowLogSoftmax(
     names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .log_probability);
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .log_probability, .max);
 }
 
 pub fn withRowLogsoftmax(
@@ -3782,6 +3787,33 @@ pub fn withRowLogsoftmax(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowLogSoftmax(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowSoftmin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .probability, .min);
+}
+
+pub fn withRowLogSoftmin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxColumns(DeviceDataFrame, input, names, output_names, .log_probability, .min);
+}
+
+pub fn withRowLogsoftmin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowGeometricMean(

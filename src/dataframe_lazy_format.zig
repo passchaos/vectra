@@ -1323,8 +1323,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
-        .row_softmax, .row_log_softmax => |row_softmax, tag| {
-            const op_name = if (tag == .row_log_softmax) "row_log_softmax" else "row_softmax";
+        .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_softmax, tag| {
+            const op_name = switch (tag) {
+                .row_softmax => "row_softmax",
+                .row_log_softmax => "row_log_softmax",
+                .row_softmin => "row_softmin",
+                .row_log_softmin => "row_log_softmin",
+                else => unreachable,
+            };
             try writer.print("{s}([", .{op_name});
             for (row_softmax.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});

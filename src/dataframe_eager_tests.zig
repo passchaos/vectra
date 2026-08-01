@@ -1231,6 +1231,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_a_softmax), row_a_log_softmax[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_b_log_softmax[1], 1e-12);
     try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_b_softmax), row_b_log_softmax[3], 1e-12);
+
+    var row_softmin_table = try validity_table.withRowSoftmin(&.{ "a", "b" }, &.{ "a_softmin", "b_softmin" });
+    defer row_softmin_table.deinit();
+    const row_a_softmin = try (try row_softmin_table.column("a_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_softmin);
+    const row_b_softmin = try (try row_softmin_table.column("b_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_softmin);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_a_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_b_softmax, row_a_softmin[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_softmin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_a_softmax, row_b_softmin[3], 1e-12);
+
+    var row_log_softmin_table = try validity_table.withRowLogSoftmin(&.{ "a", "b" }, &.{ "a_log_softmin", "b_log_softmin" });
+    defer row_log_softmin_table.deinit();
+    const row_a_log_softmin = try (try row_log_softmin_table.column("a_log_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_log_softmin);
+    const row_b_log_softmin = try (try row_log_softmin_table.column("b_log_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_log_softmin);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_a_log_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_b_softmax), row_a_log_softmin[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_b_log_softmin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, row3_a_softmax), row_b_log_softmin[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2552,6 +2574,32 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expect(std.math.isNan(low_log_prob[2]));
     try std.testing.expect(std.math.isNan(high_log_prob[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), high_log_prob[3], 1e-12);
+
+    var softmin_table = try table.withRowSoftmin(&.{ "low", "high" }, &.{ "low_softmin", "high_softmin" });
+    defer softmin_table.deinit();
+    const low_softmin = try (try softmin_table.column("low_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(low_softmin);
+    const high_softmin = try (try softmin_table.column("high_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(high_softmin);
+    try std.testing.expectApproxEqAbs(expected_high0, low_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(expected_low0, high_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), low_softmin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), high_softmin[1], 1e-12);
+    try std.testing.expect(std.math.isNan(low_softmin[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), high_softmin[3], 1e-12);
+
+    var log_softmin_table = try table.withRowLogSoftmin(&.{ "low", "high" }, &.{ "low_log_softmin", "high_log_softmin" });
+    defer log_softmin_table.deinit();
+    const low_log_softmin = try (try log_softmin_table.column("low_log_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(low_log_softmin);
+    const high_log_softmin = try (try log_softmin_table.column("high_log_softmin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(high_log_softmin);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, expected_high0), low_log_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.log(f64, std.math.e, expected_low0), high_log_softmin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.ln2, low_log_softmin[1], 1e-12);
+    try std.testing.expectApproxEqAbs(-std.math.ln2, high_log_softmin[1], 1e-12);
+    try std.testing.expect(std.math.isNan(low_log_softmin[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), high_log_softmin[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {

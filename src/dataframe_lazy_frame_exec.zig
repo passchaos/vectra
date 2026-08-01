@@ -750,6 +750,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_logmeanexp => |row_count| try current.withRowLogMeanExp(row_count.names, row_count.output_name),
             .row_softmax => |row_softmax| try current.withRowSoftmax(row_softmax.names, row_softmax.output_names),
             .row_log_softmax => |row_softmax| try current.withRowLogSoftmax(row_softmax.names, row_softmax.output_names),
+            .row_softmin => |row_softmax| try current.withRowSoftmin(row_softmax.names, row_softmax.output_names),
+            .row_log_softmin => |row_softmax| try current.withRowLogSoftmin(row_softmax.names, row_softmax.output_names),
             .row_magnitude_skewness => |row_count| try current.withRowMagnitudeSkewness(row_count.names, row_count.output_name),
             .row_magnitude_kurtosis => |row_count| try current.withRowMagnitudeKurtosis(row_count.names, row_count.output_name),
             .row_geometric_mean => |row_count| try current.withRowGeometricMean(row_count.names, row_count.output_name),

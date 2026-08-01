@@ -2963,6 +2963,18 @@ pub fn withRowLogsoftmax(self: anytype, names: []const []const u8, output_names:
     return dataframe_array_mod.withRowLogsoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowSoftmin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowLogSoftmin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogSoftmin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowLogsoftmin(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogsoftmin(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
