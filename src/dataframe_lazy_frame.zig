@@ -2230,6 +2230,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixMax(self, names, output_names);
             }
 
+            pub fn withRowCumulativeMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMin(self, names, output_names);
+            }
+
+            pub fn withRowCummin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCummin(self, names, output_names);
+            }
+
+            pub fn withRowCumMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMin(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMin(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMin(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }

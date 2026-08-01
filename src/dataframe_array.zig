@@ -4508,11 +4508,14 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-pub fn withRowCumulativeSum(
+const RowCumulativeReduction = enum { sum, product, max, min };
+
+fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
     output_names: []const []const u8,
+    comptime reduction: RowCumulativeReduction,
 ) DeviceFrameArrayError!DeviceDataFrame {
     @setEvalBranchQuota(2000);
     const check_names = if (names.len == 0) input.names else names;
@@ -4555,11 +4558,31 @@ pub fn withRowCumulativeSum(
     defer input.allocator.free(cumulative);
     @memset(cumulative, 0.0);
     for (0..input.rows) |row| {
-        var running: f64 = 0.0;
+        var running: f64 = switch (reduction) {
+            .product => 1.0,
+            .sum, .max, .min => 0.0,
+        };
+        var running_valid = false;
         for (0..check_names.len) |col_index| {
             const offset = row * check_names.len + col_index;
             if (!flat_validity[offset]) continue;
-            running += flat_values[offset];
+            const value = flat_values[offset];
+            switch (reduction) {
+                .sum => running += value,
+                .product => running *= value,
+                .max => {
+                    if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value > running)) {
+                        running = value;
+                    }
+                    running_valid = true;
+                },
+                .min => {
+                    if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value < running)) {
+                        running = value;
+                    }
+                    running_valid = true;
+                },
+            }
             cumulative[offset] = running;
         }
     }
@@ -4589,6 +4612,15 @@ pub fn withRowCumulativeSum(
         result = next;
     }
     return result;
+}
+
+pub fn withRowCumulativeSum(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .sum);
 }
 
 pub fn withRowCumsum(
@@ -4624,81 +4656,7 @@ pub fn withRowCumulativeProduct(
     names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    @setEvalBranchQuota(2000);
-    const check_names = if (names.len == 0) input.names else names;
-    if (output_names.len != check_names.len) return error.LengthMismatch;
-    for (output_names, 0..) |output_name, index| {
-        for (output_names[0..index]) |previous| {
-            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
-        }
-    }
-
-    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
-    const flat_values = try input.allocator.alloc(f64, total_slots);
-    defer input.allocator.free(flat_values);
-    const flat_validity = try input.allocator.alloc(bool, total_slots);
-    defer input.allocator.free(flat_validity);
-    @memset(flat_values, 0.0);
-    @memset(flat_validity, false);
-
-    for (check_names, 0..) |name, col_index| {
-        const source = try input.column(name);
-        if (!source.dtype().isReal()) return error.TypeMismatch;
-        switch (source.*) {
-            inline else => |typed| {
-                const host_values = try typed.toOwnedSlice(input.allocator);
-                defer input.allocator.free(host_values);
-                const maybe_validity = try validityValues(typed, input.allocator);
-                defer if (maybe_validity) |mask| input.allocator.free(mask);
-                for (host_values, 0..) |raw_value, row| {
-                    const valid = if (maybe_validity) |mask| mask[row] else true;
-                    if (!valid) continue;
-                    const offset = row * check_names.len + col_index;
-                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    flat_validity[offset] = true;
-                }
-            },
-        }
-    }
-
-    const cumulative = try input.allocator.alloc(f64, total_slots);
-    defer input.allocator.free(cumulative);
-    @memset(cumulative, 0.0);
-    for (0..input.rows) |row| {
-        var running: f64 = 1.0;
-        for (0..check_names.len) |col_index| {
-            const offset = row * check_names.len + col_index;
-            if (!flat_validity[offset]) continue;
-            running *= flat_values[offset];
-            cumulative[offset] = running;
-        }
-    }
-
-    var result = try input.clone();
-    errdefer result.deinit();
-    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    for (check_names, output_names, 0..) |_, output_name, col_index| {
-        var values = try input.allocator.alloc(f64, input.rows);
-        defer input.allocator.free(values);
-        const value_validity = try input.allocator.alloc(bool, input.rows);
-        defer input.allocator.free(value_validity);
-        @memset(values, 0.0);
-        @memset(value_validity, false);
-
-        for (0..input.rows) |row| {
-            const offset = row * check_names.len + col_index;
-            if (!flat_validity[offset]) continue;
-            values[row] = cumulative[offset];
-            value_validity[row] = true;
-        }
-
-        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, value_validity, input.device);
-        defer column.deinit();
-        const next = try withColumn(DeviceDataFrame, result, output_name, column);
-        result.deinit();
-        result = next;
-    }
-    return result;
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .product);
 }
 
 pub fn withRowCumprod(
@@ -4734,86 +4692,7 @@ pub fn withRowCumulativeMax(
     names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    @setEvalBranchQuota(2000);
-    const check_names = if (names.len == 0) input.names else names;
-    if (output_names.len != check_names.len) return error.LengthMismatch;
-    for (output_names, 0..) |output_name, index| {
-        for (output_names[0..index]) |previous| {
-            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
-        }
-    }
-
-    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
-    const flat_values = try input.allocator.alloc(f64, total_slots);
-    defer input.allocator.free(flat_values);
-    const flat_validity = try input.allocator.alloc(bool, total_slots);
-    defer input.allocator.free(flat_validity);
-    @memset(flat_values, 0.0);
-    @memset(flat_validity, false);
-
-    for (check_names, 0..) |name, col_index| {
-        const source = try input.column(name);
-        if (!source.dtype().isReal()) return error.TypeMismatch;
-        switch (source.*) {
-            inline else => |typed| {
-                const host_values = try typed.toOwnedSlice(input.allocator);
-                defer input.allocator.free(host_values);
-                const maybe_validity = try validityValues(typed, input.allocator);
-                defer if (maybe_validity) |mask| input.allocator.free(mask);
-                for (host_values, 0..) |raw_value, row| {
-                    const valid = if (maybe_validity) |mask| mask[row] else true;
-                    if (!valid) continue;
-                    const offset = row * check_names.len + col_index;
-                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    flat_validity[offset] = true;
-                }
-            },
-        }
-    }
-
-    const cumulative = try input.allocator.alloc(f64, total_slots);
-    defer input.allocator.free(cumulative);
-    @memset(cumulative, 0.0);
-    for (0..input.rows) |row| {
-        var running: f64 = 0.0;
-        var running_valid = false;
-        for (0..check_names.len) |col_index| {
-            const offset = row * check_names.len + col_index;
-            if (!flat_validity[offset]) continue;
-            const value = flat_values[offset];
-            if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value > running)) {
-                running = value;
-            }
-            running_valid = true;
-            cumulative[offset] = running;
-        }
-    }
-
-    var result = try input.clone();
-    errdefer result.deinit();
-    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    for (check_names, output_names, 0..) |_, output_name, col_index| {
-        var values = try input.allocator.alloc(f64, input.rows);
-        defer input.allocator.free(values);
-        const value_validity = try input.allocator.alloc(bool, input.rows);
-        defer input.allocator.free(value_validity);
-        @memset(values, 0.0);
-        @memset(value_validity, false);
-
-        for (0..input.rows) |row| {
-            const offset = row * check_names.len + col_index;
-            if (!flat_validity[offset]) continue;
-            values[row] = cumulative[offset];
-            value_validity[row] = true;
-        }
-
-        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, value_validity, input.device);
-        defer column.deinit();
-        const next = try withColumn(DeviceDataFrame, result, output_name, column);
-        result.deinit();
-        result = next;
-    }
-    return result;
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .max);
 }
 
 pub fn withRowCummax(
@@ -4841,6 +4720,42 @@ pub fn withRowPrefixMax(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeMax(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .min);
+}
+
+pub fn withRowCummin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMin(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMin(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMin(DeviceDataFrame, input, names, output_names);
 }
 
 const RowTukeyFences = struct {
