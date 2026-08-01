@@ -1782,6 +1782,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowLastNullIndex(self, names, output_name);
             }
 
+            pub fn withRowCumulativeFirstValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstValidIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstValidIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastValidIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastValidIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastValidIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstNullIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstNullIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastNullIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastNullIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastNullIndex(self, names, output_names);
+            }
+
             pub fn withRowPairCount(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPairCount(self, lhs_names, rhs_names, output_name);
             }

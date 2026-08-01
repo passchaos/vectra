@@ -1196,6 +1196,8 @@ test "device lazy frame derives row null and valid count columns" {
     try plan.withRowCumulativeNullCount(&.{ "sales", "quality", "flag" }, &.{ "sales_cum_null", "quality_cum_null", "flag_cum_null" });
     try plan.withRowCumulativeValidRatio(&.{ "sales", "quality", "flag" }, &.{ "sales_cum_valid_ratio", "quality_cum_valid_ratio", "flag_cum_valid_ratio" });
     try plan.withRowCumulativeNullRatio(&.{ "sales", "quality", "flag" }, &.{ "sales_cum_null_ratio", "quality_cum_null_ratio", "flag_cum_null_ratio" });
+    try plan.withRowCumulativeFirstValidIndex(&.{ "sales", "quality", "flag" }, &.{ "sales_first_valid", "quality_first_valid", "flag_first_valid" });
+    try plan.withRowCumulativeLastNullIndex(&.{ "sales", "quality", "flag" }, &.{ "sales_last_null", "quality_last_null", "flag_last_null" });
     try plan.withRowNullRatio(&.{ "quality", "flag" }, "row_null_ratio");
     try plan.withRowValidRatio(&.{ "quality", "flag" }, "row_valid_ratio");
     try plan.withRowTrueCount(&.{"flag"}, "row_true_count");
@@ -1212,7 +1214,7 @@ test "device lazy frame derives row null and valid count columns" {
     try plan.withRowAllFalse(&.{"flag"}, "row_all_false");
     try plan.withRowTrueRatio(&.{"flag"}, "row_true_ratio");
     try plan.withRowFalseRatio(&.{"flag"}, "row_false_ratio");
-    try plan.select(&.{ "row_nulls", "row_valids_all", "sales_cum_valid", "quality_cum_valid", "flag_cum_valid", "sales_cum_null", "quality_cum_null", "flag_cum_null", "sales_cum_valid_ratio", "quality_cum_valid_ratio", "flag_cum_valid_ratio", "sales_cum_null_ratio", "quality_cum_null_ratio", "flag_cum_null_ratio", "row_null_ratio", "row_valid_ratio", "row_true_count", "row_false_count", "flag_cum_true", "flag_cum_false", "flag_cum_true_ratio", "flag_cum_false_ratio", "flag_cum_any_true", "flag_cum_all_true", "row_any_true", "row_all_true", "row_any_false", "row_all_false", "row_true_ratio", "row_false_ratio" });
+    try plan.select(&.{ "row_nulls", "row_valids_all", "sales_cum_valid", "quality_cum_valid", "flag_cum_valid", "sales_cum_null", "quality_cum_null", "flag_cum_null", "sales_cum_valid_ratio", "quality_cum_valid_ratio", "flag_cum_valid_ratio", "sales_cum_null_ratio", "quality_cum_null_ratio", "flag_cum_null_ratio", "sales_first_valid", "quality_first_valid", "flag_first_valid", "sales_last_null", "quality_last_null", "flag_last_null", "row_null_ratio", "row_valid_ratio", "row_true_count", "row_false_count", "flag_cum_true", "flag_cum_false", "flag_cum_true_ratio", "flag_cum_false_ratio", "flag_cum_any_true", "flag_cum_all_true", "row_any_true", "row_all_true", "row_any_false", "row_all_false", "row_true_ratio", "row_false_ratio" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1222,6 +1224,8 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_null_count([sales,quality,flag]->[sales_cum_null,quality_cum_null,flag_cum_null])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_valid_ratio([sales,quality,flag]->[sales_cum_valid_ratio,quality_cum_valid_ratio,flag_cum_valid_ratio])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_null_ratio([sales,quality,flag]->[sales_cum_null_ratio,quality_cum_null_ratio,flag_cum_null_ratio])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_first_valid_index([sales,quality,flag]->[sales_first_valid,quality_first_valid,flag_first_valid])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_last_null_index([sales,quality,flag]->[sales_last_null,quality_last_null,flag_last_null])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_null_ratio([quality,flag]->row_null_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_valid_ratio([quality,flag]->row_valid_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_true_count([flag]->row_true_count)") != null);
@@ -1241,7 +1245,7 @@ test "device lazy frame derives row null and valid count columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 30), result.width());
+    try std.testing.expectEqual(@as(usize, 36), result.width());
     const row_nulls = try (try result.column("row_nulls")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_nulls);
     const row_valids_all = try (try result.column("row_valids_all")).i64.toOwnedSlice(gpa);
@@ -1270,6 +1274,21 @@ test "device lazy frame derives row null and valid count columns" {
     defer gpa.free(quality_cum_null_ratio);
     const flag_cum_null_ratio = try (try result.column("flag_cum_null_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(flag_cum_null_ratio);
+    const sales_first_valid = try (try result.column("sales_first_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_first_valid);
+    const quality_first_valid = try (try result.column("quality_first_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(quality_first_valid);
+    const flag_first_valid = try (try result.column("flag_first_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_first_valid);
+    const sales_last_null_column = try result.column("sales_last_null");
+    const sales_last_null = try sales_last_null_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_last_null);
+    const sales_last_null_validity = try sales_last_null_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(sales_last_null_validity);
+    const quality_last_null = try (try result.column("quality_last_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(quality_last_null);
+    const flag_last_null = try (try result.column("flag_last_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(flag_last_null);
     const row_null_ratio = try (try result.column("row_null_ratio")).f64.toOwnedSlice(gpa);
     defer gpa.free(row_null_ratio);
     const row_valid_ratio = try (try result.column("row_valid_ratio")).f64.toOwnedSlice(gpa);
@@ -1344,6 +1363,13 @@ test "device lazy frame derives row null and valid count columns" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, sales_cum_null_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.0, 0.0 }, quality_cum_null_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 }, flag_cum_null_ratio);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, sales_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, quality_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, flag_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, sales_last_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, sales_last_null_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, quality_last_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2 }, flag_last_null);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.5 }, row_null_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 0.5 }, row_valid_ratio);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, row_true_count);
@@ -1376,6 +1402,10 @@ test "device lazy frame derives row null and valid count columns" {
     var invalid_cumulative_count_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_cumulative_count_plan.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid_cumulative_count_plan.withRowPrefixValidCount(&.{"sales"}, &.{ "sales_cum_valid", "extra_cum_valid" }));
+
+    var invalid_cumulative_index_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_cumulative_index_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid_cumulative_index_plan.withRowPrefixFirstValidIndex(&.{"sales"}, &.{ "sales_first_valid", "extra_first_valid" }));
 
     var invalid_cumulative_ratio_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_cumulative_ratio_plan.deinit();

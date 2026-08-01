@@ -445,6 +445,50 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0 / 3.0, 1.0 }, row_valid_ratio);
 
+    var row_cum_first_valid = try table.withRowCumulativeFirstValidIndex(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_first_valid", "units_first_valid", "active_first_valid" },
+    );
+    defer row_cum_first_valid.deinit();
+    const sales_first_valid_column = try row_cum_first_valid.column("sales_first_valid");
+    try std.testing.expect(sales_first_valid_column.i64.nullable());
+    const sales_first_valid = try sales_first_valid_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_first_valid);
+    const sales_first_valid_validity = try sales_first_valid_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(sales_first_valid_validity);
+    const units_first_valid = try (try row_cum_first_valid.column("units_first_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units_first_valid);
+    const active_first_valid = try (try row_cum_first_valid.column("active_first_valid")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, sales_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, units_first_valid);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, active_first_valid);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, sales_first_valid_validity);
+
+    var row_cum_last_null = try table.withRowPrefixLastNullIndex(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_last_null", "units_last_null", "active_last_null" },
+    );
+    defer row_cum_last_null.deinit();
+    const sales_last_null_column = try row_cum_last_null.column("sales_last_null");
+    const sales_last_null = try sales_last_null_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(sales_last_null);
+    const sales_last_null_validity = try sales_last_null_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(sales_last_null_validity);
+    const units_last_null_column = try row_cum_last_null.column("units_last_null");
+    const units_last_null = try units_last_null_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(units_last_null);
+    const units_last_null_validity = try units_last_null_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(units_last_null_validity);
+    const active_last_null = try (try row_cum_last_null.column("active_last_null")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_last_null);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, sales_last_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, sales_last_null_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, units_last_null);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, units_last_null_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, active_last_null);
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixFirstValidIndex(&.{"sales"}, &.{ "sales_first_valid", "extra_first_valid" }));
+
     var bool_alt = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false }, &.{ true, false, true }, .cpu);
     defer bool_alt.deinit();
     var bool_table = try table.withColumn("bool_alt", bool_alt);
