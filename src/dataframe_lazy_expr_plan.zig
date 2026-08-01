@@ -7021,7 +7021,7 @@ fn withRowCumulativeNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_names: []const []const u8,
-    comptime search: enum { first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_signbit, last_signbit, first_negative, last_negative },
+    comptime search: enum { first_zero, last_zero, first_positive_zero, last_positive_zero, first_negative_zero, last_negative_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_signbit, last_signbit, first_negative, last_negative },
 ) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);
@@ -7040,6 +7040,22 @@ fn withRowCumulativeNumericPredicateIndex(
             .output_names = owned_outputs,
         } }),
         .last_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_zero_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_positive_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_positive_zero_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_positive_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_positive_zero_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .first_negative_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_first_negative_zero_index = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .last_negative_zero => try frame.ops.append(frame.allocator, .{ .row_cumulative_last_negative_zero_index = .{
             .names = owned_names,
             .output_names = owned_outputs,
         } }),
@@ -7092,6 +7108,38 @@ pub fn withRowCumulativeLastZeroIndex(frame: anytype, names: []const []const u8,
 
 pub fn withRowPrefixLastZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowCumulativeLastZeroIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstPositiveZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .first_positive_zero);
+}
+
+pub fn withRowPrefixFirstPositiveZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstPositiveZeroIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastPositiveZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .last_positive_zero);
+}
+
+pub fn withRowPrefixLastPositiveZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastPositiveZeroIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFirstNegativeZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .first_negative_zero);
+}
+
+pub fn withRowPrefixFirstNegativeZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFirstNegativeZeroIndex(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLastNegativeZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicateIndex(frame, names, output_names, .last_negative_zero);
+}
+
+pub fn withRowPrefixLastNegativeZeroIndex(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeLastNegativeZeroIndex(frame, names, output_names);
 }
 
 pub fn withRowCumulativeNonZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

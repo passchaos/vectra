@@ -5060,6 +5060,38 @@ pub fn withRowPrefixLastZeroIndex(self: anytype, names: []const []const u8, outp
     return dataframe_array_mod.withRowPrefixLastZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowCumulativeFirstPositiveZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFirstPositiveZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixFirstPositiveZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFirstPositiveZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeLastPositiveZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeLastPositiveZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixLastPositiveZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixLastPositiveZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeFirstNegativeZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFirstNegativeZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixFirstNegativeZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFirstNegativeZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeLastNegativeZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeLastNegativeZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixLastNegativeZeroIndex(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixLastNegativeZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowCumulativeNonZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeNonZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

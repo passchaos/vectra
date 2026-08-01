@@ -4170,6 +4170,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixLastZeroIndex(self, names, output_names);
             }
 
+            pub fn withRowCumulativeFirstPositiveZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstPositiveZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstPositiveZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstPositiveZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastPositiveZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastPositiveZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastPositiveZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastPositiveZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeFirstNegativeZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeFirstNegativeZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixFirstNegativeZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixFirstNegativeZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLastNegativeZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLastNegativeZeroIndex(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLastNegativeZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLastNegativeZeroIndex(self, names, output_names);
+            }
+
             pub fn withRowCumulativeNonZeroCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeNonZeroCount(self, names, output_names);
             }

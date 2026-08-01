@@ -12472,6 +12472,78 @@ pub fn withRowPrefixLastZeroIndex(
     return withRowCumulativeLastZeroIndex(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowCumulativeFirstPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .positive_zero, .first);
+}
+
+pub fn withRowPrefixFirstPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstPositiveZeroIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .positive_zero, .last);
+}
+
+pub fn withRowPrefixLastPositiveZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastPositiveZeroIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFirstNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .negative_zero, .first);
+}
+
+pub fn withRowPrefixFirstNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFirstNegativeZeroIndex(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLastNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateIndex(DeviceDataFrame, input, names, output_names, .negative_zero, .last);
+}
+
+pub fn withRowPrefixLastNegativeZeroIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeLastNegativeZeroIndex(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowCumulativeFirstNonZeroIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
