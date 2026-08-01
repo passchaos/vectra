@@ -2995,6 +2995,14 @@ pub fn withRowHerfindahlHirschman(self: anytype, names: []const []const u8, outp
     return dataframe_array_mod.withRowHerfindahlHirschman(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeEntropy(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsEntropy(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMeanAbsDev(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMeanAbsDev(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

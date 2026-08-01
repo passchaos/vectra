@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_entropy, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3345,8 +3345,14 @@ fn withRowNumericReduction(
                         .sum, .mean => values[row] += value,
                         .mean_abs, .l1_norm => values[row] += @abs(value),
                         .hhi => {
-                            values[row] += @abs(value);
-                            maxima[row] += value * value;
+                            const magnitude = @abs(value);
+                            values[row] += magnitude;
+                            maxima[row] += magnitude * magnitude;
+                        },
+                        .magnitude_entropy => {
+                            const magnitude = @abs(value);
+                            values[row] += magnitude;
+                            if (magnitude > 0.0) maxima[row] += magnitude * std.math.log(f64, std.math.e, magnitude);
                         },
                         .rms, .l2_norm => values[row] += value * value,
                         .geometric_mean => {
@@ -3428,6 +3434,8 @@ fn withRowNumericReduction(
             value.* /= @floatFromInt(count);
         } else if (reduction == .hhi) {
             value.* = if (value.* == 0.0) std.math.nan(f64) else aux_value / (value.* * value.*);
+        } else if (reduction == .magnitude_entropy) {
+            value.* = if (value.* == 0.0) std.math.nan(f64) else std.math.log(f64, std.math.e, value.*) - aux_value / value.*;
         } else if (reduction == .rms) {
             value.* = std.math.sqrt(value.* / @as(f64, @floatFromInt(count)));
         } else if (reduction == .l2_norm) {
@@ -3599,6 +3607,24 @@ pub fn withRowHerfindahlHirschman(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowHhi(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_entropy);
+}
+
+pub fn withRowAbsEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeEntropy(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMeanAbsDev(
