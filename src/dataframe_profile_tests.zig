@@ -181,6 +181,31 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(active_null_on_values);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, active_null_on_values);
 
+    var active_valid_ratios = try bool_table.groupByValidRatio("store", "active", "active_valid_ratio");
+    defer active_valid_ratios.deinit();
+    const active_valid_ratio_values = try (try active_valid_ratios.column("active_valid_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_valid_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_valid_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_valid_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_valid_ratio_values[2], 1e-12);
+
+    var active_null_ratios = try bool_table.groupByNullRatio("store", "active", "active_null_ratio");
+    defer active_null_ratios.deinit();
+    const active_null_ratio_values = try (try active_null_ratios.column("active_null_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_null_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_null_ratio_values[2], 1e-12);
+
+    var active_null_ratios_on = try bool_table.groupByNullRatioOn(&.{ "store", "day" }, "active", "active_null_ratio_on");
+    defer active_null_ratios_on.deinit();
+    const active_null_ratio_on_values = try (try active_null_ratios_on.column("active_null_ratio_on")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_null_ratio_on_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_on_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_on_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_on_values[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_null_ratio_on_values[3], 1e-12);
+
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();
     try any_active_plan.groupByAnyOn(&.{ "store", "day" }, "active", "any_active_lazy");
@@ -204,6 +229,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_null_count_values = try (try lazy_null_counts.column("active_null_count_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_null_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, lazy_null_count_values);
+
+    var null_ratio_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer null_ratio_plan.deinit();
+    try null_ratio_plan.groupByNullRatioOn(&.{ "store", "day" }, "active", "active_null_ratio_lazy");
+    const null_ratio_explained = try null_ratio_plan.explain(gpa);
+    defer gpa.free(null_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, null_ratio_explained, "group_by_null_ratio_on([store,day], value=active -> active_null_ratio_lazy)") != null);
+    var lazy_null_ratios = try null_ratio_plan.collect();
+    defer lazy_null_ratios.deinit();
+    const lazy_null_ratio_values = try (try lazy_null_ratios.column("active_null_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_null_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_null_ratio_values[3], 1e-12);
 
     var true_ratio_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer true_ratio_plan.deinit();
