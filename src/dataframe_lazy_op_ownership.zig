@@ -1417,6 +1417,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .null_if_values_column => |null_if| blk: {
+            const name = try allocator.dupe(u8, null_if.name);
+            errdefer allocator.free(name);
+            var values = try null_if.values.clone();
+            errdefer values.deinit();
+            break :blk .{ .null_if_values_column = .{
+                .name = name,
+                .values = values,
+            } };
+        },
         .null_if_nan_column => |source_name| blk: {
             const name = try allocator.dupe(u8, source_name);
             break :blk .{ .null_if_nan_column = name };

@@ -1136,6 +1136,40 @@ fn nullIfScalarTyped(
     return ColumnType.fromSliceWithValidity(allocator, values, validity, column.device());
 }
 
+fn nullIfValuesTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: anytype,
+    targets: []const T,
+) array_mod.ArrayError!@TypeOf(column) {
+    const ColumnType = @TypeOf(column);
+    const values = try column.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const validity = try allocator.alloc(bool, values.len);
+    defer allocator.free(validity);
+    if (maybe_validity) |existing| {
+        @memcpy(validity, existing);
+    } else {
+        @memset(validity, true);
+    }
+
+    for (values, validity) |value, *valid| {
+        if (!valid.*) continue;
+        for (targets) |target| {
+            if (std.meta.eql(value, target)) {
+                valid.* = false;
+                break;
+            }
+        }
+    }
+
+    if (countNulls(validity) == 0) return ColumnType.fromSlice(allocator, values, column.device());
+    return ColumnType.fromSliceWithValidity(allocator, values, validity, column.device());
+}
+
 fn nullIfColumnCore(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -1153,6 +1187,33 @@ fn nullIfColumnCore(
                 DeviceColumn,
                 @tagName(tag),
                 try nullIfScalarTyped(T, input.allocator, @field(source.*, @tagName(tag)), target),
+            );
+            defer nullified.deinit();
+            break :blk try withColumn(DeviceDataFrame, input, output_name, nullified);
+        },
+    };
+}
+
+fn nullIfValuesColumnCore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    test_values: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(input_name);
+    if (source.dtype() != test_values.dtype()) return error.TypeUnsupported;
+    if (!source.device().sameDevice(test_values.device())) return error.InvalidDevice;
+    return switch (source.*) {
+        inline else => |typed, tag| blk: {
+            const T = tag.Type();
+            const targets = try @field(test_values, @tagName(tag)).toOwnedSlice(input.allocator);
+            defer input.allocator.free(targets);
+            const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+            var nullified: DeviceColumn = @unionInit(
+                DeviceColumn,
+                @tagName(tag),
+                try nullIfValuesTyped(T, input.allocator, typed, targets),
             );
             defer nullified.deinit();
             break :blk try withColumn(DeviceDataFrame, input, output_name, nullified);
@@ -1196,6 +1257,52 @@ pub fn withColumnNullIfScalar(
     scalar: DeviceScalar,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withColumnNullIf(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn nullIfValuesColumnWithDeviceColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    test_values: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfValuesColumnCore(DeviceDataFrame, input, name, name, test_values);
+}
+
+pub fn nullIfValuesColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+    comptime T: type,
+    values: []const T,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var test_values = try DeviceColumn.fromSlice(T, input.allocator, values, input.device);
+    defer test_values.deinit();
+    return nullIfValuesColumnWithDeviceColumn(DeviceDataFrame, input, name, test_values);
+}
+
+pub fn withColumnNullIfValuesWithDeviceColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    test_values: anytype,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfValuesColumnCore(DeviceDataFrame, input, output_name, input_name, test_values);
+}
+
+pub fn withColumnNullIfValues(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    comptime T: type,
+    values: []const T,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var test_values = try DeviceColumn.fromSlice(T, input.allocator, values, input.device);
+    defer test_values.deinit();
+    return withColumnNullIfValuesWithDeviceColumn(DeviceDataFrame, input, output_name, input_name, test_values);
 }
 
 fn nullIfNumericPredicateTyped(

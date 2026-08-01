@@ -1728,12 +1728,24 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.nullIfColumnScalar(self, name, scalar);
             }
 
+            pub fn nullIfValuesColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.nullIfValuesColumnWithDeviceColumn(self, name, value_column);
+            }
+
             pub fn withColumnNullIf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnNullIf(self, output_name, input_name, T, value);
             }
 
             pub fn withColumnNullIfScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
                 return lazy_expr_mod.withColumnNullIfScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnNullIfValues(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.withColumnNullIfValuesWithDeviceColumn(self, output_name, input_name, value_column);
             }
 
             pub fn nullIfNaNColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {

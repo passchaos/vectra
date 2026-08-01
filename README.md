@@ -253,8 +253,9 @@ implementation. Nullable boolean predicate masks now follow query-engine semanti
 null predicate rows are treated as not selected rather than requiring a prefilled
 host mask; complementary drop helpers only remove rows where the predicate is
 valid and true.
-`nullIfColumn` and `withColumnNullIf` provide SQL-style scalar nullification
-for replacing sentinel values with nulls in-place or into a derived output column;
+`nullIfColumn`/`withColumnNullIf` and `nullIfValuesColumn`/`withColumnNullIfValues`
+provide SQL-style scalar or literal-set nullification for replacing sentinel
+values with nulls in-place or into a derived output column;
 predicate variants such as `nullIfNaNColumn`, `withColumnNullIfZero`, and
 `withColumnNullIfNonFinite` convert existing numeric/special predicate matches
 into nulls without inventing replacement sentinel values. `withColumnFillNull`/

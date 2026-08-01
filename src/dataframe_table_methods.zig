@@ -2842,12 +2842,28 @@ pub fn nullIfColumnScalar(self: anytype, name: []const u8, scalar: DeviceScalar)
     return dataframe_array_mod.nullIfColumnScalar(FrameType(@TypeOf(self)), frameValue(self), name, scalar);
 }
 
+pub fn nullIfValuesColumnWithDeviceColumn(self: anytype, name: []const u8, test_values: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfValuesColumnWithDeviceColumn(FrameType(@TypeOf(self)), frameValue(self), name, test_values);
+}
+
+pub fn nullIfValuesColumn(self: anytype, name: []const u8, comptime T: type, values: []const T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfValuesColumn(FrameType(@TypeOf(self)), frameValue(self), name, T, values);
+}
+
 pub fn withColumnNullIf(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnNullIf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
 }
 
 pub fn withColumnNullIfScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnNullIfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnNullIfValuesWithDeviceColumn(self: anytype, output_name: []const u8, input_name: []const u8, test_values: @TypeOf(frameValue(self).columns[0])) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfValuesWithDeviceColumn(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, test_values);
+}
+
+pub fn withColumnNullIfValues(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfValues(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, T, values);
 }
 
 pub fn nullIfNaNColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
