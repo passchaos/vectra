@@ -2979,6 +2979,10 @@ pub fn withRowSoftmaxEntropy(self: anytype, names: []const []const u8, output_na
     return dataframe_array_mod.withRowSoftmaxEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSoftmaxPerplexity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxPerplexity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

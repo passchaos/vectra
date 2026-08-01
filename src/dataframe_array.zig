@@ -3816,11 +3816,14 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-pub fn withRowSoftmaxEntropy(
+const RowSoftmaxSummary = enum { entropy, perplexity };
+
+fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     names: []const []const u8,
     output_name: []const u8,
+    comptime summary: RowSoftmaxSummary,
 ) DeviceFrameArrayError!DeviceDataFrame {
     @setEvalBranchQuota(2000);
     const check_names = if (names.len == 0) input.names else names;
@@ -3909,12 +3912,31 @@ pub fn withRowSoftmaxEntropy(
         } else {
             entropy.* = std.math.log(f64, std.math.e, denominator) - shifted_sum / denominator;
         }
+        if (summary == .perplexity and !std.math.isNan(entropy.*)) entropy.* = std.math.exp(entropy.*);
     }
 
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
     var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, entropies, row_validity, input.device);
     defer column.deinit();
     return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowSoftmaxEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .entropy);
+}
+
+pub fn withRowSoftmaxPerplexity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .perplexity);
 }
 
 pub fn withRowGeometricMean(

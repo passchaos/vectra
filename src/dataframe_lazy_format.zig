@@ -1323,8 +1323,9 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
-        .row_softmax_entropy => |row_count| {
-            try writer.print("row_softmax_entropy([", .{});
+        .row_softmax_entropy, .row_softmax_perplexity => |row_count, tag| {
+            const op_name = if (tag == .row_softmax_perplexity) "row_softmax_perplexity" else "row_softmax_entropy";
+            try writer.print("{s}([", .{op_name});
             for (row_count.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});

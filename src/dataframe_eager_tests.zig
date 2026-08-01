@@ -1267,6 +1267,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_entropy[1], 1e-12);
     try std.testing.expectApproxEqAbs(row3_softmax_entropy, row_softmax_entropy[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_softmax_entropy_validity);
+
+    var row_softmax_perplexity_table = try validity_table.withRowSoftmaxPerplexity(&.{ "a", "b" }, "row_softmax_perplexity");
+    defer row_softmax_perplexity_table.deinit();
+    const row_softmax_perplexity = try (try row_softmax_perplexity_table.column("row_softmax_perplexity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_perplexity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_perplexity[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_perplexity[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(row3_softmax_entropy), row_softmax_perplexity[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2629,6 +2637,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expect(std.math.isNan(entropy[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), entropy[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, entropy_validity);
+
+    var perplexity_table = try table.withRowSoftmaxPerplexity(&.{ "low", "high" }, "row_softmax_perplexity");
+    defer perplexity_table.deinit();
+    const perplexity = try (try perplexity_table.column("row_softmax_perplexity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(perplexity);
+    try std.testing.expectApproxEqAbs(std.math.exp(expected_entropy0), perplexity[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), perplexity[1], 1e-12);
+    try std.testing.expect(std.math.isNan(perplexity[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), perplexity[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {

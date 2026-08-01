@@ -2090,6 +2090,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSoftmaxEntropy(self, names, output_name);
             }
 
+            pub fn withRowSoftmaxPerplexity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxPerplexity(self, names, output_name);
+            }
+
             pub fn withRowGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowGeometricMean(self, names, output_name);
             }
