@@ -42,6 +42,16 @@ pub fn valueCountsAs(self: anytype, key_name: []const u8, output_name: []const u
     return groupByCount(self, key_name, output_name);
 }
 
+pub fn valueCountsSorted(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return valueCountsSortedAs(self, key_name, "count");
+}
+
+pub fn valueCountsSortedAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    var counts = try valueCountsAs(self, key_name, output_name);
+    defer counts.deinit();
+    return counts.sortBy(output_name, .{ .descending = true });
+}
+
 pub fn groupBySum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return group_profile_mod.groupByNumeric(FrameType(@TypeOf(self)), .sum, frameValue(self), key_name, value_name, output_name);
 }

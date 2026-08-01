@@ -26,6 +26,15 @@ pub fn valueCountsAs(self: anytype, key_name: []const u8, output_name: []const u
     return self.groupByCount(key_name, output_name);
 }
 
+pub fn valueCountsSorted(self: anytype, key_name: []const u8) DeviceDataError!void {
+    return valueCountsSortedAs(self, key_name, "count");
+}
+
+pub fn valueCountsSortedAs(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    try self.valueCountsAs(key_name, output_name);
+    try self.sortBy(output_name, .{ .descending = true });
+}
+
 pub fn groupByValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return lazy_group_mod.groupByValue(self, key_name, value_name, output_name, aggregation);
 }

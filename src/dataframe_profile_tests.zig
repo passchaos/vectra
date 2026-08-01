@@ -116,12 +116,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(named_counts);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, named_counts);
 
+    var sorted_value_counts = try table.valueCountsSorted("store");
+    defer sorted_value_counts.deinit();
+    const sorted_value_count_keys = try (try sorted_value_counts.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(sorted_value_count_keys);
+    const sorted_value_count_values = try (try sorted_value_counts.column("count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(sorted_value_count_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, sorted_value_count_keys);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2 }, sorted_value_count_values);
+
     var value_counts_plan = try DeviceLazyFrame.init(gpa, table);
     defer value_counts_plan.deinit();
-    try value_counts_plan.valueCountsAs("store", "rows_lazy");
+    try value_counts_plan.valueCountsSortedAs("store", "rows_lazy");
     const value_counts_explained = try value_counts_plan.explain(gpa);
     defer gpa.free(value_counts_explained);
     try std.testing.expect(std.mem.indexOf(u8, value_counts_explained, "group_by_count(store -> rows_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, value_counts_explained, "sort_by(rows_lazy, desc=true)") != null);
     var lazy_value_counts = try value_counts_plan.collect();
     defer lazy_value_counts.deinit();
     const lazy_value_count_keys = try (try lazy_value_counts.column("store")).i32.toOwnedSlice(gpa);
