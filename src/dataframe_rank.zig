@@ -55,6 +55,41 @@ pub fn sortBy(
     return frame.take(order);
 }
 
+pub fn argsortByColumns(frame: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) RankFrameError![]usize {
+    if (names.len != options_values.len) return error.LengthMismatch;
+    var order = try frame.allocator.alloc(usize, frame.rows);
+    errdefer frame.allocator.free(order);
+    for (order, 0..) |*slot, i| slot.* = i;
+
+    // Stable sorts from the least-significant key to the most-significant key
+    // produce lexicographic ordering while reusing the existing per-column
+    // null-placement and dtype comparison rules.
+    var key_index = names.len;
+    while (key_index > 0) {
+        key_index -= 1;
+        var reordered = try frame.take(order);
+        defer reordered.deinit();
+        const key_order = try argsortBy(reordered, names[key_index], options_values[key_index]);
+        defer frame.allocator.free(key_order);
+        const next_order = try frame.allocator.alloc(usize, frame.rows);
+        for (key_order, next_order) |local_index, *slot| slot.* = order[local_index];
+        frame.allocator.free(order);
+        order = next_order;
+    }
+    return order;
+}
+
+pub fn sortByColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    names: []const []const u8,
+    options_values: []const DeviceSortOptions,
+) RankFrameError!DeviceDataFrame {
+    const order = try argsortByColumns(frame, names, options_values);
+    defer frame.allocator.free(order);
+    return frame.take(order);
+}
+
 pub fn topKBy(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

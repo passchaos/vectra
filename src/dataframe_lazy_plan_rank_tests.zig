@@ -7057,6 +7057,34 @@ test "device lazy frame collects topk operations" {
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
 }
 
+test "device lazy frame sorts by multiple columns" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.sortByColumns(&.{ "active", "units" }, &.{ .{ .descending = true }, .{ .descending = true } });
+    try plan.select(&.{ "sales", "active", "units" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "sort_by_columns[active:desc=true,units:desc=true]") != null);
+
+    var sorted = try plan.collect();
+    defer sorted.deinit();
+    const sales = try (try sorted.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales);
+    const units = try (try sorted.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0, 2.0, 3.0 }, sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 3, 1, 2 }, units);
+
+    var invalid = try DeviceLazyFrame.init(gpa, table);
+    defer invalid.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid.sortByColumns(&.{"active"}, &.{ .{ .descending = true }, .{ .descending = true } }));
+}
+
 test "device lazy frame collects row slice operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);

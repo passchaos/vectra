@@ -695,6 +695,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .concat_rows => |*right| right.deinit(),
         .distinct_on => |names| freeNameList(allocator, names),
         .sort_by => |sort| allocator.free(sort.name),
+        .sort_by_columns => |sort| {
+            freeNameList(allocator, sort.names);
+            allocator.free(sort.options);
+        },
         .top_k => |top| allocator.free(top.name),
         .rank_profile_by => |payload| freeNameOutput(allocator, payload),
         .rolling_profile => |payload| freeNameOutput(allocator, payload),

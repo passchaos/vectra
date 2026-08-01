@@ -17,6 +17,26 @@ pub fn sortBy(frame: anytype, name: []const u8, options_value: DeviceSortOptions
     } });
 }
 
+pub fn sortByColumns(frame: anytype, names: []const []const u8, options_values: []const DeviceSortOptions) DeviceDataError!void {
+    if (names.len != options_values.len) return error.LengthMismatch;
+    const owned_names = try frame.allocator.alloc([]const u8, names.len);
+    errdefer frame.allocator.free(owned_names);
+    var initialized: usize = 0;
+    errdefer {
+        for (owned_names[0..initialized]) |name| frame.allocator.free(name);
+    }
+    for (names, owned_names) |name, *slot| {
+        slot.* = try frame.allocator.dupe(u8, name);
+        initialized += 1;
+    }
+    const owned_options = try frame.allocator.dupe(DeviceSortOptions, options_values);
+    errdefer frame.allocator.free(owned_options);
+    try frame.ops.append(frame.allocator, .{ .sort_by_columns = .{
+        .names = owned_names,
+        .options = owned_options,
+    } });
+}
+
 pub fn rankProfileBy(frame: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

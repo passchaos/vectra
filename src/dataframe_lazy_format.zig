@@ -2622,6 +2622,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             try writer.print("])", .{});
         },
         .sort_by => |sort| try writer.print("sort_by({s}, desc={})", .{ sort.name, sort.options.descending }),
+        .sort_by_columns => |sort| {
+            try writer.print("sort_by_columns[", .{});
+            for (sort.names, sort.options, 0..) |name, options_value, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}:desc={}", .{ name, options_value.descending });
+            }
+            try writer.print("]", .{});
+        },
         .top_k => |top| try writer.print("top_k({s}, k={d}, desc={})", .{ top.name, top.k, top.options.descending }),
         .rank_profile_by => |rank| try writer.print("rank_profile_by({s}, prefix={s}, desc={})", .{ rank.name, rank.output_prefix, rank.options.descending }),
         .rolling_profile => |rolling| try writer.print("rolling_profile({s}, prefix={s}, window={d})", .{ rolling.name, rolling.output_prefix, rolling.options.window }),

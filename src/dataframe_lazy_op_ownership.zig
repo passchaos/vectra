@@ -3979,6 +3979,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             .name = try allocator.dupe(u8, sort.name),
             .options = sort.options,
         } },
+        .sort_by_columns => |sort| blk: {
+            const names = try cloneNameList(allocator, sort.names);
+            errdefer freeNameList(allocator, names);
+            const options = try allocator.dupe(std.meta.Elem(@TypeOf(sort.options)), sort.options);
+            errdefer allocator.free(options);
+            break :blk .{ .sort_by_columns = .{
+                .names = names,
+                .options = options,
+            } };
+        },
         .top_k => |top| .{ .top_k = .{
             .name = try allocator.dupe(u8, top.name),
             .options = top.options,

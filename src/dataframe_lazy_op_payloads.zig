@@ -373,6 +373,10 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             name: []const u8,
             options: DeviceSortOptions,
         };
+        pub const SortByColumns = struct {
+            names: [][]const u8,
+            options: []DeviceSortOptions,
+        };
         pub const TopK = struct {
             name: []const u8,
             options: DeviceSortOptions,

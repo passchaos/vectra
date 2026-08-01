@@ -739,6 +739,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         distinct_rows,
         distinct_on: Payloads.DistinctOn,
         sort_by: Payloads.SortBy,
+        sort_by_columns: Payloads.SortByColumns,
         top_k: Payloads.TopK,
         rank_profile_by: Payloads.RankProfileBy,
         rolling_profile: Payloads.RollingProfile,

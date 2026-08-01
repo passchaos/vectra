@@ -52,6 +52,30 @@ test "device dataframe sorts and rank profiles" {
     defer gpa.free(bool_sorted_id_values);
     try std.testing.expectEqualSlices(i64, &.{ 10, 40, 30, 20 }, bool_sorted_id_values);
 
+    var group = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 1, 2, 1, 2 }, .cpu);
+    defer group.deinit();
+    var multi_score = try DeviceColumn.fromSlice(i64, gpa, &.{ 2, 1, 1, 3, 0 }, .cpu);
+    defer multi_score.deinit();
+    var multi_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 0, 1, 2, 3, 4 }, .cpu);
+    defer multi_id.deinit();
+    var multi_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "group", .data = group },
+        .{ .name = "score", .data = multi_score },
+        .{ .name = "id", .data = multi_id },
+    });
+    defer multi_table.deinit();
+
+    const multi_order = try multi_table.argsortByColumns(&.{ "group", "score" }, &.{ .{ .descending = false }, .{ .descending = true } });
+    defer gpa.free(multi_order);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 0, 1, 2, 4 }, multi_order);
+
+    var multi_sorted = try multi_table.sortByColumns(&.{ "group", "score" }, &.{ .{ .descending = false }, .{ .descending = true } });
+    defer multi_sorted.deinit();
+    const multi_sorted_id = try (try multi_sorted.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(multi_sorted_id);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 2, 4 }, multi_sorted_id);
+    try std.testing.expectError(error.LengthMismatch, multi_table.sortByColumns(&.{"group"}, &.{ .{ .descending = false }, .{ .descending = true } }));
+
     var tied_score = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0, 20.0, 30.0, 0.0 }, &.{ true, true, true, true, false }, .cpu);
     defer tied_score.deinit();
     var tied_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 1, 2, 3, 4, 5 }, .cpu);

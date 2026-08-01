@@ -1160,6 +1160,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .distinct_rows => try current.distinctRows(),
             .distinct_on => |names| try current.distinctOn(names),
             .sort_by => |sort| try current.sortBy(sort.name, sort.options),
+            .sort_by_columns => |sort| try current.sortByColumns(sort.names, sort.options),
             .top_k => |top| try current.topKBy(top.name, top.k, top.options),
             .rank_profile_by => |rank| try current.rankProfileBy(rank.name, rank.output_prefix, rank.options),
             .rolling_profile => |rolling| try current.rollingProfile(rolling.name, rolling.output_prefix, rolling.options),
