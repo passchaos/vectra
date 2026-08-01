@@ -106,6 +106,15 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const dtype_class_mask = try table.columnDTypeClassMask(gpa, .numeric);
     defer gpa.free(dtype_class_mask);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false }, dtype_class_mask);
+    try std.testing.expectEqual(@as(usize, 2), table.columnDTypeClassCount(.numeric));
+    try std.testing.expectEqual(@as(usize, 2), table.numericColumnCount());
+    try std.testing.expectEqual(@as(usize, 2), table.realColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), table.floatColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), table.integerColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), table.signedIntegerColumnCount());
+    try std.testing.expectEqual(@as(usize, 0), table.unsignedIntegerColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), table.boolColumnCount());
+    try std.testing.expectEqual(@as(usize, 0), table.complexColumnCount());
     const null_counts = try table.columnNullCounts(gpa);
     defer gpa.free(null_counts);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, null_counts);

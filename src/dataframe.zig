@@ -168,6 +168,46 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn columnDTypeClassCount(self: DeviceDataFrame, class: DeviceDTypeClass) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (class.matches(column_value.dtype())) count += 1;
+        }
+        return count;
+    }
+
+    pub fn numericColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.numeric);
+    }
+
+    pub fn realColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.real);
+    }
+
+    pub fn floatColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.float);
+    }
+
+    pub fn integerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.integer);
+    }
+
+    pub fn signedIntegerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.signed_integer);
+    }
+
+    pub fn unsignedIntegerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.unsigned_integer);
+    }
+
+    pub fn boolColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.bool);
+    }
+
+    pub fn complexColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.complex);
+    }
+
     pub fn columnIsNumericMask(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
         return self.columnDTypeClassMask(allocator, .numeric);
     }
