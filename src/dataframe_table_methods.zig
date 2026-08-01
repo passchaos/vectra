@@ -7272,12 +7272,20 @@ pub fn distinctRowsLast(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) 
     return keys_mod.distinctRowsLast(FrameType(@TypeOf(self)), frameValue(self));
 }
 
+pub fn distinctRowsNone(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return keys_mod.distinctRowsNone(FrameType(@TypeOf(self)), frameValue(self));
+}
+
 pub fn distinctOn(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return keys_mod.distinctOn(FrameType(@TypeOf(self)), frameValue(self), key_names);
 }
 
 pub fn distinctOnLast(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return keys_mod.distinctOnLast(FrameType(@TypeOf(self)), frameValue(self), key_names);
+}
+
+pub fn distinctOnNone(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return keys_mod.distinctOnNone(FrameType(@TypeOf(self)), frameValue(self), key_names);
 }
 
 pub fn dropDuplicates(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
@@ -7294,6 +7302,14 @@ pub fn dropDuplicatesLast(self: anytype) DeviceDataError!FrameType(@TypeOf(self)
 
 pub fn dropDuplicatesOnLast(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return distinctOnLast(self, key_names);
+}
+
+pub fn dropDuplicatesNone(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
+    return distinctRowsNone(self);
+}
+
+pub fn dropDuplicatesOnNone(self: anytype, key_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return distinctOnNone(self, key_names);
 }
 
 pub fn uniqueRows(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {

@@ -5622,12 +5622,16 @@ pub fn DeviceLazyTypes(
             pub const vstack = lazy_relation_methods_mod.vstack;
             pub const distinctRows = lazy_relation_methods_mod.distinctRows;
             pub const distinctRowsLast = lazy_relation_methods_mod.distinctRowsLast;
+            pub const distinctRowsNone = lazy_relation_methods_mod.distinctRowsNone;
             pub const distinctOn = lazy_relation_methods_mod.distinctOn;
             pub const distinctOnLast = lazy_relation_methods_mod.distinctOnLast;
+            pub const distinctOnNone = lazy_relation_methods_mod.distinctOnNone;
             pub const dropDuplicates = lazy_relation_methods_mod.dropDuplicates;
             pub const dropDuplicatesOn = lazy_relation_methods_mod.dropDuplicatesOn;
             pub const dropDuplicatesLast = lazy_relation_methods_mod.dropDuplicatesLast;
             pub const dropDuplicatesOnLast = lazy_relation_methods_mod.dropDuplicatesOnLast;
+            pub const dropDuplicatesNone = lazy_relation_methods_mod.dropDuplicatesNone;
+            pub const dropDuplicatesOnNone = lazy_relation_methods_mod.dropDuplicatesOnNone;
             pub const uniqueRows = lazy_relation_methods_mod.uniqueRows;
             pub fn filterColumnScalar(self: *DeviceLazyFrame, name: []const u8, comptime T: type, scalar: T, op: DeviceColumnCompareOp) DeviceDataError!void {
                 return lazy_expr_mod.filterColumnScalar(self, name, T, scalar, op);

@@ -2635,6 +2635,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .concat_rows => |right| try writer.print("concat_rows(rows={d}, cols={d})", .{ right.height(), right.width() }),
         .distinct_rows => try writer.print("distinct_rows", .{}),
         .distinct_rows_last => try writer.print("distinct_rows_last", .{}),
+        .distinct_rows_none => try writer.print("distinct_rows_none", .{}),
         .distinct_on => |names| {
             try writer.print("distinct_on([", .{});
             for (names, 0..) |name, i| {
@@ -2645,6 +2646,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .distinct_on_last => |names| {
             try writer.print("distinct_on_last([", .{});
+            for (names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("])", .{});
+        },
+        .distinct_on_none => |names| {
+            try writer.print("distinct_on_none([", .{});
             for (names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});

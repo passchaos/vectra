@@ -81,3 +81,8 @@ pub fn distinctOnLast(frame: anytype, key_names: []const []const u8) DeviceDataE
     if (key_names.len == 0) return error.LengthMismatch;
     try frame.ops.append(frame.allocator, .{ .distinct_on_last = try cloneNameList(frame.allocator, key_names) });
 }
+
+pub fn distinctOnNone(frame: anytype, key_names: []const []const u8) DeviceDataError!void {
+    if (key_names.len == 0) return error.LengthMismatch;
+    try frame.ops.append(frame.allocator, .{ .distinct_on_none = try cloneNameList(frame.allocator, key_names) });
+}

@@ -115,12 +115,20 @@ pub fn distinctRowsLast(self: anytype) DeviceDataError!void {
     try self.ops.append(self.allocator, .{ .distinct_rows_last = {} });
 }
 
+pub fn distinctRowsNone(self: anytype) DeviceDataError!void {
+    try self.ops.append(self.allocator, .{ .distinct_rows_none = {} });
+}
+
 pub fn distinctOn(self: anytype, key_names: []const []const u8) DeviceDataError!void {
     return lazy_join_mod.distinctOn(self, key_names);
 }
 
 pub fn distinctOnLast(self: anytype, key_names: []const []const u8) DeviceDataError!void {
     return lazy_join_mod.distinctOnLast(self, key_names);
+}
+
+pub fn distinctOnNone(self: anytype, key_names: []const []const u8) DeviceDataError!void {
+    return lazy_join_mod.distinctOnNone(self, key_names);
 }
 
 pub fn dropDuplicates(self: anytype) DeviceDataError!void {
@@ -137,6 +145,14 @@ pub fn dropDuplicatesLast(self: anytype) DeviceDataError!void {
 
 pub fn dropDuplicatesOnLast(self: anytype, key_names: []const []const u8) DeviceDataError!void {
     return self.distinctOnLast(key_names);
+}
+
+pub fn dropDuplicatesNone(self: anytype) DeviceDataError!void {
+    return self.distinctRowsNone();
+}
+
+pub fn dropDuplicatesOnNone(self: anytype, key_names: []const []const u8) DeviceDataError!void {
+    return self.distinctOnNone(key_names);
 }
 
 pub fn uniqueRows(self: anytype) DeviceDataError!void {

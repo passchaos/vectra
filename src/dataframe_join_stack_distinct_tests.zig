@@ -90,9 +90,26 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     defer gpa.free(distinct_last_values);
     try std.testing.expectEqualSlices(f64, &.{ 99.0, 21.0, 30.0 }, distinct_last_values);
 
+    var distinct_none = try table.dropDuplicatesOnNone(&.{"id"});
+    defer distinct_none.deinit();
+    try std.testing.expectEqual(@as(usize, 1), distinct_none.height());
+    const distinct_none_ids = try (try distinct_none.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(distinct_none_ids);
+    const distinct_none_values = try (try distinct_none.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(distinct_none_values);
+    const distinct_none_validity = try (try distinct_none.column("value")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(distinct_none_validity);
+    try std.testing.expectEqualSlices(i32, &.{3}, distinct_none_ids);
+    try std.testing.expectEqualSlices(f64, &.{30.0}, distinct_none_values);
+    try std.testing.expectEqualSlices(bool, &.{false}, distinct_none_validity);
+
     var full_distinct = try table.distinctRows();
     defer full_distinct.deinit();
     try std.testing.expectEqual(@as(usize, 4), full_distinct.height());
+
+    var full_distinct_none = try table.distinctRowsNone();
+    defer full_distinct_none.deinit();
+    try std.testing.expectEqual(@as(usize, 4), full_distinct_none.height());
 
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
@@ -120,4 +137,34 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     const lazy_last_values = try (try lazy_last.column("value")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_last_values);
     try std.testing.expectEqualSlices(f64, &.{ 99.0, 21.0, 30.0 }, lazy_last_values);
+
+    var none_plan = try DeviceLazyFrame.init(gpa, table);
+    defer none_plan.deinit();
+    try none_plan.dropDuplicatesOnNone(&.{"id"});
+    try none_plan.select(&.{ "id", "value" });
+    const none_explained = try none_plan.explain(gpa);
+    defer gpa.free(none_explained);
+    try std.testing.expect(std.mem.indexOf(u8, none_explained, "distinct_on_none([id])") != null);
+    var lazy_none = try none_plan.collect();
+    defer lazy_none.deinit();
+    try std.testing.expectEqual(@as(usize, 1), lazy_none.height());
+    const lazy_none_ids = try (try lazy_none.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_none_ids);
+    const lazy_none_values = try (try lazy_none.column("value")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_none_values);
+    const lazy_none_validity = try (try lazy_none.column("value")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_none_validity);
+    try std.testing.expectEqualSlices(i32, &.{3}, lazy_none_ids);
+    try std.testing.expectEqualSlices(f64, &.{30.0}, lazy_none_values);
+    try std.testing.expectEqualSlices(bool, &.{false}, lazy_none_validity);
+
+    var rows_none_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rows_none_plan.deinit();
+    try rows_none_plan.distinctRowsNone();
+    const rows_none_explained = try rows_none_plan.explain(gpa);
+    defer gpa.free(rows_none_explained);
+    try std.testing.expect(std.mem.indexOf(u8, rows_none_explained, "distinct_rows_none") != null);
+    var lazy_rows_none = try rows_none_plan.collect();
+    defer lazy_rows_none.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rows_none.height());
 }

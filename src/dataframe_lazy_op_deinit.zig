@@ -707,7 +707,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(join.options.right_suffix);
         },
         .concat_rows => |*right| right.deinit(),
-        .distinct_on, .distinct_on_last => |names| freeNameList(allocator, names),
+        .distinct_on, .distinct_on_last, .distinct_on_none => |names| freeNameList(allocator, names),
         .sort_by => |sort| allocator.free(sort.name),
         .sort_by_columns => |sort| {
             freeNameList(allocator, sort.names);
@@ -791,7 +791,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .drop_rows_by_column => |name| allocator.free(name),
         .drop_rows_by_column_mode => |take_mode| allocator.free(take_mode.name),
         .repeat_rows_by => |count_name| allocator.free(count_name),
-        .distinct_rows, .distinct_rows_last, .slice_rows, .slice_rows_signed, .drop_row_range, .drop_last_rows, .slice_rows_step, .slice_rows_signed_step, .stride_rows, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_fraction, .sample_rows_with_replacement, .sample_rows_fraction_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
+        .distinct_rows, .distinct_rows_last, .distinct_rows_none, .slice_rows, .slice_rows_signed, .drop_row_range, .drop_last_rows, .slice_rows_step, .slice_rows_signed_step, .stride_rows, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_fraction, .sample_rows_with_replacement, .sample_rows_fraction_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
     }
     self.* = undefined;
 }

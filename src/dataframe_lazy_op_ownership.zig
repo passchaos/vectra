@@ -4014,8 +4014,10 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .concat_rows => |right| .{ .concat_rows = try right.clone() },
         .distinct_rows => .{ .distinct_rows = {} },
         .distinct_rows_last => .{ .distinct_rows_last = {} },
+        .distinct_rows_none => .{ .distinct_rows_none = {} },
         .distinct_on => |names| .{ .distinct_on = try cloneNameList(allocator, names) },
         .distinct_on_last => |names| .{ .distinct_on_last = try cloneNameList(allocator, names) },
+        .distinct_on_none => |names| .{ .distinct_on_none = try cloneNameList(allocator, names) },
         .sort_by => |sort| .{ .sort_by = .{
             .name = try allocator.dupe(u8, sort.name),
             .options = sort.options,
