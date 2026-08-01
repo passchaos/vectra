@@ -1366,6 +1366,66 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .scalar = fill.scalar,
             } };
         },
+        .null_if_nan_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_nan_column = name };
+        },
+        .null_if_inf_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_inf_column = name };
+        },
+        .null_if_positive_inf_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_positive_inf_column = name };
+        },
+        .null_if_negative_inf_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_negative_inf_column = name };
+        },
+        .null_if_zero_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_zero_column = name };
+        },
+        .null_if_positive_zero_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_positive_zero_column = name };
+        },
+        .null_if_negative_zero_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_negative_zero_column = name };
+        },
+        .null_if_non_zero_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_non_zero_column = name };
+        },
+        .null_if_positive_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_positive_column = name };
+        },
+        .null_if_signbit_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_signbit_column = name };
+        },
+        .null_if_negative_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_negative_column = name };
+        },
+        .null_if_finite_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_finite_column = name };
+        },
+        .null_if_normal_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_normal_column = name };
+        },
+        .null_if_subnormal_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_subnormal_column = name };
+        },
+        .null_if_non_finite_column => |source_name| blk: {
+            const name = try allocator.dupe(u8, source_name);
+            break :blk .{ .null_if_non_finite_column = name };
+        },
         .coalesce_columns => |coalesce| blk: {
             const primary_name = try allocator.dupe(u8, coalesce.primary_name);
             errdefer allocator.free(primary_name);

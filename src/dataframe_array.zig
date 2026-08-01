@@ -1147,6 +1147,312 @@ pub fn withColumnNullIfScalar(
     return withColumnNullIf(DeviceDataFrame, input, output_name, input_name, scalar);
 }
 
+fn nullIfNumericPredicateTyped(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    column: anytype,
+    comptime predicate: RowNumericPredicate,
+) array_mod.ArrayError!@TypeOf(column) {
+    const ColumnType = @TypeOf(column);
+    const values = try column.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_validity = try validityValues(column, allocator);
+    defer if (maybe_validity) |validity| allocator.free(validity);
+
+    const validity = try allocator.alloc(bool, values.len);
+    defer allocator.free(validity);
+    if (maybe_validity) |existing| {
+        @memcpy(validity, existing);
+    } else {
+        @memset(validity, true);
+    }
+
+    for (values, validity) |value, *valid| {
+        if (valid.* and rowNumericPredicateMatches(T, value, predicate)) valid.* = false;
+    }
+
+    if (countNulls(validity) == 0) return ColumnType.fromSlice(allocator, values, column.device());
+    return ColumnType.fromSliceWithValidity(allocator, values, validity, column.device());
+}
+
+fn nullIfNumericPredicateColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    comptime predicate: RowNumericPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(input_name);
+    return switch (source.*) {
+        inline else => |typed, tag| blk: {
+            const T = @TypeOf(typed).Scalar;
+            const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+            var nullified: DeviceColumn = @unionInit(
+                DeviceColumn,
+                @tagName(tag),
+                try nullIfNumericPredicateTyped(T, input.allocator, typed, predicate),
+            );
+            defer nullified.deinit();
+            break :blk try withColumn(DeviceDataFrame, input, output_name, nullified);
+        },
+    };
+}
+
+pub fn nullIfNaNColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .nan);
+}
+
+pub fn withColumnNullIfNaN(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .nan);
+}
+
+pub fn nullIfInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .inf);
+}
+
+pub fn withColumnNullIfInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .inf);
+}
+
+pub fn nullIfPositiveInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .positive_inf);
+}
+
+pub fn withColumnNullIfPositiveInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .positive_inf);
+}
+
+pub fn nullIfNegativeInfColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .negative_inf);
+}
+
+pub fn withColumnNullIfNegativeInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .negative_inf);
+}
+
+pub fn nullIfZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .zero);
+}
+
+pub fn withColumnNullIfZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .zero);
+}
+
+pub fn nullIfPositiveZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .positive_zero);
+}
+
+pub fn withColumnNullIfPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .positive_zero);
+}
+
+pub fn nullIfNegativeZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .negative_zero);
+}
+
+pub fn withColumnNullIfNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .negative_zero);
+}
+
+pub fn nullIfNonZeroColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .non_zero);
+}
+
+pub fn withColumnNullIfNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .non_zero);
+}
+
+pub fn nullIfPositiveColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .positive);
+}
+
+pub fn withColumnNullIfPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .positive);
+}
+
+pub fn nullIfSignBitColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .signbit);
+}
+
+pub fn withColumnNullIfSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .signbit);
+}
+
+pub fn nullIfNegativeColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .negative);
+}
+
+pub fn withColumnNullIfNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .negative);
+}
+
+pub fn nullIfFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .finite);
+}
+
+pub fn withColumnNullIfFinite(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .finite);
+}
+
+pub fn nullIfNormalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .normal);
+}
+
+pub fn withColumnNullIfNormal(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .normal);
+}
+
+pub fn nullIfSubnormalColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .subnormal);
+}
+
+pub fn withColumnNullIfSubnormal(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .subnormal);
+}
+
+pub fn nullIfNonFiniteColumn(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, name, name, .non_finite);
+}
+
+pub fn withColumnNullIfNonFinite(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return nullIfNumericPredicateColumn(DeviceDataFrame, input, output_name, input_name, .non_finite);
+}
+
 fn fillNumericPredicateTyped(
     comptime T: type,
     allocator: std.mem.Allocator,

@@ -2592,6 +2592,126 @@ pub fn withColumnNullIfScalar(self: anytype, output_name: []const u8, input_name
     return dataframe_array_mod.withColumnNullIfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
 }
 
+pub fn nullIfNaNColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNaNColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNaN(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNaN(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfInfColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfInfColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfInf(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfPositiveInfColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfPositiveInfColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfPositiveInf(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfPositiveInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNegativeInfColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNegativeInfColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNegativeInf(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNegativeInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfZeroColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfZero(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfPositiveZeroColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfPositiveZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfPositiveZero(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfPositiveZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNegativeZeroColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNegativeZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNegativeZero(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNegativeZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNonZeroColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNonZeroColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNonZero(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNonZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfPositiveColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfPositiveColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfPositive(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfPositive(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfSignBitColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfSignBitColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfSignBit(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfSignBit(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNegativeColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNegativeColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNegative(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNegative(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfFiniteColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfFinite(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfFinite(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNormalColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNormalColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNormal(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNormal(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfSubnormalColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfSubnormalColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfSubnormal(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfSubnormal(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
+pub fn nullIfNonFiniteColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.nullIfNonFiniteColumn(FrameType(@TypeOf(self)), frameValue(self), name);
+}
+
+pub fn withColumnNullIfNonFinite(self: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnNullIfNonFinite(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name);
+}
+
 pub fn withColumnFillNaN(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withColumnFillNaN(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
 }

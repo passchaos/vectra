@@ -1534,6 +1534,126 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnNullIfScalar(self, output_name, input_name, scalar);
             }
 
+            pub fn nullIfNaNColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNaNColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNaN(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNaN(self, output_name, input_name);
+            }
+
+            pub fn nullIfInfColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfInfColumn(self, name);
+            }
+
+            pub fn withColumnNullIfInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfInf(self, output_name, input_name);
+            }
+
+            pub fn nullIfPositiveInfColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfPositiveInfColumn(self, name);
+            }
+
+            pub fn withColumnNullIfPositiveInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfPositiveInf(self, output_name, input_name);
+            }
+
+            pub fn nullIfNegativeInfColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNegativeInfColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNegativeInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNegativeInf(self, output_name, input_name);
+            }
+
+            pub fn nullIfZeroColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfZeroColumn(self, name);
+            }
+
+            pub fn withColumnNullIfZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfZero(self, output_name, input_name);
+            }
+
+            pub fn nullIfPositiveZeroColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfPositiveZeroColumn(self, name);
+            }
+
+            pub fn withColumnNullIfPositiveZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfPositiveZero(self, output_name, input_name);
+            }
+
+            pub fn nullIfNegativeZeroColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNegativeZeroColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNegativeZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNegativeZero(self, output_name, input_name);
+            }
+
+            pub fn nullIfNonZeroColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNonZeroColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNonZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNonZero(self, output_name, input_name);
+            }
+
+            pub fn nullIfPositiveColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfPositiveColumn(self, name);
+            }
+
+            pub fn withColumnNullIfPositive(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfPositive(self, output_name, input_name);
+            }
+
+            pub fn nullIfSignBitColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfSignBitColumn(self, name);
+            }
+
+            pub fn withColumnNullIfSignBit(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfSignBit(self, output_name, input_name);
+            }
+
+            pub fn nullIfNegativeColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNegativeColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNegative(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNegative(self, output_name, input_name);
+            }
+
+            pub fn nullIfFiniteColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfFiniteColumn(self, name);
+            }
+
+            pub fn withColumnNullIfFinite(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfFinite(self, output_name, input_name);
+            }
+
+            pub fn nullIfNormalColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNormalColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNormal(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNormal(self, output_name, input_name);
+            }
+
+            pub fn nullIfSubnormalColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfSubnormalColumn(self, name);
+            }
+
+            pub fn withColumnNullIfSubnormal(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfSubnormal(self, output_name, input_name);
+            }
+
+            pub fn nullIfNonFiniteColumn(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.nullIfNonFiniteColumn(self, name);
+            }
+
+            pub fn withColumnNullIfNonFinite(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withColumnNullIfNonFinite(self, output_name, input_name);
+            }
+
             pub fn withColumnFillNaN(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnFillNaN(self, output_name, input_name, T, value);
             }

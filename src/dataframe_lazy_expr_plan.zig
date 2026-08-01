@@ -2103,6 +2103,201 @@ pub fn withColumnNullIfScalar(frame: anytype, output_name: []const u8, input_nam
     return nullIfColumnScalar(frame, output_name, scalar);
 }
 
+pub fn nullIfNaNColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_nan_column = owned_name });
+}
+
+pub fn withColumnNullIfNaN(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNaNColumn(frame, output_name);
+}
+
+pub fn nullIfInfColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_inf_column = owned_name });
+}
+
+pub fn withColumnNullIfInf(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfInfColumn(frame, output_name);
+}
+
+pub fn nullIfPositiveInfColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_positive_inf_column = owned_name });
+}
+
+pub fn withColumnNullIfPositiveInf(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfPositiveInfColumn(frame, output_name);
+}
+
+pub fn nullIfNegativeInfColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_negative_inf_column = owned_name });
+}
+
+pub fn withColumnNullIfNegativeInf(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNegativeInfColumn(frame, output_name);
+}
+
+pub fn nullIfZeroColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_zero_column = owned_name });
+}
+
+pub fn withColumnNullIfZero(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfZeroColumn(frame, output_name);
+}
+
+pub fn nullIfPositiveZeroColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_positive_zero_column = owned_name });
+}
+
+pub fn withColumnNullIfPositiveZero(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfPositiveZeroColumn(frame, output_name);
+}
+
+pub fn nullIfNegativeZeroColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_negative_zero_column = owned_name });
+}
+
+pub fn withColumnNullIfNegativeZero(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNegativeZeroColumn(frame, output_name);
+}
+
+pub fn nullIfNonZeroColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_non_zero_column = owned_name });
+}
+
+pub fn withColumnNullIfNonZero(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNonZeroColumn(frame, output_name);
+}
+
+pub fn nullIfPositiveColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_positive_column = owned_name });
+}
+
+pub fn withColumnNullIfPositive(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfPositiveColumn(frame, output_name);
+}
+
+pub fn nullIfSignBitColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_signbit_column = owned_name });
+}
+
+pub fn withColumnNullIfSignBit(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfSignBitColumn(frame, output_name);
+}
+
+pub fn nullIfNegativeColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_negative_column = owned_name });
+}
+
+pub fn withColumnNullIfNegative(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNegativeColumn(frame, output_name);
+}
+
+pub fn nullIfFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_finite_column = owned_name });
+}
+
+pub fn withColumnNullIfFinite(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfFiniteColumn(frame, output_name);
+}
+
+pub fn nullIfNormalColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_normal_column = owned_name });
+}
+
+pub fn withColumnNullIfNormal(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNormalColumn(frame, output_name);
+}
+
+pub fn nullIfSubnormalColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_subnormal_column = owned_name });
+}
+
+pub fn withColumnNullIfSubnormal(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfSubnormalColumn(frame, output_name);
+}
+
+pub fn nullIfNonFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .null_if_non_finite_column = owned_name });
+}
+
+pub fn withColumnNullIfNonFinite(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return nullIfNonFiniteColumn(frame, output_name);
+}
+
 pub fn withColumnFillNaN(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return withColumnFillNaNScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
 }
