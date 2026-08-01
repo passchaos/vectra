@@ -46,6 +46,13 @@ const GroupByMomentAggregation = enum {
     kurtosis,
 };
 
+const GroupByMagnitudeAggregation = enum {
+    mean_abs,
+    rms,
+    l1_norm,
+    l2_norm,
+};
+
 const GroupByBoolAggregation = enum {
     any,
     all,
@@ -656,6 +663,146 @@ pub fn groupByKurtosisOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByMomentOn(DeviceDataFrame, .kurtosis, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByMagnitudeAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByMagnitudeOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByMagnitudeOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByMagnitudeAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var totals: std.ArrayList(f64) = .empty;
+    defer totals.deinit(allocator);
+    var counts: std.ArrayList(i64) = .empty;
+    defer counts.deinit(allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try totals.append(allocator, 0.0);
+            try counts.append(allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        const value_f64 = castToF64(V, value_item);
+        switch (aggregation) {
+            .mean_abs, .l1_norm => totals.items[group_index] += @abs(value_f64),
+            .rms, .l2_norm => totals.items[group_index] += value_f64 * value_f64,
+        }
+        counts.items[group_index] += 1;
+    }
+
+    const out = try allocator.alloc(f64, totals.items.len);
+    defer allocator.free(out);
+    for (totals.items, counts.items, out) |total, count, *slot| {
+        slot.* = switch (aggregation) {
+            .mean_abs => total / @as(f64, @floatFromInt(count)),
+            .rms => std.math.sqrt(total / @as(f64, @floatFromInt(count))),
+            .l1_norm => total,
+            .l2_norm => std.math.sqrt(total),
+        };
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, allocator, out, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByMagnitudeOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByMagnitudeAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByMagnitudeOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+pub fn groupByMeanAbsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMagnitudeOn(DeviceDataFrame, .mean_abs, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByRmsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMagnitudeOn(DeviceDataFrame, .rms, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByL1NormOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMagnitudeOn(DeviceDataFrame, .l1_norm, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByL2NormOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMagnitudeOn(DeviceDataFrame, .l2_norm, frame, key_names, value_name, output_name);
 }
 
 fn groupByQuantileLess(_: void, lhs: f64, rhs: f64) bool {

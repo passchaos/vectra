@@ -420,6 +420,44 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.5 / 7.5), cv_sales_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 7.0), cv_sales_values[1], 1e-12);
 
+    var magnitude_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2 }, .cpu);
+    defer magnitude_key.deinit();
+    var signed_delta = try DeviceColumn.fromSlice(f64, gpa, &.{ -3.0, 4.0, -5.0, 12.0 }, .cpu);
+    defer signed_delta.deinit();
+    var magnitude_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = magnitude_key },
+        .{ .name = "delta", .data = signed_delta },
+    });
+    defer magnitude_table.deinit();
+
+    var mean_abs_delta = try magnitude_table.groupByMeanAbs("bucket", "delta", "delta_mean_abs");
+    defer mean_abs_delta.deinit();
+    const mean_abs_delta_values = try (try mean_abs_delta.column("delta_mean_abs")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mean_abs_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), mean_abs_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 8.5), mean_abs_delta_values[1], 1e-12);
+
+    var rms_delta = try magnitude_table.groupByRMS("bucket", "delta", "delta_rms");
+    defer rms_delta.deinit();
+    const rms_delta_values = try (try rms_delta.column("delta_rms")).f64.toOwnedSlice(gpa);
+    defer gpa.free(rms_delta_values);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 12.5)), rms_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 84.5)), rms_delta_values[1], 1e-12);
+
+    var l1_delta = try magnitude_table.groupByL1Norm("bucket", "delta", "delta_l1");
+    defer l1_delta.deinit();
+    const l1_delta_values = try (try l1_delta.column("delta_l1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(l1_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), l1_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 17.0), l1_delta_values[1], 1e-12);
+
+    var l2_delta = try magnitude_table.groupByL2Norm("bucket", "delta", "delta_l2");
+    defer l2_delta.deinit();
+    const l2_delta_values = try (try l2_delta.column("delta_l2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(l2_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), l2_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 13.0), l2_delta_values[1], 1e-12);
+
     var skew_sales = try table.groupBySkewness("store", "sales", "sales_skewness_simple");
     defer skew_sales.deinit();
     const skew_sales_values = try (try skew_sales.column("sales_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -638,6 +676,42 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[3], 1e-12);
 
+    var multi_mean_abs = try multi.groupByMeanAbsOn(&.{ "store", "day" }, "amount", "amount_mean_abs_simple");
+    defer multi_mean_abs.deinit();
+    const ms_simple_mean_abs = try (try multi_mean_abs.column("amount_mean_abs_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mean_abs);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), ms_simple_mean_abs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_mean_abs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_mean_abs[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_mean_abs[3], 1e-12);
+
+    var multi_rms = try multi.groupByRmsOn(&.{ "store", "day" }, "amount", "amount_rms_simple");
+    defer multi_rms.deinit();
+    const ms_simple_rms = try (try multi_rms.column("amount_rms_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_rms);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.5)), ms_simple_rms[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_rms[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_rms[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_rms[3], 1e-12);
+
+    var multi_l1 = try multi.groupByL1NormOn(&.{ "store", "day" }, "amount", "amount_l1_simple");
+    defer multi_l1.deinit();
+    const ms_simple_l1 = try (try multi_l1.column("amount_l1_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_l1);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), ms_simple_l1[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_l1[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_l1[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_l1[3], 1e-12);
+
+    var multi_l2 = try multi.groupByL2NormOn(&.{ "store", "day" }, "amount", "amount_l2_simple");
+    defer multi_l2.deinit();
+    const ms_simple_l2 = try (try multi_l2.column("amount_l2_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_l2);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5.0)), ms_simple_l2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_l2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_l2[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_l2[3], 1e-12);
+
     var multi_skew = try multi.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_simple");
     defer multi_skew.deinit();
     const ms_simple_skew = try (try multi_skew.column("amount_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -811,6 +885,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[3], 1e-12);
+
+    var multi_mean_abs_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mean_abs_plan.deinit();
+    try multi_mean_abs_plan.groupByMeanAbsOn(&.{ "store", "day" }, "amount", "amount_mean_abs_lazy");
+    const multi_mean_abs_explained = try multi_mean_abs_plan.explain(gpa);
+    defer gpa.free(multi_mean_abs_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mean_abs_explained, "group_by_mean_abs_on([store,day], value=amount -> amount_mean_abs_lazy)") != null);
+    var lazy_multi_mean_abs = try multi_mean_abs_plan.collect();
+    defer lazy_multi_mean_abs.deinit();
+    const lazy_ms_mean_abs = try (try lazy_multi_mean_abs.column("amount_mean_abs_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mean_abs);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), lazy_ms_mean_abs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_mean_abs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_mean_abs[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_mean_abs[3], 1e-12);
+
+    var multi_l2_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_l2_plan.deinit();
+    try multi_l2_plan.groupByL2NormOn(&.{ "store", "day" }, "amount", "amount_l2_lazy");
+    const multi_l2_explained = try multi_l2_plan.explain(gpa);
+    defer gpa.free(multi_l2_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_l2_explained, "group_by_l2_norm_on([store,day], value=amount -> amount_l2_lazy)") != null);
+    var lazy_multi_l2 = try multi_l2_plan.collect();
+    defer lazy_multi_l2.deinit();
+    const lazy_ms_l2 = try (try lazy_multi_l2.column("amount_l2_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_l2);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 5.0)), lazy_ms_l2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_l2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_l2[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_l2[3], 1e-12);
 
     var multi_skew_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_skew_plan.deinit();
