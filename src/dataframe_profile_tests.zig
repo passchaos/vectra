@@ -80,6 +80,57 @@ test "device dataframe rolling bool profile handles nullable windows" {
 test "device dataframe groupby aggregations on fixed-width columns" {
     const gpa = std.testing.allocator;
 
+    var bool_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3 }, .cpu);
+    defer bool_key.deinit();
+    var bool_day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 10, 11, 11 }, .cpu);
+    defer bool_day.deinit();
+    var active_grouped = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false, true, true }, &.{ true, true, true, true, false }, .cpu);
+    defer active_grouped.deinit();
+    var bool_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "store", .data = bool_key },
+        .{ .name = "day", .data = bool_day },
+        .{ .name = "active", .data = active_grouped },
+    });
+    defer bool_table.deinit();
+
+    var any_active = try bool_table.groupByAny("store", "active", "any_active");
+    defer any_active.deinit();
+    const any_active_values = try (try any_active.column("any_active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(any_active_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true }, any_active_values);
+
+    var all_active = try bool_table.groupByAll("store", "active", "all_active");
+    defer all_active.deinit();
+    const all_active_values = try (try all_active.column("all_active")).bool.toOwnedSlice(gpa);
+    defer gpa.free(all_active_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false }, all_active_values);
+
+    var any_active_on = try bool_table.groupByAnyOn(&.{ "store", "day" }, "active", "any_active_on");
+    defer any_active_on.deinit();
+    const any_active_on_values = try (try any_active_on.column("any_active_on")).bool.toOwnedSlice(gpa);
+    defer gpa.free(any_active_on_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, any_active_on_values);
+
+    var all_active_on = try bool_table.groupByAllOn(&.{ "store", "day" }, "active", "all_active_on");
+    defer all_active_on.deinit();
+    const all_active_on_values = try (try all_active_on.column("all_active_on")).bool.toOwnedSlice(gpa);
+    defer gpa.free(all_active_on_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, all_active_on_values);
+
+    var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer any_active_plan.deinit();
+    try any_active_plan.groupByAnyOn(&.{ "store", "day" }, "active", "any_active_lazy");
+    const any_active_explained = try any_active_plan.explain(gpa);
+    defer gpa.free(any_active_explained);
+    try std.testing.expect(std.mem.indexOf(u8, any_active_explained, "group_by_any_on([store,day], value=active -> any_active_lazy)") != null);
+    var lazy_any_active = try any_active_plan.collect();
+    defer lazy_any_active.deinit();
+    const lazy_any_active_values = try (try lazy_any_active.column("any_active_lazy")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_any_active_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, lazy_any_active_values);
+
+    try std.testing.expectError(error.TypeUnsupported, bool_table.groupByAny("store", "day", "bad_any"));
+
     var key = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 1, 2, 1, 3, 2, 1 }, &.{ true, true, true, false, true, true }, .cpu);
     defer key.deinit();
     var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 3.0, 5.0, 7.0, 11.0, 13.0 }, &.{ true, true, false, true, true, true }, .cpu);

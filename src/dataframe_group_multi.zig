@@ -44,6 +44,11 @@ const GroupByMomentAggregation = enum {
     kurtosis,
 };
 
+const GroupByBoolAggregation = enum {
+    any,
+    all,
+};
+
 pub fn groupByStatsOnDispatchValue(
     comptime DeviceDataFrame: type,
     allocator: std.mem.Allocator,
@@ -731,6 +736,69 @@ pub fn groupByMedianOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByQuantileOn(DeviceDataFrame, frame, key_names, value_name, output_name, 0.5);
+}
+
+fn groupByBoolOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByBoolAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    if (value.* != .bool) return error.TypeUnsupported;
+
+    const values = try value.bool.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value.bool, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var outputs: std.ArrayList(bool) = .empty;
+    defer outputs.deinit(frame.allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try outputs.append(frame.allocator, value_item);
+            break :blk representative_rows.items.len - 1;
+        };
+        switch (aggregation) {
+            .any => outputs.items[group_index] = outputs.items[group_index] or value_item,
+            .all => outputs.items[group_index] = outputs.items[group_index] and value_item,
+        }
+    }
+
+    const output_column = try DeviceColumn.fromSlice(bool, frame.allocator, outputs.items, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByAnyOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .any, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByAllOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .all, frame, key_names, value_name, output_name);
 }
 
 fn initMultiKeyAggregatedDataFrame(

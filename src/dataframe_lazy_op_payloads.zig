@@ -33,6 +33,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     stddev,
     skewness,
     kurtosis,
+    any,
+    all,
 };
 
 pub const DeviceLazyJoinKind = enum {
