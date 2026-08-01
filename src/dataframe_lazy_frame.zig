@@ -2070,12 +2070,44 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSkew(self, names, output_name);
             }
 
+            pub fn withRowMagnitudeSkewness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeSkewness(self, names, output_name);
+            }
+
+            pub fn withRowAbsSkewness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsSkewness(self, names, output_name);
+            }
+
+            pub fn withRowMagnitudeSkew(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeSkew(self, names, output_name);
+            }
+
+            pub fn withRowAbsSkew(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsSkew(self, names, output_name);
+            }
+
             pub fn withRowKurtosis(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowKurtosis(self, names, output_name);
             }
 
             pub fn withRowKurt(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowKurt(self, names, output_name);
+            }
+
+            pub fn withRowMagnitudeKurtosis(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeKurtosis(self, names, output_name);
+            }
+
+            pub fn withRowAbsKurtosis(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsKurtosis(self, names, output_name);
+            }
+
+            pub fn withRowMagnitudeKurt(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeKurt(self, names, output_name);
+            }
+
+            pub fn withRowAbsKurt(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsKurt(self, names, output_name);
             }
 
             pub fn withRowProd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

@@ -1482,7 +1482,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
     try plan.withRowHarmonicMean(&.{ "a", "b" }, "row_harm");
     try plan.withRowSkewness(&.{ "a", "b" }, "row_skew");
+    try plan.withRowMagnitudeSkewness(&.{ "a", "b" }, "row_magnitude_skew");
     try plan.withRowKurtosis(&.{ "a", "b" }, "row_kurt");
+    try plan.withRowMagnitudeKurtosis(&.{ "a", "b" }, "row_magnitude_kurt");
     try plan.withRowProd(&.{ "a", "b" }, "row_prod");
     try plan.withRowMin(&.{ "a", "b" }, "row_min");
     try plan.withRowMax(&.{ "a", "b" }, "row_max");
@@ -1520,7 +1522,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowMagnitudeCv(&.{ "a", "b" }, "row_magnitude_cv", 0.0);
     try plan.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
     try plan.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1596,7 +1598,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_geometric_mean([a,b]->row_geo)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_harmonic_mean([a,b]->row_harm)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_skewness([a,b]->row_skew)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_magnitude_skewness([a,b]->row_magnitude_skew)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_kurtosis([a,b]->row_kurt)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_magnitude_kurtosis([a,b]->row_magnitude_kurt)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_prod([a,b]->row_prod)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_min([a,b]->row_min)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_max([a,b]->row_max)") != null);
@@ -1637,7 +1641,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 110), result.width());
+    try std.testing.expectEqual(@as(usize, 112), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -1958,12 +1962,16 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_skew);
     const row_skew_validity = try row_skew_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_skew_validity);
+    const row_magnitude_skew = try (try result.column("row_magnitude_skew")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_skew);
     const row_kurt_column = try result.column("row_kurt");
     try std.testing.expect(row_kurt_column.f64.nullable());
     const row_kurt = try row_kurt_column.f64.toOwnedSlice(gpa);
     defer gpa.free(row_kurt);
     const row_kurt_validity = try row_kurt_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_kurt_validity);
+    const row_magnitude_kurt = try (try result.column("row_magnitude_kurt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_kurt);
     const row_prod_column = try result.column("row_prod");
     try std.testing.expect(row_prod_column.f64.nullable());
     const row_prod = try row_prod_column.f64.toOwnedSlice(gpa);
@@ -2412,11 +2420,19 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_skew[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_skew[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_skew_validity);
+    try std.testing.expect(std.math.isNan(row_magnitude_skew[0]));
+    try std.testing.expect(std.math.isNan(row_magnitude_skew[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_skew[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_skew[3], 1e-12);
     try std.testing.expect(std.math.isNan(row_kurt[0]));
     try std.testing.expect(std.math.isNan(row_kurt[1]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_kurt[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_kurt[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_kurt_validity);
+    try std.testing.expect(std.math.isNan(row_magnitude_kurt[0]));
+    try std.testing.expect(std.math.isNan(row_magnitude_kurt[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_kurt[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_magnitude_kurt[3], 1e-12);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 160.0 }, row_prod);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_prod_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_min);

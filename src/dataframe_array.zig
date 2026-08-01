@@ -5391,7 +5391,7 @@ pub fn withRowNUnique(
     return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
 }
 
-const RowNumericDispersion = enum { variance, magnitude_variance, stddev, magnitude_stddev, sem, magnitude_sem, cv, magnitude_cv, fano, magnitude_fano, skewness, kurtosis };
+const RowNumericDispersion = enum { variance, magnitude_variance, stddev, magnitude_stddev, sem, magnitude_sem, cv, magnitude_cv, fano, magnitude_fano, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis };
 
 fn withRowNumericDispersion(
     comptime DeviceDataFrame: type,
@@ -5444,7 +5444,7 @@ fn withRowNumericDispersion(
                     // skipping nulls without materializing a dense row matrix.
                     const previous_count = counts[row];
                     const real_value = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    const value = if (reduction == .magnitude_variance or reduction == .magnitude_stddev or reduction == .magnitude_sem or reduction == .magnitude_cv or reduction == .magnitude_fano) @abs(real_value) else real_value;
+                    const value = if (reduction == .magnitude_variance or reduction == .magnitude_stddev or reduction == .magnitude_sem or reduction == .magnitude_cv or reduction == .magnitude_fano or reduction == .magnitude_skewness or reduction == .magnitude_kurtosis) @abs(real_value) else real_value;
                     counts[row] += 1;
                     const n: f64 = @floatFromInt(counts[row]);
                     const previous_n: f64 = @floatFromInt(previous_count);
@@ -5480,8 +5480,8 @@ fn withRowNumericDispersion(
             .sem, .magnitude_sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
             .cv, .magnitude_cv => if (mean == 0.0) std.math.nan(f64) else stddev_value / mean,
             .fano, .magnitude_fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
-            .skewness => if (count < 2 or m2 == 0.0) std.math.nan(f64) else std.math.sqrt(@as(f64, @floatFromInt(count))) * m3 / std.math.pow(f64, m2, 1.5),
-            .kurtosis => if (count < 2 or m2 == 0.0) std.math.nan(f64) else @as(f64, @floatFromInt(count)) * m4 / (m2 * m2) - 3.0,
+            .skewness, .magnitude_skewness => if (count < 2 or m2 == 0.0) std.math.nan(f64) else std.math.sqrt(@as(f64, @floatFromInt(count))) * m3 / std.math.pow(f64, m2, 1.5),
+            .kurtosis, .magnitude_kurtosis => if (count < 2 or m2 == 0.0) std.math.nan(f64) else @as(f64, @floatFromInt(count)) * m4 / (m2 * m2) - 3.0,
         };
     }
 
@@ -5711,6 +5711,42 @@ pub fn withRowIndexOfDispersion(
     return withRowFano(DeviceDataFrame, input, names, output_name, correction);
 }
 
+pub fn withRowMagnitudeSkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, 0.0, .magnitude_skewness);
+}
+
+pub fn withRowAbsSkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSkewness(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeSkew(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSkewness(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowAbsSkew(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSkewness(DeviceDataFrame, input, names, output_name);
+}
+
 pub fn withRowSkewness(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5727,6 +5763,42 @@ pub fn withRowSkew(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSkewness(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeKurtosis(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, 0.0, .magnitude_kurtosis);
+}
+
+pub fn withRowAbsKurtosis(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeKurtosis(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeKurt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeKurtosis(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowAbsKurt(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeKurtosis(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowKurtosis(

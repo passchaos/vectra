@@ -746,6 +746,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_n_unique => |row_count| try current.withRowNUnique(row_count.names, row_count.output_name),
             .row_sum => |row_count| try current.withRowSum(row_count.names, row_count.output_name),
             .row_mean => |row_count| try current.withRowMean(row_count.names, row_count.output_name),
+            .row_magnitude_skewness => |row_count| try current.withRowMagnitudeSkewness(row_count.names, row_count.output_name),
+            .row_magnitude_kurtosis => |row_count| try current.withRowMagnitudeKurtosis(row_count.names, row_count.output_name),
             .row_geometric_mean => |row_count| try current.withRowGeometricMean(row_count.names, row_count.output_name),
             .row_harmonic_mean => |row_count| try current.withRowHarmonicMean(row_count.names, row_count.output_name),
             .row_prod => |row_count| try current.withRowProd(row_count.names, row_count.output_name),

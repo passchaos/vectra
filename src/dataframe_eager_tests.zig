@@ -2329,6 +2329,22 @@ test "device dataframe derives row magnitude coefficient of variation for signed
     try std.testing.expectApproxEqAbs(@as(f64, 3.0 / std.math.sqrt(@as(f64, 2.0))), row_magnitude_sem[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_sem[2], 1e-12);
 
+    var magnitude_skew = try table.withRowMagnitudeSkewness(&.{ "a", "b" }, "row_magnitude_skew");
+    defer magnitude_skew.deinit();
+    const row_magnitude_skew = try (try magnitude_skew.column("row_magnitude_skew")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_skew);
+    try std.testing.expect(std.math.isNan(row_magnitude_skew[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_skew[1], 1e-12);
+    try std.testing.expect(std.math.isNan(row_magnitude_skew[2]));
+
+    var magnitude_kurt = try table.withRowMagnitudeKurtosis(&.{ "a", "b" }, "row_magnitude_kurt");
+    defer magnitude_kurt.deinit();
+    const row_magnitude_kurt = try (try magnitude_kurt.column("row_magnitude_kurt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_kurt);
+    try std.testing.expect(std.math.isNan(row_magnitude_kurt[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_magnitude_kurt[1], 1e-12);
+    try std.testing.expect(std.math.isNan(row_magnitude_kurt[2]));
+
     var ordinary = try table.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
     defer ordinary.deinit();
     const row_cv = try (try ordinary.column("row_cv")).f64.toOwnedSlice(gpa);
