@@ -270,6 +270,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             trim_fraction: f64,
         };
+        pub const RowWinsorizedMean = struct {
+            names: [][]const u8,
+            output_name: []const u8,
+            winsor_fraction: f64,
+        };
         pub const RowNumericDispersion = struct {
             names: [][]const u8,
             output_name: []const u8,

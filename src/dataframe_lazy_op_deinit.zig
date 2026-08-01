@@ -575,6 +575,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_trimmed_mean.names);
             allocator.free(row_trimmed_mean.output_name);
         },
+        .row_winsorized_mean => |row_winsorized_mean| {
+            freeNameList(allocator, row_winsorized_mean.names);
+            allocator.free(row_winsorized_mean.output_name);
+        },
         .row_pair_count, .row_weighted_mean, .row_weighted_median, .row_weighted_iqr, .row_weighted_mad, .row_weighted_mode, .row_weighted_mode_weight, .row_weighted_mode_ratio, .row_weighted_mode_margin, .row_weighted_mode_margin_ratio, .row_weighted_entropy, .row_weighted_gini_impurity, .row_weighted_perplexity, .row_weighted_inverse_simpson, .row_weighted_simpson_concentration, .row_weighted_evenness, .row_dot, .row_cosine_similarity, .row_squared_euclidean_distance, .row_euclidean_distance, .row_manhattan_distance, .row_chebyshev_distance, .row_canberra_distance, .row_bray_curtis_distance, .row_mean_error, .row_mae, .row_mse, .row_rmse, .row_mape, .row_smape, .row_covariance, .row_correlation, .row_beta => |row_weighted| {
             freeNameList(allocator, row_weighted.value_names);
             freeNameList(allocator, row_weighted.weight_names);

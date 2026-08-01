@@ -1941,6 +1941,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .trim_fraction = row_trimmed_mean.trim_fraction,
             } };
         },
+        .row_winsorized_mean => |row_winsorized_mean| blk: {
+            const names = try cloneNameList(allocator, row_winsorized_mean.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_winsorized_mean.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_winsorized_mean = .{
+                .names = names,
+                .output_name = output_name,
+                .winsor_fraction = row_winsorized_mean.winsor_fraction,
+            } };
+        },
         .row_pair_count => |row_paired| blk: {
             const value_names = try cloneNameList(allocator, row_paired.value_names);
             errdefer freeNameList(allocator, value_names);

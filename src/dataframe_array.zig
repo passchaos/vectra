@@ -3601,6 +3601,7 @@ const RowQuantileMeasure = union(enum) {
     quantile: f64,
     difference: struct { hi: f64, lo: f64 },
     trimmed_mean: f64,
+    winsorized_mean: f64,
     midhinge,
     trimean,
     bowley_skewness,
@@ -3626,6 +3627,9 @@ fn withRowQuantileValues(
         },
         .trimmed_mean => |trim_fraction| {
             if (std.math.isNan(trim_fraction) or trim_fraction < 0.0 or trim_fraction >= 0.5) return error.InvalidShape;
+        },
+        .winsorized_mean => |winsor_fraction| {
+            if (std.math.isNan(winsor_fraction) or winsor_fraction < 0.0 or winsor_fraction >= 0.5) return error.InvalidShape;
         },
         .midhinge, .trimean, .bowley_skewness, .quartile_coeff_dispersion, .kelley_skewness => {},
     }
@@ -3692,6 +3696,14 @@ fn withRowQuantileValues(
                 var total: f64 = 0.0;
                 for (trimmed) |value| total += value;
                 break :blk total / @as(f64, @floatFromInt(trimmed.len));
+            },
+            .winsorized_mean => |winsor_fraction| blk: {
+                const winsor_count: usize = @intFromFloat(@floor(@as(f64, @floatFromInt(count)) * winsor_fraction));
+                const lower = scratch[winsor_count];
+                const upper = scratch[count - winsor_count - 1];
+                var total: f64 = 0.0;
+                for (scratch[0..count]) |value| total += @min(@max(value, lower), upper);
+                break :blk total / @as(f64, @floatFromInt(count));
             },
             .midhinge => (rowQuantileFromSorted(scratch[0..count], 0.25) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 2.0,
             .trimean => (rowQuantileFromSorted(scratch[0..count], 0.25) + 2.0 * rowQuantileFromSorted(scratch[0..count], 0.5) + rowQuantileFromSorted(scratch[0..count], 0.75)) / 4.0,
@@ -3790,6 +3802,28 @@ pub fn withRowTrimmedMean(
 
     const check_names = if (names.len == 0) input.names else names;
     const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .trimmed_mean = trim_fraction });
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWinsorizedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    winsor_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(winsor_fraction) or winsor_fraction < 0.0 or winsor_fraction >= 0.5) return error.InvalidShape;
+
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .winsorized_mean = winsor_fraction });
     defer {
         input.allocator.free(output.values);
         input.allocator.free(output.validity);

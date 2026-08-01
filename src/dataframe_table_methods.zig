@@ -2815,6 +2815,10 @@ pub fn withRowTrimmedMean(self: anytype, names: []const []const u8, output_name:
     return dataframe_array_mod.withRowTrimmedMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name, trim_fraction);
 }
 
+pub fn withRowWinsorizedMean(self: anytype, names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWinsorizedMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name, winsor_fraction);
+}
+
 pub fn withRowMedian(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMedian(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -1926,6 +1926,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowTrimmedMean(self, names, output_name, trim_fraction);
             }
 
+            pub fn withRowWinsorizedMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWinsorizedMean(self, names, output_name, winsor_fraction);
+            }
+
             pub fn withRowMedian(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMedian(self, names, output_name);
             }

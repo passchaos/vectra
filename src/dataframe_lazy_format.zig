@@ -1107,6 +1107,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, trim_fraction={d})", .{ row_trimmed_mean.output_name, row_trimmed_mean.trim_fraction });
         },
+        .row_winsorized_mean => |row_winsorized_mean| {
+            try writer.print("row_winsorized_mean([", .{});
+            for (row_winsorized_mean.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, winsor_fraction={d})", .{ row_winsorized_mean.output_name, row_winsorized_mean.winsor_fraction });
+        },
         .row_median => |row_count| {
             try writer.print("row_median([", .{});
             for (row_count.names, 0..) |name, i| {

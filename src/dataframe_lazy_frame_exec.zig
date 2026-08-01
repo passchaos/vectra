@@ -721,6 +721,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_quantile => |row_quantile| try current.withRowQuantile(row_quantile.names, row_quantile.output_name, row_quantile.q),
             .row_quantile_range => |row_quantile_range| try current.withRowQuantileRange(row_quantile_range.names, row_quantile_range.output_name, row_quantile_range.low_q, row_quantile_range.high_q),
             .row_trimmed_mean => |row_trimmed_mean| try current.withRowTrimmedMean(row_trimmed_mean.names, row_trimmed_mean.output_name, row_trimmed_mean.trim_fraction),
+            .row_winsorized_mean => |row_winsorized_mean| try current.withRowWinsorizedMean(row_winsorized_mean.names, row_winsorized_mean.output_name, row_winsorized_mean.winsor_fraction),
             .row_median => |row_count| try current.withRowMedian(row_count.names, row_count.output_name),
             .row_iqr => |row_count| try current.withRowIqr(row_count.names, row_count.output_name),
             .row_interdecile_range => |row_count| try current.withRowInterdecileRange(row_count.names, row_count.output_name),
