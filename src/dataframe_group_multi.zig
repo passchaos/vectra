@@ -53,6 +53,9 @@ const GroupByRealAggregation = enum {
     l2_norm,
     geometric_mean,
     harmonic_mean,
+    ptp,
+    midrange,
+    range_coeff,
 };
 
 const GroupByBoolAggregation = enum {
@@ -720,6 +723,8 @@ fn groupByRealOnTyped(
     defer counts.deinit(allocator);
     var zero_seen: std.ArrayList(bool) = .empty;
     defer zero_seen.deinit(allocator);
+    var aux_values: std.ArrayList(f64) = .empty;
+    defer aux_values.deinit(allocator);
 
     for (values, 0..) |value_item, row| {
         if (maybe_value_validity) |validity| {
@@ -731,6 +736,7 @@ fn groupByRealOnTyped(
             try totals.append(allocator, 0.0);
             try counts.append(allocator, 0);
             try zero_seen.append(allocator, false);
+            try aux_values.append(allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
         const value_f64 = castToF64(V, value_item);
@@ -754,13 +760,25 @@ fn groupByRealOnTyped(
                     totals.items[group_index] += 1.0 / value_f64;
                 }
             },
+            .ptp, .midrange, .range_coeff => {
+                if (counts.items[group_index] == 0) {
+                    totals.items[group_index] = value_f64;
+                    aux_values.items[group_index] = value_f64;
+                } else if (std.math.isNan(value_f64)) {
+                    totals.items[group_index] = value_f64;
+                    aux_values.items[group_index] = value_f64;
+                } else if (!std.math.isNan(totals.items[group_index])) {
+                    if (value_f64 < totals.items[group_index]) totals.items[group_index] = value_f64;
+                    if (value_f64 > aux_values.items[group_index]) aux_values.items[group_index] = value_f64;
+                }
+            },
         }
         counts.items[group_index] += 1;
     }
 
     const out = try allocator.alloc(f64, totals.items.len);
     defer allocator.free(out);
-    for (totals.items, counts.items, zero_seen.items, out) |total, count, has_zero, *slot| {
+    for (totals.items, counts.items, zero_seen.items, aux_values.items, out) |total, count, has_zero, aux_value, *slot| {
         slot.* = switch (aggregation) {
             .mean_abs => total / @as(f64, @floatFromInt(count)),
             .rms => std.math.sqrt(total / @as(f64, @floatFromInt(count))),
@@ -768,6 +786,12 @@ fn groupByRealOnTyped(
             .l2_norm => std.math.sqrt(total),
             .geometric_mean => if (std.math.isNan(total)) std.math.nan(f64) else if (has_zero) 0.0 else std.math.exp(total / @as(f64, @floatFromInt(count))),
             .harmonic_mean => if (std.math.isInf(total)) 0.0 else @as(f64, @floatFromInt(count)) / total,
+            .ptp => aux_value - total,
+            .midrange => (total + aux_value) / 2.0,
+            .range_coeff => blk: {
+                const denominator = aux_value + total;
+                break :blk if (denominator == 0.0) std.math.nan(f64) else (aux_value - total) / denominator;
+            },
         };
     }
 
@@ -847,6 +871,36 @@ pub fn groupByHarmonicMeanOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRealOn(DeviceDataFrame, .harmonic_mean, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPtpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .ptp, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMidrangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .midrange, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByRangeCoeffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .range_coeff, frame, key_names, value_name, output_name);
 }
 
 fn groupByQuantileLess(_: void, lhs: f64, rhs: f64) bool {

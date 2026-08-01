@@ -315,6 +315,41 @@ pub fn groupByHarmonicMeanOn(self: anytype, key_names: []const []const u8, value
     return group_multi_mod.groupByHarmonicMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn groupByPtp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByPtpOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByPtpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByPtpOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByPTP = groupByPtp;
+pub const groupByPTPOn = groupByPtpOn;
+pub const groupByPeakToPeak = groupByPtp;
+pub const groupByPeakToPeakOn = groupByPtpOn;
+
+pub fn groupByMidrange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMidrangeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMidrangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMidrangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByRangeCoeff(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByRangeCoeffOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByRangeCoeffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByRangeCoeffOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByRangeCoefficient = groupByRangeCoeff;
+pub const groupByRangeCoefficientOn = groupByRangeCoeffOn;
+
 pub fn groupByAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByAnyOn(self, key_names[0..], value_name, output_name);

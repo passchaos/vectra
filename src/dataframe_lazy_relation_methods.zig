@@ -287,6 +287,38 @@ pub fn groupByHarmonicMeanOn(self: anytype, key_names: []const []const u8, value
     return self.groupByValueOn(key_names, value_name, output_name, .harmonic_mean);
 }
 
+pub fn groupByPtp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .ptp);
+}
+
+pub fn groupByPtpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .ptp);
+}
+
+pub const groupByPTP = groupByPtp;
+pub const groupByPTPOn = groupByPtpOn;
+pub const groupByPeakToPeak = groupByPtp;
+pub const groupByPeakToPeakOn = groupByPtpOn;
+
+pub fn groupByMidrange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .midrange);
+}
+
+pub fn groupByMidrangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .midrange);
+}
+
+pub fn groupByRangeCoeff(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .range_coeff);
+}
+
+pub fn groupByRangeCoeffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .range_coeff);
+}
+
+pub const groupByRangeCoefficient = groupByRangeCoeff;
+pub const groupByRangeCoefficientOn = groupByRangeCoeffOn;
+
 pub fn groupByAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .any);
 }

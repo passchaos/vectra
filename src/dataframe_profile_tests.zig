@@ -458,6 +458,40 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), l2_delta_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 13.0), l2_delta_values[1], 1e-12);
 
+    var range_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3 }, .cpu);
+    defer range_key.deinit();
+    var range_delta = try DeviceColumn.fromSlice(f64, gpa, &.{ -3.0, 4.0, -5.0, 12.0, -2.0, 2.0 }, .cpu);
+    defer range_delta.deinit();
+    var range_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = range_key },
+        .{ .name = "delta", .data = range_delta },
+    });
+    defer range_table.deinit();
+
+    var ptp_delta = try range_table.groupByPeakToPeak("bucket", "delta", "delta_ptp");
+    defer ptp_delta.deinit();
+    const ptp_delta_values = try (try ptp_delta.column("delta_ptp")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ptp_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), ptp_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 17.0), ptp_delta_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ptp_delta_values[2], 1e-12);
+
+    var midrange_delta = try range_table.groupByMidrange("bucket", "delta", "delta_midrange");
+    defer midrange_delta.deinit();
+    const midrange_delta_values = try (try midrange_delta.column("delta_midrange")).f64.toOwnedSlice(gpa);
+    defer gpa.free(midrange_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), midrange_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), midrange_delta_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), midrange_delta_values[2], 1e-12);
+
+    var range_coeff_delta = try range_table.groupByRangeCoefficient("bucket", "delta", "delta_range_coeff");
+    defer range_coeff_delta.deinit();
+    const range_coeff_delta_values = try (try range_coeff_delta.column("delta_range_coeff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(range_coeff_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), range_coeff_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 17.0 / 7.0), range_coeff_delta_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(range_coeff_delta_values[2]));
+
     var mean_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3, 4, 4 }, .cpu);
     defer mean_key.deinit();
     var ratio = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 8.0, 1.0, 4.0, 0.0, 5.0, -1.0, 4.0 }, .cpu);
@@ -758,6 +792,33 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_harmonic[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_harmonic[3], 1e-12);
 
+    var multi_ptp = try multi.groupByPTPOn(&.{ "store", "day" }, "amount", "amount_ptp_simple");
+    defer multi_ptp.deinit();
+    const ms_simple_ptp = try (try multi_ptp.column("amount_ptp_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_ptp);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ms_simple_ptp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_ptp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_ptp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_ptp[3], 1e-12);
+
+    var multi_midrange = try multi.groupByMidrangeOn(&.{ "store", "day" }, "amount", "amount_midrange_simple");
+    defer multi_midrange.deinit();
+    const ms_simple_midrange = try (try multi_midrange.column("amount_midrange_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_midrange);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), ms_simple_midrange[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_midrange[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_midrange[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_midrange[3], 1e-12);
+
+    var multi_range_coeff = try multi.groupByRangeCoeffOn(&.{ "store", "day" }, "amount", "amount_range_coeff_simple");
+    defer multi_range_coeff.deinit();
+    const ms_simple_range_coeff = try (try multi_range_coeff.column("amount_range_coeff_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_range_coeff);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), ms_simple_range_coeff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_range_coeff[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_range_coeff[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_range_coeff[3], 1e-12);
+
     var multi_skew = try multi.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_simple");
     defer multi_skew.deinit();
     const ms_simple_skew = try (try multi_skew.column("amount_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -991,6 +1052,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_harmonic[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_harmonic[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_harmonic[3], 1e-12);
+
+    var multi_ptp_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_ptp_plan.deinit();
+    try multi_ptp_plan.groupByPTPOn(&.{ "store", "day" }, "amount", "amount_ptp_lazy");
+    const multi_ptp_explained = try multi_ptp_plan.explain(gpa);
+    defer gpa.free(multi_ptp_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_ptp_explained, "group_by_ptp_on([store,day], value=amount -> amount_ptp_lazy)") != null);
+    var lazy_multi_ptp = try multi_ptp_plan.collect();
+    defer lazy_multi_ptp.deinit();
+    const lazy_ms_ptp = try (try lazy_multi_ptp.column("amount_ptp_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_ptp);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_ms_ptp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_ptp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_ptp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_ptp[3], 1e-12);
+
+    var multi_range_coeff_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_range_coeff_plan.deinit();
+    try multi_range_coeff_plan.groupByRangeCoefficientOn(&.{ "store", "day" }, "amount", "amount_range_coeff_lazy");
+    const multi_range_coeff_explained = try multi_range_coeff_plan.explain(gpa);
+    defer gpa.free(multi_range_coeff_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_range_coeff_explained, "group_by_range_coeff_on([store,day], value=amount -> amount_range_coeff_lazy)") != null);
+    var lazy_multi_range_coeff = try multi_range_coeff_plan.collect();
+    defer lazy_multi_range_coeff.deinit();
+    const lazy_ms_range_coeff = try (try lazy_multi_range_coeff.column("amount_range_coeff_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_range_coeff);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_ms_range_coeff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_range_coeff[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_range_coeff[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_range_coeff[3], 1e-12);
 
     var multi_skew_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_skew_plan.deinit();
