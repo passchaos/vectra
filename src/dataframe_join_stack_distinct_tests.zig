@@ -144,6 +144,9 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     try std.testing.expectEqual(@as(usize, 4), try table.distinctRowCount());
     try std.testing.expectEqual(@as(usize, 4), try table.uniqueRowCount());
     try std.testing.expectEqual(@as(usize, 0), try table.duplicateRowCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 5.0), try table.distinctRowRatio(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 5.0), try table.uniqueRowRatio(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), try table.duplicateRowRatio(), 1e-12);
     try std.testing.expect(!try table.hasDuplicateRows());
 
     var full_distinct_none = try table.distinctRowsNone();
@@ -152,6 +155,9 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     try std.testing.expectEqual(@as(usize, 3), try table.distinctRowCountOn(&.{"id"}));
     try std.testing.expectEqual(@as(usize, 1), try table.uniqueRowCountOn(&.{"id"}));
     try std.testing.expectEqual(@as(usize, 4), try table.duplicateRowCountOn(&.{"id"}));
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0 / 5.0), try table.distinctRowRatioOn(&.{"id"}), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 5.0), try table.uniqueRowRatioOn(&.{"id"}), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 5.0), try table.duplicateRowRatioOn(&.{"id"}), 1e-12);
     try std.testing.expect(try table.hasDuplicateRowsOn(&.{"id"}));
 
     var duplicate_flags = try table.withRowIsDuplicated(&.{"id"}, "id_is_duplicated");

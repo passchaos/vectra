@@ -220,7 +220,8 @@ full-row or subset-key combination, while `distinctRowsLast`/`distinctOnLast`
 and `dropDuplicates*Last` keep the last representative, and
 `distinctRowsNone`/`distinctOnNone` plus `dropDuplicates*None` drop every
 duplicated key so only keys seen exactly once remain; `distinctRowCount*`,
-`uniqueRowCount*`, `duplicateRowCount*`, and `hasDuplicateRows*` expose row
+`uniqueRowCount*`, `duplicateRowCount*`, `distinctRowRatio*`,
+`uniqueRowRatio*`, `duplicateRowRatio*`, and `hasDuplicateRows*` expose row
 cardinality metadata; the row concat and distinct operations and
 `withRowIsDuplicated`/`withRowIsUnique` key masks are
 available in lazy plans as well.

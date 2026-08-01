@@ -7457,12 +7457,41 @@ pub fn uniqueRowCountOn(self: anytype, key_names: []const []const u8) DeviceData
     return countMatchingRows(self, key_names, true);
 }
 
+fn rowRatio(count: usize, rows: usize) f64 {
+    if (rows == 0) return std.math.nan(f64);
+    return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));
+}
+
+pub fn distinctRowRatio(self: anytype) DeviceDataError!f64 {
+    return rowRatio(try distinctRowCount(self), frameValue(self).rows);
+}
+
+pub fn distinctRowRatioOn(self: anytype, key_names: []const []const u8) DeviceDataError!f64 {
+    return rowRatio(try distinctRowCountOn(self, key_names), frameValue(self).rows);
+}
+
+pub fn uniqueRowRatio(self: anytype) DeviceDataError!f64 {
+    return rowRatio(try uniqueRowCount(self), frameValue(self).rows);
+}
+
+pub fn uniqueRowRatioOn(self: anytype, key_names: []const []const u8) DeviceDataError!f64 {
+    return rowRatio(try uniqueRowCountOn(self, key_names), frameValue(self).rows);
+}
+
 pub fn duplicateRowCount(self: anytype) DeviceDataError!usize {
     return duplicateRowCountOn(self, frameValue(self).names);
 }
 
 pub fn duplicateRowCountOn(self: anytype, key_names: []const []const u8) DeviceDataError!usize {
     return countMatchingRows(self, key_names, false);
+}
+
+pub fn duplicateRowRatio(self: anytype) DeviceDataError!f64 {
+    return rowRatio(try duplicateRowCount(self), frameValue(self).rows);
+}
+
+pub fn duplicateRowRatioOn(self: anytype, key_names: []const []const u8) DeviceDataError!f64 {
+    return rowRatio(try duplicateRowCountOn(self, key_names), frameValue(self).rows);
 }
 
 pub fn hasDuplicateRows(self: anytype) DeviceDataError!bool {
