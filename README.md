@@ -250,7 +250,7 @@ helpers, `offset` for dropping a leading prefix, and
 `sliceRowsLen(start, length)` beside absolute-start/stop slicing;
 lazy adjacent slice/offset plus limit/head plans are folded into one slice.
 Sampling supports deterministic row counts and fractions, with or without
-replacement, through `sampleRows*` helpers.
+replacement, through `sampleRows*` helpers plus `sampleFrac*` aliases.
 Eager schema/expression helpers such as `selectByNamePrefix`, `selectByNameSuffix`,
 `selectByNameContains`, `selectByNameGlob`, `dropByNamePrefix`, `dropByNameSuffix`,
 `dropByNameContains`, `dropByNameGlob`, `selectByDTypes`, `selectNumeric`, `dropByDTypes`,

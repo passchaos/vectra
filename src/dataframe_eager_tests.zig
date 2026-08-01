@@ -3806,6 +3806,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     var sampled_fraction = try table.sampleRowsFraction(0.5, 1234);
     defer sampled_fraction.deinit();
     try std.testing.expectEqual(@as(usize, 1), sampled_fraction.height());
+    var sampled_frac_alias = try table.sampleFrac(0.5, 1234);
+    defer sampled_frac_alias.deinit();
+    try std.testing.expectEqual(@as(usize, 1), sampled_frac_alias.height());
     var sampled_fraction_full = try table.sampleRowsFraction(1.0, 1234);
     defer sampled_fraction_full.deinit();
     try std.testing.expectEqual(table.height(), sampled_fraction_full.height());
@@ -3826,6 +3829,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     var sampled_fraction_replacement = try table.sampleRowsFractionWithReplacement(1.5, 4321);
     defer sampled_fraction_replacement.deinit();
     try std.testing.expectEqual(@as(usize, 4), sampled_fraction_replacement.height());
+    var sampled_frac_replacement_alias = try table.sampleFracWithReplacement(1.5, 4321);
+    defer sampled_frac_replacement_alias.deinit();
+    try std.testing.expectEqual(@as(usize, 4), sampled_frac_replacement_alias.height());
 
     var strided = try table.strideRows(0, 2);
     defer strided.deinit();

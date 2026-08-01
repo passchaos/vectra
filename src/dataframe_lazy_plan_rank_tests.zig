@@ -7514,6 +7514,14 @@ test "device lazy frame collects row slice operations" {
     defer sampled_fraction.deinit();
     try std.testing.expectEqual(@as(usize, 2), sampled_fraction.height());
 
+    var sample_frac_alias_plan = try DeviceLazyFrame.init(gpa, table);
+    defer sample_frac_alias_plan.deinit();
+    try sample_frac_alias_plan.sampleFrac(0.5, 1234);
+    try sample_frac_alias_plan.select(&.{ "sales", "units" });
+    var sampled_frac_alias = try sample_frac_alias_plan.collect();
+    defer sampled_frac_alias.deinit();
+    try std.testing.expectEqual(@as(usize, 2), sampled_frac_alias.height());
+
     var invalid_sample_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_sample_plan.deinit();
     try invalid_sample_plan.sampleRows(table.height() + 1, 1234);
@@ -7553,6 +7561,14 @@ test "device lazy frame collects row slice operations" {
     var sampled_fraction_replacement = try replacement_fraction_plan.collect();
     defer sampled_fraction_replacement.deinit();
     try std.testing.expectEqual(@as(usize, 6), sampled_fraction_replacement.height());
+
+    var replacement_frac_alias_plan = try DeviceLazyFrame.init(gpa, table);
+    defer replacement_frac_alias_plan.deinit();
+    try replacement_frac_alias_plan.sampleFracWithReplacement(1.5, 4321);
+    try replacement_frac_alias_plan.select(&.{ "sales", "units" });
+    var sampled_frac_alias_replacement = try replacement_frac_alias_plan.collect();
+    defer sampled_frac_alias_replacement.deinit();
+    try std.testing.expectEqual(@as(usize, 6), sampled_frac_alias_replacement.height());
 
     var put_flat_plan = try DeviceLazyFrame.init(gpa, table);
     defer put_flat_plan.deinit();

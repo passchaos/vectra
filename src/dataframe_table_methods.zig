@@ -7214,6 +7214,8 @@ pub fn sampleRowsFraction(self: anytype, fraction: f64, seed: u64) DeviceDataErr
     return dataframe_array_mod.sampleRowsFraction(FrameType(@TypeOf(self)), frameValue(self), fraction, seed);
 }
 
+pub const sampleFrac = sampleRowsFraction;
+
 pub fn sampleRowsWithReplacement(self: anytype, count: usize, seed: u64) DeviceDataError!FrameType(@TypeOf(self)) {
     @setEvalBranchQuota(2000);
     return dataframe_array_mod.sampleRowsWithReplacement(FrameType(@TypeOf(self)), frameValue(self), count, seed);
@@ -7223,6 +7225,8 @@ pub fn sampleRowsFractionWithReplacement(self: anytype, fraction: f64, seed: u64
     @setEvalBranchQuota(2000);
     return dataframe_array_mod.sampleRowsFractionWithReplacement(FrameType(@TypeOf(self)), frameValue(self), fraction, seed);
 }
+
+pub const sampleFracWithReplacement = sampleRowsFractionWithReplacement;
 
 pub fn strideRows(self: anytype, start: usize, step: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.strideRows(FrameType(@TypeOf(self)), frameValue(self), start, step);

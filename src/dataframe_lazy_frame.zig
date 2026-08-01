@@ -5924,6 +5924,10 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sampleFrac(self: *DeviceLazyFrame, fraction: f64, seed: u64) DeviceDataError!void {
+                return self.sampleRowsFraction(fraction, seed);
+            }
+
             pub fn sampleRowsWithReplacement(self: *DeviceLazyFrame, count: usize, seed: u64) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .sample_rows_with_replacement = .{
                     .count = count,
@@ -5936,6 +5940,10 @@ pub fn DeviceLazyTypes(
                     .fraction = fraction,
                     .seed = seed,
                 } });
+            }
+
+            pub fn sampleFracWithReplacement(self: *DeviceLazyFrame, fraction: f64, seed: u64) DeviceDataError!void {
+                return self.sampleRowsFractionWithReplacement(fraction, seed);
             }
 
             pub fn strideRows(self: *DeviceLazyFrame, start: usize, step: usize) DeviceDataError!void {
