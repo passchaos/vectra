@@ -1231,6 +1231,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_zscore[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_zscore_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_zscore_validity);
+
+    var row_minmax_table = try validity_table.withRowMinMaxScale(&.{ "a", "b" }, &.{ "a_minmax", "b_minmax" });
+    defer row_minmax_table.deinit();
+    const row_a_minmax = try (try row_minmax_table.column("a_minmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_minmax);
+    const row_b_minmax = try (try row_minmax_table.column("b_minmax")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_minmax);
+    try std.testing.expect(std.math.isNan(row_a_minmax[0]));
+    try std.testing.expect(std.math.isNan(row_b_minmax[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_a_minmax[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_minmax[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });

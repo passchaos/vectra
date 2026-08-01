@@ -2082,6 +2082,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowStandardize(self, names, output_names);
             }
 
+            pub fn withRowMinMaxScale(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinMaxScale(self, names, output_names);
+            }
+
+            pub fn withRowMinmaxScale(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMinmaxScale(self, names, output_names);
+            }
+
             pub fn withRowSoftmax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSoftmax(self, names, output_names);
             }
