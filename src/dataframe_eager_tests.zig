@@ -1909,6 +1909,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 17.0), row_wb_cummeansq[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1633.0 / 4.0), row_wb_cummeansq[3], 1e-12);
 
+    var row_cummaxabs_table = try validity_table.withRowPrefixLInfNorm(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cummaxabs", "b_row_cummaxabs", "wa_row_cummaxabs", "wb_row_cummaxabs" });
+    defer row_cummaxabs_table.deinit();
+    const row_b_cummaxabs_column = try row_cummaxabs_table.column("b_row_cummaxabs");
+    try std.testing.expect(row_b_cummaxabs_column.f64.nullable());
+    const row_b_cummaxabs = try row_b_cummaxabs_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cummaxabs);
+    const row_b_cummaxabs_validity = try row_b_cummaxabs_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cummaxabs_validity);
+    const row_wb_cummaxabs = try (try row_cummaxabs_table.column("wb_row_cummaxabs")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cummaxabs);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 40.0 }, row_b_cummaxabs);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cummaxabs_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 20.0, 5.0, 40.0 }, row_wb_cummaxabs);
+
+    var row_cumminabs_table = try validity_table.withRowCumulativeMinAbsolute(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumminabs", "b_row_cumminabs", "wa_row_cumminabs", "wb_row_cumminabs" });
+    defer row_cumminabs_table.deinit();
+    const row_wb_cumminabs = try (try row_cumminabs_table.column("wb_row_cumminabs")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumminabs);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 3.0, 1.0 }, row_wb_cumminabs);
+
     var row_cuml1_table = try validity_table.withRowPrefixL1Norm(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cuml1", "b_row_cuml1", "wa_row_cuml1", "wb_row_cuml1" });
     defer row_cuml1_table.deinit();
     const row_wb_cuml1 = try (try row_cuml1_table.column("wb_row_cuml1")).f64.toOwnedSlice(gpa);
@@ -1929,6 +1949,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSkew(&.{"a"}, &.{ "a_row_cumskew", "extra_row_cumskew" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixMeanSquared(&.{"a"}, &.{ "a_row_cummeansq", "extra_row_cummeansq" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumLInfNorm(&.{"a"}, &.{ "a_row_cummaxabs", "extra_row_cummaxabs" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumL2Norm(&.{"a"}, &.{ "a_row_cuml2", "extra_row_cuml2" }));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowPrefixStd(&.{"a"}, &.{"a_row_cumstd"}, -1.0));
 

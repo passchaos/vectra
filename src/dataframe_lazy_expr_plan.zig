@@ -4802,7 +4802,7 @@ pub fn withRowPrefixKurt(frame: anytype, names: []const []const u8, output_names
     return withRowCumulativeKurtosis(frame, names, output_names);
 }
 
-const RowCumulativeNorm = enum { rms, mean_abs, mean_square, l1_norm, l2_norm };
+const RowCumulativeNorm = enum { rms, mean_abs, mean_square, max_abs, min_abs, l1_norm, l2_norm };
 
 fn withRowCumulativeNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime norm: RowCumulativeNorm) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
@@ -4820,6 +4820,8 @@ fn withRowCumulativeNorm(frame: anytype, names: []const []const u8, output_names
         .rms => try frame.ops.append(frame.allocator, .{ .row_cumulative_rms = .{ .names = owned_names, .output_names = owned_outputs } }),
         .mean_abs => try frame.ops.append(frame.allocator, .{ .row_cumulative_mean_abs = .{ .names = owned_names, .output_names = owned_outputs } }),
         .mean_square => try frame.ops.append(frame.allocator, .{ .row_cumulative_mean_square = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .max_abs => try frame.ops.append(frame.allocator, .{ .row_cumulative_max_abs = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .min_abs => try frame.ops.append(frame.allocator, .{ .row_cumulative_min_abs = .{ .names = owned_names, .output_names = owned_outputs } }),
         .l1_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l1_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
         .l2_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l2_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
     }
@@ -4883,6 +4885,78 @@ pub fn withRowPrefixMeanSquare(frame: anytype, names: []const []const u8, output
 
 pub fn withRowPrefixMeanSquared(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowCumulativeMeanSquare(frame, names, output_names);
+}
+
+pub fn withRowCumulativeMaxAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .max_abs);
+}
+
+pub fn withRowCumulativeMaxAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLInfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumulativeLinfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMaxAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMaxAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumLInfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumLinfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMaxAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMaxAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixLInfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixLinfNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMaxAbs(frame, names, output_names);
+}
+
+pub fn withRowCumulativeMinAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .min_abs);
+}
+
+pub fn withRowCumulativeMinAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMinAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMinAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMinAbs(frame, names, output_names);
+}
+
+pub fn withRowCumMinAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMinAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMinAbs(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMinAbs(frame, names, output_names);
+}
+
+pub fn withRowPrefixMinAbsolute(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMinAbs(frame, names, output_names);
 }
 
 pub fn withRowCumulativeL1Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

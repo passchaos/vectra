@@ -405,6 +405,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_rms: Payloads.RowColumnOutputs,
         row_cumulative_mean_abs: Payloads.RowColumnOutputs,
         row_cumulative_mean_square: Payloads.RowColumnOutputs,
+        row_cumulative_max_abs: Payloads.RowColumnOutputs,
+        row_cumulative_min_abs: Payloads.RowColumnOutputs,
         row_cumulative_l1_norm: Payloads.RowColumnOutputs,
         row_cumulative_l2_norm: Payloads.RowColumnOutputs,
         row_cumulative_product: Payloads.RowColumnOutputs,

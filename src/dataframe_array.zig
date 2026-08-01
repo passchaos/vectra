@@ -4995,7 +4995,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, mean, logsumexp, logmeanexp, geometric_mean, harmonic_mean, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, mean_abs, mean_square, l1_norm, l2_norm, max, min, range };
+const RowCumulativeReduction = enum { sum, product, mean, logsumexp, logmeanexp, geometric_mean, harmonic_mean, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, mean_abs, mean_square, l1_norm, l2_norm, max_abs, min_abs, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -5049,7 +5049,7 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .mean, .logsumexp, .logmeanexp, .geometric_mean, .harmonic_mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .mean_abs, .mean_square, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
+            .sum, .mean, .logsumexp, .logmeanexp, .geometric_mean, .harmonic_mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .mean_abs, .mean_square, .l1_norm, .l2_norm, .max_abs, .min_abs, .max, .min, .range => 0.0,
         };
         var running_mean: f64 = 0.0;
         var running_m2: f64 = 0.0;
@@ -5167,6 +5167,20 @@ fn withRowCumulativeRealColumns(
                 },
                 .l1_norm => running += @abs(value),
                 .l2_norm => running += value * value,
+                .max_abs => {
+                    const magnitude = @abs(value);
+                    if (!running_valid or std.math.isNan(magnitude) or (!std.math.isNan(running) and magnitude > running)) {
+                        running = magnitude;
+                    }
+                    running_valid = true;
+                },
+                .min_abs => {
+                    const magnitude = @abs(value);
+                    if (!running_valid or std.math.isNan(magnitude) or (!std.math.isNan(running) and magnitude < running)) {
+                        running = magnitude;
+                    }
+                    running_valid = true;
+                },
                 .max => {
                     if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value > running)) {
                         running = value;
@@ -6044,6 +6058,168 @@ pub fn withRowPrefixMeanSquared(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeMeanSquare(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeMaxAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .max_abs);
+}
+
+pub fn withRowCumulativeMaxAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLInfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeLinfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMaxAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMaxAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLInfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumLinfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMaxAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMaxAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLInfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixLinfNorm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMaxAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeMinAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .min_abs);
+}
+
+pub fn withRowCumulativeMinAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMinAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMinAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMinAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMinAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMinAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMinAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMinAbs(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMinAbsolute(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMinAbs(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeL1Norm(

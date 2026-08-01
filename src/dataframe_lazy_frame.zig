@@ -2718,6 +2718,78 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixMeanSquared(self, names, output_names);
             }
 
+            pub fn withRowCumulativeMaxAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMaxAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMaxAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMaxAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLInfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLInfNorm(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeLinfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeLinfNorm(self, names, output_names);
+            }
+
+            pub fn withRowCumMaxAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMaxAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumMaxAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMaxAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowCumLInfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLInfNorm(self, names, output_names);
+            }
+
+            pub fn withRowCumLinfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumLinfNorm(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMaxAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMaxAbs(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMaxAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMaxAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLInfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLInfNorm(self, names, output_names);
+            }
+
+            pub fn withRowPrefixLinfNorm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixLinfNorm(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMinAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMinAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeMinAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMinAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowCumMinAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMinAbs(self, names, output_names);
+            }
+
+            pub fn withRowCumMinAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMinAbsolute(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMinAbs(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMinAbs(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMinAbsolute(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMinAbsolute(self, names, output_names);
+            }
+
             pub fn withRowCumulativeL1Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeL1Norm(self, names, output_names);
             }

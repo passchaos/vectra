@@ -790,6 +790,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_rms => |row_outputs| try current.withRowCumulativeRms(row_outputs.names, row_outputs.output_names),
             .row_cumulative_mean_abs => |row_outputs| try current.withRowCumulativeMeanAbs(row_outputs.names, row_outputs.output_names),
             .row_cumulative_mean_square => |row_outputs| try current.withRowCumulativeMeanSquare(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_max_abs => |row_outputs| try current.withRowCumulativeMaxAbs(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_min_abs => |row_outputs| try current.withRowCumulativeMinAbs(row_outputs.names, row_outputs.output_names),
             .row_cumulative_l1_norm => |row_outputs| try current.withRowCumulativeL1Norm(row_outputs.names, row_outputs.output_names),
             .row_cumulative_l2_norm => |row_outputs| try current.withRowCumulativeL2Norm(row_outputs.names, row_outputs.output_names),
             .row_cumulative_product => |row_outputs| try current.withRowCumulativeProduct(row_outputs.names, row_outputs.output_names),
