@@ -2562,6 +2562,42 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixKurt(self, names, output_names);
             }
 
+            pub fn withRowCumulativeRms(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeRms(self, names, output_names);
+            }
+
+            pub fn withRowCumRms(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumRms(self, names, output_names);
+            }
+
+            pub fn withRowPrefixRms(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixRms(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeL1Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeL1Norm(self, names, output_names);
+            }
+
+            pub fn withRowCumL1Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumL1Norm(self, names, output_names);
+            }
+
+            pub fn withRowPrefixL1Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixL1Norm(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeL2Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeL2Norm(self, names, output_names);
+            }
+
+            pub fn withRowCumL2Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumL2Norm(self, names, output_names);
+            }
+
+            pub fn withRowPrefixL2Norm(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixL2Norm(self, names, output_names);
+            }
+
             pub fn withRowCumulativeProduct(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeProduct(self, names, output_names);
             }

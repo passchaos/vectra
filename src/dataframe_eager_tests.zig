@@ -1828,8 +1828,36 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, -2.0), row_wb_cumkurt[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -0.6812479530664843), row_wb_cumkurt[3], 1e-12);
 
+    var row_cumrms_table = try validity_table.withRowCumulativeRms(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumrms", "b_row_cumrms", "wa_row_cumrms", "wb_row_cumrms" });
+    defer row_cumrms_table.deinit();
+    const row_b_cumrms = try (try row_cumrms_table.column("b_row_cumrms")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumrms);
+    const row_wb_cumrms = try (try row_cumrms_table.column("wb_row_cumrms")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cumrms);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, std.math.sqrt(@as(f64, 808.0)) }, row_b_cumrms);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 2.0)), row_wb_cumrms[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 135.0)), row_wb_cumrms[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 17.0)), row_wb_cumrms[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1633.0 / 4.0)), row_wb_cumrms[3], 1e-12);
+
+    var row_cuml1_table = try validity_table.withRowPrefixL1Norm(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cuml1", "b_row_cuml1", "wa_row_cuml1", "wb_row_cuml1" });
+    defer row_cuml1_table.deinit();
+    const row_wb_cuml1 = try (try row_cuml1_table.column("wb_row_cuml1")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cuml1);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 23.0, 8.0, 49.0 }, row_wb_cuml1);
+
+    var row_cuml2_table = try validity_table.withRowCumulativeL2Norm(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cuml2", "b_row_cuml2", "wa_row_cuml2", "wb_row_cuml2" });
+    defer row_cuml2_table.deinit();
+    const row_wb_cuml2 = try (try row_cuml2_table.column("wb_row_cuml2")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cuml2);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 6.0)), row_wb_cuml2[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 405.0)), row_wb_cuml2[1], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 34.0)), row_wb_cuml2[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 1633.0)), row_wb_cuml2[3], 1e-12);
+
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumVar(&.{"a"}, &.{ "a_row_cumvar", "extra_row_cumvar" }, 0.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSkew(&.{"a"}, &.{ "a_row_cumskew", "extra_row_cumskew" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumL2Norm(&.{"a"}, &.{ "a_row_cuml2", "extra_row_cuml2" }));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowPrefixStd(&.{"a"}, &.{"a_row_cumstd"}, -1.0));
 
     var row_cumprod_table = try validity_table.withRowCumulativeProduct(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumprod", "b_row_cumprod", "wa_row_cumprod", "wb_row_cumprod" });

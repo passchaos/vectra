@@ -4668,6 +4668,63 @@ pub fn withRowPrefixKurt(frame: anytype, names: []const []const u8, output_names
     return withRowCumulativeKurtosis(frame, names, output_names);
 }
 
+const RowCumulativeNorm = enum { rms, l1_norm, l2_norm };
+
+fn withRowCumulativeNorm(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime norm: RowCumulativeNorm) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    switch (norm) {
+        .rms => try frame.ops.append(frame.allocator, .{ .row_cumulative_rms = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .l1_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l1_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
+        .l2_norm => try frame.ops.append(frame.allocator, .{ .row_cumulative_l2_norm = .{ .names = owned_names, .output_names = owned_outputs } }),
+    }
+}
+
+pub fn withRowCumulativeRms(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .rms);
+}
+
+pub fn withRowCumRms(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRms(frame, names, output_names);
+}
+
+pub fn withRowPrefixRms(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeRms(frame, names, output_names);
+}
+
+pub fn withRowCumulativeL1Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .l1_norm);
+}
+
+pub fn withRowCumL1Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeL1Norm(frame, names, output_names);
+}
+
+pub fn withRowPrefixL1Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeL1Norm(frame, names, output_names);
+}
+
+pub fn withRowCumulativeL2Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNorm(frame, names, output_names, .l2_norm);
+}
+
+pub fn withRowCumL2Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeL2Norm(frame, names, output_names);
+}
+
+pub fn withRowPrefixL2Norm(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeL2Norm(frame, names, output_names);
+}
+
 pub fn withRowCumulativeProduct(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

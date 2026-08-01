@@ -4995,7 +4995,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, mean, variance, stddev, sem, cv, fano, skewness, kurtosis, max, min, range };
+const RowCumulativeReduction = enum { sum, product, mean, variance, stddev, sem, cv, fano, skewness, kurtosis, rms, l1_norm, l2_norm, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -5049,7 +5049,7 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .max, .min, .range => 0.0,
+            .sum, .mean, .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis, .rms, .l1_norm, .l2_norm, .max, .min, .range => 0.0,
         };
         var running_mean: f64 = 0.0;
         var running_m2: f64 = 0.0;
@@ -5099,6 +5099,12 @@ fn withRowCumulativeRealColumns(
                         else => unreachable,
                     };
                 },
+                .rms => {
+                    running += value * value;
+                    running_count += 1;
+                },
+                .l1_norm => running += @abs(value),
+                .l2_norm => running += value * value,
                 .max => {
                     if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value > running)) {
                         running = value;
@@ -5123,7 +5129,12 @@ fn withRowCumulativeRealColumns(
                     running = running_max - running_min;
                 },
             }
-            cumulative[offset] = if (reduction == .mean) running / @as(f64, @floatFromInt(running_count)) else running;
+            cumulative[offset] = switch (reduction) {
+                .mean => running / @as(f64, @floatFromInt(running_count)),
+                .rms => std.math.sqrt(running / @as(f64, @floatFromInt(running_count))),
+                .l2_norm => std.math.sqrt(running),
+                else => running,
+            };
         }
     }
 
@@ -5617,6 +5628,87 @@ pub fn withRowPrefixKurt(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeKurtosis(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .rms);
+}
+
+pub fn withRowCumRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRms(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRms(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .l1_norm);
+}
+
+pub fn withRowCumL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeL1Norm(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeL1Norm(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, 0.0, .l2_norm);
+}
+
+pub fn withRowCumL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeL2Norm(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeL2Norm(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeProduct(
