@@ -123,6 +123,13 @@ pub fn DeviceLazyTypes(
                 self.* = undefined;
             }
 
+            fn sourceDevice(self: *const DeviceLazyFrame) array_mod.Device {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.device,
+                    .parquet_scan => |scan| scan.device,
+                };
+            }
+
             pub fn select(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.select(self, names);
             }
@@ -889,6 +896,22 @@ pub fn DeviceLazyTypes(
             pub const filterIsInColumnInverted = filterNotInColumn;
             pub const filterIsinColumnInverted = filterNotInColumn;
 
+            pub fn filterIsInValues(self: *DeviceLazyFrame, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.filterIsInValuesColumn(self, input_name, value_column);
+            }
+
+            pub fn filterNotInValues(self: *DeviceLazyFrame, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.filterNotInValuesColumn(self, input_name, value_column);
+            }
+
+            pub const filterIsinValues = filterIsInValues;
+            pub const filterIsInValuesInverted = filterNotInValues;
+            pub const filterIsinValuesInverted = filterNotInValues;
+
             pub fn dropIsInColumn(self: *DeviceLazyFrame, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropIsInColumn(self, input_name, test_name);
             }
@@ -900,6 +923,22 @@ pub fn DeviceLazyTypes(
             pub const dropIsinColumn = dropIsInColumn;
             pub const dropIsInColumnInverted = dropNotInColumn;
             pub const dropIsinColumnInverted = dropNotInColumn;
+
+            pub fn dropIsInValues(self: *DeviceLazyFrame, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.dropIsInValuesColumn(self, input_name, value_column);
+            }
+
+            pub fn dropNotInValues(self: *DeviceLazyFrame, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.dropNotInValuesColumn(self, input_name, value_column);
+            }
+
+            pub const dropIsinValues = dropIsInValues;
+            pub const dropIsInValuesInverted = dropNotInValues;
+            pub const dropIsinValuesInverted = dropNotInValues;
 
             pub fn filterBetweenColumnWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
                 return lazy_expr_mod.filterBetweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
@@ -1493,6 +1532,21 @@ pub fn DeviceLazyTypes(
 
             pub const withColumnIsin = withColumnIsIn;
             pub const withColumnIsinInverted = withColumnIsInInverted;
+
+            pub fn withColumnIsInValues(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.withColumnIsInValuesColumn(self, name, input_name, value_column);
+            }
+
+            pub fn withColumnIsInValuesInverted(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
+                var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
+                defer value_column.deinit();
+                return lazy_expr_mod.withColumnIsInValuesInvertedColumn(self, name, input_name, value_column);
+            }
+
+            pub const withColumnIsinValues = withColumnIsInValues;
+            pub const withColumnIsinValuesInverted = withColumnIsInValuesInverted;
 
             pub fn withColumnMaskedPutScalar(self: *DeviceLazyFrame, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.withColumnMaskedPutScalar(self, name, input_name, mask_name, T, value);

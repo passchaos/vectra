@@ -511,6 +511,11 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(expr.input_name);
             allocator.free(expr.test_name);
         },
+        .with_column_isin_values => |*expr| {
+            allocator.free(expr.name);
+            allocator.free(expr.input_name);
+            expr.values.deinit();
+        },
         .with_column_masked_put_scalar => |expr| {
             allocator.free(expr.name);
             allocator.free(expr.input_name);
@@ -644,6 +649,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .filter_isin_column => |membership| {
             allocator.free(membership.input_name);
             allocator.free(membership.test_name);
+        },
+        .filter_isin_values => |*membership| {
+            allocator.free(membership.input_name);
+            membership.values.deinit();
         },
         .drop_rows_by_mask_column => |name| allocator.free(name),
         .where_indices_column => |predicate| {

@@ -170,6 +170,17 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             test_name: []const u8,
             invert: bool,
         };
+        pub const WithColumnIsInValues = struct {
+            name: []const u8,
+            input_name: []const u8,
+            values: DeviceColumn,
+            invert: bool,
+        };
+        pub const FilterIsInValues = struct {
+            input_name: []const u8,
+            values: DeviceColumn,
+            invert: bool,
+        };
         pub const WithColumnPutFlatScalar = struct {
             name: []const u8,
             input_name: []const u8,

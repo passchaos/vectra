@@ -601,6 +601,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 defer column_value.deinit();
                 break :blk try current.withColumn(expr.name, column_value);
             },
+            .with_column_isin_values => |expr| blk: {
+                var column_value = try current.isinColumnValuesWithDeviceColumn(expr.input_name, expr.values, expr.invert);
+                defer column_value.deinit();
+                break :blk try current.withColumn(expr.name, column_value);
+            },
             .with_column_masked_put_scalar => |expr| blk: {
                 var column_value = try current.maskedPutColumnWithDeviceScalar(expr.input_name, expr.mask_name, expr.scalar);
                 defer column_value.deinit();
@@ -1127,6 +1132,11 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 try current.filterNotInColumn(membership.input_name, membership.test_name)
             else
                 try current.filterIsInColumn(membership.input_name, membership.test_name),
+            .filter_isin_values => |membership| blk: {
+                var mask = try current.isinColumnValuesWithDeviceColumn(membership.input_name, membership.values, membership.invert);
+                defer mask.deinit();
+                break :blk try current.filterColumnMask(mask);
+            },
             .drop_rows_by_mask_column => |name| try current.dropRowsByColumnMask(name),
             .where_indices_column => |predicate| try current.whereIndicesColumn(predicate.name, predicate.output_name),
             .filter_scalar => |filter_op| blk: {

@@ -653,6 +653,18 @@ fn filterIsInColumnMode(frame: anytype, input_name: []const u8, test_name: []con
     } });
 }
 
+fn filterIsInValuesMode(frame: anytype, input_name: []const u8, values: anytype, invert: bool) DeviceDataError!void {
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    var owned_values = try values.clone();
+    errdefer owned_values.deinit();
+    try frame.ops.append(frame.allocator, .{ .filter_isin_values = .{
+        .input_name = owned_input,
+        .values = owned_values,
+        .invert = invert,
+    } });
+}
+
 pub fn filterIsInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
     return filterIsInColumnMode(frame, input_name, test_name, false);
 }
@@ -665,6 +677,14 @@ pub const filterIsinColumn = filterIsInColumn;
 pub const filterIsInColumnInverted = filterNotInColumn;
 pub const filterIsinColumnInverted = filterNotInColumn;
 
+pub fn filterIsInValuesColumn(frame: anytype, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return filterIsInValuesMode(frame, input_name, values, false);
+}
+
+pub fn filterNotInValuesColumn(frame: anytype, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return filterIsInValuesMode(frame, input_name, values, true);
+}
+
 pub fn dropIsInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
     return filterNotInColumn(frame, input_name, test_name);
 }
@@ -676,6 +696,14 @@ pub fn dropNotInColumn(frame: anytype, input_name: []const u8, test_name: []cons
 pub const dropIsinColumn = dropIsInColumn;
 pub const dropIsInColumnInverted = dropNotInColumn;
 pub const dropIsinColumnInverted = dropNotInColumn;
+
+pub fn dropIsInValuesColumn(frame: anytype, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return filterNotInValuesColumn(frame, input_name, values);
+}
+
+pub fn dropNotInValuesColumn(frame: anytype, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return filterIsInValuesColumn(frame, input_name, values);
+}
 
 pub fn filterBetweenColumnWithDeviceScalars(frame: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
@@ -2016,6 +2044,29 @@ fn withColumnIsInMode(frame: anytype, name: []const u8, input_name: []const u8, 
         .test_name = owned_test,
         .invert = invert,
     } });
+}
+
+fn withColumnIsInValuesMode(frame: anytype, name: []const u8, input_name: []const u8, values: anytype, invert: bool) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    var owned_values = try values.clone();
+    errdefer owned_values.deinit();
+    try frame.ops.append(frame.allocator, .{ .with_column_isin_values = .{
+        .name = owned_name,
+        .input_name = owned_input,
+        .values = owned_values,
+        .invert = invert,
+    } });
+}
+
+pub fn withColumnIsInValuesColumn(frame: anytype, name: []const u8, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return withColumnIsInValuesMode(frame, name, input_name, values, false);
+}
+
+pub fn withColumnIsInValuesInvertedColumn(frame: anytype, name: []const u8, input_name: []const u8, values: anytype) DeviceDataError!void {
+    return withColumnIsInValuesMode(frame, name, input_name, values, true);
 }
 
 pub fn withColumnMaskedPutScalar(frame: anytype, name: []const u8, input_name: []const u8, mask_name: []const u8, comptime T: type, value: T) DeviceDataError!void {

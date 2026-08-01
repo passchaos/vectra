@@ -7102,6 +7102,18 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, metric_isin_inverted);
     try std.testing.expectError(error.TypeUnsupported, where_table.withColumnIsIn("bad_isin", "metric", "mask"));
 
+    var metric_isin_values_table = try where_table.withColumnIsInValues("metric_isin_values", "metric", f64, &.{ 2.0, 5.0 });
+    defer metric_isin_values_table.deinit();
+    const metric_isin_values = try (try metric_isin_values_table.column("metric_isin_values")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_isin_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, metric_isin_values);
+
+    var metric_notin_values_table = try where_table.withColumnIsInValuesInverted("metric_notin_values", "metric", f64, &.{ 2.0, 5.0 });
+    defer metric_notin_values_table.deinit();
+    const metric_notin_values_column = try (try metric_notin_values_table.column("metric_notin_values")).bool.toOwnedSlice(gpa);
+    defer gpa.free(metric_notin_values_column);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false }, metric_notin_values_column);
+
     var metric_isin_filtered = try where_table.filterIsInColumn("metric", "needles");
     defer metric_isin_filtered.deinit();
     const metric_isin_filtered_values = try (try metric_isin_filtered.column("metric")).f64.toOwnedSlice(gpa);
@@ -7113,6 +7125,30 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     const metric_notin_filtered_values = try (try metric_notin_filtered.column("metric")).f64.toOwnedSlice(gpa);
     defer gpa.free(metric_notin_filtered_values);
     try std.testing.expectEqualSlices(f64, &.{-1.0}, metric_notin_filtered_values);
+
+    var metric_values_filtered = try where_table.filterIsInValues("metric", f64, &.{ 2.0, 5.0 });
+    defer metric_values_filtered.deinit();
+    const metric_values_filtered_values = try (try metric_values_filtered.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_values_filtered_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, metric_values_filtered_values);
+
+    var metric_values_notin = try where_table.filterNotInValues("metric", f64, &.{ 2.0, 5.0 });
+    defer metric_values_notin.deinit();
+    const metric_values_notin_values = try (try metric_values_notin.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_values_notin_values);
+    try std.testing.expectEqualSlices(f64, &.{-1.0}, metric_values_notin_values);
+
+    var metric_drop_values = try where_table.dropIsInValues("metric", f64, &.{ 2.0, 5.0 });
+    defer metric_drop_values.deinit();
+    const metric_drop_values_values = try (try metric_drop_values.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_drop_values_values);
+    try std.testing.expectEqualSlices(f64, &.{-1.0}, metric_drop_values_values);
+
+    var metric_drop_not_values = try where_table.dropNotInValues("metric", f64, &.{ 2.0, 5.0 });
+    defer metric_drop_not_values.deinit();
+    const metric_drop_not_values_values = try (try metric_drop_not_values.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_drop_not_values_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, metric_drop_not_values_values);
 
     var metric_drop_isin = try where_table.dropIsInColumn("metric", "needles");
     defer metric_drop_isin.deinit();
@@ -7126,6 +7162,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(metric_drop_notin_values);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, metric_drop_notin_values);
     try std.testing.expectError(error.TypeUnsupported, where_table.filterIsInColumn("metric", "mask"));
+    try std.testing.expectError(error.TypeUnsupported, where_table.filterIsInValues("metric", bool, &.{true}));
 
     var where_scalar_table = try where_table.withColumnWhereScalar("metric_where", "metric", "mask", f64, 0.0);
     defer where_scalar_table.deinit();

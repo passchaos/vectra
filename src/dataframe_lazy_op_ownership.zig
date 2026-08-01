@@ -1127,6 +1127,20 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .invert = expr.invert,
             } };
         },
+        .with_column_isin_values => |expr| blk: {
+            const name = try allocator.dupe(u8, expr.name);
+            errdefer allocator.free(name);
+            const input_name = try allocator.dupe(u8, expr.input_name);
+            errdefer allocator.free(input_name);
+            var values = try expr.values.clone();
+            errdefer values.deinit();
+            break :blk .{ .with_column_isin_values = .{
+                .name = name,
+                .input_name = input_name,
+                .values = values,
+                .invert = expr.invert,
+            } };
+        },
         .with_column_masked_put_scalar => |expr| blk: {
             const name = try allocator.dupe(u8, expr.name);
             errdefer allocator.free(name);
@@ -3840,6 +3854,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             break :blk .{ .filter_isin_column = .{
                 .input_name = input_name,
                 .test_name = test_name,
+                .invert = membership.invert,
+            } };
+        },
+        .filter_isin_values => |membership| blk: {
+            const input_name = try allocator.dupe(u8, membership.input_name);
+            errdefer allocator.free(input_name);
+            var values = try membership.values.clone();
+            errdefer values.deinit();
+            break :blk .{ .filter_isin_values = .{
+                .input_name = input_name,
+                .values = values,
                 .invert = membership.invert,
             } };
         },

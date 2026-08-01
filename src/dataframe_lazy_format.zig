@@ -326,6 +326,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .filter_column => |name| try writer.print("filter_column({s})", .{name}),
         .filter_between_column => |range| try writer.print("filter_between_column({s}, lower:{s}, upper:{s}, lower_inclusive={any}, upper_inclusive={any}, keep_inside={any})", .{ range.name, @tagName(range.lower), @tagName(range.upper), range.lower_inclusive, range.upper_inclusive, range.keep_inside }),
         .filter_isin_column => |membership| try writer.print("filter_isin_column({s}, test:{s}, invert={any})", .{ membership.input_name, membership.test_name, membership.invert }),
+        .filter_isin_values => |membership| try writer.print("filter_isin_values({s}, values_dtype={s}, values_len={d}, invert={any})", .{ membership.input_name, membership.values.dtype().name(), membership.values.len(), membership.invert }),
         .drop_rows_by_mask_column => |name| try writer.print("drop_rows_by_mask_column({s})", .{name}),
         .where_indices_column => |predicate| try writer.print("where_indices_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s}, keep_matches={any})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar), filter_op.keep_matches }),
@@ -338,6 +339,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .with_column_where => |expr| try writer.print("with_column_where({s}=where({s}, mask:{s}, other:{s}))", .{ expr.name, expr.input_name, expr.lhs_name, expr.rhs_name }),
         .with_column_where_scalar => |expr| try writer.print("with_column_where_scalar({s}=where({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
         .with_column_isin => |expr| try writer.print("with_column_isin({s}=isin({s}, test:{s}, invert={any}))", .{ expr.name, expr.input_name, expr.test_name, expr.invert }),
+        .with_column_isin_values => |expr| try writer.print("with_column_isin_values({s}=isin({s}, values_dtype={s}, values_len={d}, invert={any}))", .{ expr.name, expr.input_name, expr.values.dtype().name(), expr.values.len(), expr.invert }),
         .with_column_masked_put_scalar => |expr| try writer.print("with_column_masked_put_scalar({s}=masked_put({s}, mask:{s}, scalar:{s}))", .{ expr.name, expr.input_name, expr.mask_name, @tagName(expr.scalar) }),
         .with_column_put_flat_scalar => |expr| {
             try writer.print("with_column_put_flat_scalar({s}=put_flat({s}, indices=[", .{ expr.name, expr.input_name });

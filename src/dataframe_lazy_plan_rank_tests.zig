@@ -707,6 +707,19 @@ test "device lazy frame filters by named boolean columns" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, sales_isin);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, sales_notin);
 
+    var isin_values_plan = try DeviceLazyFrame.init(gpa, table);
+    defer isin_values_plan.deinit();
+    try isin_values_plan.withColumnIsInValues("sales_isin_values", "sales", f64, &.{ 3.0, 7.0 });
+    try isin_values_plan.select(&.{ "sales", "sales_isin_values" });
+    const isin_values_explain = try isin_values_plan.explain(gpa);
+    defer gpa.free(isin_values_explain);
+    try std.testing.expect(std.mem.indexOf(u8, isin_values_explain, "with_column_isin_values(sales_isin_values=isin(sales, values_dtype=f64, values_len=2, invert=false))") != null);
+    var isin_values_result = try isin_values_plan.collect();
+    defer isin_values_result.deinit();
+    const sales_isin_values = try (try isin_values_result.column("sales_isin_values")).bool.toOwnedSlice(gpa);
+    defer gpa.free(sales_isin_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, sales_isin_values);
+
     var filter_isin_plan = try DeviceLazyFrame.init(gpa, table);
     defer filter_isin_plan.deinit();
     try filter_isin_plan.withColumnLiteral("needle", f64, 3.0);
@@ -734,6 +747,39 @@ test "device lazy frame filters by named boolean columns" {
     const filter_notin_sales = try (try filter_notin_result.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(filter_notin_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, filter_notin_sales);
+
+    var filter_values_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_values_plan.deinit();
+    try filter_values_plan.filterIsInValues("sales", f64, &.{ 3.0, 7.0 });
+    try filter_values_plan.select(&.{"sales"});
+    const filter_values_explain = try filter_values_plan.explain(gpa);
+    defer gpa.free(filter_values_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_values_explain, "filter_isin_values(sales, values_dtype=f64, values_len=2, invert=false)") != null);
+    var filter_values_result = try filter_values_plan.collect();
+    defer filter_values_result.deinit();
+    const filter_values_sales = try (try filter_values_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filter_values_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 7.0 }, filter_values_sales);
+
+    var filter_not_values_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_not_values_plan.deinit();
+    try filter_not_values_plan.filterNotInValues("sales", f64, &.{ 3.0, 7.0 });
+    try filter_not_values_plan.select(&.{"sales"});
+    var filter_not_values_result = try filter_not_values_plan.collect();
+    defer filter_not_values_result.deinit();
+    const filter_not_values_sales = try (try filter_not_values_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filter_not_values_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, filter_not_values_sales);
+
+    var drop_values_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_values_plan.deinit();
+    try drop_values_plan.dropIsInValues("sales", f64, &.{ 3.0, 7.0 });
+    try drop_values_plan.select(&.{"sales"});
+    var drop_values_result = try drop_values_plan.collect();
+    defer drop_values_result.deinit();
+    const drop_values_sales = try (try drop_values_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_values_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, drop_values_sales);
 
     var drop_isin_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_isin_plan.deinit();
