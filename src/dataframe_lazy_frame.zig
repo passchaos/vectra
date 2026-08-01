@@ -2106,6 +2106,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowL1Normalized(self, names, output_names);
             }
 
+            pub fn withRowMaxAbsNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMaxAbsNormalize(self, names, output_names);
+            }
+
+            pub fn withRowMaxabsNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMaxabsNormalize(self, names, output_names);
+            }
+
+            pub fn withRowLInfNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLInfNormalize(self, names, output_names);
+            }
+
+            pub fn withRowLinfNormalize(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLinfNormalize(self, names, output_names);
+            }
+
             pub fn withRowSoftmax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSoftmax(self, names, output_names);
             }

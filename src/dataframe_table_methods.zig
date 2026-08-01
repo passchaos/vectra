@@ -2995,6 +2995,22 @@ pub fn withRowL1Normalized(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowL1Normalized(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowMaxAbsNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMaxAbsNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowMaxabsNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMaxabsNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowLInfNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLInfNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowLinfNormalize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLinfNormalize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowSoftmax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
