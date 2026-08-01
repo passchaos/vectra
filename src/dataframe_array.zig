@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3431,6 +3431,19 @@ fn withRowNumericReduction(
                                 if (value > maxima[row]) maxima[row] = value;
                             }
                         },
+                        .magnitude_range_coeff => {
+                            const magnitude = @abs(value);
+                            if (!validity[row]) {
+                                values[row] = magnitude;
+                                maxima[row] = magnitude;
+                            } else if (std.math.isNan(magnitude)) {
+                                values[row] = magnitude;
+                                maxima[row] = magnitude;
+                            } else if (!std.math.isNan(values[row])) {
+                                if (magnitude < values[row]) values[row] = magnitude;
+                                if (magnitude > maxima[row]) maxima[row] = magnitude;
+                            }
+                        },
                     }
                     counts[row] += 1;
                     validity[row] = true;
@@ -3496,7 +3509,7 @@ fn withRowNumericReduction(
             value.* = aux_value - value.*;
         } else if (reduction == .midrange) {
             value.* = (value.* + aux_value) / 2.0;
-        } else if (reduction == .range_coeff) {
+        } else if (reduction == .range_coeff or reduction == .magnitude_range_coeff) {
             const denominator = aux_value + value.*;
             value.* = if (denominator == 0.0) std.math.nan(f64) else (aux_value - value.*) / denominator;
         }
@@ -3623,6 +3636,42 @@ pub fn withRowRangeCoefficient(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowRangeCoeff(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeRangeCoeff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_range_coeff);
+}
+
+pub fn withRowAbsRangeCoeff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeRangeCoeff(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeRangeCoefficient(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeRangeCoeff(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowAbsRangeCoefficient(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeRangeCoeff(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMeanAbs(

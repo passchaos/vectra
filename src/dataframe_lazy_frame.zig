@@ -2106,6 +2106,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowRangeCoefficient(self, names, output_name);
             }
 
+            pub fn withRowMagnitudeRangeCoeff(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeRangeCoeff(self, names, output_name);
+            }
+
+            pub fn withRowAbsRangeCoeff(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsRangeCoeff(self, names, output_name);
+            }
+
+            pub fn withRowMagnitudeRangeCoefficient(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeRangeCoefficient(self, names, output_name);
+            }
+
+            pub fn withRowAbsRangeCoefficient(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsRangeCoefficient(self, names, output_name);
+            }
+
             pub fn withRowMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMeanAbs(self, names, output_name);
             }

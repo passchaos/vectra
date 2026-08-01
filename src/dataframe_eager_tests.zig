@@ -1284,6 +1284,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0 / 11.0), row_range_coeff[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_range_coeff_validity);
 
+    var row_magnitude_range_coeff_table = try validity_table.withRowMagnitudeRangeCoeff(&.{ "a", "b" }, "row_magnitude_range_coeff");
+    defer row_magnitude_range_coeff_table.deinit();
+    const row_magnitude_range_coeff_column = try row_magnitude_range_coeff_table.column("row_magnitude_range_coeff");
+    try std.testing.expect(row_magnitude_range_coeff_column.f64.nullable());
+    const row_magnitude_range_coeff = try row_magnitude_range_coeff_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_range_coeff);
+    const row_magnitude_range_coeff_validity = try row_magnitude_range_coeff_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_range_coeff_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_range_coeff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_range_coeff[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_magnitude_range_coeff[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0 / 11.0), row_magnitude_range_coeff[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_range_coeff_validity);
+
     var row_mean_abs_table = try validity_table.withRowMeanAbs(&.{ "a", "b" }, "row_mean_abs");
     defer row_mean_abs_table.deinit();
     const row_mean_abs_column = try row_mean_abs_table.column("row_mean_abs");

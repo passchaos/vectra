@@ -2979,6 +2979,22 @@ pub fn withRowRangeCoefficient(self: anytype, names: []const []const u8, output_
     return dataframe_array_mod.withRowRangeCoefficient(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeRangeCoeff(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeRangeCoeff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsRangeCoeff(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsRangeCoeff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowMagnitudeRangeCoefficient(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeRangeCoefficient(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsRangeCoefficient(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsRangeCoefficient(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMeanAbs(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMeanAbs(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
