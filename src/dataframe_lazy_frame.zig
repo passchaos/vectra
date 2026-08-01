@@ -3734,6 +3734,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowLastNonzeroIndex(self, names, output_name);
             }
 
+            pub fn withRowFirstPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstPositiveIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastPositiveIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastPositiveIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNegativeIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNegativeIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNegativeIndex(self, names, output_name);
+            }
+
             pub fn withRowPositiveCount(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowPositiveCount(self, names, output_name);
             }

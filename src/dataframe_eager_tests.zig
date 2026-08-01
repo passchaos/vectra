@@ -4235,6 +4235,24 @@ test "device dataframe derives sign predicate columns" {
     defer gpa.free(row_negative_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.25, 0.0, 0.0, 0.5, 0.0 }, row_negative_ratio);
 
+    var row_first_positive_indices = try table.withRowFirstPositiveIndex(&.{ "metric", "id", "unsigned", "flag" }, "row_first_positive_index");
+    defer row_first_positive_indices.deinit();
+    const row_first_positive = try (try row_first_positive_indices.column("row_first_positive_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive);
+    const row_first_positive_validity = try (try row_first_positive_indices.column("row_first_positive_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 1, 0, 1, 0, 2, 1 }, row_first_positive);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, true, true, true }, row_first_positive_validity);
+
+    var row_last_negative_indices = try table.withRowLastNegativeIndex(&.{ "metric", "id", "unsigned", "flag" }, "row_last_negative_index");
+    defer row_last_negative_indices.deinit();
+    const row_last_negative = try (try row_last_negative_indices.column("row_last_negative_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative);
+    const row_last_negative_validity = try (try row_last_negative_indices.column("row_last_negative_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0, 0, 1, 0 }, row_last_negative);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true, false, false, true, false }, row_last_negative_validity);
+
     var row_cum_positive_counts = try table.withRowPrefixPositiveCount(&.{ "metric", "id", "unsigned", "flag" }, &.{ "metric_cum_positive", "id_cum_positive", "unsigned_cum_positive", "flag_cum_positive" });
     defer row_cum_positive_counts.deinit();
     const metric_cum_positive = try (try row_cum_positive_counts.column("metric_cum_positive")).i64.toOwnedSlice(gpa);
@@ -4346,6 +4364,7 @@ test "device dataframe derives sign predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isNegativeZeroColumn("missing", "missing_is_negative_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveZeroCount(&.{"missing"}, "bad_positive_zero_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowPositiveCount(&.{"missing"}, "bad_positive_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowFirstPositiveIndex(&.{"missing"}, "bad_positive_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNegativeCount(&.{"metric"}, &.{ "metric_cum_negative", "extra_cum_negative" }));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixSignBitRatio(&.{"metric"}, &.{ "metric_cum_signbit", "extra_cum_signbit" }));
     try std.testing.expectError(error.ColumnNotFound, table.withRowSignBitCount(&.{"missing"}, "bad_signbit_count"));

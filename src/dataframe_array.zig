@@ -12097,6 +12097,42 @@ pub fn withRowLastNonzeroIndex(
     return withRowLastNonZeroIndex(DeviceDataFrame, input, names, output_name);
 }
 
+pub fn withRowFirstPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive, .first);
+}
+
+pub fn withRowLastPositiveIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive, .last);
+}
+
+pub fn withRowFirstNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative, .first);
+}
+
+pub fn withRowLastNegativeIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative, .last);
+}
+
 fn validateRowCumulativeOutputNames(
     output_names: []const []const u8,
     expected_len: usize,
