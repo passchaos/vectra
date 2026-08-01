@@ -6755,10 +6755,56 @@ fn typedColumnsEqual(allocator: std.mem.Allocator, left: anytype, right: @TypeOf
     return true;
 }
 
+fn realValueAsF64(comptime T: type, value: T) f64 {
+    if (comptime T == array_mod.BFloat16) return value.toF64();
+    return @floatCast(value);
+}
+
+fn scalarAllClose(comptime T: type, left: T, right: T, rtol: f64, atol: f64, equal_nan: bool) bool {
+    if (comptime T == array_mod.BFloat16 or @typeInfo(T) == .float) {
+        const left_value = realValueAsF64(T, left);
+        const right_value = realValueAsF64(T, right);
+        const left_nan = std.math.isNan(left_value);
+        const right_nan = std.math.isNan(right_value);
+        if (left_nan or right_nan) return equal_nan and left_nan and right_nan;
+        if (left_value == right_value) return true;
+        if (!std.math.isFinite(left_value) or !std.math.isFinite(right_value)) return false;
+        return @abs(left_value - right_value) <= atol + rtol * @abs(right_value);
+    }
+    return std.meta.eql(left, right);
+}
+
+fn typedColumnsAllClose(allocator: std.mem.Allocator, left: anytype, right: @TypeOf(left), rtol: f64, atol: f64, equal_nan: bool) DeviceDataError!bool {
+    if (left.len() != right.len()) return false;
+    const left_validity = try validity_mod.validityValues(left, allocator);
+    defer if (left_validity) |mask| allocator.free(mask);
+    const right_validity = try validity_mod.validityValues(right, allocator);
+    defer if (right_validity) |mask| allocator.free(mask);
+    const left_values = try left.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+
+    for (left_values, right_values, 0..) |left_value, right_value, row| {
+        const left_valid = optionalValidityBit(left_validity, row);
+        const right_valid = optionalValidityBit(right_validity, row);
+        if (left_valid != right_valid) return false;
+        if (left_valid and !scalarAllClose(@TypeOf(left_value), left_value, right_value, rtol, atol, equal_nan)) return false;
+    }
+    return true;
+}
+
 fn columnsEqual(allocator: std.mem.Allocator, left: anytype, right: @TypeOf(left)) DeviceDataError!bool {
     if (left.dtype() != right.dtype()) return false;
     return switch (left) {
         inline else => |typed, tag| try typedColumnsEqual(allocator, typed, @field(right, @tagName(tag))),
+    };
+}
+
+fn columnsAllClose(allocator: std.mem.Allocator, left: anytype, right: @TypeOf(left), rtol: f64, atol: f64, equal_nan: bool) DeviceDataError!bool {
+    if (left.dtype() != right.dtype()) return false;
+    return switch (left) {
+        inline else => |typed, tag| try typedColumnsAllClose(allocator, typed, @field(right, @tagName(tag)), rtol, atol, equal_nan),
     };
 }
 
@@ -6773,6 +6819,22 @@ pub fn equals(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!bo
 }
 
 pub const frameEquals = equals;
+
+pub fn allClose(self: anytype, other: FrameType(@TypeOf(self)), rtol: f64, atol: f64) DeviceDataError!bool {
+    return allCloseEqualNan(self, other, rtol, atol, false);
+}
+
+pub fn allCloseEqualNan(self: anytype, other: FrameType(@TypeOf(self)), rtol: f64, atol: f64, equal_nan: bool) DeviceDataError!bool {
+    if (std.math.isNan(rtol) or std.math.isNan(atol) or rtol < 0.0 or atol < 0.0) return error.InvalidShape;
+    const left = frameValue(self);
+    if (!schemaEquals(left, other) or left.rows != other.rows) return false;
+    for (left.columns, other.columns) |left_column, right_column| {
+        if (!try columnsAllClose(left.allocator, left_column, right_column, rtol, atol, equal_nan)) return false;
+    }
+    return true;
+}
+
+pub const frameAllClose = allClose;
 
 pub fn schemaEquals(self: anytype, other: FrameType(@TypeOf(self))) bool {
     const left = frameValue(self);

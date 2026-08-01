@@ -128,9 +128,27 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer table_clone.deinit();
     try std.testing.expect(try table.equals(table_clone));
     try std.testing.expect(try table.frameEquals(table_clone));
+    try std.testing.expect(try table.allClose(table_clone, 0.0, 0.0));
+    try std.testing.expect(try table.frameAllClose(table_clone, 0.0, 0.0));
     try std.testing.expect(table.schemaEquals(table_clone));
     try std.testing.expect(table.sameSchema(table_clone));
     try std.testing.expect(table.schemaCompatible(table_clone));
+    var close_sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.01, 2.99, 5.02 }, .cpu);
+    defer close_sales.deinit();
+    var close_units = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 1, 2, 3 }, &.{ true, false, true }, .cpu);
+    defer close_units.deinit();
+    var close_active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
+    defer close_active.deinit();
+    var close_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "sales", .data = close_sales },
+        .{ .name = "units", .data = close_units },
+        .{ .name = "active", .data = close_active },
+    });
+    defer close_table.deinit();
+    try std.testing.expect(!try table.equals(close_table));
+    try std.testing.expect(try table.allClose(close_table, 0.0, 0.05));
+    try std.testing.expect(!try table.allClose(close_table, 0.0, 0.001));
+    try std.testing.expectError(error.InvalidShape, table.allClose(close_table, -1.0, 0.0));
     var reordered = try table.select(&.{ "sales", "active", "units" });
     defer reordered.deinit();
     try std.testing.expect(!try table.equals(reordered));
