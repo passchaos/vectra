@@ -1303,6 +1303,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_gini_mean_diff);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_gini_mean_diff_validity);
 
+    var row_gini_coeff_table = try validity_table.withRowGiniCoefficient(&.{ "a", "b" }, "row_gini_coeff");
+    defer row_gini_coeff_table.deinit();
+    const row_gini_coeff_column = try row_gini_coeff_table.column("row_gini_coeff");
+    try std.testing.expect(row_gini_coeff_column.f64.nullable());
+    const row_gini_coeff = try row_gini_coeff_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_gini_coeff);
+    const row_gini_coeff_validity = try row_gini_coeff_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_gini_coeff_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_gini_coeff[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_gini_coeff[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_gini_coeff[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0 / 11.0), row_gini_coeff[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_gini_coeff_validity);
+
     var row_mad_ratio_table = try validity_table.withRowMeanAbsDevRatio(&.{ "a", "b" }, "row_mad_ratio");
     defer row_mad_ratio_table.deinit();
     const row_mad_ratio_column = try row_mad_ratio_table.column("row_mad_ratio");

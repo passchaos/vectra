@@ -2983,6 +2983,14 @@ pub fn withRowGiniMeanDiff(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowGiniMeanDiff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowGiniCoefficient(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowGiniCoefficient(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowGiniCoeff(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowGiniCoeff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMeanAbsDevRatio(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMeanAbsDevRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
