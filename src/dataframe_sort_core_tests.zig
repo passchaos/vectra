@@ -80,6 +80,18 @@ test "device dataframe sorts and rank profiles" {
     const multi_top2_id = try (try multi_top2.column("id")).i64.toOwnedSlice(gpa);
     defer gpa.free(multi_top2_id);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0 }, multi_top2_id);
+
+    var bottom2 = try table.bottomKBy("score", 2, .{ .nulls = .last });
+    defer bottom2.deinit();
+    const bottom2_id = try (try bottom2.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(bottom2_id);
+    try std.testing.expectEqualSlices(i64, &.{ 10, 30 }, bottom2_id);
+
+    var multi_bottom2 = try multi_table.bottomKByColumns(&.{ "group", "score" }, 2, &.{ .{ .descending = false }, .{ .descending = false } });
+    defer multi_bottom2.deinit();
+    const multi_bottom2_id = try (try multi_bottom2.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(multi_bottom2_id);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0 }, multi_bottom2_id);
     try std.testing.expectError(error.LengthMismatch, multi_table.sortByColumns(&.{"group"}, &.{ .{ .descending = false }, .{ .descending = true } }));
 
     var tied_score = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0, 20.0, 30.0, 0.0 }, &.{ true, true, true, true, false }, .cpu);

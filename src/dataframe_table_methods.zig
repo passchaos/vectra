@@ -7371,6 +7371,14 @@ pub fn topKBy(self: anytype, name: []const u8, k: usize, options_value: DeviceSo
     return rank_mod.topKBy(FrameType(@TypeOf(self)), frameValue(self), name, k, options_value);
 }
 
+pub fn bottomKByColumns(self: anytype, names: []const []const u8, k: usize, options_values: []const DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return topKByColumns(self, names, k, options_values);
+}
+
+pub fn bottomKBy(self: anytype, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return topKBy(self, name, k, options_value);
+}
+
 pub fn rankProfileBy(self: anytype, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
     return rank_mod.rankProfileBy(FrameType(@TypeOf(self)), frameValue(self), name, output_prefix, options_value);
 }

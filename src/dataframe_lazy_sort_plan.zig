@@ -37,6 +37,14 @@ pub fn sortByColumns(frame: anytype, names: []const []const u8, options_values: 
     } });
 }
 
+pub fn topKBy(frame: anytype, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!void {
+    try frame.ops.append(frame.allocator, .{ .top_k = .{
+        .name = try frame.allocator.dupe(u8, name),
+        .options = options_value,
+        .k = k,
+    } });
+}
+
 pub fn topKByColumns(frame: anytype, names: []const []const u8, k: usize, options_values: []const DeviceSortOptions) DeviceDataError!void {
     if (names.len != options_values.len) return error.LengthMismatch;
     const owned_names = try frame.allocator.alloc([]const u8, names.len);

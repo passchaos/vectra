@@ -5683,6 +5683,18 @@ pub fn DeviceLazyTypes(
                 return lazy_sort_mod.topKByColumns(self, names, k, options_values);
             }
 
+            pub fn topKBy(self: *DeviceLazyFrame, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!void {
+                return lazy_sort_mod.topKBy(self, name, k, options_value);
+            }
+
+            pub fn bottomKBy(self: *DeviceLazyFrame, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!void {
+                return self.topKBy(name, k, options_value);
+            }
+
+            pub fn bottomKByColumns(self: *DeviceLazyFrame, names: []const []const u8, k: usize, options_values: []const DeviceSortOptions) DeviceDataError!void {
+                return self.topKByColumns(names, k, options_values);
+            }
+
             pub fn rankProfileBy(self: *DeviceLazyFrame, name: []const u8, output_prefix: []const u8, options_value: DeviceSortOptions) DeviceDataError!void {
                 return lazy_sort_mod.rankProfileBy(self, name, output_prefix, options_value);
             }

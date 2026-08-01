@@ -7166,6 +7166,18 @@ test "device lazy frame collects topk operations" {
     const topk_sales = try (try topk.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(topk_sales);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, topk_sales);
+
+    var bottomk_plan = try DeviceLazyFrame.init(gpa, table);
+    defer bottomk_plan.deinit();
+    try bottomk_plan.bottomKBy("sales", 2, .{});
+    const bottomk_explain = try bottomk_plan.explain(gpa);
+    defer gpa.free(bottomk_explain);
+    try std.testing.expect(std.mem.indexOf(u8, bottomk_explain, "top_k(sales, k=2, desc=false)") != null);
+    var bottomk = try bottomk_plan.collect();
+    defer bottomk.deinit();
+    const bottomk_sales = try (try bottomk.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(bottomk_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, bottomk_sales);
 }
 
 test "device lazy frame sorts by multiple columns" {
@@ -7226,6 +7238,24 @@ test "device lazy frame collects multi-key topk operations" {
     defer gpa.free(units);
     try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, sales);
     try std.testing.expectEqualSlices(i64, &.{ 4, 3 }, units);
+
+    var bottom_plan = try DeviceLazyFrame.init(gpa, table);
+    defer bottom_plan.deinit();
+    try bottom_plan.bottomKByColumns(&.{ "active", "units" }, 2, &.{ .{ .descending = false }, .{ .descending = false } });
+    try bottom_plan.select(&.{ "sales", "active", "units" });
+
+    const bottom_explained = try bottom_plan.explain(gpa);
+    defer gpa.free(bottom_explained);
+    try std.testing.expect(std.mem.indexOf(u8, bottom_explained, "top_k_columns(k=2)[active:desc=false,units:desc=false]") != null);
+
+    var bottom = try bottom_plan.collect();
+    defer bottom.deinit();
+    const bottom_sales = try (try bottom.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(bottom_sales);
+    const bottom_units = try (try bottom.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(bottom_units);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 2.0 }, bottom_sales);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1 }, bottom_units);
 }
 
 test "device lazy frame collects row slice operations" {
