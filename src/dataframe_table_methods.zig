@@ -1492,6 +1492,142 @@ pub fn subnormalCountColumn(self: anytype, name: []const u8) DeviceDataError!usi
     return expr_mod.subnormalCountColumn(frameValue(self), name);
 }
 
+pub fn anyZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyZeroColumn(frameValue(self), name);
+}
+
+pub fn allZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allZeroColumn(frameValue(self), name);
+}
+
+pub fn anyNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNonzeroColumn(frameValue(self), name);
+}
+
+pub fn anyNonZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNonzeroColumn(self, name);
+}
+
+pub fn allNonzeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNonzeroColumn(frameValue(self), name);
+}
+
+pub fn allNonZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return allNonzeroColumn(self, name);
+}
+
+pub fn anyPositiveZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyPositiveZeroColumn(frameValue(self), name);
+}
+
+pub fn allPositiveZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allPositiveZeroColumn(frameValue(self), name);
+}
+
+pub fn anyNegativeZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNegativeZeroColumn(frameValue(self), name);
+}
+
+pub fn allNegativeZeroColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNegativeZeroColumn(frameValue(self), name);
+}
+
+pub fn anyPositiveColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyPositiveColumn(frameValue(self), name);
+}
+
+pub fn allPositiveColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allPositiveColumn(frameValue(self), name);
+}
+
+pub fn anyNegativeColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNegativeColumn(frameValue(self), name);
+}
+
+pub fn allNegativeColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNegativeColumn(frameValue(self), name);
+}
+
+pub fn anySignBitColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anySignBitColumn(frameValue(self), name);
+}
+
+pub fn allSignBitColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allSignBitColumn(frameValue(self), name);
+}
+
+pub fn anyNanColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNanColumn(frameValue(self), name);
+}
+
+pub fn anyNaNColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNanColumn(self, name);
+}
+
+pub fn allNanColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNanColumn(frameValue(self), name);
+}
+
+pub fn allNaNColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return allNanColumn(self, name);
+}
+
+pub fn anyInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyInfColumn(frameValue(self), name);
+}
+
+pub fn allInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allInfColumn(frameValue(self), name);
+}
+
+pub fn anyPositiveInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyPositiveInfColumn(frameValue(self), name);
+}
+
+pub fn allPositiveInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allPositiveInfColumn(frameValue(self), name);
+}
+
+pub fn anyNegativeInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNegativeInfColumn(frameValue(self), name);
+}
+
+pub fn allNegativeInfColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNegativeInfColumn(frameValue(self), name);
+}
+
+pub fn anyFiniteColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyFiniteColumn(frameValue(self), name);
+}
+
+pub fn allFiniteColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allFiniteColumn(frameValue(self), name);
+}
+
+pub fn anyNonFiniteColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNonFiniteColumn(frameValue(self), name);
+}
+
+pub fn allNonFiniteColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNonFiniteColumn(frameValue(self), name);
+}
+
+pub fn anyNormalColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyNormalColumn(frameValue(self), name);
+}
+
+pub fn allNormalColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allNormalColumn(frameValue(self), name);
+}
+
+pub fn anySubnormalColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anySubnormalColumn(frameValue(self), name);
+}
+
+pub fn allSubnormalColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allSubnormalColumn(frameValue(self), name);
+}
+
 pub fn zeroRatioColumn(self: anytype, name: []const u8) DeviceDataError!DeviceScalar {
     return expr_mod.zeroRatioColumn(frameValue(self), name);
 }

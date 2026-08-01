@@ -832,6 +832,191 @@ pub fn subnormalCountColumn(frame: anytype, name: []const u8) DeviceDataError!us
     return col.countSubnormal();
 }
 
+const ColumnNumericPredicate = enum {
+    zero,
+    non_zero,
+    positive_zero,
+    negative_zero,
+    positive,
+    negative,
+    signbit,
+    nan,
+    inf,
+    positive_inf,
+    negative_inf,
+    finite,
+    non_finite,
+    normal,
+    subnormal,
+};
+
+fn columnNumericPredicateCount(col: anytype, comptime predicate: ColumnNumericPredicate) DeviceDataError!usize {
+    return switch (predicate) {
+        .zero => col.validCount() - try col.countNonzero(),
+        .non_zero => try col.countNonzero(),
+        .positive_zero => try col.countPositiveZero(),
+        .negative_zero => try col.countNegativeZero(),
+        .positive => try col.countPositive(),
+        .negative => try col.countNegative(),
+        .signbit => try col.countSignBit(),
+        .nan => try col.countNan(),
+        .inf => try col.countInf(),
+        .positive_inf => try col.countPositiveInf(),
+        .negative_inf => try col.countNegativeInf(),
+        .finite => try col.countFinite(),
+        .non_finite => try col.countNonFinite(),
+        .normal => try col.countNormal(),
+        .subnormal => try col.countSubnormal(),
+    };
+}
+
+fn anyNumericPredicateColumn(frame: anytype, name: []const u8, comptime predicate: ColumnNumericPredicate) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return try columnNumericPredicateCount(col, predicate) != 0;
+}
+
+fn allNumericPredicateColumn(frame: anytype, name: []const u8, comptime predicate: ColumnNumericPredicate) DeviceDataError!bool {
+    const col = try frame.column(name);
+    const valid_count = col.validCount();
+    return valid_count != 0 and try columnNumericPredicateCount(col, predicate) == valid_count;
+}
+
+pub fn anyZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .zero);
+}
+
+pub fn allZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .zero);
+}
+
+pub fn anyNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .non_zero);
+}
+
+pub fn anyNonZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNonzeroColumn(frame, name);
+}
+
+pub fn allNonzeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .non_zero);
+}
+
+pub fn allNonZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNonzeroColumn(frame, name);
+}
+
+pub fn anyPositiveZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .positive_zero);
+}
+
+pub fn allPositiveZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .positive_zero);
+}
+
+pub fn anyNegativeZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .negative_zero);
+}
+
+pub fn allNegativeZeroColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .negative_zero);
+}
+
+pub fn anyPositiveColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .positive);
+}
+
+pub fn allPositiveColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .positive);
+}
+
+pub fn anyNegativeColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .negative);
+}
+
+pub fn allNegativeColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .negative);
+}
+
+pub fn anySignBitColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .signbit);
+}
+
+pub fn allSignBitColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .signbit);
+}
+
+pub fn anyNanColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .nan);
+}
+
+pub fn anyNaNColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNanColumn(frame, name);
+}
+
+pub fn allNanColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .nan);
+}
+
+pub fn allNaNColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNanColumn(frame, name);
+}
+
+pub fn anyInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .inf);
+}
+
+pub fn allInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .inf);
+}
+
+pub fn anyPositiveInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .positive_inf);
+}
+
+pub fn allPositiveInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .positive_inf);
+}
+
+pub fn anyNegativeInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .negative_inf);
+}
+
+pub fn allNegativeInfColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .negative_inf);
+}
+
+pub fn anyFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .finite);
+}
+
+pub fn allFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .finite);
+}
+
+pub fn anyNonFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .non_finite);
+}
+
+pub fn allNonFiniteColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .non_finite);
+}
+
+pub fn anyNormalColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .normal);
+}
+
+pub fn allNormalColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .normal);
+}
+
+pub fn anySubnormalColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return anyNumericPredicateColumn(frame, name, .subnormal);
+}
+
+pub fn allSubnormalColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    return allNumericPredicateColumn(frame, name, .subnormal);
+}
+
 fn ratioFromValidCount(count: usize, valid_count: usize) DeviceScalar {
     if (valid_count == 0) return .{ .f64 = std.math.nan(f64) };
     return .{ .f64 = @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(valid_count)) };
