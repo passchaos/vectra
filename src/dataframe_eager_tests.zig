@@ -79,6 +79,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const dtypes = try table.columnDTypes(gpa);
     defer gpa.free(dtypes);
     try std.testing.expectEqualSlices(DeviceDType, &.{ .f64, .i64, .bool }, dtypes);
+    const dtype_names = try table.columnDTypeNames(gpa);
+    defer gpa.free(dtype_names);
+    try std.testing.expect(std.mem.eql(u8, "f64", dtype_names[0]));
+    try std.testing.expect(std.mem.eql(u8, "i64", dtype_names[1]));
+    try std.testing.expect(std.mem.eql(u8, "bool", dtype_names[2]));
+    const dtype_name_alias = try table.dtypeNames(gpa);
+    defer gpa.free(dtype_name_alias);
+    try std.testing.expect(std.mem.eql(u8, "f64", dtype_name_alias[0]));
+    try std.testing.expect(std.mem.eql(u8, "i64", dtype_name_alias[1]));
+    try std.testing.expect(std.mem.eql(u8, "bool", dtype_name_alias[2]));
     const dtype_byte_sizes = try table.columnDTypeByteSizes(gpa);
     defer gpa.free(dtype_byte_sizes);
     try std.testing.expectEqualSlices(usize, &.{ @sizeOf(f64), @sizeOf(i64), @sizeOf(bool) }, dtype_byte_sizes);

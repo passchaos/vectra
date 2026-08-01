@@ -162,6 +162,16 @@ pub const DeviceDataFrame = struct {
         return self.columnDTypes(allocator);
     }
 
+    pub fn columnDTypeNames(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![][]const u8 {
+        const out = try allocator.alloc([]const u8, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype().name();
+        return out;
+    }
+
+    pub fn dtypeNames(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![][]const u8 {
+        return self.columnDTypeNames(allocator);
+    }
+
     pub fn columnDTypeByteSizes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
         const out = try allocator.alloc(usize, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype().byteSize();
