@@ -374,6 +374,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cume_dist: Payloads.RowColumnOutputs,
         row_cumulative_sum: Payloads.RowColumnOutputs,
         row_cumulative_product: Payloads.RowColumnOutputs,
+        row_cumulative_max: Payloads.RowColumnOutputs,
         row_iqr_outlier: Payloads.RowColumnOutputs,
         row_tukey_winsorize: Payloads.RowColumnOutputs,
         row_max_indicator: Payloads.RowColumnOutputs,

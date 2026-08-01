@@ -2214,6 +2214,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixProduct(self, names, output_names);
             }
 
+            pub fn withRowCumulativeMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMax(self, names, output_names);
+            }
+
+            pub fn withRowCummax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCummax(self, names, output_names);
+            }
+
+            pub fn withRowCumMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMax(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMax(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMax(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }
