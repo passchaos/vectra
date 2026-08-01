@@ -754,6 +754,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_ptp => |row_count| try current.withRowPtp(row_count.names, row_count.output_name),
             .row_midrange => |row_count| try current.withRowMidrange(row_count.names, row_count.output_name),
             .row_mean_abs => |row_count| try current.withRowMeanAbs(row_count.names, row_count.output_name),
+            .row_mean_abs_dev => |row_count| try current.withRowMeanAbsDev(row_count.names, row_count.output_name),
             .row_rms => |row_count| try current.withRowRms(row_count.names, row_count.output_name),
             .row_l1_norm => |row_count| try current.withRowL1Norm(row_count.names, row_count.output_name),
             .row_l2_norm => |row_count| try current.withRowL2Norm(row_count.names, row_count.output_name),

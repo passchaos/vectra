@@ -1281,6 +1281,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 22.0 }, row_mean_abs);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_abs_validity);
 
+    var row_mean_abs_dev_table = try validity_table.withRowMeanAbsDev(&.{ "a", "b" }, "row_mean_abs_dev");
+    defer row_mean_abs_dev_table.deinit();
+    const row_mean_abs_dev_column = try row_mean_abs_dev_table.column("row_mean_abs_dev");
+    try std.testing.expect(row_mean_abs_dev_column.f64.nullable());
+    const row_mean_abs_dev = try row_mean_abs_dev_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_abs_dev);
+    const row_mean_abs_dev_validity = try row_mean_abs_dev_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mean_abs_dev_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_mean_abs_dev);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_abs_dev_validity);
+
     var row_rms_table = try validity_table.withRowRms(&.{ "a", "b" }, "row_rms");
     defer row_rms_table.deinit();
     const row_rms_column = try row_rms_table.column("row_rms");
