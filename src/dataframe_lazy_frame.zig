@@ -2182,6 +2182,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowCumulativeDistribution(self, names, output_names);
             }
 
+            pub fn withRowCumulativeSum(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeSum(self, names, output_names);
+            }
+
+            pub fn withRowCumsum(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumsum(self, names, output_names);
+            }
+
+            pub fn withRowCumSum(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumSum(self, names, output_names);
+            }
+
+            pub fn withRowPrefixSum(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixSum(self, names, output_names);
+            }
+
             pub fn withRowIqrOutlier(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowIqrOutlier(self, names, output_names);
             }

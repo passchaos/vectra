@@ -757,6 +757,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_competition_rank => |row_outputs| try current.withRowCompetitionRank(row_outputs.names, row_outputs.output_names),
             .row_percent_rank => |row_outputs| try current.withRowPercentRank(row_outputs.names, row_outputs.output_names),
             .row_cume_dist => |row_outputs| try current.withRowCumeDist(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_sum => |row_outputs| try current.withRowCumulativeSum(row_outputs.names, row_outputs.output_names),
             .row_iqr_outlier => |row_outputs| try current.withRowIqrOutlier(row_outputs.names, row_outputs.output_names),
             .row_tukey_winsorize => |row_outputs| try current.withRowTukeyWinsorize(row_outputs.names, row_outputs.output_names),
             .row_max_indicator => |row_outputs| try current.withRowMaxIndicator(row_outputs.names, row_outputs.output_names),

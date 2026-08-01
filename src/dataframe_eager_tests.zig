@@ -1358,6 +1358,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cume_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cume_validity);
 
+    var row_cumsum_table = try validity_table.withRowCumulativeSum(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumsum", "b_row_cumsum", "wa_row_cumsum", "wb_row_cumsum" });
+    defer row_cumsum_table.deinit();
+    const row_a_cumsum_column = try row_cumsum_table.column("a_row_cumsum");
+    try std.testing.expectEqual(DeviceDType.f64, row_a_cumsum_column.dtype());
+    try std.testing.expect(row_a_cumsum_column.f64.nullable());
+    const row_a_cumsum = try row_a_cumsum_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cumsum);
+    const row_a_cumsum_validity = try row_a_cumsum_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cumsum_validity);
+    const row_b_cumsum_column = try row_cumsum_table.column("b_row_cumsum");
+    try std.testing.expect(row_b_cumsum_column.f64.nullable());
+    const row_b_cumsum = try row_b_cumsum_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumsum);
+    const row_b_cumsum_validity = try row_b_cumsum_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cumsum_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 4.0 }, row_a_cumsum);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 44.0 }, row_b_cumsum);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cumsum_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cumsum_validity);
+
     var row_robust_zscore_table = try validity_table.withRowRobustZScore(&.{ "a", "b" }, &.{ "a_robust_zscore", "b_robust_zscore" });
     defer row_robust_zscore_table.deinit();
     const row_a_robust_zscore_column = try row_robust_zscore_table.column("a_robust_zscore");
@@ -1558,6 +1578,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMinRanks(&.{"a"}, &.{ "a_row_min_rank", "extra_row_min_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPercentileRanks(&.{"a"}, &.{ "a_row_percent_rank", "extra_row_percent_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeDistribution(&.{"a"}, &.{ "a_row_cume", "extra_row_cume" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSum(&.{"a"}, &.{ "a_row_cumsum", "extra_row_cumsum" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowRobustZscore(&.{"a"}, &.{ "a_robust_zscore", "extra_robust_zscore" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowTukeyOutliers(&.{"a"}, &.{ "a_iqr_outlier", "extra_iqr_outlier" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowIqrWinsorized(&.{"a"}, &.{ "a_tukey_winsor", "extra_tukey_winsor" }));

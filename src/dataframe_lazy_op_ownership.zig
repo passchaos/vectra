@@ -1542,7 +1542,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
-        .row_centered, .row_zscore, .row_robust_zscore, .row_average_rank, .row_ordinal_rank, .row_dense_rank, .row_competition_rank, .row_percent_rank, .row_cume_dist, .row_iqr_outlier, .row_tukey_winsorize, .row_max_indicator, .row_min_indicator, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs, tag| blk: {
+        .row_centered, .row_zscore, .row_robust_zscore, .row_average_rank, .row_ordinal_rank, .row_dense_rank, .row_competition_rank, .row_percent_rank, .row_cume_dist, .row_cumulative_sum, .row_iqr_outlier, .row_tukey_winsorize, .row_max_indicator, .row_min_indicator, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs, tag| blk: {
             const names = try cloneNameList(allocator, row_outputs.names);
             errdefer freeNameList(allocator, names);
             const output_names = try cloneNameList(allocator, row_outputs.output_names);
@@ -1581,6 +1581,10 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .output_names = output_names,
                 } },
                 .row_cume_dist => .{ .row_cume_dist = .{
+                    .names = names,
+                    .output_names = output_names,
+                } },
+                .row_cumulative_sum => .{ .row_cumulative_sum = .{
                     .names = names,
                     .output_names = output_names,
                 } },
