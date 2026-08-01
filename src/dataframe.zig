@@ -843,6 +843,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowLogsumexp = table_methods_mod.withRowLogsumexp;
     pub const withRowLogMeanExp = table_methods_mod.withRowLogMeanExp;
     pub const withRowLogmeanexp = table_methods_mod.withRowLogmeanexp;
+    pub const withRowSoftmax = table_methods_mod.withRowSoftmax;
     pub const withRowGeometricMean = table_methods_mod.withRowGeometricMean;
     pub const withRowGeoMean = table_methods_mod.withRowGeoMean;
     pub const withRowMagnitudeGeometricMean = table_methods_mod.withRowMagnitudeGeometricMean;

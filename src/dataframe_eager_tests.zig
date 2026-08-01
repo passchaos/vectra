@@ -1196,6 +1196,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 40.0) + std.math.log1p(std.math.exp(@as(f64, -36.0))) - std.math.ln2, row_logmeanexp[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_logmeanexp_validity);
 
+    var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });
+    defer row_softmax_table.deinit();
+    const row_a_softmax_column = try row_softmax_table.column("a_softmax");
+    const row_b_softmax_column = try row_softmax_table.column("b_softmax");
+    try std.testing.expect(row_a_softmax_column.f64.nullable());
+    try std.testing.expect(row_b_softmax_column.f64.nullable());
+    const row_a_softmax = try row_a_softmax_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_softmax);
+    const row_b_softmax = try row_b_softmax_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_softmax);
+    const row_a_softmax_validity = try row_a_softmax_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_softmax_validity);
+    const row_b_softmax_validity = try row_b_softmax_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_softmax_validity);
+    const row3_a_softmax = std.math.exp(@as(f64, -36.0)) / (@as(f64, 1.0) + std.math.exp(@as(f64, -36.0)));
+    const row3_b_softmax = @as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, -36.0)));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_a_softmax[0], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_a_softmax, row_a_softmax[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_softmax[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_b_softmax, row_b_softmax[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_softmax_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_softmax_validity);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
+
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
     defer row_geo_table.deinit();
     const row_geo_column = try row_geo_table.column("row_geo");
@@ -2475,6 +2499,32 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expect(std.math.isNan(lme[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 7.0), lme[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lme_validity);
+
+    var softmax_table = try table.withRowSoftmax(&.{ "low", "high" }, &.{ "low_prob", "high_prob" });
+    defer softmax_table.deinit();
+    const low_prob_column = try softmax_table.column("low_prob");
+    const high_prob_column = try softmax_table.column("high_prob");
+    try std.testing.expect(low_prob_column.f64.nullable());
+    try std.testing.expect(high_prob_column.f64.nullable());
+    const low_prob = try low_prob_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(low_prob);
+    const high_prob = try high_prob_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(high_prob);
+    const low_prob_validity = try low_prob_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(low_prob_validity);
+    const high_prob_validity = try high_prob_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(high_prob_validity);
+    const expected_low0 = std.math.exp(@as(f64, -1.0)) / (@as(f64, 1.0) + std.math.exp(@as(f64, -1.0)));
+    const expected_high0 = @as(f64, 1.0) / (@as(f64, 1.0) + std.math.exp(@as(f64, -1.0)));
+    try std.testing.expectApproxEqAbs(expected_low0, low_prob[0], 1e-12);
+    try std.testing.expectApproxEqAbs(expected_high0, high_prob[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), low_prob[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), high_prob[1], 1e-12);
+    try std.testing.expect(std.math.isNan(low_prob[2]));
+    try std.testing.expect(std.math.isNan(high_prob[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), high_prob[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, low_prob_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, high_prob_validity);
 }
 
 test "device dataframe selects and drops columns by nullability" {

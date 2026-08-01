@@ -3623,6 +3623,133 @@ pub fn withRowLogmeanexp(
     return withRowLogMeanExp(DeviceDataFrame, input, names, output_name);
 }
 
+pub fn withRowSoftmax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const maxima = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(maxima);
+    const denom = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(denom);
+    const valid_counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(valid_counts);
+    const pos_inf_counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(pos_inf_counts);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(maxima, -std.math.inf(f64));
+    @memset(denom, 0.0);
+    @memset(valid_counts, 0);
+    @memset(pos_inf_counts, 0);
+    @memset(row_validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    row_validity[row] = true;
+                    valid_counts[row] += 1;
+                    if (std.math.isNan(value)) {
+                        maxima[row] = std.math.nan(f64);
+                    } else if (!std.math.isNan(maxima[row]) and value > maxima[row]) {
+                        maxima[row] = value;
+                    }
+                }
+            },
+        }
+    }
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row] or std.math.isNan(maxima[row])) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (std.math.isPositiveInf(maxima[row])) {
+                        if (std.math.isPositiveInf(value)) pos_inf_counts[row] += 1;
+                    } else if (!std.math.isNegativeInf(maxima[row])) {
+                        denom[row] += std.math.exp(value - maxima[row]);
+                    }
+                }
+            },
+        }
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var probabilities = try input.allocator.alloc(f64, input.rows);
+        defer input.allocator.free(probabilities);
+        const probability_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(probability_validity);
+        @memset(probabilities, 0.0);
+        @memset(probability_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    probability_validity[row] = row_validity[row];
+                    if (!row_validity[row]) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    if (std.math.isNan(maxima[row]) or std.math.isNan(value)) {
+                        probabilities[row] = std.math.nan(f64);
+                    } else if (std.math.isPositiveInf(maxima[row])) {
+                        probabilities[row] = if (std.math.isPositiveInf(value)) 1.0 / @as(f64, @floatFromInt(pos_inf_counts[row])) else 0.0;
+                    } else if (std.math.isNegativeInf(maxima[row])) {
+                        probabilities[row] = 1.0 / @as(f64, @floatFromInt(valid_counts[row]));
+                    } else {
+                        probabilities[row] = std.math.exp(value - maxima[row]) / denom[row];
+                    }
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, probabilities, probability_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
 pub fn withRowGeometricMean(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
