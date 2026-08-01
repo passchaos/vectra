@@ -4379,7 +4379,7 @@ fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { median, iqr, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness, mad, mode, count_distinct, n_unique },
+    comptime reduction: enum { median, iqr, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness, mad, mode, count_distinct, n_unique, is_duplicated, is_unique },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -4434,6 +4434,14 @@ fn withRowQuantileAlias(
             .output_name = owned_output,
         } }),
         .n_unique => try frame.ops.append(frame.allocator, .{ .row_n_unique = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .is_duplicated => try frame.ops.append(frame.allocator, .{ .row_is_duplicated = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .is_unique => try frame.ops.append(frame.allocator, .{ .row_is_unique = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -4761,6 +4769,14 @@ pub fn withRowCountDistinct(frame: anytype, names: []const []const u8, output_na
 
 pub fn withRowNUnique(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowQuantileAlias(frame, names, output_name, .n_unique);
+}
+
+pub fn withRowIsDuplicated(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .is_duplicated);
+}
+
+pub fn withRowIsUnique(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowQuantileAlias(frame, names, output_name, .is_unique);
 }
 
 fn withRowCumulativeDistinctCountAlias(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime n_unique: bool) DeviceDataError!void {

@@ -89,19 +89,26 @@ pub fn distinctRowIndicesNone(allocator: std.mem.Allocator, frame: anytype, key_
     // is the `drop_duplicates(keep=none)` counterpart to the first/last helpers
     // above and intentionally uses the same row comparison seam.
     for (0..frame.rows) |row| {
-        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
-        var matches: usize = 0;
-        for (0..frame.rows) |candidate| {
-            if (!try rowHasValidKeys(allocator, frame, key_names, candidate)) continue;
-            if (try rowsMatchAllKeys(allocator, frame, frame, key_names, key_names, row, candidate)) {
-                matches += 1;
-                if (matches > 1) break;
-            }
+        if (try countMatchingValidKeyRows(allocator, frame, key_names, row, 2) == 1) {
+            try unique_rows.append(allocator, row);
         }
-        if (matches == 1) try unique_rows.append(allocator, row);
     }
 
     return unique_rows.toOwnedSlice(allocator);
+}
+
+pub fn rowDuplicateMask(allocator: std.mem.Allocator, frame: anytype, key_names: []const []const u8, comptime mark_unique: bool) KeyMatchError![]bool {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |name| _ = try frame.column(name);
+
+    const mask = try allocator.alloc(bool, frame.rows);
+    errdefer allocator.free(mask);
+
+    for (mask, 0..) |*slot, row| {
+        const matches = try countMatchingValidKeyRows(allocator, frame, key_names, row, 2);
+        slot.* = if (mark_unique) matches == 1 else matches > 1;
+    }
+    return mask;
 }
 
 pub fn rowHasValidKeys(allocator: std.mem.Allocator, frame: anytype, key_names: []const []const u8, row: usize) KeyMatchError!bool {
@@ -145,6 +152,19 @@ pub fn rowsMatchAllKeys(
         if (!try columnsRowsEqual(allocator, left_key.*, right_key.*, left_i, right_i)) return false;
     }
     return true;
+}
+
+fn countMatchingValidKeyRows(allocator: std.mem.Allocator, frame: anytype, key_names: []const []const u8, row: usize, max_matches: usize) KeyMatchError!usize {
+    if (!try rowHasValidKeys(allocator, frame, key_names, row)) return 0;
+    var matches: usize = 0;
+    for (0..frame.rows) |candidate| {
+        if (!try rowHasValidKeys(allocator, frame, key_names, candidate)) continue;
+        if (try rowsMatchAllKeys(allocator, frame, frame, key_names, key_names, row, candidate)) {
+            matches += 1;
+            if (matches >= max_matches) break;
+        }
+    }
+    return matches;
 }
 
 pub fn innerJoinRowIndicesMulti(
@@ -342,4 +362,38 @@ pub fn distinctOnNone(
     const indices = try distinctRowIndicesNone(frame.allocator, frame, key_names);
     defer frame.allocator.free(indices);
     return frame.take(indices);
+}
+
+fn withRowDuplicateMask(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    comptime mark_unique: bool,
+) KeyMatchError!DeviceDataFrame {
+    const effective_names = if (key_names.len == 0) frame.names else key_names;
+    const mask = try rowDuplicateMask(frame.allocator, frame, effective_names, mark_unique);
+    defer frame.allocator.free(mask);
+    const DeviceColumn = std.meta.Elem(@TypeOf(frame.columns));
+    var column = try DeviceColumn.fromSlice(bool, frame.allocator, mask, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withRowIsDuplicated(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) KeyMatchError!DeviceDataFrame {
+    return withRowDuplicateMask(DeviceDataFrame, frame, key_names, output_name, false);
+}
+
+pub fn withRowIsUnique(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) KeyMatchError!DeviceDataFrame {
+    return withRowDuplicateMask(DeviceDataFrame, frame, key_names, output_name, true);
 }

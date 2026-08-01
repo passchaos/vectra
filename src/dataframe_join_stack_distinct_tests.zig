@@ -111,6 +111,18 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     defer full_distinct_none.deinit();
     try std.testing.expectEqual(@as(usize, 4), full_distinct_none.height());
 
+    var duplicate_flags = try table.withRowIsDuplicated(&.{"id"}, "id_is_duplicated");
+    defer duplicate_flags.deinit();
+    const id_is_duplicated = try (try duplicate_flags.column("id_is_duplicated")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_duplicated);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, id_is_duplicated);
+
+    var unique_flags = try table.withRowIsUnique(&.{"id"}, "id_is_unique");
+    defer unique_flags.deinit();
+    const id_is_unique = try (try unique_flags.column("id_is_unique")).bool.toOwnedSlice(gpa);
+    defer gpa.free(id_is_unique);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true }, id_is_unique);
+
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
     try plan.distinctOn(&.{"id"});
@@ -167,4 +179,22 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     var lazy_rows_none = try rows_none_plan.collect();
     defer lazy_rows_none.deinit();
     try std.testing.expectEqual(@as(usize, 4), lazy_rows_none.height());
+
+    var duplicate_mask_plan = try DeviceLazyFrame.init(gpa, table);
+    defer duplicate_mask_plan.deinit();
+    try duplicate_mask_plan.withRowIsDuplicated(&.{"id"}, "id_is_duplicated");
+    try duplicate_mask_plan.withRowIsUnique(&.{"id"}, "id_is_unique");
+    try duplicate_mask_plan.select(&.{ "id_is_duplicated", "id_is_unique" });
+    const duplicate_mask_explained = try duplicate_mask_plan.explain(gpa);
+    defer gpa.free(duplicate_mask_explained);
+    try std.testing.expect(std.mem.indexOf(u8, duplicate_mask_explained, "row_is_duplicated([id]->id_is_duplicated)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, duplicate_mask_explained, "row_is_unique([id]->id_is_unique)") != null);
+    var lazy_duplicate_flags = try duplicate_mask_plan.collect();
+    defer lazy_duplicate_flags.deinit();
+    const lazy_id_is_duplicated = try (try lazy_duplicate_flags.column("id_is_duplicated")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_id_is_duplicated);
+    const lazy_id_is_unique = try (try lazy_duplicate_flags.column("id_is_unique")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_id_is_unique);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, false }, lazy_id_is_duplicated);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, true }, lazy_id_is_unique);
 }

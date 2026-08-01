@@ -805,6 +805,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_mode_margin_ratio => |row_count| try current.withRowModeMarginRatio(row_count.names, row_count.output_name),
             .row_count_distinct => |row_count| try current.withRowCountDistinct(row_count.names, row_count.output_name),
             .row_n_unique => |row_count| try current.withRowNUnique(row_count.names, row_count.output_name),
+            .row_is_duplicated => |row_count| try current.withRowIsDuplicated(row_count.names, row_count.output_name),
+            .row_is_unique => |row_count| try current.withRowIsUnique(row_count.names, row_count.output_name),
             .row_cumulative_distinct_count => |row_outputs| try current.withRowCumulativeDistinctCount(row_outputs.names, row_outputs.output_names),
             .row_cumulative_n_unique => |row_outputs| try current.withRowCumulativeNUnique(row_outputs.names, row_outputs.output_names),
             .row_sum => |row_count| try current.withRowSum(row_count.names, row_count.output_name),

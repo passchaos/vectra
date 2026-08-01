@@ -407,6 +407,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_mode_margin_ratio: Payloads.RowValidityCount,
         row_count_distinct: Payloads.RowValidityCount,
         row_n_unique: Payloads.RowValidityCount,
+        row_is_duplicated: Payloads.RowValidityCount,
+        row_is_unique: Payloads.RowValidityCount,
         row_cumulative_distinct_count: Payloads.RowColumnOutputs,
         row_cumulative_n_unique: Payloads.RowColumnOutputs,
         row_sum: Payloads.RowValidityCount,

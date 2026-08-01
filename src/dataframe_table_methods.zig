@@ -7288,6 +7288,14 @@ pub fn distinctOnNone(self: anytype, key_names: []const []const u8) DeviceDataEr
     return keys_mod.distinctOnNone(FrameType(@TypeOf(self)), frameValue(self), key_names);
 }
 
+pub fn withRowIsDuplicated(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return keys_mod.withRowIsDuplicated(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
+pub fn withRowIsUnique(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return keys_mod.withRowIsUnique(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
 pub fn dropDuplicates(self: anytype) DeviceDataError!FrameType(@TypeOf(self)) {
     return distinctRows(self);
 }

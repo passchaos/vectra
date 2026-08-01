@@ -2788,6 +2788,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNUnique(self, names, output_name);
             }
 
+            pub fn withRowIsDuplicated(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIsDuplicated(self, names, output_name);
+            }
+
+            pub fn withRowIsUnique(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowIsUnique(self, names, output_name);
+            }
+
             pub fn withRowCumulativeDistinctCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeDistinctCount(self, names, output_names);
             }
