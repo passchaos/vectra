@@ -1323,7 +1323,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
-        .row_softmax_entropy, .row_softmax_perplexity, .row_softmax_confidence, .row_softmax_margin, .row_softmax_evenness, .row_softmax_concentration, .row_softmax_gini_impurity => |row_count, tag| {
+        .row_softmax_entropy, .row_softmax_perplexity, .row_softmax_confidence, .row_softmax_margin, .row_softmax_evenness, .row_softmax_concentration, .row_softmax_gini_impurity, .row_logit_margin => |row_count, tag| {
             const op_name = switch (tag) {
                 .row_softmax_entropy => "row_softmax_entropy",
                 .row_softmax_perplexity => "row_softmax_perplexity",
@@ -1332,6 +1332,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
                 .row_softmax_evenness => "row_softmax_evenness",
                 .row_softmax_concentration => "row_softmax_concentration",
                 .row_softmax_gini_impurity => "row_softmax_gini_impurity",
+                .row_logit_margin => "row_logit_margin",
                 else => unreachable,
             };
             try writer.print("{s}([", .{op_name});

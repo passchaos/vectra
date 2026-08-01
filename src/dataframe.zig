@@ -858,6 +858,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowSoftmaxConcentration = table_methods_mod.withRowSoftmaxConcentration;
     pub const withRowSoftmaxGiniImpurity = table_methods_mod.withRowSoftmaxGiniImpurity;
     pub const withRowSoftmaxGini = table_methods_mod.withRowSoftmaxGini;
+    pub const withRowLogitMargin = table_methods_mod.withRowLogitMargin;
     pub const withRowGeometricMean = table_methods_mod.withRowGeometricMean;
     pub const withRowGeoMean = table_methods_mod.withRowGeoMean;
     pub const withRowMagnitudeGeometricMean = table_methods_mod.withRowMagnitudeGeometricMean;

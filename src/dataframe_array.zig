@@ -3819,7 +3819,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, gini_impurity };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, gini_impurity, logit_margin };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3929,6 +3929,15 @@ fn withRowSoftmaxSummary(
             else
                 squared_sum / (denominator * denominator);
             entropy.* = if (summary == .gini_impurity) 1.0 - concentration else concentration;
+        } else if (summary == .logit_margin) {
+            entropy.* = if (valid_count <= 1)
+                std.math.inf(f64)
+            else if (std.math.isPositiveInf(max_value))
+                if (std.math.isPositiveInf(second_value)) 0.0 else std.math.inf(f64)
+            else if (std.math.isNegativeInf(max_value))
+                0.0
+            else
+                max_value - second_value;
         } else if (summary == .confidence or summary == .margin) {
             const top_probability = if (std.math.isPositiveInf(max_value))
                 1.0 / @as(f64, @floatFromInt(pos_inf_count))
@@ -4048,6 +4057,15 @@ pub fn withRowSoftmaxGini(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxGiniImpurity(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowLogitMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .logit_margin);
 }
 
 pub fn withRowGeometricMean(

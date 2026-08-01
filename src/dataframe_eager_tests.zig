@@ -1316,6 +1316,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0) - row3_concentration, row_softmax_gini[3], 1e-12);
+
+    var row_logit_margin_table = try validity_table.withRowLogitMargin(&.{ "a", "b" }, "row_logit_margin");
+    defer row_logit_margin_table.deinit();
+    const row_logit_margin = try (try row_logit_margin_table.column("row_logit_margin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_logit_margin);
+    try std.testing.expect(std.math.isPositiveInf(row_logit_margin[0]));
+    try std.testing.expect(std.math.isPositiveInf(row_logit_margin[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 36.0), row_logit_margin[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2733,6 +2741,15 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), gini[1], 1e-12);
     try std.testing.expect(std.math.isNan(gini[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), gini[3], 1e-12);
+
+    var logit_margin_table = try table.withRowLogitMargin(&.{ "low", "high" }, "row_logit_margin");
+    defer logit_margin_table.deinit();
+    const logit_margin = try (try logit_margin_table.column("row_logit_margin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(logit_margin);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), logit_margin[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), logit_margin[1], 1e-12);
+    try std.testing.expect(std.math.isNan(logit_margin[2]));
+    try std.testing.expect(std.math.isPositiveInf(logit_margin[3]));
 }
 
 test "device dataframe selects and drops columns by nullability" {

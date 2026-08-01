@@ -1492,6 +1492,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowSoftmaxEvenness(&.{ "a", "b" }, "row_softmax_evenness");
     try plan.withRowSoftmaxConcentration(&.{ "a", "b" }, "row_softmax_concentration");
     try plan.withRowSoftmaxGiniImpurity(&.{ "a", "b" }, "row_softmax_gini");
+    try plan.withRowLogitMargin(&.{ "a", "b" }, "row_logit_margin");
     try plan.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
     try plan.withRowMagnitudeGeometricMean(&.{ "a", "b" }, "row_magnitude_geo");
     try plan.withRowHarmonicMean(&.{ "a", "b" }, "row_harm");
@@ -1536,7 +1537,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowMagnitudeCv(&.{ "a", "b" }, "row_magnitude_cv", 0.0);
     try plan.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
     try plan.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_gini", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_gini", "row_logit_margin", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1622,6 +1623,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_softmax_evenness([a,b]->row_softmax_evenness)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_softmax_concentration([a,b]->row_softmax_concentration)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_softmax_gini_impurity([a,b]->row_softmax_gini)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_logit_margin([a,b]->row_logit_margin)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_geometric_mean([a,b]->row_geo)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_magnitude_geometric_mean([a,b]->row_magnitude_geo)") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_harmonic_mean([a,b]->row_harm)") != null);
@@ -1669,7 +1671,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 130), result.width());
+    try std.testing.expectEqual(@as(usize, 131), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -2050,6 +2052,10 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(row_softmax_gini_column.f64.nullable());
     const row_softmax_gini = try row_softmax_gini_column.f64.toOwnedSlice(gpa);
     defer gpa.free(row_softmax_gini);
+    const row_logit_margin_column = try result.column("row_logit_margin");
+    try std.testing.expect(row_logit_margin_column.f64.nullable());
+    const row_logit_margin = try row_logit_margin_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_logit_margin);
     const row_geo_column = try result.column("row_geo");
     try std.testing.expect(row_geo_column.f64.nullable());
     const row_geo = try row_geo_column.f64.toOwnedSlice(gpa);
@@ -2571,6 +2577,9 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0) - lazy_row3_concentration, row_softmax_gini[3], 1e-12);
+    try std.testing.expect(std.math.isPositiveInf(row_logit_margin[0]));
+    try std.testing.expect(std.math.isPositiveInf(row_logit_margin[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 36.0), row_logit_margin[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_geo[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_geo[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_geo[2], 1e-12);

@@ -3011,6 +3011,10 @@ pub fn withRowSoftmaxGini(self: anytype, names: []const []const u8, output_name:
     return dataframe_array_mod.withRowSoftmaxGini(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowLogitMargin(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLogitMargin(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
