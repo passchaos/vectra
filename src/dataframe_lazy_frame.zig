@@ -544,8 +544,8 @@ pub fn DeviceLazyTypes(
                 try self.ops.append(self.allocator, .{ .drop_columns_without_non_finites = {} });
             }
 
-            pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, offset: usize) DeviceDataError!void {
-                return lazy_expr_mod.withRowIndex(self, name, offset);
+            pub fn withRowIndex(self: *DeviceLazyFrame, name: []const u8, row_offset: usize) DeviceDataError!void {
+                return lazy_expr_mod.withRowIndex(self, name, row_offset);
             }
 
             pub fn renameColumn(self: *DeviceLazyFrame, old_name: []const u8, new_name: []const u8) DeviceDataError!void {
@@ -5723,6 +5723,15 @@ pub fn DeviceLazyTypes(
                 } });
             }
 
+            pub fn sliceRowsLen(self: *DeviceLazyFrame, start: usize, length: usize) DeviceDataError!void {
+                const stop = std.math.add(usize, start, length) catch return error.InvalidShape;
+                return self.sliceRows(start, stop);
+            }
+
+            pub fn offset(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                return self.sliceRows(n, std.math.maxInt(usize));
+            }
+
             pub fn sliceRowsSigned(self: *DeviceLazyFrame, start: isize, length: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .slice_rows_signed = .{
                     .start = start,
@@ -5940,6 +5949,10 @@ pub fn DeviceLazyTypes(
 
             pub fn head(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
                 try self.ops.append(self.allocator, .{ .head = n });
+            }
+
+            pub fn limit(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {
+                return self.head(n);
             }
 
             pub fn tail(self: *DeviceLazyFrame, n: usize) DeviceDataError!void {

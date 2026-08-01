@@ -7237,6 +7237,36 @@ test "device lazy frame collects row slice operations" {
     defer gpa.free(sliced_sales);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, sliced_sales);
 
+    var limit_plan = try DeviceLazyFrame.init(gpa, table);
+    defer limit_plan.deinit();
+    try limit_plan.limit(2);
+    try limit_plan.select(&.{"sales"});
+    var limited = try limit_plan.collect();
+    defer limited.deinit();
+    const limited_sales = try (try limited.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(limited_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, limited_sales);
+
+    var offset_plan = try DeviceLazyFrame.init(gpa, table);
+    defer offset_plan.deinit();
+    try offset_plan.offset(2);
+    try offset_plan.select(&.{"sales"});
+    var offset = try offset_plan.collect();
+    defer offset.deinit();
+    const offset_sales = try (try offset.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(offset_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 7.0 }, offset_sales);
+
+    var slice_len_plan = try DeviceLazyFrame.init(gpa, table);
+    defer slice_len_plan.deinit();
+    try slice_len_plan.sliceRowsLen(1, 2);
+    try slice_len_plan.select(&.{"sales"});
+    var slice_len = try slice_len_plan.collect();
+    defer slice_len.deinit();
+    const slice_len_sales = try (try slice_len.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(slice_len_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, slice_len_sales);
+
     var signed_slice_plan = try DeviceLazyFrame.init(gpa, table);
     defer signed_slice_plan.deinit();
     try signed_slice_plan.sliceRowsSigned(-2, 2);

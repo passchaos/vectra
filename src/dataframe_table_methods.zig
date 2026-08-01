@@ -6726,8 +6726,8 @@ pub fn withColumnLiteralScalarAfter(self: anytype, name: []const u8, scalar: Dev
     return dataframe_array_mod.withColumnLiteralScalarAfter(FrameType(@TypeOf(self)), frameValue(self), name, scalar, after_name);
 }
 
-pub fn withRowIndex(self: anytype, name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
-    return dataframe_array_mod.withRowIndex(FrameType(@TypeOf(self)), frameValue(self), name, offset);
+pub fn withRowIndex(self: anytype, name: []const u8, row_offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIndex(FrameType(@TypeOf(self)), frameValue(self), name, row_offset);
 }
 
 pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
@@ -7062,6 +7062,10 @@ pub fn head(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return sliceRows(self, 0, @min(n, self.rows));
 }
 
+pub fn limit(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return head(self, n);
+}
+
 pub fn tail(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     const count = @min(n, self.rows);
     return sliceRows(self, self.rows - count, self.rows);
@@ -7069,6 +7073,15 @@ pub fn tail(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
 
 pub fn sliceRows(self: anytype, start: usize, stop: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.sliceRows(FrameType(@TypeOf(self)), frameValue(self), start, stop);
+}
+
+pub fn sliceRowsLen(self: anytype, start: usize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const stop = std.math.add(usize, start, length) catch return error.InvalidShape;
+    return sliceRows(self, start, stop);
+}
+
+pub fn offset(self: anytype, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return sliceRows(self, n, std.math.maxInt(usize));
 }
 
 pub fn sliceRowsSigned(self: anytype, start: isize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {

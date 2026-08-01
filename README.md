@@ -236,6 +236,8 @@ materializing source columns. Derived columns reuse Vectra `Array` arithmetic an
 comparison kernels, so they keep the same CPU/CUDA/MPS dispatch seam as eager
 expressions. It executes through `collect()` today, preserving a future Axiom
 lowering boundary for query optimization/fusion.
+Row slicing exposes `limit` as a `head` alias, `offset` for dropping a leading
+prefix, and `sliceRowsLen(start, length)` beside absolute-start/stop slicing.
 Eager schema/expression helpers such as `selectByNamePrefix`, `selectByNameSuffix`,
 `selectByNameContains`, `selectByNameGlob`, `dropByNamePrefix`, `dropByNameSuffix`,
 `dropByNameContains`, `dropByNameGlob`, `selectByDTypes`, `selectNumeric`, `dropByDTypes`,

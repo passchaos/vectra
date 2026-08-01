@@ -3437,6 +3437,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const head_units = try head.column("units");
     try std.testing.expectEqual(@as(usize, 1), head_units.nullCount());
 
+    var limited = try table.limit(2);
+    defer limited.deinit();
+    try std.testing.expectEqual(@as(usize, 2), limited.height());
+    var offset_rows = try table.offset(1);
+    defer offset_rows.deinit();
+    const offset_sales = try (try offset_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(offset_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, offset_sales);
+    var slice_len = try table.sliceRowsLen(1, 1);
+    defer slice_len.deinit();
+    const slice_len_sales = try (try slice_len.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(slice_len_sales);
+    try std.testing.expectEqualSlices(f64, &.{3.0}, slice_len_sales);
+
     var rows_dropped = try table.dropRows(&.{ 1, 1 });
     defer rows_dropped.deinit();
     try std.testing.expectEqual(@as(usize, 2), rows_dropped.height());
