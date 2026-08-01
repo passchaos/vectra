@@ -3716,6 +3716,118 @@ pub fn withRowDemean(
     return withRowCentered(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowZScore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const means = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(means);
+    const sum_squares = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(sum_squares);
+    const counts = try input.allocator.alloc(usize, input.rows);
+    defer input.allocator.free(counts);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(means, 0.0);
+    @memset(sum_squares, 0.0);
+    @memset(counts, 0);
+    @memset(row_validity, false);
+
+    for (check_names) |name| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    means[row] += value;
+                    sum_squares[row] += value * value;
+                    counts[row] += 1;
+                    row_validity[row] = true;
+                }
+            },
+        }
+    }
+    for (means, sum_squares, counts, row_validity) |*mean, *sum_square, count, valid| {
+        if (!valid) continue;
+        const count_f: f64 = @floatFromInt(count);
+        mean.* /= count_f;
+        const variance = sum_square.* / count_f - mean.* * mean.*;
+        sum_square.* = if (variance <= 0.0) 0.0 else std.math.sqrt(variance);
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var zscores = try input.allocator.alloc(f64, input.rows);
+        defer input.allocator.free(zscores);
+        const zscore_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(zscore_validity);
+        @memset(zscores, 0.0);
+        @memset(zscore_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row]) continue;
+                    zscore_validity[row] = true;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    zscores[row] = if (sum_squares[row] == 0.0) std.math.nan(f64) else (value - means[row]) / sum_squares[row];
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, zscores, zscore_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowZscore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowZScore(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowStandardize(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowZScore(DeviceDataFrame, input, names, output_names);
+}
+
 const RowSoftmaxOutput = enum { probability, log_probability };
 const RowSoftmaxDirection = enum { max, min };
 

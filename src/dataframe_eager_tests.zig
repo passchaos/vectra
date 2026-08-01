@@ -1214,6 +1214,23 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_b_centered);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_centered_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_centered_validity);
+
+    var row_zscore_table = try validity_table.withRowZScore(&.{ "a", "b" }, &.{ "a_zscore", "b_zscore" });
+    defer row_zscore_table.deinit();
+    const row_a_zscore = try (try row_zscore_table.column("a_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_zscore);
+    const row_b_zscore = try (try row_zscore_table.column("b_zscore")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_zscore);
+    const row_a_zscore_validity = try (try row_zscore_table.column("a_zscore")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_zscore_validity);
+    const row_b_zscore_validity = try (try row_zscore_table.column("b_zscore")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_zscore_validity);
+    try std.testing.expect(std.math.isNan(row_a_zscore[0]));
+    try std.testing.expect(std.math.isNan(row_b_zscore[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0), row_a_zscore[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_zscore[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_zscore_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_zscore_validity);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });

@@ -3779,6 +3779,32 @@ pub fn withRowDemean(frame: anytype, names: []const []const u8, output_names: []
     return withRowCentered(frame, names, output_names);
 }
 
+pub fn withRowZScore(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_zscore = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowZscore(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowZScore(frame, names, output_names);
+}
+
+pub fn withRowStandardize(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowZScore(frame, names, output_names);
+}
+
 fn withRowSoftmaxLike(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime mode: enum { softmax, log_softmax, softmin, log_softmin }) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

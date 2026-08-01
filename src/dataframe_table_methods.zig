@@ -2959,6 +2959,18 @@ pub fn withRowDemean(self: anytype, names: []const []const u8, output_names: []c
     return dataframe_array_mod.withRowDemean(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowZScore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowZScore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowZscore(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowStandardize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowStandardize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowSoftmax(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSoftmax(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
