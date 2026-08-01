@@ -4784,6 +4784,65 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 0.0 }, metric_cum_non_finite_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, id_cum_non_finite_ratio);
 
+    var signed_inf_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ std.math.inf(f64), std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 5.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer signed_inf_metric.deinit();
+    var signed_inf_peer = try DeviceColumn.fromSlice(f64, gpa, &.{ -std.math.inf(f64), std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), std.math.inf(f64) }, .cpu);
+    defer signed_inf_peer.deinit();
+    var signed_inf_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer signed_inf_id.deinit();
+    var signed_inf_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = signed_inf_metric },
+        .{ .name = "peer", .data = signed_inf_peer },
+        .{ .name = "id", .data = signed_inf_id },
+    });
+    defer signed_inf_table.deinit();
+
+    var signed_inf_plan = try DeviceLazyFrame.init(gpa, signed_inf_table);
+    defer signed_inf_plan.deinit();
+    try signed_inf_plan.withRowFirstPositiveInfIndex(&.{ "metric", "peer", "id" }, "row_first_positive_inf_index");
+    try signed_inf_plan.withRowLastPositiveInfIndex(&.{ "metric", "peer", "id" }, "row_last_positive_inf_index");
+    try signed_inf_plan.withRowFirstNegativeInfIndex(&.{ "metric", "peer", "id" }, "row_first_negative_inf_index");
+    try signed_inf_plan.withRowLastNegativeInfIndex(&.{ "metric", "peer", "id" }, "row_last_negative_inf_index");
+    try signed_inf_plan.select(&.{ "row_first_positive_inf_index", "row_last_positive_inf_index", "row_first_negative_inf_index", "row_last_negative_inf_index" });
+    const signed_inf_explain = try signed_inf_plan.explain(gpa);
+    defer gpa.free(signed_inf_explain);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_first_positive_inf_index([metric,peer,id]->row_first_positive_inf_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_last_positive_inf_index([metric,peer,id]->row_last_positive_inf_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_first_negative_inf_index([metric,peer,id]->row_first_negative_inf_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, signed_inf_explain, "row_last_negative_inf_index([metric,peer,id]->row_last_negative_inf_index)") != null);
+    var signed_inf = try signed_inf_plan.collect();
+    defer signed_inf.deinit();
+    try std.testing.expectEqual(@as(usize, 4), signed_inf.width());
+    const row_first_positive_inf = try (try signed_inf.column("row_first_positive_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive_inf);
+    const row_first_positive_inf_validity = try (try signed_inf.column("row_first_positive_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive_inf_validity);
+    const row_last_positive_inf = try (try signed_inf.column("row_last_positive_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_positive_inf);
+    const row_last_positive_inf_validity = try (try signed_inf.column("row_last_positive_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_positive_inf_validity);
+    const row_first_negative_inf = try (try signed_inf.column("row_first_negative_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_negative_inf);
+    const row_first_negative_inf_validity = try (try signed_inf.column("row_first_negative_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_negative_inf_validity);
+    const row_last_negative_inf = try (try signed_inf.column("row_last_negative_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative_inf);
+    const row_last_negative_inf_validity = try (try signed_inf.column("row_last_negative_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 1 }, row_first_positive_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_first_positive_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 1 }, row_last_positive_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_last_positive_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0 }, row_first_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, row_first_negative_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 1, 0 }, row_last_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, row_last_negative_inf_validity);
+
+    var invalid_positive_inf_index_plan = try DeviceLazyFrame.init(gpa, signed_inf_table);
+    defer invalid_positive_inf_index_plan.deinit();
+    try invalid_positive_inf_index_plan.withRowFirstPositiveInfIndex(&.{"missing"}, "bad_positive_inf_index");
+    try std.testing.expectError(error.ColumnNotFound, invalid_positive_inf_index_plan.collect());
+
     var invalid_filter_finite_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_filter_finite_plan.deinit();
     try invalid_filter_finite_plan.filterFinitesColumn("missing");

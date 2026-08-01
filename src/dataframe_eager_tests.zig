@@ -4685,6 +4685,55 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_inf);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, row_last_inf_validity);
 
+    var signed_inf_metric = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ std.math.inf(f64), std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 5.0 }, &.{ true, true, true, true, false }, .cpu);
+    defer signed_inf_metric.deinit();
+    var signed_inf_peer = try DeviceColumn.fromSlice(f64, gpa, &.{ -std.math.inf(f64), std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), std.math.inf(f64) }, .cpu);
+    defer signed_inf_peer.deinit();
+    var signed_inf_id = try DeviceColumn.fromSlice(i64, gpa, &.{ 10, 20, 30, 40, 50 }, .cpu);
+    defer signed_inf_id.deinit();
+    var signed_inf_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "metric", .data = signed_inf_metric },
+        .{ .name = "peer", .data = signed_inf_peer },
+        .{ .name = "id", .data = signed_inf_id },
+    });
+    defer signed_inf_table.deinit();
+
+    var row_first_positive_inf_indices = try signed_inf_table.withRowFirstPositiveInfIndex(&.{ "metric", "peer", "id" }, "row_first_positive_inf_index");
+    defer row_first_positive_inf_indices.deinit();
+    const row_first_positive_inf = try (try row_first_positive_inf_indices.column("row_first_positive_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive_inf);
+    const row_first_positive_inf_validity = try (try row_first_positive_inf_indices.column("row_first_positive_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_positive_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0, 1 }, row_first_positive_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_first_positive_inf_validity);
+
+    var row_last_positive_inf_indices = try signed_inf_table.withRowLastPositiveInfIndex(&.{ "metric", "peer", "id" }, "row_last_positive_inf_index");
+    defer row_last_positive_inf_indices.deinit();
+    const row_last_positive_inf = try (try row_last_positive_inf_indices.column("row_last_positive_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_positive_inf);
+    const row_last_positive_inf_validity = try (try row_last_positive_inf_indices.column("row_last_positive_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_positive_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0, 1 }, row_last_positive_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, true }, row_last_positive_inf_validity);
+
+    var row_first_negative_inf_indices = try signed_inf_table.withRowFirstNegativeInfIndex(&.{ "metric", "peer", "id" }, "row_first_negative_inf_index");
+    defer row_first_negative_inf_indices.deinit();
+    const row_first_negative_inf = try (try row_first_negative_inf_indices.column("row_first_negative_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_negative_inf);
+    const row_first_negative_inf_validity = try (try row_first_negative_inf_indices.column("row_first_negative_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_negative_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1, 0 }, row_first_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, row_first_negative_inf_validity);
+
+    var row_last_negative_inf_indices = try signed_inf_table.withRowLastNegativeInfIndex(&.{ "metric", "peer", "id" }, "row_last_negative_inf_index");
+    defer row_last_negative_inf_indices.deinit();
+    const row_last_negative_inf = try (try row_last_negative_inf_indices.column("row_last_negative_inf_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative_inf);
+    const row_last_negative_inf_validity = try (try row_last_negative_inf_indices.column("row_last_negative_inf_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_negative_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 1, 0 }, row_last_negative_inf);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, true, false }, row_last_negative_inf_validity);
+
     var row_cum_nan_counts = try table.withRowCumulativeNaNCount(&.{ "metric", "id" }, &.{ "metric_cum_nan", "id_cum_nan" });
     defer row_cum_nan_counts.deinit();
     const id_cum_nan = try (try row_cum_nan_counts.column("id_cum_nan")).i64.toOwnedSlice(gpa);
@@ -4743,6 +4792,7 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstNaNIndex(&.{"missing"}, "bad_nan_index"));
+    try std.testing.expectError(error.ColumnNotFound, signed_inf_table.withRowFirstPositiveInfIndex(&.{"missing"}, "bad_positive_inf_index"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstFiniteIndex(&.{"missing"}, "bad_finite_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNonFiniteRatio(&.{"metric"}, &.{ "metric_cum_non_finite", "extra_cum_non_finite" }));
 }

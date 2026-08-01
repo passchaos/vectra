@@ -12097,6 +12097,42 @@ pub fn withRowLastInfIndex(
     return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .inf, .last);
 }
 
+pub fn withRowFirstPositiveInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive_inf, .first);
+}
+
+pub fn withRowLastPositiveInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .positive_inf, .last);
+}
+
+pub fn withRowFirstNegativeInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative_inf, .first);
+}
+
+pub fn withRowLastNegativeInfIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .negative_inf, .last);
+}
+
 pub fn withRowFirstPositiveZeroIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
