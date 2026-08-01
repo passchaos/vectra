@@ -4009,6 +4009,28 @@ test "device dataframe derives zero predicate columns" {
     defer gpa.free(row_non_zero_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 2.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 0.0 }, row_non_zero_ratio);
 
+    var row_first_zero_indices = try table.withRowFirstZeroIndex(&.{ "metric", "id", "flag" }, "row_first_zero_index");
+    defer row_first_zero_indices.deinit();
+    const row_first_zero_column = try row_first_zero_indices.column("row_first_zero_index");
+    try std.testing.expect(row_first_zero_column.i64.nullable());
+    const row_first_zero_index = try row_first_zero_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_zero_index);
+    const row_first_zero_validity = try row_first_zero_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_zero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0, 0, 1 }, row_first_zero_index);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, false, false, true }, row_first_zero_validity);
+
+    var row_last_non_zero_indices = try table.withRowLastNonZeroIndex(&.{ "metric", "id", "flag" }, "row_last_nonzero_index");
+    defer row_last_non_zero_indices.deinit();
+    const row_last_nonzero_column = try row_last_non_zero_indices.column("row_last_nonzero_index");
+    try std.testing.expect(row_last_nonzero_column.i64.nullable());
+    const row_last_nonzero_index = try row_last_nonzero_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_nonzero_index);
+    const row_last_nonzero_validity = try row_last_nonzero_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_nonzero_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 2, 0, 2, 2, 0 }, row_last_nonzero_index);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, true, false }, row_last_nonzero_validity);
+
     var row_cum_zero_counts = try table.withRowCumulativeZeroCount(&.{ "metric", "id", "flag" }, &.{ "metric_cum_zero", "id_cum_zero", "flag_cum_zero" });
     defer row_cum_zero_counts.deinit();
     const id_cum_zero = try (try row_cum_zero_counts.column("id_cum_zero")).i64.toOwnedSlice(gpa);
@@ -4070,6 +4092,7 @@ test "device dataframe derives zero predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.isZeroColumn("missing", "missing_is_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.isNonZeroColumn("missing", "missing_is_non_zero"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowZeroCount(&.{"missing"}, "bad_zero_count"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowFirstZeroIndex(&.{"missing"}, "bad_zero_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowCumZeroRatio(&.{"metric"}, &.{ "metric_cum_zero", "extra_cum_zero" }));
     try std.testing.expectError(error.ColumnNotFound, table.filterZerosColumn("missing"));
     try std.testing.expectError(error.ColumnNotFound, table.dropNonZerosColumn("missing"));

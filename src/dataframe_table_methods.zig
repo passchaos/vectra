@@ -4600,6 +4600,30 @@ pub fn withRowNonZeroRatio(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowNonZeroRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowFirstZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstNonZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNonZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstNonzeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNonzeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNonZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNonZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNonzeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNonzeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowPositiveCount(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowPositiveCount(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
