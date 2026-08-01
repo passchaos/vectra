@@ -955,6 +955,31 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 3.0, 4.0 }, wb_cummode);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixMode(&.{"a"}, &.{ "a_cummode", "extra_cummode" }));
 
+    var row_cummode_count_table = try validity_table.withRowCumulativeModeCount(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cummode_count", "b_cummode_count", "wa_cummode_count", "wb_cummode_count" },
+    );
+    defer row_cummode_count_table.deinit();
+    const b_cummode_count = try (try row_cummode_count_table.column("b_cummode_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(b_cummode_count);
+    const wb_cummode_count = try (try row_cummode_count_table.column("wb_cummode_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cummode_count);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 1 }, b_cummode_count);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 2 }, wb_cummode_count);
+
+    var row_cummode_ratio_table = try validity_table.withRowPrefixModeRatio(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cummode_ratio", "b_cummode_ratio", "wa_cummode_ratio", "wb_cummode_ratio" },
+    );
+    defer row_cummode_ratio_table.deinit();
+    const b_cummode_ratio = try (try row_cummode_ratio_table.column("b_cummode_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(b_cummode_ratio);
+    const wb_cummode_ratio = try (try row_cummode_ratio_table.column("wb_cummode_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cummode_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 0.0, 0.5 }, b_cummode_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0 / 3.0, 1.0 / 3.0, 0.5, 0.5 }, wb_cummode_ratio);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixModeCount(&.{"a"}, &.{ "a_cummode_count", "extra_cummode_count" }));
+
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
     const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");

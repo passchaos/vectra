@@ -3568,6 +3568,55 @@ pub fn withRowPrefixMode(frame: anytype, names: []const []const u8, output_names
     return withRowCumulativeMode(frame, names, output_names);
 }
 
+fn withRowCumulativeModeFrequency(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime ratio: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (ratio) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_mode_ratio = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_mode_count = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeModeCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeFrequency(frame, names, output_names, false);
+}
+
+pub fn withRowCumModeCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixModeCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeModeRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeFrequency(frame, names, output_names, true);
+}
+
+pub fn withRowCumModeRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixModeRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeModeRatio(frame, names, output_names);
+}
+
 pub fn withRowEntropy(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

@@ -8784,6 +8784,204 @@ pub fn withRowPrefixMode(
     return withRowCumulativeMode(DeviceDataFrame, input, names, output_names);
 }
 
+fn withRowCumulativeModeFrequency(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime output: RowModeFrequency,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, total_slots);
+    defer input.allocator.free(counts);
+    const ratios = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(ratios);
+    const out_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(out_validity);
+    @memset(counts, 0);
+    @memset(ratios, 0.0);
+    @memset(out_validity, false);
+
+    for (0..input.rows) |row| {
+        for (0..check_names.len) |prefix_end| {
+            var found = false;
+            var best_count: usize = 0;
+            var valid_count: usize = 0;
+            for (0..prefix_end + 1) |col_index| {
+                const offset = row * check_names.len + col_index;
+                if (!flat_validity[offset]) continue;
+                valid_count += 1;
+                const candidate = flat_values[offset];
+
+                var seen = false;
+                for (0..col_index) |previous_index| {
+                    const previous_offset = row * check_names.len + previous_index;
+                    if (!flat_validity[previous_offset]) continue;
+                    if (rowModeValueEqual(flat_values[previous_offset], candidate)) {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen) continue;
+
+                var count: usize = 0;
+                for (col_index..prefix_end + 1) |candidate_index| {
+                    const candidate_offset = row * check_names.len + candidate_index;
+                    if (!flat_validity[candidate_offset]) continue;
+                    if (rowModeValueEqual(candidate, flat_values[candidate_offset])) count += 1;
+                }
+                if (!found or count > best_count) {
+                    best_count = count;
+                    found = true;
+                }
+            }
+            if (found) {
+                const prefix_offset = row * check_names.len + prefix_end;
+                counts[prefix_offset] = @intCast(best_count);
+                ratios[prefix_offset] = @as(f64, @floatFromInt(best_count)) / @as(f64, @floatFromInt(valid_count));
+                out_validity[prefix_offset] = true;
+            }
+        }
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |_, output_name, col_index| {
+        const validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(validity);
+        @memset(validity, false);
+
+        switch (output) {
+            .count => {
+                var values = try input.allocator.alloc(i64, input.rows);
+                defer input.allocator.free(values);
+                @memset(values, 0);
+                for (0..input.rows) |row| {
+                    const offset = row * check_names.len + col_index;
+                    if (!out_validity[offset]) continue;
+                    values[row] = counts[offset];
+                    validity[row] = true;
+                }
+                var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, values, validity, input.device);
+                defer column.deinit();
+                const next = try withColumn(DeviceDataFrame, result, output_name, column);
+                result.deinit();
+                result = next;
+            },
+            .ratio => {
+                var values = try input.allocator.alloc(f64, input.rows);
+                defer input.allocator.free(values);
+                @memset(values, 0.0);
+                for (0..input.rows) |row| {
+                    const offset = row * check_names.len + col_index;
+                    if (!out_validity[offset]) continue;
+                    values[row] = ratios[offset];
+                    validity[row] = true;
+                }
+                var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+                defer column.deinit();
+                const next = try withColumn(DeviceDataFrame, result, output_name, column);
+                result.deinit();
+                result = next;
+            },
+        }
+    }
+    return result;
+}
+
+pub fn withRowCumulativeModeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeFrequency(DeviceDataFrame, input, names, output_names, .count);
+}
+
+pub fn withRowCumModeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixModeCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeModeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeFrequency(DeviceDataFrame, input, names, output_names, .ratio);
+}
+
+pub fn withRowCumModeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixModeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeModeRatio(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowDistinctCountCore(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -2082,6 +2082,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixMode(self, names, output_names);
             }
 
+            pub fn withRowCumulativeModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeModeCount(self, names, output_names);
+            }
+
+            pub fn withRowCumModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumModeCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixModeCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixModeCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeModeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeModeRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumModeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumModeRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixModeRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixModeRatio(self, names, output_names);
+            }
+
             pub fn withRowEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowEntropy(self, names, output_name);
             }
