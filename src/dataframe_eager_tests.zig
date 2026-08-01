@@ -1323,6 +1323,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(-(@as(f64, 1.0 / 11.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 11.0)) + @as(f64, 10.0 / 11.0) * std.math.log(f64, std.math.e, @as(f64, 10.0 / 11.0))), row_magnitude_entropy[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_entropy_validity);
 
+    var row_magnitude_perplexity_table = try validity_table.withRowMagnitudePerplexity(&.{ "a", "b" }, "row_magnitude_perplexity");
+    defer row_magnitude_perplexity_table.deinit();
+    const row_magnitude_perplexity_column = try row_magnitude_perplexity_table.column("row_magnitude_perplexity");
+    try std.testing.expect(row_magnitude_perplexity_column.f64.nullable());
+    const row_magnitude_perplexity = try row_magnitude_perplexity_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_perplexity);
+    const row_magnitude_perplexity_validity = try row_magnitude_perplexity_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_perplexity_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_perplexity[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_perplexity[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_magnitude_perplexity[2]);
+    try std.testing.expectApproxEqAbs(std.math.exp(-(@as(f64, 1.0 / 11.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 11.0)) + @as(f64, 10.0 / 11.0) * std.math.log(f64, std.math.e, @as(f64, 10.0 / 11.0)))), row_magnitude_perplexity[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_perplexity_validity);
+
     var row_magnitude_evenness_table = try validity_table.withRowMagnitudeEvenness(&.{ "a", "b" }, "row_magnitude_evenness");
     defer row_magnitude_evenness_table.deinit();
     const row_magnitude_evenness_column = try row_magnitude_evenness_table.column("row_magnitude_evenness");

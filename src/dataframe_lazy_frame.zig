@@ -2130,6 +2130,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowAbsEntropy(self, names, output_name);
             }
 
+            pub fn withRowMagnitudePerplexity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudePerplexity(self, names, output_name);
+            }
+
+            pub fn withRowAbsPerplexity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsPerplexity(self, names, output_name);
+            }
+
             pub fn withRowMagnitudeEvenness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMagnitudeEvenness(self, names, output_name);
             }

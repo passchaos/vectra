@@ -3003,6 +3003,14 @@ pub fn withRowAbsEntropy(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowAbsEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudePerplexity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudePerplexity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsPerplexity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsPerplexity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMagnitudeEvenness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMagnitudeEvenness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
