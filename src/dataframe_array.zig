@@ -3689,6 +3689,79 @@ pub fn withRowGiniMeanDiff(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+pub fn withRowMeanAbsDevRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const check_names = if (names.len == 0) input.names else names;
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..input.rows) |row| {
+        var count: usize = 0;
+        var mean: f64 = 0.0;
+        for (0..check_names.len) |col_index| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            mean += flat_values[offset];
+            count += 1;
+        }
+        if (count == 0) continue;
+        mean /= @as(f64, @floatFromInt(count));
+
+        var deviation_sum: f64 = 0.0;
+        for (0..check_names.len) |col_index| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            deviation_sum += @abs(flat_values[offset] - mean);
+        }
+        const mad = deviation_sum / @as(f64, @floatFromInt(count));
+        values[row] = if (mean == 0.0) std.math.nan(f64) else mad / @abs(mean);
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 pub fn withRowRms(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, mean_abs, mean_abs_dev, gini_mean_diff, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, kurtosis, prod, min, max, ptp, midrange, mean_abs, mean_abs_dev, gini_mean_diff, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3587,6 +3587,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .gini_mean_diff => try frame.ops.append(frame.allocator, .{ .row_gini_mean_diff = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .mean_abs_dev_ratio => try frame.ops.append(frame.allocator, .{ .row_mean_abs_dev_ratio = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3675,6 +3679,10 @@ pub fn withRowMeanAbsDev(frame: anytype, names: []const []const u8, output_name:
 
 pub fn withRowGiniMeanDiff(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericReduction(frame, names, output_name, .gini_mean_diff);
+}
+
+pub fn withRowMeanAbsDevRatio(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .mean_abs_dev_ratio);
 }
 
 pub fn withRowRms(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

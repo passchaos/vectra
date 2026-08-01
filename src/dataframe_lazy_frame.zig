@@ -2110,6 +2110,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowGiniMeanDiff(self, names, output_name);
             }
 
+            pub fn withRowMeanAbsDevRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMeanAbsDevRatio(self, names, output_name);
+            }
+
             pub fn withRowRms(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowRms(self, names, output_name);
             }

@@ -1303,6 +1303,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_gini_mean_diff);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_gini_mean_diff_validity);
 
+    var row_mad_ratio_table = try validity_table.withRowMeanAbsDevRatio(&.{ "a", "b" }, "row_mad_ratio");
+    defer row_mad_ratio_table.deinit();
+    const row_mad_ratio_column = try row_mad_ratio_table.column("row_mad_ratio");
+    try std.testing.expect(row_mad_ratio_column.f64.nullable());
+    const row_mad_ratio = try row_mad_ratio_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_mad_ratio);
+    const row_mad_ratio_validity = try row_mad_ratio_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_mad_ratio_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_mad_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_mad_ratio[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_mad_ratio[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0 / 11.0), row_mad_ratio[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mad_ratio_validity);
+
     var row_rms_table = try validity_table.withRowRms(&.{ "a", "b" }, "row_rms");
     defer row_rms_table.deinit();
     const row_rms_column = try row_rms_table.column("row_rms");

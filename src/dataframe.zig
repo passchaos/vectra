@@ -851,6 +851,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowMeanAbs = table_methods_mod.withRowMeanAbs;
     pub const withRowMeanAbsDev = table_methods_mod.withRowMeanAbsDev;
     pub const withRowGiniMeanDiff = table_methods_mod.withRowGiniMeanDiff;
+    pub const withRowMeanAbsDevRatio = table_methods_mod.withRowMeanAbsDevRatio;
     pub const withRowRms = table_methods_mod.withRowRms;
     pub const withRowL1Norm = table_methods_mod.withRowL1Norm;
     pub const withRowL2Norm = table_methods_mod.withRowL2Norm;
