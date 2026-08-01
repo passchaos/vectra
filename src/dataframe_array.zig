@@ -9344,6 +9344,183 @@ pub fn withRowAllFalse(
     return withRowBoolReduction(DeviceDataFrame, input, names, output_name, .all_false);
 }
 
+fn withRowCumulativeBoolReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowBoolReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const running = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(running);
+    const seen = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(seen);
+    @memset(running, switch (reduction) {
+        .any_true, .any_false => false,
+        .all_true, .all_false => true,
+    });
+    @memset(seen, false);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        if (source.dtype() != .bool) return error.TypeMismatch;
+
+        const host_values = try source.bool.toOwnedSlice(input.allocator);
+        defer input.allocator.free(host_values);
+        const maybe_validity = try validityValues(source.bool, input.allocator);
+        defer if (maybe_validity) |validity| input.allocator.free(validity);
+        var output_values = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(output_values);
+        const output_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(output_validity);
+        @memset(output_values, false);
+        @memset(output_validity, false);
+
+        for (host_values, 0..) |value, row| {
+            const valid = if (maybe_validity) |validity| validity[row] else true;
+            if (!valid) continue;
+            const candidate = switch (reduction) {
+                .any_true, .all_true => value,
+                .any_false, .all_false => !value,
+            };
+            running[row] = if (!seen[row]) candidate else switch (reduction) {
+                .any_true, .any_false => running[row] or candidate,
+                .all_true, .all_false => running[row] and candidate,
+            };
+            seen[row] = true;
+            output_values[row] = running[row];
+            output_validity[row] = true;
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(bool, input.allocator, output_values, output_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeAnyTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolReduction(DeviceDataFrame, input, names, output_names, .any_true);
+}
+
+pub fn withRowCumAnyTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyTrue(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyTrue(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolReduction(DeviceDataFrame, input, names, output_names, .all_true);
+}
+
+pub fn withRowCumAllTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllTrue(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllTrue(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllTrue(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAnyFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolReduction(DeviceDataFrame, input, names, output_names, .any_false);
+}
+
+pub fn withRowCumAnyFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyFalse(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAnyFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAnyFalse(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAllFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeBoolReduction(DeviceDataFrame, input, names, output_names, .all_false);
+}
+
+pub fn withRowCumAllFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllFalse(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAllFalse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeAllFalse(DeviceDataFrame, input, names, output_names);
+}
+
 const RowBoolMatchIndex = enum { first_true, last_true, first_false, last_false };
 
 fn withRowBoolMatchIndex(

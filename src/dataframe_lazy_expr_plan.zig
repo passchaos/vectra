@@ -5305,6 +5305,91 @@ pub fn withRowAllFalse(frame: anytype, names: []const []const u8, output_name: [
     return withRowBoolReduction(frame, names, output_name, .all_false);
 }
 
+fn withRowCumulativeBoolReduction(
+    frame: anytype,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: enum { any_true, all_true, any_false, all_false },
+) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    switch (reduction) {
+        .any_true => try frame.ops.append(frame.allocator, .{ .row_cumulative_any_true = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .all_true => try frame.ops.append(frame.allocator, .{ .row_cumulative_all_true = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .any_false => try frame.ops.append(frame.allocator, .{ .row_cumulative_any_false = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+        .all_false => try frame.ops.append(frame.allocator, .{ .row_cumulative_all_false = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } }),
+    }
+}
+
+pub fn withRowCumulativeAnyTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolReduction(frame, names, output_names, .any_true);
+}
+
+pub fn withRowCumAnyTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyTrue(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyTrue(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolReduction(frame, names, output_names, .all_true);
+}
+
+pub fn withRowCumAllTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllTrue(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllTrue(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllTrue(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAnyFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolReduction(frame, names, output_names, .any_false);
+}
+
+pub fn withRowCumAnyFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyFalse(frame, names, output_names);
+}
+
+pub fn withRowPrefixAnyFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAnyFalse(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAllFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolReduction(frame, names, output_names, .all_false);
+}
+
+pub fn withRowCumAllFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllFalse(frame, names, output_names);
+}
+
+pub fn withRowPrefixAllFalse(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeAllFalse(frame, names, output_names);
+}
+
 fn withRowBoolMatchIndex(
     frame: anytype,
     names: []const []const u8,

@@ -482,9 +482,54 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 0.0 }, active_cum_false_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.5, 0.5 }, alt_cum_false_ratio);
     try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixTrueCount(&.{"active"}, &.{ "active_cum_true", "extra_cum_true" }));
+    var row_cum_any_true = try bool_table.withRowCumulativeAnyTrue(&.{ "active", "bool_alt" }, &.{ "active_cum_any_true", "alt_cum_any_true" });
+    defer row_cum_any_true.deinit();
+    const active_cum_any_true_column = try row_cum_any_true.column("active_cum_any_true");
+    try std.testing.expect(active_cum_any_true_column.bool.nullable());
+    const active_cum_any_true = try active_cum_any_true_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_any_true);
+    const active_cum_any_true_validity = try active_cum_any_true_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_any_true_validity);
+    const alt_cum_any_true_column = try row_cum_any_true.column("alt_cum_any_true");
+    const alt_cum_any_true = try alt_cum_any_true_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_any_true);
+    const alt_cum_any_true_validity = try alt_cum_any_true_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_any_true_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_cum_any_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, alt_cum_any_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true }, active_cum_any_true_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, alt_cum_any_true_validity);
+
+    var row_cum_all_true = try bool_table.withRowPrefixAllTrue(&.{ "active", "bool_alt" }, &.{ "active_cum_all_true", "alt_cum_all_true" });
+    defer row_cum_all_true.deinit();
+    const active_cum_all_true = try (try row_cum_all_true.column("active_cum_all_true")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_all_true);
+    const alt_cum_all_true_column = try row_cum_all_true.column("alt_cum_all_true");
+    const alt_cum_all_true = try alt_cum_all_true_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_all_true);
+    const alt_cum_all_true_validity = try alt_cum_all_true_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_all_true_validity);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_cum_all_true);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, alt_cum_all_true);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, alt_cum_all_true_validity);
+
+    var row_cum_any_false = try bool_table.withRowCumulativeAnyFalse(&.{ "active", "bool_alt" }, &.{ "active_cum_any_false", "alt_cum_any_false" });
+    defer row_cum_any_false.deinit();
+    const alt_cum_any_false = try (try row_cum_any_false.column("alt_cum_any_false")).bool.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_any_false);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, alt_cum_any_false);
+
+    var row_cum_all_false = try bool_table.withRowPrefixAllFalse(&.{ "active", "bool_alt" }, &.{ "active_cum_all_false", "alt_cum_all_false" });
+    defer row_cum_all_false.deinit();
+    const alt_cum_all_false = try (try row_cum_all_false.column("alt_cum_all_false")).bool.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_all_false);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false }, alt_cum_all_false);
+
     try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixTrueRatio(&.{"active"}, &.{ "active_cum_true_ratio", "extra_cum_true_ratio" }));
+    try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixAnyTrue(&.{"active"}, &.{ "active_cum_any_true", "extra_cum_any_true" }));
     try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeTrueCount(&.{"sales"}, &.{"sales_cum_true"}));
     try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeTrueRatio(&.{"sales"}, &.{"sales_cum_true_ratio"}));
+    try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeAnyTrue(&.{"sales"}, &.{"sales_cum_any_true"}));
 
     var validity_a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
     defer validity_a.deinit();

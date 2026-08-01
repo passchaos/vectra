@@ -3006,6 +3006,54 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowAllFalse(self, names, output_name);
             }
 
+            pub fn withRowCumulativeAnyTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeAnyTrue(self, names, output_names);
+            }
+
+            pub fn withRowCumAnyTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAnyTrue(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAnyTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAnyTrue(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeAllTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeAllTrue(self, names, output_names);
+            }
+
+            pub fn withRowCumAllTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAllTrue(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAllTrue(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAllTrue(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeAnyFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeAnyFalse(self, names, output_names);
+            }
+
+            pub fn withRowCumAnyFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAnyFalse(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAnyFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAnyFalse(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeAllFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeAllFalse(self, names, output_names);
+            }
+
+            pub fn withRowCumAllFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAllFalse(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAllFalse(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAllFalse(self, names, output_names);
+            }
+
             pub fn withRowFirstTrueIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowFirstTrueIndex(self, names, output_name);
             }
