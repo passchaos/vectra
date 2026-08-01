@@ -259,6 +259,30 @@ pub const DeviceDataFrame = struct {
         return self.columns.len != 0;
     }
 
+    pub fn isCpu(self: DeviceDataFrame) bool {
+        return self.device.isCpu();
+    }
+
+    pub fn isCuda(self: DeviceDataFrame) bool {
+        return self.device.isCuda();
+    }
+
+    pub fn isMps(self: DeviceDataFrame) bool {
+        return self.device.isMps();
+    }
+
+    pub fn isDeviceBacked(self: DeviceDataFrame) bool {
+        return !self.isCpu();
+    }
+
+    pub fn deviceBackendName(self: DeviceDataFrame) []const u8 {
+        return self.device.backendName();
+    }
+
+    pub fn sameDevice(self: DeviceDataFrame, other: DeviceDataFrame) bool {
+        return self.device.sameDevice(other.device);
+    }
+
     pub fn hasColumn(self: DeviceDataFrame, name: []const u8) bool {
         return self.columnIndex(name) != null;
     }

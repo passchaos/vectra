@@ -125,6 +125,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(table.hasAnyColumn(&.{ "missing", "active" }));
     try std.testing.expect(!table.hasAnyColumn(&.{ "missing", "absent" }));
     try std.testing.expect(table.device.isCpu());
+    try std.testing.expect(table.isCpu());
+    try std.testing.expect(!table.isCuda());
+    try std.testing.expect(!table.isMps());
+    try std.testing.expect(!table.isDeviceBacked());
+    try std.testing.expect(std.mem.eql(u8, "cpu", table.deviceBackendName()));
+    try std.testing.expect(table.sameDevice(table));
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
 
     const units_col = try table.column("units");

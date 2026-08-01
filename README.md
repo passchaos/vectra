@@ -207,7 +207,8 @@ with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is ava
 `columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnNullCounts`, `columnValidCounts`,
 `columnNullableMask`, `columnHasNullsMask`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `dataNbytes`, `validityNbytes`,
-`totalNbytes`, `columnSchemas`/`schemaSummary`, `shape`, `isEmpty`,
+`totalNbytes`, `columnSchemas`/`schemaSummary`, `deviceBackendName`, `isCpu`,
+`isCuda`, `isMps`, `isDeviceBacked`, `sameDevice`, `shape`, `isEmpty`,
 `isNonEmpty`, `hasRows`, `hasColumns`, `hasColumn`, `hasAllColumns`,
 `hasAnyColumn`) alongside the table
 operations below. `DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible
