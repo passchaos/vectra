@@ -740,6 +740,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_kelley_skewness => |row_count| try current.withRowKelleySkewness(row_count.names, row_count.output_name),
             .row_mad => |row_count| try current.withRowMad(row_count.names, row_count.output_name),
             .row_mode => |row_count| try current.withRowMode(row_count.names, row_count.output_name),
+            .row_cumulative_mode => |row_outputs| try current.withRowCumulativeMode(row_outputs.names, row_outputs.output_names),
             .row_entropy => |row_count| try current.withRowEntropy(row_count.names, row_count.output_name),
             .row_gini_impurity => |row_count| try current.withRowGiniImpurity(row_count.names, row_count.output_name),
             .row_perplexity => |row_count| try current.withRowPerplexity(row_count.names, row_count.output_name),

@@ -2070,6 +2070,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMode(self, names, output_name);
             }
 
+            pub fn withRowCumulativeMode(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMode(self, names, output_names);
+            }
+
+            pub fn withRowCumMode(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMode(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMode(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMode(self, names, output_names);
+            }
+
             pub fn withRowEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowEntropy(self, names, output_name);
             }

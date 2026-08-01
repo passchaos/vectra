@@ -934,6 +934,27 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_mode_margin_ratio[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), row_mode_margin_ratio[3], 1e-12);
 
+    var row_cummode_table = try validity_table.withRowCumulativeMode(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cummode", "b_cummode", "wa_cummode", "wb_cummode" },
+    );
+    defer row_cummode_table.deinit();
+    const a_cummode_column = try row_cummode_table.column("a_cummode");
+    try std.testing.expect(a_cummode_column.f64.nullable());
+    const a_cummode = try a_cummode_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(a_cummode);
+    const a_cummode_validity = try a_cummode_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(a_cummode_validity);
+    const b_cummode = try (try row_cummode_table.column("b_cummode")).f64.toOwnedSlice(gpa);
+    defer gpa.free(b_cummode);
+    const wb_cummode = try (try row_cummode_table.column("wb_cummode")).f64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cummode);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 4.0 }, a_cummode);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, a_cummode_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, b_cummode);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 3.0, 4.0 }, wb_cummode);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixMode(&.{"a"}, &.{ "a_cummode", "extra_cummode" }));
+
     var row_weighted_mean_table = try validity_table.withRowWeightedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean");
     defer row_weighted_mean_table.deinit();
     const row_weighted_mean_column = try row_weighted_mean_table.column("row_weighted_mean");
