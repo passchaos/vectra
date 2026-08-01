@@ -3524,7 +3524,7 @@ fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime reduction: enum { sum, mean, geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
+    comptime reduction: enum { sum, mean, geometric_mean, magnitude_geometric_mean, harmonic_mean, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis, prod, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, mean_abs_dev, gini_mean_diff, gini_coefficient, mean_abs_dev_ratio, rms, l1_norm, l2_norm },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3543,6 +3543,10 @@ fn withRowNumericReduction(
             .output_name = owned_output,
         } }),
         .geometric_mean => try frame.ops.append(frame.allocator, .{ .row_geometric_mean = .{
+            .names = owned_names,
+            .output_name = owned_output,
+        } }),
+        .magnitude_geometric_mean => try frame.ops.append(frame.allocator, .{ .row_magnitude_geometric_mean = .{
             .names = owned_names,
             .output_name = owned_output,
         } }),
@@ -3691,6 +3695,22 @@ pub fn withRowGeometricMean(frame: anytype, names: []const []const u8, output_na
 
 pub fn withRowGeoMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowGeometricMean(frame, names, output_name);
+}
+
+pub fn withRowMagnitudeGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericReduction(frame, names, output_name, .magnitude_geometric_mean);
+}
+
+pub fn withRowAbsGeometricMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowMagnitudeGeometricMean(frame, names, output_name);
+}
+
+pub fn withRowMagnitudeGeoMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowMagnitudeGeometricMean(frame, names, output_name);
+}
+
+pub fn withRowAbsGeoMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowMagnitudeGeometricMean(frame, names, output_name);
 }
 
 pub fn withRowHarmonicMean(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {

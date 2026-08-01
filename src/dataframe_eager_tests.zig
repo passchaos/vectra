@@ -1182,6 +1182,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 160.0)), row_geo[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_geo_validity);
 
+    var row_magnitude_geo_table = try validity_table.withRowMagnitudeGeometricMean(&.{ "a", "b" }, "row_magnitude_geo");
+    defer row_magnitude_geo_table.deinit();
+    const row_magnitude_geo_column = try row_magnitude_geo_table.column("row_magnitude_geo");
+    try std.testing.expect(row_magnitude_geo_column.f64.nullable());
+    const row_magnitude_geo = try row_magnitude_geo_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_geo);
+    const row_magnitude_geo_validity = try row_magnitude_geo_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_geo_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_geo[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), row_magnitude_geo[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_geo[2], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 160.0)), row_magnitude_geo[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_geo_validity);
+
     var row_harm_table = try validity_table.withRowHarmonicMean(&.{ "a", "b" }, "row_harm");
     defer row_harm_table.deinit();
     const row_harm_column = try row_harm_table.column("row_harm");
@@ -2296,6 +2310,22 @@ test "device dataframe derives row magnitude coefficient of variation for signed
         .{ .name = "b", .data = b },
     });
     defer table.deinit();
+
+    var ordinary_geo = try table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
+    defer ordinary_geo.deinit();
+    const row_geo = try (try ordinary_geo.column("row_geo")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_geo);
+    try std.testing.expect(std.math.isNan(row_geo[0]));
+    try std.testing.expect(std.math.isNan(row_geo[1]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_geo[2], 1e-12);
+
+    var signed_magnitude_geo = try table.withRowMagnitudeGeometricMean(&.{ "a", "b" }, "row_magnitude_geo");
+    defer signed_magnitude_geo.deinit();
+    const signed_row_magnitude_geo = try (try signed_magnitude_geo.column("row_magnitude_geo")).f64.toOwnedSlice(gpa);
+    defer gpa.free(signed_row_magnitude_geo);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), signed_row_magnitude_geo[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 27.0)), signed_row_magnitude_geo[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), signed_row_magnitude_geo[2], 1e-12);
 
     var ordinary_variance = try table.withRowVariance(&.{ "a", "b" }, "row_variance", 0.0);
     defer ordinary_variance.deinit();

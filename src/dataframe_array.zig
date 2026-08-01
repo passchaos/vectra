@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, magnitude_geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, magnitude_midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3393,6 +3393,17 @@ fn withRowNumericReduction(
                                 values[row] += std.math.log(f64, std.math.e, value);
                             }
                         },
+                        .magnitude_geometric_mean => {
+                            const magnitude = @abs(value);
+                            if (magnitude == 0.0 and !std.math.isNan(values[row])) {
+                                maxima[row] = 1.0;
+                                values[row] = 0.0;
+                            } else if (!validity[row] and maxima[row] == 0.0) {
+                                values[row] = std.math.log(f64, std.math.e, magnitude);
+                            } else if (!std.math.isNan(values[row]) and maxima[row] == 0.0) {
+                                values[row] += std.math.log(f64, std.math.e, magnitude);
+                            }
+                        },
                         .harmonic_mean => {
                             if (value == 0.0 and !std.math.isNan(values[row])) {
                                 values[row] = std.math.inf(f64);
@@ -3457,7 +3468,7 @@ fn withRowNumericReduction(
             value.* = 0.0;
         } else if (reduction == .mean) {
             value.* /= @floatFromInt(count);
-        } else if (reduction == .geometric_mean) {
+        } else if (reduction == .geometric_mean or reduction == .magnitude_geometric_mean) {
             if (!std.math.isNan(value.*)) {
                 value.* = if (aux_value != 0.0) 0.0 else std.math.exp(value.* / @as(f64, @floatFromInt(count)));
             }
@@ -3555,6 +3566,42 @@ pub fn withRowGeoMean(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowGeometricMean(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_geometric_mean);
+}
+
+pub fn withRowAbsGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeGeometricMean(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeGeometricMean(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowAbsGeoMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeGeometricMean(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowHarmonicMean(

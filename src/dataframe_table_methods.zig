@@ -2943,6 +2943,22 @@ pub fn withRowGeoMean(self: anytype, names: []const []const u8, output_name: []c
     return dataframe_array_mod.withRowGeoMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowMagnitudeGeoMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeGeoMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsGeoMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsGeoMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowHarmonicMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowHarmonicMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
