@@ -151,6 +151,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .rename_columns,
             .add_column_name_prefix,
             .add_column_name_suffix,
+            .strip_column_name_prefix,
+            .strip_column_name_suffix,
             .move_column,
             .move_column_before,
             .move_column_after,

@@ -139,6 +139,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         },
         .add_column_name_prefix => |pattern| .{ .add_column_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .add_column_name_suffix => |pattern| .{ .add_column_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .strip_column_name_prefix => |pattern| .{ .strip_column_name_prefix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
+        .strip_column_name_suffix => |pattern| .{ .strip_column_name_suffix = .{ .pattern = try allocator.dupe(u8, pattern.pattern) } },
         .move_column => |move| blk: {
             const name = try allocator.dupe(u8, move.name);
             break :blk .{ .move_column = .{

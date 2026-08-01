@@ -246,6 +246,7 @@ Eager schema/expression helpers such as `selectByNamePrefix`, `selectByNameSuffi
 `withColumnLiteral`, `withColumnLiteralAt`, `withColumnLiteralBefore`, `withColumnLiteralAfter`,
 `copyColumn`, `copyColumnAt`, `copyColumnBefore`, `copyColumnAfter`,
 `withRowIndex`, `renameColumn`, `renameColumns`, `addColumnNamePrefix`, `addColumnNameSuffix`,
+`stripColumnNamePrefix`, `stripColumnNameSuffix`, `removeColumnNamePrefix`, `removeColumnNameSuffix`,
 `moveColumn`, `moveColumnBefore`, `moveColumnAfter`, `reverseColumns`, `sortColumnsByName`, `dropColumn`, `compareColumnScalar`, `betweenColumnScalar`, `betweenColumnWithDeviceScalars`, `withColumnBetween`, `withColumnIsBetween`, `withColumnBetweenClosed`, `withColumnBetweenWithDeviceScalars`, `withColumnBetweenExclusive`, `withColumnBetweenLeftClosed`, `withColumnBetweenRightClosed`, `notBetweenColumnScalar`, `notBetweenColumnWithDeviceScalars`, `withColumnNotBetween`, `withColumnOutside`, `withColumnNotBetweenClosed`, `withColumnNotBetweenWithDeviceScalars`, `withColumnNotBetweenExclusive`, `withColumnNotBetweenLeftClosed`, `withColumnNotBetweenRightClosed`, `addColumns`, `filterColumn`, `filterColumnScalar`, `filterColumnScalarWithDeviceScalar`, `dropColumnScalar`, `dropColumnScalarWithDeviceScalar`, `filterIsInColumn`, `filterNotInColumn`, `filterIsinColumn`, `dropIsInColumn`, `dropNotInColumn`, `filterBetweenColumn`, `filterBetweenColumnClosed`, `filterBetweenColumnWithDeviceScalars`, `filterOutsideColumn`, `filterOutsideColumnClosed`, `filterOutsideColumnWithDeviceScalars`, `dropBetweenColumn`, `dropOutsideColumn`, `filterColumnMask`, and `dropColumnMask` reuse Vectra `Array` operations, so supported dtypes route
 through the same Axiom CPU/CUDA/MPS dispatch instead of a CUDA-only dataframe
 implementation. Nullable boolean predicate masks now follow query-engine semantics:
@@ -460,6 +461,9 @@ horizontal prefix positions of the first/last valid or null cell seen so far.
 `selectByNameGlob`/`dropByNameGlob` add whole-name glob matching with `*` and
 `?` wildcards alongside prefix/suffix/contains selectors for schema-heavy
 pipelines.
+`stripColumnNamePrefix`/`stripColumnNameSuffix` and `removeColumnNamePrefix`/
+`removeColumnNameSuffix` reverse bulk prefix/suffix additions when normalizing
+joined or imported schemas.
 `withColumnBetween`/`withColumnIsBetween` append SQL/Polars-style range
 predicate masks with closed, open, left-closed, and right-closed variants;
 `withColumnNotBetween`/`withColumnOutside` provide the complementary outside-range masks;

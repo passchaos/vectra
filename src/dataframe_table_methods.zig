@@ -6656,6 +6656,18 @@ pub fn addColumnNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!Fr
     return dataframe_array_mod.addColumnNameSuffix(FrameType(@TypeOf(self)), frameValue(self), suffix);
 }
 
+pub fn stripColumnNamePrefix(self: anytype, prefix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.stripColumnNamePrefix(FrameType(@TypeOf(self)), frameValue(self), prefix);
+}
+
+pub const removeColumnNamePrefix = stripColumnNamePrefix;
+
+pub fn stripColumnNameSuffix(self: anytype, suffix: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.stripColumnNameSuffix(FrameType(@TypeOf(self)), frameValue(self), suffix);
+}
+
+pub const removeColumnNameSuffix = stripColumnNameSuffix;
+
 pub fn moveColumn(self: anytype, name: []const u8, target_index: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.moveColumn(FrameType(@TypeOf(self)), frameValue(self), name, target_index);
 }

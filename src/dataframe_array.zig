@@ -16633,6 +16633,36 @@ pub fn addColumnNameSuffix(
     return renameColumns(DeviceDataFrame, input, input.names, source_names);
 }
 
+pub fn stripColumnNamePrefix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    prefix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (input.names, source_names) |name, *slot| {
+        slot.* = if (std.mem.startsWith(u8, name, prefix)) name[prefix.len..] else name;
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
+pub const removeColumnNamePrefix = stripColumnNamePrefix;
+
+pub fn stripColumnNameSuffix(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    suffix: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source_names = try input.allocator.alloc([]const u8, input.names.len);
+    defer input.allocator.free(source_names);
+    for (input.names, source_names) |name, *slot| {
+        slot.* = if (std.mem.endsWith(u8, name, suffix)) name[0 .. name.len - suffix.len] else name;
+    }
+    return renameColumns(DeviceDataFrame, input, input.names, source_names);
+}
+
+pub const removeColumnNameSuffix = stripColumnNameSuffix;
+
 pub fn moveColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

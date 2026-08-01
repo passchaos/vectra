@@ -114,6 +114,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         rename_columns: Payloads.RenameColumns,
         add_column_name_prefix: Payloads.RenameNamePattern,
         add_column_name_suffix: Payloads.RenameNamePattern,
+        strip_column_name_prefix: Payloads.RenameNamePattern,
+        strip_column_name_suffix: Payloads.RenameNamePattern,
         move_column: Payloads.MoveColumn,
         move_column_before: Payloads.MoveColumnRelative,
         move_column_after: Payloads.MoveColumnRelative,

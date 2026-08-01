@@ -175,6 +175,22 @@ pub fn addColumnNameSuffix(frame: anytype, suffix: []const u8) DeviceDataError!v
     try frame.ops.append(frame.allocator, .{ .add_column_name_suffix = .{ .pattern = owned } });
 }
 
+pub fn stripColumnNamePrefix(frame: anytype, prefix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, prefix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .strip_column_name_prefix = .{ .pattern = owned } });
+}
+
+pub const removeColumnNamePrefix = stripColumnNamePrefix;
+
+pub fn stripColumnNameSuffix(frame: anytype, suffix: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, suffix);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .strip_column_name_suffix = .{ .pattern = owned } });
+}
+
+pub const removeColumnNameSuffix = stripColumnNameSuffix;
+
 pub fn moveColumn(frame: anytype, name: []const u8, target_index: usize) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

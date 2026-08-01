@@ -6787,6 +6787,32 @@ test "device lazy frame renames and drops columns" {
     try std.testing.expectEqual(@as(?usize, 1), suffixed.columnIndex("units_raw"));
     try std.testing.expectEqual(@as(?usize, 2), suffixed.columnIndex("active_raw"));
 
+    var strip_prefix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer strip_prefix_plan.deinit();
+    try strip_prefix_plan.addColumnNamePrefix("src_");
+    try strip_prefix_plan.stripColumnNamePrefix("src_");
+    const strip_prefix_explained = try strip_prefix_plan.explain(gpa);
+    defer gpa.free(strip_prefix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, strip_prefix_explained, "strip_column_name_prefix(src_)") != null);
+    var stripped_prefix = try strip_prefix_plan.collect();
+    defer stripped_prefix.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), stripped_prefix.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), stripped_prefix.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 2), stripped_prefix.columnIndex("active"));
+
+    var strip_suffix_plan = try DeviceLazyFrame.init(gpa, table);
+    defer strip_suffix_plan.deinit();
+    try strip_suffix_plan.addColumnNameSuffix("_raw");
+    try strip_suffix_plan.stripColumnNameSuffix("_raw");
+    const strip_suffix_explained = try strip_suffix_plan.explain(gpa);
+    defer gpa.free(strip_suffix_explained);
+    try std.testing.expect(std.mem.indexOf(u8, strip_suffix_explained, "strip_column_name_suffix(_raw)") != null);
+    var stripped_suffix = try strip_suffix_plan.collect();
+    defer stripped_suffix.deinit();
+    try std.testing.expectEqual(@as(?usize, 0), stripped_suffix.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), stripped_suffix.columnIndex("units"));
+    try std.testing.expectEqual(@as(?usize, 2), stripped_suffix.columnIndex("active"));
+
     var invalid_many_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_many_plan.deinit();
     try invalid_many_plan.renameColumns(&.{ "sales", "units" }, &.{ "revenue", "revenue" });
