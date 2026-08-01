@@ -5631,6 +5631,10 @@ pub fn DeviceLazyTypes(
             pub const groupByValueOn = lazy_relation_methods_mod.groupByValueOn;
             pub const groupBySum = lazy_relation_methods_mod.groupBySum;
             pub const groupBySumOn = lazy_relation_methods_mod.groupBySumOn;
+            pub const groupByProd = lazy_relation_methods_mod.groupByProd;
+            pub const groupByProduct = lazy_relation_methods_mod.groupByProduct;
+            pub const groupByProdOn = lazy_relation_methods_mod.groupByProdOn;
+            pub const groupByProductOn = lazy_relation_methods_mod.groupByProductOn;
             pub const groupByMin = lazy_relation_methods_mod.groupByMin;
             pub const groupByMinOn = lazy_relation_methods_mod.groupByMinOn;
             pub const groupByMax = lazy_relation_methods_mod.groupByMax;

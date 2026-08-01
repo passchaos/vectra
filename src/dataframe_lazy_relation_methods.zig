@@ -80,6 +80,22 @@ pub fn groupBySumOn(self: anytype, key_names: []const []const u8, value_name: []
     return self.groupByValueOn(key_names, value_name, output_name, .sum);
 }
 
+pub fn groupByProd(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .prod);
+}
+
+pub fn groupByProduct(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByProd(key_name, value_name, output_name);
+}
+
+pub fn groupByProdOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .prod);
+}
+
+pub fn groupByProductOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByProdOn(key_names, value_name, output_name);
+}
+
 pub fn groupByMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .min);
 }

@@ -90,6 +90,22 @@ pub fn groupBySumOn(self: anytype, key_names: []const []const u8, value_name: []
     return group_multi_mod.groupByNumericOn(FrameType(@TypeOf(self)), .sum, frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn groupByProd(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_profile_mod.groupByNumeric(FrameType(@TypeOf(self)), .prod, frameValue(self), key_name, value_name, output_name);
+}
+
+pub fn groupByProduct(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return groupByProd(self, key_name, value_name, output_name);
+}
+
+pub fn groupByProdOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNumericOn(FrameType(@TypeOf(self)), .prod, frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByProductOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return groupByProdOn(self, key_names, value_name, output_name);
+}
+
 pub fn groupByMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return group_profile_mod.groupByNumeric(FrameType(@TypeOf(self)), .min, frameValue(self), key_name, value_name, output_name);
 }

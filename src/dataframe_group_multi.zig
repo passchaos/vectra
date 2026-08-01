@@ -833,6 +833,7 @@ fn groupByNumericOnTyped(
         const group_index = maybe_group_index.?;
         switch (op) {
             .sum => aggregates.items[group_index] += value_item,
+            .prod => aggregates.items[group_index] *= value_item,
             .min => {
                 if (compareSortValues(V, value_item, aggregates.items[group_index]) < 0) aggregates.items[group_index] = value_item;
             },

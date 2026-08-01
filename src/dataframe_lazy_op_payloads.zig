@@ -19,6 +19,7 @@ const DeviceAsofOptions = options_mod.DeviceAsofOptions;
 
 pub const DeviceLazyGroupByAggregation = enum {
     sum,
+    prod,
     min,
     max,
     mean,

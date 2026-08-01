@@ -1158,6 +1158,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_by_count_on => |group| try current.groupByCountOn(group.key_names, group.output_name),
             .group_by_value => |group| switch (group.aggregation) {
                 .sum => try current.groupBySum(group.key_name, group.value_name, group.output_name),
+                .prod => try current.groupByProd(group.key_name, group.value_name, group.output_name),
                 .min => try current.groupByMin(group.key_name, group.value_name, group.output_name),
                 .max => try current.groupByMax(group.key_name, group.value_name, group.output_name),
                 .mean => try current.groupByMean(group.key_name, group.value_name, group.output_name),
@@ -1174,6 +1175,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
+                .prod => try current.groupByProdOn(group.key_names, group.value_name, group.output_name),
                 .min => try current.groupByMinOn(group.key_names, group.value_name, group.output_name),
                 .max => try current.groupByMaxOn(group.key_names, group.value_name, group.output_name),
                 .mean => try current.groupByMeanOn(group.key_names, group.value_name, group.output_name),

@@ -151,6 +151,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, sum_keys);
     try std.testing.expectEqualSlices(f64, &.{ 15.0, 14.0 }, sums);
 
+    var producted = try table.groupByProd("store", "sales", "sales_prod");
+    defer producted.deinit();
+    const products = try (try producted.column("sales_prod")).f64.toOwnedSlice(gpa);
+    defer gpa.free(products);
+    try std.testing.expectEqualSlices(f64, &.{ 26.0, 33.0 }, products);
+
     var mins = try table.groupByMin("store", "sales", "sales_min");
     defer mins.deinit();
     const min_values = try (try mins.column("sales_min")).f64.toOwnedSlice(gpa);
@@ -329,6 +335,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_sum);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 9.0, 4.0, 12.0 }, ms_simple_sum);
 
+    var multi_prod = try multi.groupByProdOn(&.{ "store", "day" }, "amount", "amount_prod");
+    defer multi_prod.deinit();
+    const ms_simple_prod = try (try multi_prod.column("amount_prod")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_prod);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, ms_simple_prod);
+
     var multi_min = try multi.groupByMinOn(&.{ "store", "day" }, "amount", "amount_min");
     defer multi_min.deinit();
     const ms_simple_min = try (try multi_min.column("amount_min")).f64.toOwnedSlice(gpa);
@@ -445,6 +457,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_mean = try (try lazy_multi_mean.column("amount_mean_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_mean);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, lazy_ms_mean);
+
+    var multi_prod_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_prod_plan.deinit();
+    try multi_prod_plan.groupByProdOn(&.{ "store", "day" }, "amount", "amount_prod_lazy");
+    const multi_prod_explained = try multi_prod_plan.explain(gpa);
+    defer gpa.free(multi_prod_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_prod_explained, "group_by_prod_on([store,day], value=amount -> amount_prod_lazy)") != null);
+    var lazy_multi_prod = try multi_prod_plan.collect();
+    defer lazy_multi_prod.deinit();
+    const lazy_ms_prod = try (try lazy_multi_prod.column("amount_prod_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_prod);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, lazy_ms_prod);
 
     var multi_last_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_last_plan.deinit();

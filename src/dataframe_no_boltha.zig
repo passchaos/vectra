@@ -151,6 +151,7 @@ pub const DeviceColumnDef = struct {
 
 pub const DeviceLazyGroupByAggregation = enum {
     sum,
+    prod,
     min,
     max,
     mean,

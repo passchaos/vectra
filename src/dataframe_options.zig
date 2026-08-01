@@ -78,6 +78,7 @@ pub const DeviceScalar = union(array_mod.DType) {
 
 pub const DeviceGroupByAggregation = enum {
     sum,
+    prod,
     min,
     max,
 };
