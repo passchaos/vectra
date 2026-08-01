@@ -3107,6 +3107,22 @@ pub fn withRowVar(self: anytype, names: []const []const u8, output_name: []const
     return withRowVariance(self, names, output_name, correction);
 }
 
+pub fn withRowMagnitudeVariance(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeVariance(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsVariance(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsVariance(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowMagnitudeVar(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeVar(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsVar(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsVar(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
 pub fn withRowStddev(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowStddev(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }
@@ -3115,8 +3131,32 @@ pub fn withRowStd(self: anytype, names: []const []const u8, output_name: []const
     return withRowStddev(self, names, output_name, correction);
 }
 
+pub fn withRowMagnitudeStddev(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeStddev(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsStddev(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsStddev(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowMagnitudeStd(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeStd(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsStd(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsStd(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
 pub fn withRowSem(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowSem(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowMagnitudeSem(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeSem(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
+}
+
+pub fn withRowAbsSem(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsSem(FrameType(@TypeOf(self)), frameValue(self), names, output_name, correction);
 }
 
 pub fn withRowCv(self: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {

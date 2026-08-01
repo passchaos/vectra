@@ -1523,6 +1523,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
         },
+        .row_magnitude_variance => |row_dispersion| {
+            try writer.print("row_magnitude_variance([", .{});
+            for (row_dispersion.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
+        },
         .row_stddev => |row_dispersion| {
             try writer.print("row_stddev([", .{});
             for (row_dispersion.names, 0..) |name, i| {
@@ -1531,8 +1539,24 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
         },
+        .row_magnitude_stddev => |row_dispersion| {
+            try writer.print("row_magnitude_stddev([", .{});
+            for (row_dispersion.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
+        },
         .row_sem => |row_dispersion| {
             try writer.print("row_sem([", .{});
+            for (row_dispersion.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, correction={d})", .{ row_dispersion.output_name, row_dispersion.correction });
+        },
+        .row_magnitude_sem => |row_dispersion| {
+            try writer.print("row_magnitude_sem([", .{});
             for (row_dispersion.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});

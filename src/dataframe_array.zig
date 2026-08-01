@@ -5288,7 +5288,7 @@ pub fn withRowNUnique(
     return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
 }
 
-const RowNumericDispersion = enum { variance, stddev, sem, cv, magnitude_cv, fano, magnitude_fano, skewness, kurtosis };
+const RowNumericDispersion = enum { variance, magnitude_variance, stddev, magnitude_stddev, sem, magnitude_sem, cv, magnitude_cv, fano, magnitude_fano, skewness, kurtosis };
 
 fn withRowNumericDispersion(
     comptime DeviceDataFrame: type,
@@ -5341,7 +5341,7 @@ fn withRowNumericDispersion(
                     // skipping nulls without materializing a dense row matrix.
                     const previous_count = counts[row];
                     const real_value = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    const value = if (reduction == .magnitude_cv or reduction == .magnitude_fano) @abs(real_value) else real_value;
+                    const value = if (reduction == .magnitude_variance or reduction == .magnitude_stddev or reduction == .magnitude_sem or reduction == .magnitude_cv or reduction == .magnitude_fano) @abs(real_value) else real_value;
                     counts[row] += 1;
                     const n: f64 = @floatFromInt(counts[row]);
                     const previous_n: f64 = @floatFromInt(previous_count);
@@ -5372,9 +5372,9 @@ fn withRowNumericDispersion(
         const variance = if (denominator <= 0.0) std.math.nan(f64) else m2 / denominator;
         const stddev_value = std.math.sqrt(variance);
         value.* = switch (reduction) {
-            .variance => variance,
-            .stddev => stddev_value,
-            .sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
+            .variance, .magnitude_variance => variance,
+            .stddev, .magnitude_stddev => stddev_value,
+            .sem, .magnitude_sem => stddev_value / std.math.sqrt(@as(f64, @floatFromInt(count))),
             .cv, .magnitude_cv => if (mean == 0.0) std.math.nan(f64) else stddev_value / mean,
             .fano, .magnitude_fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
             .skewness => if (count < 2 or m2 == 0.0) std.math.nan(f64) else std.math.sqrt(@as(f64, @floatFromInt(count))) * m3 / std.math.pow(f64, m2, 1.5),
@@ -5398,6 +5398,46 @@ pub fn withRowVariance(
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .variance);
 }
 
+pub fn withRowMagnitudeVariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .magnitude_variance);
+}
+
+pub fn withRowAbsVariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeVariance(DeviceDataFrame, input, names, output_name, correction);
+}
+
+pub fn withRowMagnitudeVar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeVariance(DeviceDataFrame, input, names, output_name, correction);
+}
+
+pub fn withRowAbsVar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeVariance(DeviceDataFrame, input, names, output_name, correction);
+}
+
 pub fn withRowStddev(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5408,6 +5448,46 @@ pub fn withRowStddev(
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .stddev);
 }
 
+pub fn withRowMagnitudeStddev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .magnitude_stddev);
+}
+
+pub fn withRowAbsStddev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeStddev(DeviceDataFrame, input, names, output_name, correction);
+}
+
+pub fn withRowMagnitudeStd(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeStddev(DeviceDataFrame, input, names, output_name, correction);
+}
+
+pub fn withRowAbsStd(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeStddev(DeviceDataFrame, input, names, output_name, correction);
+}
+
 pub fn withRowSem(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5416,6 +5496,26 @@ pub fn withRowSem(
     correction: f64,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .sem);
+}
+
+pub fn withRowMagnitudeSem(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericDispersion(DeviceDataFrame, input, names, output_name, correction, .magnitude_sem);
+}
+
+pub fn withRowAbsSem(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSem(DeviceDataFrame, input, names, output_name, correction);
 }
 
 pub fn withRowCv(

@@ -2234,6 +2234,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowVar(self, names, output_name, correction);
             }
 
+            pub fn withRowMagnitudeVariance(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeVariance(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsVariance(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsVariance(self, names, output_name, correction);
+            }
+
+            pub fn withRowMagnitudeVar(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeVar(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsVar(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsVar(self, names, output_name, correction);
+            }
+
             pub fn withRowStddev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowStddev(self, names, output_name, correction);
             }
@@ -2242,8 +2258,32 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowStd(self, names, output_name, correction);
             }
 
+            pub fn withRowMagnitudeStddev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeStddev(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsStddev(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsStddev(self, names, output_name, correction);
+            }
+
+            pub fn withRowMagnitudeStd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeStd(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsStd(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsStd(self, names, output_name, correction);
+            }
+
             pub fn withRowSem(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowSem(self, names, output_name, correction);
+            }
+
+            pub fn withRowMagnitudeSem(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeSem(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsSem(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsSem(self, names, output_name, correction);
             }
 
             pub fn withRowCv(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {

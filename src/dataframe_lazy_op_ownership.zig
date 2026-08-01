@@ -2545,6 +2545,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .correction = row_dispersion.correction,
             } };
         },
+        .row_magnitude_variance => |row_dispersion| blk: {
+            const names = try cloneNameList(allocator, row_dispersion.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_dispersion.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_magnitude_variance = .{
+                .names = names,
+                .output_name = output_name,
+                .correction = row_dispersion.correction,
+            } };
+        },
         .row_stddev => |row_dispersion| blk: {
             const names = try cloneNameList(allocator, row_dispersion.names);
             errdefer freeNameList(allocator, names);
@@ -2556,12 +2567,34 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .correction = row_dispersion.correction,
             } };
         },
+        .row_magnitude_stddev => |row_dispersion| blk: {
+            const names = try cloneNameList(allocator, row_dispersion.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_dispersion.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_magnitude_stddev = .{
+                .names = names,
+                .output_name = output_name,
+                .correction = row_dispersion.correction,
+            } };
+        },
         .row_sem => |row_dispersion| blk: {
             const names = try cloneNameList(allocator, row_dispersion.names);
             errdefer freeNameList(allocator, names);
             const output_name = try allocator.dupe(u8, row_dispersion.output_name);
             errdefer allocator.free(output_name);
             break :blk .{ .row_sem = .{
+                .names = names,
+                .output_name = output_name,
+                .correction = row_dispersion.correction,
+            } };
+        },
+        .row_magnitude_sem => |row_dispersion| blk: {
+            const names = try cloneNameList(allocator, row_dispersion.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_dispersion.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_magnitude_sem = .{
                 .names = names,
                 .output_name = output_name,
                 .correction = row_dispersion.correction,

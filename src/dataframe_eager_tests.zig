@@ -2266,6 +2266,38 @@ test "device dataframe derives row magnitude coefficient of variation for signed
     });
     defer table.deinit();
 
+    var ordinary_variance = try table.withRowVariance(&.{ "a", "b" }, "row_variance", 0.0);
+    defer ordinary_variance.deinit();
+    const row_variance = try (try ordinary_variance.column("row_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_variance);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), row_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 36.0), row_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_variance[2], 1e-12);
+
+    var magnitude_variance = try table.withRowMagnitudeVariance(&.{ "a", "b" }, "row_magnitude_variance", 0.0);
+    defer magnitude_variance.deinit();
+    const row_magnitude_variance = try (try magnitude_variance.column("row_magnitude_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_variance);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_variance[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), row_magnitude_variance[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_variance[2], 1e-12);
+
+    var magnitude_stddev = try table.withRowMagnitudeStddev(&.{ "a", "b" }, "row_magnitude_stddev", 0.0);
+    defer magnitude_stddev.deinit();
+    const row_magnitude_stddev = try (try magnitude_stddev.column("row_magnitude_stddev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_stddev);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_stddev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), row_magnitude_stddev[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_stddev[2], 1e-12);
+
+    var magnitude_sem = try table.withRowMagnitudeSem(&.{ "a", "b" }, "row_magnitude_sem", 0.0);
+    defer magnitude_sem.deinit();
+    const row_magnitude_sem = try (try magnitude_sem.column("row_magnitude_sem")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_sem);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_sem[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0 / std.math.sqrt(@as(f64, 2.0))), row_magnitude_sem[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_sem[2], 1e-12);
+
     var ordinary = try table.withRowCv(&.{ "a", "b" }, "row_cv", 0.0);
     defer ordinary.deinit();
     const row_cv = try (try ordinary.column("row_cv")).f64.toOwnedSlice(gpa);
