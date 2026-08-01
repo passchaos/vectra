@@ -756,6 +756,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_range_coeff => |row_count| try current.withRowRangeCoeff(row_count.names, row_count.output_name),
             .row_mean_abs => |row_count| try current.withRowMeanAbs(row_count.names, row_count.output_name),
             .row_hhi => |row_count| try current.withRowHhi(row_count.names, row_count.output_name),
+            .row_magnitude_inverse_simpson => |row_count| try current.withRowMagnitudeInverseSimpson(row_count.names, row_count.output_name),
             .row_magnitude_entropy => |row_count| try current.withRowMagnitudeEntropy(row_count.names, row_count.output_name),
             .row_magnitude_perplexity => |row_count| try current.withRowMagnitudePerplexity(row_count.names, row_count.output_name),
             .row_magnitude_evenness => |row_count| try current.withRowMagnitudeEvenness(row_count.names, row_count.output_name),

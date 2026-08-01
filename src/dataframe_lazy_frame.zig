@@ -2122,6 +2122,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowHerfindahlHirschman(self, names, output_name);
             }
 
+            pub fn withRowMagnitudeInverseSimpson(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeInverseSimpson(self, names, output_name);
+            }
+
+            pub fn withRowAbsInverseSimpson(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsInverseSimpson(self, names, output_name);
+            }
+
             pub fn withRowMagnitudeEntropy(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMagnitudeEntropy(self, names, output_name);
             }
