@@ -74,6 +74,19 @@ pub const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;
 pub const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 pub const DeviceColumnDef = dataframe_device_column_mod.DeviceColumnDef;
 
+pub const DeviceColumnSchema = struct {
+    name: []const u8,
+    dtype: DeviceDType,
+    rows: usize,
+    nullable: bool,
+    null_count: usize,
+    valid_count: usize,
+    data_nbytes: usize,
+    validity_nbytes: usize,
+    total_nbytes: usize,
+    device: array_mod.Device,
+};
+
 pub const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
 pub const DeviceLazyJoinKind = lazy_op_mod.DeviceLazyJoinKind;
 pub const DeviceLazyOp = lazy_op_mod.DeviceLazyOp(DeviceDataFrame, DeviceColumn);
@@ -205,6 +218,29 @@ pub const DeviceDataFrame = struct {
 
     pub fn totalNbytes(self: DeviceDataFrame) usize {
         return self.dataNbytes() + self.validityNbytes();
+    }
+
+    pub fn columnSchemas(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        const out = try allocator.alloc(DeviceColumnSchema, self.columns.len);
+        for (self.names, self.columns, out) |name, column_value, *slot| {
+            slot.* = .{
+                .name = name,
+                .dtype = column_value.dtype(),
+                .rows = column_value.len(),
+                .nullable = column_value.nullable(),
+                .null_count = column_value.nullCount(),
+                .valid_count = column_value.validCount(),
+                .data_nbytes = column_value.dataNbytes(),
+                .validity_nbytes = column_value.validityNbytes(),
+                .total_nbytes = column_value.totalNbytes(),
+                .device = column_value.device(),
+            };
+        }
+        return out;
+    }
+
+    pub fn schemaSummary(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
     }
 
     pub fn isEmpty(self: DeviceDataFrame) bool {
