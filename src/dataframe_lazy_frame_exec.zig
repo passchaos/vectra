@@ -1174,6 +1174,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .kurtosis => try current.groupByKurtosis(group.key_name, group.value_name, group.output_name),
                 .any => try current.groupByAny(group.key_name, group.value_name, group.output_name),
                 .all => try current.groupByAll(group.key_name, group.value_name, group.output_name),
+                .valid_count => try current.groupByValidCount(group.key_name, group.value_name, group.output_name),
+                .null_count => try current.groupByNullCount(group.key_name, group.value_name, group.output_name),
             },
             .group_by_value_on => |group| switch (group.aggregation) {
                 .sum => try current.groupBySumOn(group.key_names, group.value_name, group.output_name),
@@ -1193,6 +1195,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .kurtosis => try current.groupByKurtosisOn(group.key_names, group.value_name, group.output_name),
                 .any => try current.groupByAnyOn(group.key_names, group.value_name, group.output_name),
                 .all => try current.groupByAllOn(group.key_names, group.value_name, group.output_name),
+                .valid_count => try current.groupByValidCountOn(group.key_names, group.value_name, group.output_name),
+                .null_count => try current.groupByNullCountOn(group.key_names, group.value_name, group.output_name),
             },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),

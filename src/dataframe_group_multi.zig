@@ -49,6 +49,11 @@ const GroupByBoolAggregation = enum {
     all,
 };
 
+const GroupByValidityAggregation = enum {
+    valid_count,
+    null_count,
+};
+
 pub fn groupByStatsOnDispatchValue(
     comptime DeviceDataFrame: type,
     allocator: std.mem.Allocator,
@@ -799,6 +804,62 @@ pub fn groupByAllOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByBoolOn(DeviceDataFrame, .all, frame, key_names, value_name, output_name);
+}
+
+fn groupByValidityCountOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByValidityAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var counts: std.ArrayList(i64) = .empty;
+    defer counts.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = try columnRowValid(frame.allocator, value.*, row);
+        const should_count = switch (aggregation) {
+            .valid_count => value_valid,
+            .null_count => !value_valid,
+        };
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (should_count) counts.items[group_index] += 1;
+    }
+
+    const output_column = try DeviceColumn.fromSlice(i64, frame.allocator, counts.items, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByValidCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByValidityCountOn(DeviceDataFrame, .valid_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNullCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByValidityCountOn(DeviceDataFrame, .null_count, frame, key_names, value_name, output_name);
 }
 
 fn initMultiKeyAggregatedDataFrame(

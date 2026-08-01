@@ -167,6 +167,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     kurtosis,
     any,
     all,
+    valid_count,
+    null_count,
 };
 
 pub const DeviceLazyJoinKind = enum {

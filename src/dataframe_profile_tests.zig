@@ -117,6 +117,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(all_active_on_values);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, all_active_on_values);
 
+    var active_valids = try bool_table.groupByValidCount("store", "active", "active_valid_count");
+    defer active_valids.deinit();
+    const active_valid_values = try (try active_valids.column("active_valid_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_valid_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2, 0 }, active_valid_values);
+
+    var active_nulls = try bool_table.groupByNullCount("store", "active", "active_null_count");
+    defer active_nulls.deinit();
+    const active_null_values = try (try active_nulls.column("active_null_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_null_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1 }, active_null_values);
+
+    var active_valids_on = try bool_table.groupByValidCountOn(&.{ "store", "day" }, "active", "active_valid_count_on");
+    defer active_valids_on.deinit();
+    const active_valid_on_values = try (try active_valids_on.column("active_valid_count_on")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_valid_on_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 0 }, active_valid_on_values);
+
+    var active_nulls_on = try bool_table.groupByNullCountOn(&.{ "store", "day" }, "active", "active_null_count_on");
+    defer active_nulls_on.deinit();
+    const active_null_on_values = try (try active_nulls_on.column("active_null_count_on")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_null_on_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, active_null_on_values);
+
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();
     try any_active_plan.groupByAnyOn(&.{ "store", "day" }, "active", "any_active_lazy");
@@ -128,6 +152,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_any_active_values = try (try lazy_any_active.column("any_active_lazy")).bool.toOwnedSlice(gpa);
     defer gpa.free(lazy_any_active_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, lazy_any_active_values);
+
+    var null_count_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer null_count_plan.deinit();
+    try null_count_plan.groupByNullCountOn(&.{ "store", "day" }, "active", "active_null_count_lazy");
+    const null_count_explained = try null_count_plan.explain(gpa);
+    defer gpa.free(null_count_explained);
+    try std.testing.expect(std.mem.indexOf(u8, null_count_explained, "group_by_null_count_on([store,day], value=active -> active_null_count_lazy)") != null);
+    var lazy_null_counts = try null_count_plan.collect();
+    defer lazy_null_counts.deinit();
+    const lazy_null_count_values = try (try lazy_null_counts.column("active_null_count_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_null_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, lazy_null_count_values);
 
     try std.testing.expectError(error.TypeUnsupported, bool_table.groupByAny("store", "day", "bad_any"));
 
