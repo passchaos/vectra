@@ -2118,6 +2118,26 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowNUnique(self, names, output_name);
             }
 
+            pub fn withRowCumulativeDistinctCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeDistinctCount(self, names, output_names);
+            }
+
+            pub fn withRowCumDistinctCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumDistinctCount(self, names, output_names);
+            }
+
+            pub fn withRowPrefixDistinctCount(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixDistinctCount(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeNUnique(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNUnique(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNUnique(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNUnique(self, names, output_names);
+            }
+
             pub fn withRowSum(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowSum(self, names, output_name);
             }

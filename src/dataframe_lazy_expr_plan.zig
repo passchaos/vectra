@@ -3687,6 +3687,51 @@ pub fn withRowNUnique(frame: anytype, names: []const []const u8, output_name: []
     return withRowQuantileAlias(frame, names, output_name, .n_unique);
 }
 
+fn withRowCumulativeDistinctCountAlias(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime n_unique: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (n_unique) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_n_unique = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_distinct_count = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeDistinctCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeDistinctCountAlias(frame, names, output_names, false);
+}
+
+pub fn withRowCumDistinctCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeDistinctCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixDistinctCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeDistinctCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNUnique(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeDistinctCountAlias(frame, names, output_names, true);
+}
+
+pub fn withRowPrefixNUnique(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNUnique(frame, names, output_names);
+}
+
 fn withRowNumericReduction(
     frame: anytype,
     names: []const []const u8,

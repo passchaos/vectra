@@ -1362,6 +1362,25 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const row_unique = try (try row_unique_table.column("row_unique")).i64.toOwnedSlice(gpa);
     defer gpa.free(row_unique);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_unique);
+
+    var row_cum_distinct_table = try validity_table.withRowCumulativeDistinctCount(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_cum_distinct", "b_cum_distinct", "wa_cum_distinct", "wb_cum_distinct" },
+    );
+    defer row_cum_distinct_table.deinit();
+    const a_cum_distinct = try (try row_cum_distinct_table.column("a_cum_distinct")).i64.toOwnedSlice(gpa);
+    defer gpa.free(a_cum_distinct);
+    const b_cum_distinct = try (try row_cum_distinct_table.column("b_cum_distinct")).i64.toOwnedSlice(gpa);
+    defer gpa.free(b_cum_distinct);
+    const wa_cum_distinct = try (try row_cum_distinct_table.column("wa_cum_distinct")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wa_cum_distinct);
+    const wb_cum_distinct = try (try row_cum_distinct_table.column("wb_cum_distinct")).i64.toOwnedSlice(gpa);
+    defer gpa.free(wb_cum_distinct);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 1 }, a_cum_distinct);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, b_cum_distinct);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 1, 2 }, wa_cum_distinct);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 3, 2, 3 }, wb_cum_distinct);
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixNUnique(&.{"a"}, &.{ "a_cum_unique", "extra_cum_unique" }));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantileRange(&.{ "a", "b" }, "bad_row_quantile_range", 0.8, 0.2));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowTrimmedMean(&.{ "a", "b" }, "bad_row_trimmed_mean", 0.5));

@@ -8721,6 +8721,130 @@ pub fn withRowNUnique(
     return withRowDistinctCountCore(DeviceDataFrame, input, names, output_name);
 }
 
+fn withRowCumulativeDistinctCountCore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |_, output_name, col_index| {
+        for (0..input.rows) |row| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            const candidate = flat_values[offset];
+
+            var seen = false;
+            for (0..col_index) |previous_index| {
+                const previous_offset = row * check_names.len + previous_index;
+                if (!flat_validity[previous_offset]) continue;
+                if (rowModeValueEqual(flat_values[previous_offset], candidate)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) counts[row] += 1;
+        }
+
+        var column = try DeviceColumn.fromSlice(i64, input.allocator, counts, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeDistinctCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeDistinctCountCore(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumDistinctCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeDistinctCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixDistinctCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeDistinctCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNUnique(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeDistinctCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNUnique(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeDistinctCount(DeviceDataFrame, input, names, output_names);
+}
+
 const RowNumericDispersion = enum { variance, magnitude_variance, stddev, magnitude_stddev, sem, magnitude_sem, cv, magnitude_cv, fano, magnitude_fano, skewness, magnitude_skewness, kurtosis, magnitude_kurtosis };
 
 fn withRowNumericDispersion(
