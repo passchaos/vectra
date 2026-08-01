@@ -1292,6 +1292,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 18.0 }, row_mean_abs_dev);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_mean_abs_dev_validity);
 
+    var row_gini_mean_diff_table = try validity_table.withRowGiniMeanDiff(&.{ "a", "b" }, "row_gini_mean_diff");
+    defer row_gini_mean_diff_table.deinit();
+    const row_gini_mean_diff_column = try row_gini_mean_diff_table.column("row_gini_mean_diff");
+    try std.testing.expect(row_gini_mean_diff_column.f64.nullable());
+    const row_gini_mean_diff = try row_gini_mean_diff_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_gini_mean_diff);
+    const row_gini_mean_diff_validity = try row_gini_mean_diff_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_gini_mean_diff_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 36.0 }, row_gini_mean_diff);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_gini_mean_diff_validity);
+
     var row_rms_table = try validity_table.withRowRms(&.{ "a", "b" }, "row_rms");
     defer row_rms_table.deinit();
     const row_rms_column = try row_rms_table.column("row_rms");

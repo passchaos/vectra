@@ -2979,6 +2979,10 @@ pub fn withRowMeanAbsDev(self: anytype, names: []const []const u8, output_name: 
     return dataframe_array_mod.withRowMeanAbsDev(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowGiniMeanDiff(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowGiniMeanDiff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowRms(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowRms(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
