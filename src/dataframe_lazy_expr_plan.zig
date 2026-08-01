@@ -3204,6 +3204,22 @@ pub fn withRowQuantile(frame: anytype, names: []const []const u8, output_name: [
     } });
 }
 
+pub fn withRowQuantileRange(frame: anytype, names: []const []const u8, output_name: []const u8, low_q: f64, high_q: f64) DeviceDataError!void {
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .row_quantile_range = .{
+        .names = owned_names,
+        .output_name = owned_output,
+        .low_q = low_q,
+        .high_q = high_q,
+    } });
+}
+
 fn withRowQuantileAlias(
     frame: anytype,
     names: []const []const u8,

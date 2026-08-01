@@ -807,6 +807,7 @@ pub const DeviceDataFrame = struct {
     pub const withRowArgMin = table_methods_mod.withRowArgMin;
     pub const withRowArgMax = table_methods_mod.withRowArgMax;
     pub const withRowQuantile = table_methods_mod.withRowQuantile;
+    pub const withRowQuantileRange = table_methods_mod.withRowQuantileRange;
     pub const withRowMedian = table_methods_mod.withRowMedian;
     pub const withRowIqr = table_methods_mod.withRowIqr;
     pub const withRowInterdecileRange = table_methods_mod.withRowInterdecileRange;

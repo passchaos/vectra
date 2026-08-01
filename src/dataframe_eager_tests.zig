@@ -441,6 +441,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 13.0 }, row_quantile);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_quantile_validity);
 
+    var row_quantile_range_table = try validity_table.withRowQuantileRange(&.{ "a", "b" }, "row_quantile_range", 0.2, 0.8);
+    defer row_quantile_range_table.deinit();
+    const row_quantile_range_column = try row_quantile_range_table.column("row_quantile_range");
+    try std.testing.expect(row_quantile_range_column.f64.nullable());
+    const row_quantile_range = try row_quantile_range_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_quantile_range);
+    const row_quantile_range_validity = try row_quantile_range_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_quantile_range_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_quantile_range[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_quantile_range[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_quantile_range[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 21.6), row_quantile_range[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_quantile_range_validity);
+
     var row_median_table = try validity_table.withRowMedian(&.{ "a", "b" }, "row_median");
     defer row_median_table.deinit();
     const row_median_column = try row_median_table.column("row_median");
@@ -1100,6 +1114,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_unique);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_unique);
     try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantile(&.{ "a", "b" }, "bad_row_quantile", 1.5));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowQuantileRange(&.{ "a", "b" }, "bad_row_quantile_range", 0.8, 0.2));
 
     var row_sum_table = try validity_table.withRowSum(&.{ "a", "b" }, "row_sum");
     defer row_sum_table.deinit();

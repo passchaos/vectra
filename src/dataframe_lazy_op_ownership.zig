@@ -1918,6 +1918,18 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .q = row_quantile.q,
             } };
         },
+        .row_quantile_range => |row_quantile_range| blk: {
+            const names = try cloneNameList(allocator, row_quantile_range.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_quantile_range.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_quantile_range = .{
+                .names = names,
+                .output_name = output_name,
+                .low_q = row_quantile_range.low_q,
+                .high_q = row_quantile_range.high_q,
+            } };
+        },
         .row_pair_count => |row_paired| blk: {
             const value_names = try cloneNameList(allocator, row_paired.value_names);
             errdefer freeNameList(allocator, value_names);

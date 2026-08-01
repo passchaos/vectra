@@ -3743,6 +3743,31 @@ pub fn withRowQuantile(
     return withRowQuantileCore(DeviceDataFrame, input, names, output_name, q);
 }
 
+pub fn withRowQuantileRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+    low_q: f64,
+    high_q: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(low_q) or low_q < 0.0 or low_q > 1.0) return error.InvalidShape;
+    if (std.math.isNan(high_q) or high_q < 0.0 or high_q > 1.0) return error.InvalidShape;
+    if (high_q < low_q) return error.InvalidShape;
+
+    const check_names = if (names.len == 0) input.names else names;
+    const output = try withRowQuantileValues(DeviceDataFrame, input, check_names, .{ .difference = .{ .hi = high_q, .lo = low_q } });
+    defer {
+        input.allocator.free(output.values);
+        input.allocator.free(output.validity);
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, output.values, output.validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 pub fn withRowMedian(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

@@ -1091,6 +1091,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, q={d})", .{ row_quantile.output_name, row_quantile.q });
         },
+        .row_quantile_range => |row_quantile_range| {
+            try writer.print("row_quantile_range([", .{});
+            for (row_quantile_range.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, low_q={d}, high_q={d})", .{ row_quantile_range.output_name, row_quantile_range.low_q, row_quantile_range.high_q });
+        },
         .row_median => |row_count| {
             try writer.print("row_median([", .{});
             for (row_count.names, 0..) |name, i| {

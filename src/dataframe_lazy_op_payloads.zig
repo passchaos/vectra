@@ -259,6 +259,12 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             q: f64,
         };
+        pub const RowQuantileRange = struct {
+            names: [][]const u8,
+            output_name: []const u8,
+            low_q: f64,
+            high_q: f64,
+        };
         pub const RowNumericDispersion = struct {
             names: [][]const u8,
             output_name: []const u8,
