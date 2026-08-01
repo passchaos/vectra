@@ -2258,6 +2258,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowAbsCv(self, names, output_name, correction);
             }
 
+            pub fn withRowMagnitudeFano(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeFano(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsFano(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsFano(self, names, output_name, correction);
+            }
+
+            pub fn withRowMagnitudeIndexOfDispersion(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeIndexOfDispersion(self, names, output_name, correction);
+            }
+
+            pub fn withRowAbsIndexOfDispersion(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsIndexOfDispersion(self, names, output_name, correction);
+            }
+
             pub fn withRowFano(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowFano(self, names, output_name, correction);
             }

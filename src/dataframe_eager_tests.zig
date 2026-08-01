@@ -1606,6 +1606,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 162.0 / 11.0), row_fano[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_fano_validity);
 
+    var row_magnitude_fano_table = try validity_table.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
+    defer row_magnitude_fano_table.deinit();
+    const row_magnitude_fano_column = try row_magnitude_fano_table.column("row_magnitude_fano");
+    try std.testing.expect(row_magnitude_fano_column.f64.nullable());
+    const row_magnitude_fano = try row_magnitude_fano_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_fano);
+    const row_magnitude_fano_validity = try row_magnitude_fano_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_fano_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_fano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_fano[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_fano[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 162.0 / 11.0), row_magnitude_fano[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_fano_validity);
+
     try std.testing.expectError(error.InvalidShape, validity_table.withRowVariance(&.{ "a", "b" }, "bad_row_variance", -1.0));
     try std.testing.expectError(error.TypeMismatch, validity_table.withRowSum(&.{"c"}, "bad_row_sum"));
 
@@ -2267,6 +2281,22 @@ test "device dataframe derives row magnitude coefficient of variation for signed
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_cv[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), row_magnitude_cv[1], 1e-12);
     try std.testing.expect(std.math.isNan(row_magnitude_cv[2]));
+
+    var ordinary_fano = try table.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
+    defer ordinary_fano.deinit();
+    const row_fano = try (try ordinary_fano.column("row_fano")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_fano);
+    try std.testing.expect(std.math.isNan(row_fano[0]));
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), row_fano[1], 1e-12);
+    try std.testing.expect(std.math.isNan(row_fano[2]));
+
+    var magnitude_fano = try table.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
+    defer magnitude_fano.deinit();
+    const row_magnitude_fano = try (try magnitude_fano.column("row_magnitude_fano")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_fano);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_magnitude_fano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), row_magnitude_fano[1], 1e-12);
+    try std.testing.expect(std.math.isNan(row_magnitude_fano[2]));
 }
 
 test "device dataframe selects and drops columns by nullability" {

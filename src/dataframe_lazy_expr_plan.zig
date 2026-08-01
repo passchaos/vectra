@@ -3850,7 +3850,7 @@ fn withRowNumericDispersion(
     names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { variance, stddev, sem, cv, magnitude_cv, fano },
+    comptime reduction: enum { variance, stddev, sem, cv, magnitude_cv, fano, magnitude_fano },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -3881,6 +3881,11 @@ fn withRowNumericDispersion(
             .correction = correction,
         } }),
         .magnitude_cv => try frame.ops.append(frame.allocator, .{ .row_magnitude_cv = .{
+            .names = owned_names,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .magnitude_fano => try frame.ops.append(frame.allocator, .{ .row_magnitude_fano = .{
             .names = owned_names,
             .output_name = owned_output,
             .correction = correction,
@@ -3923,6 +3928,22 @@ pub fn withRowMagnitudeCv(frame: anytype, names: []const []const u8, output_name
 
 pub fn withRowAbsCv(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowMagnitudeCv(frame, names, output_name, correction);
+}
+
+pub fn withRowMagnitudeFano(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowNumericDispersion(frame, names, output_name, correction, .magnitude_fano);
+}
+
+pub fn withRowAbsFano(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowMagnitudeFano(frame, names, output_name, correction);
+}
+
+pub fn withRowMagnitudeIndexOfDispersion(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowMagnitudeFano(frame, names, output_name, correction);
+}
+
+pub fn withRowAbsIndexOfDispersion(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowMagnitudeFano(frame, names, output_name, correction);
 }
 
 pub fn withRowFano(frame: anytype, names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
