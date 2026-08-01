@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_inverse_simpson, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3347,7 +3347,7 @@ fn withRowNumericReduction(
                     switch (reduction) {
                         .sum, .mean => values[row] += value,
                         .mean_abs, .l1_norm => values[row] += @abs(value),
-                        .hhi, .magnitude_normalized_hhi, .magnitude_inverse_simpson => {
+                        .hhi, .magnitude_normalized_hhi, .magnitude_sparsity, .magnitude_inverse_simpson => {
                             const magnitude = @abs(value);
                             values[row] += magnitude;
                             maxima[row] += magnitude * magnitude;
@@ -3463,6 +3463,16 @@ fn withRowNumericReduction(
                 const concentration = aux_value / (value.* * value.*);
                 const uniform_floor = 1.0 / @as(f64, @floatFromInt(count));
                 value.* = (concentration - uniform_floor) / (1.0 - uniform_floor);
+            }
+        } else if (reduction == .magnitude_sparsity) {
+            if (value.* == 0.0 or aux_value == 0.0) {
+                value.* = std.math.nan(f64);
+            } else if (count <= 1) {
+                value.* = 1.0;
+            } else {
+                const sqrt_count = std.math.sqrt(@as(f64, @floatFromInt(count)));
+                const l1_over_l2 = value.* / std.math.sqrt(aux_value);
+                value.* = (sqrt_count - l1_over_l2) / (sqrt_count - 1.0);
             }
         } else if (reduction == .magnitude_inverse_simpson) {
             value.* = if (value.* == 0.0 or aux_value == 0.0) std.math.nan(f64) else (value.* * value.*) / aux_value;
@@ -3665,6 +3675,24 @@ pub fn withRowAbsNormalizedHhi(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowMagnitudeNormalizedHhi(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeSparsity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_sparsity);
+}
+
+pub fn withRowAbsSparsity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSparsity(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMagnitudeInverseSimpson(

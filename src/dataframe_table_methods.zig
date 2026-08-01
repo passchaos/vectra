@@ -3003,6 +3003,14 @@ pub fn withRowAbsNormalizedHhi(self: anytype, names: []const []const u8, output_
     return dataframe_array_mod.withRowAbsNormalizedHhi(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeSparsity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeSparsity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsSparsity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsSparsity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMagnitudeInverseSimpson(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMagnitudeInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
