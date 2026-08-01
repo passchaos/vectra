@@ -19,6 +19,7 @@ const DeviceGroupByAggregation = options_mod.DeviceGroupByAggregation;
 const MomentProfile = group_profile_mod.MomentProfile;
 const compareSortValues = numeric_mod.compareSortValues;
 const castToF64 = numeric_mod.castToF64;
+const groupKeyEqual = numeric_mod.groupKeyEqual;
 const rowHasValidKeys = keys_mod.rowHasValidKeys;
 const columnRowValid = keys_mod.columnRowValid;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
@@ -262,6 +263,102 @@ pub fn groupByLastOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByTakeOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
+}
+
+pub fn groupByNUniqueOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .bool => |typed| groupByNUniqueOnTyped(DeviceDataFrame, bool, allocator, frame, key_names, output_name, typed, device_value),
+        .i8 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, i8, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, i16, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, i32, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, i64, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, u8, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, u16, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, u32, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, u64, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByNUniqueOnTyped(DeviceDataFrame, usize, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByNUniqueOnTyped(DeviceDataFrame, isize, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, f16, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, f32, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByNUniqueOnTyped(DeviceDataFrame, f64, allocator, frame, key_names, output_name, typed, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByNUniqueOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var distinct_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (distinct_value_rows.items) |*rows| rows.deinit(allocator);
+        distinct_value_rows.deinit(allocator);
+    }
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try distinct_value_rows.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+
+        var seen = false;
+        for (distinct_value_rows.items[group_index].items) |previous_row| {
+            if (groupKeyEqual(V, values[previous_row], value_item)) {
+                seen = true;
+                break;
+            }
+        }
+        if (!seen) try distinct_value_rows.items[group_index].append(allocator, row);
+    }
+
+    const counts = try allocator.alloc(i64, distinct_value_rows.items.len);
+    defer allocator.free(counts);
+    for (distinct_value_rows.items, counts) |rows, *slot| {
+        slot.* = @intCast(rows.items.len);
+    }
+
+    const count_column = try DeviceColumn.fromSlice(i64, allocator, counts, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, count_column);
+}
+
+pub fn groupByNUniqueOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByNUniqueOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
 fn initMultiKeyAggregatedDataFrame(

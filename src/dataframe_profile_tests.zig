@@ -181,6 +181,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(last_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, last_sales_values);
 
+    var unique_sales = try table.groupByNUnique("store", "sales", "sales_n_unique");
+    defer unique_sales.deinit();
+    const unique_sales_values = try (try unique_sales.column("sales_n_unique")).i64.toOwnedSlice(gpa);
+    defer gpa.free(unique_sales_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, unique_sales_values);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -307,6 +313,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_last);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, ms_simple_last);
 
+    var multi_unique = try multi.groupByNUniqueOn(&.{ "store", "day" }, "amount", "amount_n_unique");
+    defer multi_unique.deinit();
+    const ms_simple_unique = try (try multi_unique.column("amount_n_unique")).i64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_unique);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, ms_simple_unique);
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -343,6 +355,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_last = try (try lazy_multi_last.column("amount_last_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_last);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, lazy_ms_last);
+
+    var multi_unique_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_unique_plan.deinit();
+    try multi_unique_plan.groupByNUniqueOn(&.{ "store", "day" }, "amount", "amount_n_unique_lazy");
+    const multi_unique_explained = try multi_unique_plan.explain(gpa);
+    defer gpa.free(multi_unique_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_unique_explained, "group_by_n_unique_on([store,day], value=amount -> amount_n_unique_lazy)") != null);
+    var lazy_multi_unique = try multi_unique_plan.collect();
+    defer lazy_multi_unique.deinit();
+    const lazy_ms_unique = try (try lazy_multi_unique.column("amount_n_unique_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_unique);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, lazy_ms_unique);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();
