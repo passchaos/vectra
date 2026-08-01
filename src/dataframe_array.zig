@@ -1104,6 +1104,331 @@ fn fillNumericPredicateColumn(
     };
 }
 
+fn withColumnFillNumericPredicate(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+    comptime predicate: RowNumericPredicate,
+) DeviceFrameArrayError!DeviceDataFrame {
+    const source = try input.column(input_name);
+    return switch (scalar) {
+        inline else => |replacement, tag| blk: {
+            if (source.dtype() != tag) return error.TypeUnsupported;
+            const T = @TypeOf(replacement);
+            const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+            var filled: DeviceColumn = @unionInit(
+                DeviceColumn,
+                @tagName(tag),
+                try fillNumericPredicateTyped(T, input.allocator, @field(source.*, @tagName(tag)), replacement, predicate),
+            );
+            defer filled.deinit();
+            break :blk try withColumn(DeviceDataFrame, input, output_name, filled);
+        },
+    };
+}
+
+pub fn withColumnFillNaN(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .nan);
+}
+
+pub fn withColumnFillNaNScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNaN(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .inf);
+}
+
+pub fn withColumnFillInfScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillInf(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositiveInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .positive_inf);
+}
+
+pub fn withColumnFillPositiveInfScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillPositiveInf(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegativeInf(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .negative_inf);
+}
+
+pub fn withColumnFillNegativeInfScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNegativeInf(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .zero);
+}
+
+pub fn withColumnFillZeroScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillZero(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositiveZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .positive_zero);
+}
+
+pub fn withColumnFillPositiveZeroScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillPositiveZero(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegativeZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .negative_zero);
+}
+
+pub fn withColumnFillNegativeZeroScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNegativeZero(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNonZero(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .non_zero);
+}
+
+pub fn withColumnFillNonZeroScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNonZero(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositive(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .positive);
+}
+
+pub fn withColumnFillPositiveScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillPositive(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillSignBit(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .signbit);
+}
+
+pub fn withColumnFillSignBitScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillSignBit(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegative(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .negative);
+}
+
+pub fn withColumnFillNegativeScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNegative(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillFinite(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .finite);
+}
+
+pub fn withColumnFillFiniteScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillFinite(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNormal(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .normal);
+}
+
+pub fn withColumnFillNormalScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNormal(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillSubnormal(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .subnormal);
+}
+
+pub fn withColumnFillSubnormalScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillSubnormal(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNonFinite(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNumericPredicate(DeviceDataFrame, input, output_name, input_name, scalar, .non_finite);
+}
+
+pub fn withColumnFillNonFiniteScalar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_name: []const u8,
+    input_name: []const u8,
+    scalar: DeviceScalar,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withColumnFillNonFinite(DeviceDataFrame, input, output_name, input_name, scalar);
+}
+
 pub fn fillNaNColumn(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

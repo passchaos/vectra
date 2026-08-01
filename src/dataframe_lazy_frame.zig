@@ -1518,6 +1518,126 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withColumnFillNullScalar(self, output_name, input_name, scalar);
             }
 
+            pub fn withColumnFillNaN(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNaN(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNaNScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNaNScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillInf(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillInfScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillInfScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillPositiveInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositiveInf(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillPositiveInfScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositiveInfScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNegativeInf(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegativeInf(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNegativeInfScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegativeInfScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillZero(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillZeroScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillZeroScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillPositiveZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositiveZero(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillPositiveZeroScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositiveZeroScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNegativeZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegativeZero(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNegativeZeroScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegativeZeroScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNonZero(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNonZero(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNonZeroScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNonZeroScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillPositive(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositive(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillPositiveScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillPositiveScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillSignBit(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillSignBit(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillSignBitScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillSignBitScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNegative(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegative(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNegativeScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNegativeScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillFinite(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillFinite(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillFiniteScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillFiniteScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNormal(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNormal(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNormalScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNormalScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillSubnormal(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillSubnormal(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillSubnormalScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillSubnormalScalar(self, output_name, input_name, scalar);
+            }
+
+            pub fn withColumnFillNonFinite(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNonFinite(self, output_name, input_name, T, value);
+            }
+
+            pub fn withColumnFillNonFiniteScalar(self: *DeviceLazyFrame, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+                return lazy_expr_mod.withColumnFillNonFiniteScalar(self, output_name, input_name, scalar);
+            }
+
             pub fn fillNaNColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
                 return lazy_expr_mod.fillNaNColumn(self, name, T, value);
             }

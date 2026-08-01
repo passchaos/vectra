@@ -2576,6 +2576,126 @@ pub fn withColumnFillNullScalar(self: anytype, output_name: []const u8, input_na
     return dataframe_array_mod.withColumnFillNullScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
 }
 
+pub fn withColumnFillNaN(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNaN(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNaNScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNaNScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillInf(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillInfScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillInfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositiveInf(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositiveInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveInfScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositiveInfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegativeInf(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegativeInf(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeInfScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegativeInfScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillZero(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillZeroScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillZeroScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositiveZero(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositiveZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveZeroScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositiveZeroScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegativeZero(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegativeZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeZeroScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegativeZeroScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNonZero(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNonZero(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNonZeroScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNonZeroScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillPositive(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositive(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillPositiveScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillSignBit(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillSignBit(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillSignBitScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillSignBitScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNegative(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegative(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNegativeScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillFinite(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillFinite(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillFiniteScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillFiniteScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNormal(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNormal(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNormalScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNormalScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillSubnormal(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillSubnormal(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillSubnormalScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillSubnormalScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
+pub fn withColumnFillNonFinite(self: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNonFinite(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNonFiniteScalar(self: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withColumnFillNonFiniteScalar(FrameType(@TypeOf(self)), frameValue(self), output_name, input_name, scalar);
+}
+
 pub fn fillNaNColumn(self: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.fillNaNColumn(FrameType(@TypeOf(self)), frameValue(self), name, DeviceScalar.init(T, value));
 }

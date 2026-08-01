@@ -2079,6 +2079,171 @@ pub fn withColumnFillNullScalar(frame: anytype, output_name: []const u8, input_n
     return fillNullColumnWithScalar(frame, output_name, scalar);
 }
 
+pub fn withColumnFillNaN(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNaNScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNaNScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNaNColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillInf(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillInfScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillInfScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillInfColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillPositiveInf(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillPositiveInfScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveInfScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillPositiveInfColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNegativeInf(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNegativeInfScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeInfScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNegativeInfColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillZero(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillZeroScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillZeroScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillZeroColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillPositiveZero(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillPositiveZeroScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveZeroScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillPositiveZeroColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNegativeZero(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNegativeZeroScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeZeroScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNegativeZeroColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNonZero(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNonZeroScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNonZeroScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNonZeroColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillPositive(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillPositiveScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillPositiveScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillPositiveColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillSignBit(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillSignBitScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillSignBitScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillSignBitColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNegative(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNegativeScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNegativeScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNegativeColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillFinite(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillFiniteScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillFiniteScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillFiniteColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNormal(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNormalScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNormalScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNormalColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillSubnormal(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillSubnormalScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillSubnormalScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillSubnormalColumnWithScalar(frame, output_name, scalar);
+}
+
+pub fn withColumnFillNonFinite(frame: anytype, output_name: []const u8, input_name: []const u8, comptime T: type, value: T) DeviceDataError!void {
+    return withColumnFillNonFiniteScalar(frame, output_name, input_name, DeviceScalar.init(T, value));
+}
+
+pub fn withColumnFillNonFiniteScalar(frame: anytype, output_name: []const u8, input_name: []const u8, scalar: DeviceScalar) DeviceDataError!void {
+    if (!std.mem.eql(u8, output_name, input_name)) {
+        try copyColumn(frame, input_name, output_name);
+    }
+    return fillNonFiniteColumnWithScalar(frame, output_name, scalar);
+}
+
 pub fn fillNaNColumn(frame: anytype, name: []const u8, comptime T: type, value: T) DeviceDataError!void {
     return fillNaNColumnWithScalar(frame, name, DeviceScalar.init(T, value));
 }
