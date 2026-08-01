@@ -123,6 +123,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         drop_nulls: Payloads.DropNulls,
         filter_nulls_column: Payloads.FilterColumn,
         filter_between_column: Payloads.RangeFilterColumn,
+        filter_isin_column: Payloads.MembershipFilterColumn,
         drop_nans: Payloads.DropNulls,
         filter_nans_column: Payloads.FilterColumn,
         drop_infs: Payloads.DropNulls,

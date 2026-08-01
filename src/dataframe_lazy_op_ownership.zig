@@ -3808,6 +3808,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .keep_inside = range.keep_inside,
             } };
         },
+        .filter_isin_column => |membership| blk: {
+            const input_name = try allocator.dupe(u8, membership.input_name);
+            errdefer allocator.free(input_name);
+            const test_name = try allocator.dupe(u8, membership.test_name);
+            errdefer allocator.free(test_name);
+            break :blk .{ .filter_isin_column = .{
+                .input_name = input_name,
+                .test_name = test_name,
+                .invert = membership.invert,
+            } };
+        },
         .drop_rows_by_mask_column => |name| .{ .drop_rows_by_mask_column = try allocator.dupe(u8, name) },
         .where_indices_column => |predicate| blk: {
             const name = try allocator.dupe(u8, predicate.name);

@@ -130,6 +130,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             upper_inclusive: bool,
             keep_inside: bool,
         };
+        pub const MembershipFilterColumn = struct {
+            input_name: []const u8,
+            test_name: []const u8,
+            invert: bool,
+        };
         pub const WithColumnBinaryParam = struct {
             name: []const u8,
             lhs_name: []const u8,

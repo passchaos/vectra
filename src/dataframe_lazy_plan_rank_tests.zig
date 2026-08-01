@@ -676,6 +676,61 @@ test "device lazy frame filters by named boolean columns" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, sales_isin);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, sales_notin);
 
+    var filter_isin_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_isin_plan.deinit();
+    try filter_isin_plan.withColumnLiteral("needle", f64, 3.0);
+    try filter_isin_plan.filterIsInColumn("sales", "needle");
+    try filter_isin_plan.select(&.{"sales"});
+    const filter_isin_explain = try filter_isin_plan.explain(gpa);
+    defer gpa.free(filter_isin_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_isin_explain, "filter_isin_column(sales, test:needle, invert=false)") != null);
+    var filter_isin_result = try filter_isin_plan.collect();
+    defer filter_isin_result.deinit();
+    const filter_isin_sales = try (try filter_isin_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filter_isin_sales);
+    try std.testing.expectEqualSlices(f64, &.{3.0}, filter_isin_sales);
+
+    var filter_notin_plan = try DeviceLazyFrame.init(gpa, table);
+    defer filter_notin_plan.deinit();
+    try filter_notin_plan.withColumnLiteral("needle", f64, 3.0);
+    try filter_notin_plan.filterNotInColumn("sales", "needle");
+    try filter_notin_plan.select(&.{"sales"});
+    const filter_notin_explain = try filter_notin_plan.explain(gpa);
+    defer gpa.free(filter_notin_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_notin_explain, "filter_isin_column(sales, test:needle, invert=true)") != null);
+    var filter_notin_result = try filter_notin_plan.collect();
+    defer filter_notin_result.deinit();
+    const filter_notin_sales = try (try filter_notin_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(filter_notin_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, filter_notin_sales);
+
+    var drop_isin_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_isin_plan.deinit();
+    try drop_isin_plan.withColumnLiteral("needle", f64, 3.0);
+    try drop_isin_plan.dropIsInColumn("sales", "needle");
+    try drop_isin_plan.select(&.{"sales"});
+    var drop_isin_result = try drop_isin_plan.collect();
+    defer drop_isin_result.deinit();
+    const drop_isin_sales = try (try drop_isin_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_isin_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, drop_isin_sales);
+
+    var drop_notin_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_notin_plan.deinit();
+    try drop_notin_plan.withColumnLiteral("needle", f64, 3.0);
+    try drop_notin_plan.dropNotInColumn("sales", "needle");
+    try drop_notin_plan.select(&.{"sales"});
+    var drop_notin_result = try drop_notin_plan.collect();
+    defer drop_notin_result.deinit();
+    const drop_notin_sales = try (try drop_notin_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_notin_sales);
+    try std.testing.expectEqualSlices(f64, &.{3.0}, drop_notin_sales);
+
+    var invalid_isin_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_isin_plan.deinit();
+    try invalid_isin_plan.filterIsInColumn("sales", "active");
+    try std.testing.expectError(error.TypeUnsupported, invalid_isin_plan.collect());
+
     var drop_mask_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_mask_plan.deinit();
     try drop_mask_plan.dropRowsByColumnMask("active");

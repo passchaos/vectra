@@ -849,6 +849,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterColumn(self, name);
             }
 
+            pub fn filterIsInColumn(self: *DeviceLazyFrame, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterIsInColumn(self, input_name, test_name);
+            }
+
+            pub fn filterNotInColumn(self: *DeviceLazyFrame, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.filterNotInColumn(self, input_name, test_name);
+            }
+
+            pub const filterIsinColumn = filterIsInColumn;
+            pub const filterIsInColumnInverted = filterNotInColumn;
+            pub const filterIsinColumnInverted = filterNotInColumn;
+
+            pub fn dropIsInColumn(self: *DeviceLazyFrame, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropIsInColumn(self, input_name, test_name);
+            }
+
+            pub fn dropNotInColumn(self: *DeviceLazyFrame, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.dropNotInColumn(self, input_name, test_name);
+            }
+
+            pub const dropIsinColumn = dropIsInColumn;
+            pub const dropIsInColumnInverted = dropNotInColumn;
+            pub const dropIsinColumnInverted = dropNotInColumn;
+
             pub fn filterBetweenColumnWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
                 return lazy_expr_mod.filterBetweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
             }

@@ -2214,6 +2214,36 @@ pub fn filterColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@
     return expr_mod.filterColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+fn filterIsInColumnMode(self: anytype, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var mask = try isinColumns(self, input_name, test_name, invert);
+    defer mask.deinit();
+    return filterColumnMask(self, mask);
+}
+
+pub fn filterIsInColumn(self: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterIsInColumnMode(self, input_name, test_name, false);
+}
+
+pub fn filterNotInColumn(self: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterIsInColumnMode(self, input_name, test_name, true);
+}
+
+pub const filterIsinColumn = filterIsInColumn;
+pub const filterIsInColumnInverted = filterNotInColumn;
+pub const filterIsinColumnInverted = filterNotInColumn;
+
+pub fn dropIsInColumn(self: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterNotInColumn(self, input_name, test_name);
+}
+
+pub fn dropNotInColumn(self: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterIsInColumn(self, input_name, test_name);
+}
+
+pub const dropIsinColumn = dropIsInColumn;
+pub const dropIsInColumnInverted = dropNotInColumn;
+pub const dropIsinColumnInverted = dropNotInColumn;
+
 pub fn filterBetweenColumnWithDeviceScalars(self: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
     var mask = try betweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
     defer mask.deinit();

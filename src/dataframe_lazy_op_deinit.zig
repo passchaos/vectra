@@ -629,6 +629,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         .filter_mask => |*mask| mask.deinit(),
         .filter_column => |name| allocator.free(name),
         .filter_between_column => |range| allocator.free(range.name),
+        .filter_isin_column => |membership| {
+            allocator.free(membership.input_name);
+            allocator.free(membership.test_name);
+        },
         .drop_rows_by_mask_column => |name| allocator.free(name),
         .where_indices_column => |predicate| {
             allocator.free(predicate.name);

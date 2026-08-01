@@ -591,6 +591,42 @@ pub fn filterColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_column = owned_name });
 }
 
+fn filterIsInColumnMode(frame: anytype, input_name: []const u8, test_name: []const u8, invert: bool) DeviceDataError!void {
+    const owned_input = try frame.allocator.dupe(u8, input_name);
+    errdefer frame.allocator.free(owned_input);
+    const owned_test = try frame.allocator.dupe(u8, test_name);
+    errdefer frame.allocator.free(owned_test);
+    try frame.ops.append(frame.allocator, .{ .filter_isin_column = .{
+        .input_name = owned_input,
+        .test_name = owned_test,
+        .invert = invert,
+    } });
+}
+
+pub fn filterIsInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return filterIsInColumnMode(frame, input_name, test_name, false);
+}
+
+pub fn filterNotInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return filterIsInColumnMode(frame, input_name, test_name, true);
+}
+
+pub const filterIsinColumn = filterIsInColumn;
+pub const filterIsInColumnInverted = filterNotInColumn;
+pub const filterIsinColumnInverted = filterNotInColumn;
+
+pub fn dropIsInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return filterNotInColumn(frame, input_name, test_name);
+}
+
+pub fn dropNotInColumn(frame: anytype, input_name: []const u8, test_name: []const u8) DeviceDataError!void {
+    return filterIsInColumn(frame, input_name, test_name);
+}
+
+pub const dropIsinColumn = dropIsInColumn;
+pub const dropIsInColumnInverted = dropNotInColumn;
+pub const dropIsinColumnInverted = dropNotInColumn;
+
 pub fn filterBetweenColumnWithDeviceScalars(frame: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

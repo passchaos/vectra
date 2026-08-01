@@ -7063,6 +7063,31 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false }, metric_isin_inverted);
     try std.testing.expectError(error.TypeUnsupported, where_table.withColumnIsIn("bad_isin", "metric", "mask"));
 
+    var metric_isin_filtered = try where_table.filterIsInColumn("metric", "needles");
+    defer metric_isin_filtered.deinit();
+    const metric_isin_filtered_values = try (try metric_isin_filtered.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_isin_filtered_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, metric_isin_filtered_values);
+
+    var metric_notin_filtered = try where_table.filterNotInColumn("metric", "needles");
+    defer metric_notin_filtered.deinit();
+    const metric_notin_filtered_values = try (try metric_notin_filtered.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_notin_filtered_values);
+    try std.testing.expectEqualSlices(f64, &.{-1.0}, metric_notin_filtered_values);
+
+    var metric_drop_isin = try where_table.dropIsInColumn("metric", "needles");
+    defer metric_drop_isin.deinit();
+    const metric_drop_isin_values = try (try metric_drop_isin.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_drop_isin_values);
+    try std.testing.expectEqualSlices(f64, &.{-1.0}, metric_drop_isin_values);
+
+    var metric_drop_notin = try where_table.dropNotInColumn("metric", "needles");
+    defer metric_drop_notin.deinit();
+    const metric_drop_notin_values = try (try metric_drop_notin.column("metric")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_drop_notin_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0 }, metric_drop_notin_values);
+    try std.testing.expectError(error.TypeUnsupported, where_table.filterIsInColumn("metric", "mask"));
+
     var where_scalar_table = try where_table.withColumnWhereScalar("metric_where", "metric", "mask", f64, 0.0);
     defer where_scalar_table.deinit();
     const metric_where = try (try where_scalar_table.column("metric_where")).f64.toOwnedSlice(gpa);
