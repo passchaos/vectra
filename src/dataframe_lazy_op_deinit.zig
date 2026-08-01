@@ -700,6 +700,10 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(sort.options);
         },
         .top_k => |top| allocator.free(top.name),
+        .top_k_columns => |top| {
+            freeNameList(allocator, top.names);
+            allocator.free(top.options);
+        },
         .rank_profile_by => |payload| freeNameOutput(allocator, payload),
         .rolling_profile => |payload| freeNameOutput(allocator, payload),
         .rolling_moment_profile => |payload| freeNameOutput(allocator, payload),

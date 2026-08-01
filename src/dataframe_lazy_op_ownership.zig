@@ -3994,6 +3994,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             .options = top.options,
             .k = top.k,
         } },
+        .top_k_columns => |top| blk: {
+            const names = try cloneNameList(allocator, top.names);
+            errdefer freeNameList(allocator, names);
+            const options = try allocator.dupe(std.meta.Elem(@TypeOf(top.options)), top.options);
+            errdefer allocator.free(options);
+            break :blk .{ .top_k_columns = .{
+                .names = names,
+                .options = options,
+                .k = top.k,
+            } };
+        },
         .rank_profile_by => |rank| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "rank_profile_by", rank),
         .rolling_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "rolling_profile", profile),
         .rolling_moment_profile => |profile| try clone_profile_mod.cloneNameOutputOptions(Self, allocator, "rolling_moment_profile", profile),

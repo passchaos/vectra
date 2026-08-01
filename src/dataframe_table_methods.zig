@@ -7160,6 +7160,10 @@ pub fn sortByColumns(self: anytype, names: []const []const u8, options_values: [
     return rank_mod.sortByColumns(FrameType(@TypeOf(self)), frameValue(self), names, options_values);
 }
 
+pub fn topKByColumns(self: anytype, names: []const []const u8, k: usize, options_values: []const DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return rank_mod.topKByColumns(FrameType(@TypeOf(self)), frameValue(self), names, k, options_values);
+}
+
 pub fn topKBy(self: anytype, name: []const u8, k: usize, options_value: DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
     return rank_mod.topKBy(FrameType(@TypeOf(self)), frameValue(self), name, k, options_value);
 }

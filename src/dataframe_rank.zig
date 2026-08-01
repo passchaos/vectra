@@ -90,6 +90,18 @@ pub fn sortByColumns(
     return frame.take(order);
 }
 
+pub fn topKByColumns(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    names: []const []const u8,
+    k: usize,
+    options_values: []const DeviceSortOptions,
+) RankFrameError!DeviceDataFrame {
+    var sorted = try sortByColumns(DeviceDataFrame, frame, names, options_values);
+    defer sorted.deinit();
+    return sorted.head(k);
+}
+
 pub fn topKBy(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

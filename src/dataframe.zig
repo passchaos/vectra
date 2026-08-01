@@ -1893,6 +1893,7 @@ pub const DeviceDataFrame = struct {
     pub const sortByColumn = table_methods_mod.sortByColumn;
     pub const argsortByColumns = table_methods_mod.argsortByColumns;
     pub const sortByColumns = table_methods_mod.sortByColumns;
+    pub const topKByColumns = table_methods_mod.topKByColumns;
     pub const topKBy = table_methods_mod.topKBy;
     pub const rankProfileBy = table_methods_mod.rankProfileBy;
     pub const rollingProfile = profile_methods_mod.rollingProfile;

@@ -382,6 +382,11 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             options: DeviceSortOptions,
             k: usize,
         };
+        pub const TopKColumns = struct {
+            names: [][]const u8,
+            options: []DeviceSortOptions,
+            k: usize,
+        };
         pub const RowSlice = struct {
             start: usize,
             stop: usize,

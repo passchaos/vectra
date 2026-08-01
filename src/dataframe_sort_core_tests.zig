@@ -74,6 +74,12 @@ test "device dataframe sorts and rank profiles" {
     const multi_sorted_id = try (try multi_sorted.column("id")).i64.toOwnedSlice(gpa);
     defer gpa.free(multi_sorted_id);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 2, 4 }, multi_sorted_id);
+
+    var multi_top2 = try multi_table.topKByColumns(&.{ "group", "score" }, 2, &.{ .{ .descending = false }, .{ .descending = true } });
+    defer multi_top2.deinit();
+    const multi_top2_id = try (try multi_top2.column("id")).i64.toOwnedSlice(gpa);
+    defer gpa.free(multi_top2_id);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0 }, multi_top2_id);
     try std.testing.expectError(error.LengthMismatch, multi_table.sortByColumns(&.{"group"}, &.{ .{ .descending = false }, .{ .descending = true } }));
 
     var tied_score = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0, 20.0, 30.0, 0.0 }, &.{ true, true, true, true, false }, .cpu);

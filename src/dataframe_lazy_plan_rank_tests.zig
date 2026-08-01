@@ -7085,6 +7085,30 @@ test "device lazy frame sorts by multiple columns" {
     try std.testing.expectError(error.LengthMismatch, invalid.sortByColumns(&.{"active"}, &.{ .{ .descending = true }, .{ .descending = true } }));
 }
 
+test "device lazy frame collects multi-key topk operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.topKByColumns(&.{ "active", "units" }, 2, &.{ .{ .descending = true }, .{ .descending = true } });
+    try plan.select(&.{ "sales", "active", "units" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "top_k_columns(k=2)[active:desc=true,units:desc=true]") != null);
+
+    var topk = try plan.collect();
+    defer topk.deinit();
+    const sales = try (try topk.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales);
+    const units = try (try topk.column("units")).i64.toOwnedSlice(gpa);
+    defer gpa.free(units);
+    try std.testing.expectEqualSlices(f64, &.{ 7.0, 5.0 }, sales);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 3 }, units);
+}
+
 test "device lazy frame collects row slice operations" {
     const gpa = std.testing.allocator;
     var table = try lazyCollectTable(gpa);
