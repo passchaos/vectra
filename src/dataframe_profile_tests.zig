@@ -117,6 +117,46 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(all_active_on_values);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true }, all_active_on_values);
 
+    var active_true_counts = try bool_table.groupByTrueCount("store", "active", "active_true_count");
+    defer active_true_counts.deinit();
+    const active_true_count_values = try (try active_true_counts.column("active_true_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_true_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1 }, active_true_count_values);
+
+    var active_false_counts = try bool_table.groupByFalseCount("store", "active", "active_false_count");
+    defer active_false_counts.deinit();
+    const active_false_count_values = try (try active_false_counts.column("active_false_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_false_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1 }, active_false_count_values);
+
+    var active_true_ratios = try bool_table.groupByTrueRatio("store", "active", "active_true_ratio");
+    defer active_true_ratios.deinit();
+    const active_true_ratio_values = try (try active_true_ratios.column("active_true_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_true_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), active_true_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), active_true_ratio_values[1], 1e-12);
+
+    var active_false_ratios = try bool_table.groupByFalseRatio("store", "active", "active_false_ratio");
+    defer active_false_ratios.deinit();
+    const active_false_ratio_values = try (try active_false_ratios.column("active_false_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_false_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), active_false_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), active_false_ratio_values[1], 1e-12);
+
+    var active_true_counts_on = try bool_table.groupByTrueCountOn(&.{ "store", "day" }, "active", "active_true_count_on");
+    defer active_true_counts_on.deinit();
+    const active_true_count_on_values = try (try active_true_counts_on.column("active_true_count_on")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_true_count_on_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, active_true_count_on_values);
+
+    var active_false_ratios_on = try bool_table.groupByFalseRatioOn(&.{ "store", "day" }, "active", "active_false_ratio_on");
+    defer active_false_ratios_on.deinit();
+    const active_false_ratio_on_values = try (try active_false_ratios_on.column("active_false_ratio_on")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_false_ratio_on_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), active_false_ratio_on_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_false_ratio_on_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_false_ratio_on_values[2], 1e-12);
+
     var active_valids = try bool_table.groupByValidCount("store", "active", "active_valid_count");
     defer active_valids.deinit();
     const active_valid_values = try (try active_valids.column("active_valid_count")).i64.toOwnedSlice(gpa);
@@ -164,6 +204,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_null_count_values = try (try lazy_null_counts.column("active_null_count_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_null_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, lazy_null_count_values);
+
+    var true_ratio_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer true_ratio_plan.deinit();
+    try true_ratio_plan.groupByTrueRatioOn(&.{ "store", "day" }, "active", "active_true_ratio_lazy");
+    const true_ratio_explained = try true_ratio_plan.explain(gpa);
+    defer gpa.free(true_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, true_ratio_explained, "group_by_true_ratio_on([store,day], value=active -> active_true_ratio_lazy)") != null);
+    var lazy_true_ratios = try true_ratio_plan.collect();
+    defer lazy_true_ratios.deinit();
+    const lazy_true_ratio_values = try (try lazy_true_ratios.column("active_true_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_true_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_true_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_true_ratio_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_true_ratio_values[2], 1e-12);
 
     try std.testing.expectError(error.TypeUnsupported, bool_table.groupByAny("store", "day", "bad_any"));
 

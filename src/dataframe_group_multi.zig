@@ -47,6 +47,10 @@ const GroupByMomentAggregation = enum {
 const GroupByBoolAggregation = enum {
     any,
     all,
+    true_count,
+    false_count,
+    true_ratio,
+    false_ratio,
 };
 
 const GroupByValidityAggregation = enum {
@@ -763,8 +767,10 @@ fn groupByBoolOn(
 
     var representative_rows: std.ArrayList(usize) = .empty;
     defer representative_rows.deinit(frame.allocator);
-    var outputs: std.ArrayList(bool) = .empty;
-    defer outputs.deinit(frame.allocator);
+    var true_counts: std.ArrayList(i64) = .empty;
+    defer true_counts.deinit(frame.allocator);
+    var false_counts: std.ArrayList(i64) = .empty;
+    defer false_counts.deinit(frame.allocator);
 
     for (values, 0..) |value_item, row| {
         if (maybe_value_validity) |validity| {
@@ -773,16 +779,51 @@ fn groupByBoolOn(
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
         const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
             try representative_rows.append(frame.allocator, row);
-            try outputs.append(frame.allocator, value_item);
+            try true_counts.append(frame.allocator, 0);
+            try false_counts.append(frame.allocator, 0);
             break :blk representative_rows.items.len - 1;
         };
-        switch (aggregation) {
-            .any => outputs.items[group_index] = outputs.items[group_index] or value_item,
-            .all => outputs.items[group_index] = outputs.items[group_index] and value_item,
+        if (value_item) {
+            true_counts.items[group_index] += 1;
+        } else {
+            false_counts.items[group_index] += 1;
         }
     }
 
-    const output_column = try DeviceColumn.fromSlice(bool, frame.allocator, outputs.items, frame.device);
+    const output_column: DeviceColumn = switch (aggregation) {
+        .any, .all => blk: {
+            const outputs = try frame.allocator.alloc(bool, true_counts.items.len);
+            defer frame.allocator.free(outputs);
+            for (true_counts.items, false_counts.items, outputs) |true_count, false_count, *slot| {
+                slot.* = switch (aggregation) {
+                    .any => true_count != 0,
+                    .all => false_count == 0,
+                    else => unreachable,
+                };
+            }
+            break :blk try DeviceColumn.fromSlice(bool, frame.allocator, outputs, frame.device);
+        },
+        .true_count => try DeviceColumn.fromSlice(i64, frame.allocator, true_counts.items, frame.device),
+        .false_count => try DeviceColumn.fromSlice(i64, frame.allocator, false_counts.items, frame.device),
+        .true_ratio, .false_ratio => blk: {
+            const ratios = try frame.allocator.alloc(f64, true_counts.items.len);
+            defer frame.allocator.free(ratios);
+            for (true_counts.items, false_counts.items, ratios) |true_count, false_count, *slot| {
+                const valid_count = true_count + false_count;
+                if (valid_count == 0) {
+                    slot.* = std.math.nan(f64);
+                    continue;
+                }
+                const numerator = switch (aggregation) {
+                    .true_ratio => true_count,
+                    .false_ratio => false_count,
+                    else => unreachable,
+                };
+                slot.* = @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(valid_count));
+            }
+            break :blk try DeviceColumn.fromSlice(f64, frame.allocator, ratios, frame.device);
+        },
+    };
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
 }
 
@@ -804,6 +845,46 @@ pub fn groupByAllOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByBoolOn(DeviceDataFrame, .all, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByTrueCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .true_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFalseCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .false_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByTrueRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .true_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFalseRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolOn(DeviceDataFrame, .false_ratio, frame, key_names, value_name, output_name);
 }
 
 fn groupByValidityCountOn(

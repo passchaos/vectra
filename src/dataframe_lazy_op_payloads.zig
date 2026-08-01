@@ -35,6 +35,10 @@ pub const DeviceLazyGroupByAggregation = enum {
     kurtosis,
     any,
     all,
+    true_count,
+    false_count,
+    true_ratio,
+    false_ratio,
     valid_count,
     null_count,
 };
