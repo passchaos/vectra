@@ -6774,6 +6774,20 @@ pub fn equals(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!bo
 
 pub const frameEquals = equals;
 
+pub fn schemaEquals(self: anytype, other: FrameType(@TypeOf(self))) bool {
+    const left = frameValue(self);
+    if (left.names.len != other.names.len) return false;
+    for (left.names, other.names, left.columns, other.columns) |left_name, right_name, left_column, right_column| {
+        if (!std.mem.eql(u8, left_name, right_name)) return false;
+        if (left_column.dtype() != right_column.dtype()) return false;
+        if (left_column.nullable() != right_column.nullable()) return false;
+    }
+    return true;
+}
+
+pub const sameSchema = schemaEquals;
+pub const schemaCompatible = schemaEquals;
+
 pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.renameColumn(FrameType(@TypeOf(self)), frameValue(self), old_name, new_name);
 }
