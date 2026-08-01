@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, magnitude_ptp, midrange, range_coeff, magnitude_range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3431,7 +3431,7 @@ fn withRowNumericReduction(
                                 if (value > maxima[row]) maxima[row] = value;
                             }
                         },
-                        .magnitude_range_coeff => {
+                        .magnitude_ptp, .magnitude_range_coeff => {
                             const magnitude = @abs(value);
                             if (!validity[row]) {
                                 values[row] = magnitude;
@@ -3505,7 +3505,7 @@ fn withRowNumericReduction(
             value.* = std.math.sqrt(value.* / @as(f64, @floatFromInt(count)));
         } else if (reduction == .l2_norm) {
             value.* = std.math.sqrt(value.*);
-        } else if (reduction == .ptp) {
+        } else if (reduction == .ptp or reduction == .magnitude_ptp) {
             value.* = aux_value - value.*;
         } else if (reduction == .midrange) {
             value.* = (value.* + aux_value) / 2.0;
@@ -3609,6 +3609,42 @@ pub fn withRowPtp(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .ptp);
+}
+
+pub fn withRowMagnitudePtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_ptp);
+}
+
+pub fn withRowAbsPtp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudePtp(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudePeakToPeak(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudePtp(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowAbsPeakToPeak(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudePtp(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMidrange(

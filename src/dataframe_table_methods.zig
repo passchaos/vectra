@@ -2967,6 +2967,22 @@ pub fn withRowPtp(self: anytype, names: []const []const u8, output_name: []const
     return dataframe_array_mod.withRowPtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudePtp(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudePtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsPtp(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsPtp(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowMagnitudePeakToPeak(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudePeakToPeak(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsPeakToPeak(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsPeakToPeak(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMidrange(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMidrange(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

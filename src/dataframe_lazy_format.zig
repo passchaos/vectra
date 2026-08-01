@@ -1355,6 +1355,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .row_magnitude_ptp => |row_count| {
+            try writer.print("row_magnitude_ptp([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .row_midrange => |row_count| {
             try writer.print("row_midrange([", .{});
             for (row_count.names, 0..) |name, i| {

@@ -2094,6 +2094,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPtp(self, names, output_name);
             }
 
+            pub fn withRowMagnitudePtp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudePtp(self, names, output_name);
+            }
+
+            pub fn withRowAbsPtp(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsPtp(self, names, output_name);
+            }
+
+            pub fn withRowMagnitudePeakToPeak(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudePeakToPeak(self, names, output_name);
+            }
+
+            pub fn withRowAbsPeakToPeak(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsPeakToPeak(self, names, output_name);
+            }
+
             pub fn withRowMidrange(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMidrange(self, names, output_name);
             }
