@@ -2506,6 +2506,55 @@ pub fn withRowPrefixValidCount(frame: anytype, names: []const []const u8, output
     return withRowCumulativeValidCount(frame, names, output_names);
 }
 
+fn withRowCumulativeValidityRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime count_valid: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (count_valid) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_valid_ratio = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_null_ratio = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeNullRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityRatio(frame, names, output_names, false);
+}
+
+pub fn withRowCumNullRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNullRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixNullRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNullRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeValidRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidityRatio(frame, names, output_names, true);
+}
+
+pub fn withRowCumValidRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixValidRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeValidRatio(frame, names, output_names);
+}
+
 fn withRowValidityRatio(frame: anytype, names: []const []const u8, output_name: []const u8, comptime count_valid: bool) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {

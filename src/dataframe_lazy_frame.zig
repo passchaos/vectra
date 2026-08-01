@@ -1734,6 +1734,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixValidCount(self, names, output_names);
             }
 
+            pub fn withRowCumulativeNullRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeNullRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumNullRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumNullRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixNullRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixNullRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeValidRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeValidRatio(self, names, output_names);
+            }
+
+            pub fn withRowCumValidRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumValidRatio(self, names, output_names);
+            }
+
+            pub fn withRowPrefixValidRatio(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixValidRatio(self, names, output_names);
+            }
+
             pub fn withRowNullRatio(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowNullRatio(self, names, output_name);
             }

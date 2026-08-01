@@ -400,7 +400,38 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0 }, sales_cum_null);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, units_cum_null);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, active_cum_null);
+
+    var row_cum_valid_ratios = try table.withRowCumulativeValidRatio(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_cum_valid_ratio", "units_cum_valid_ratio", "active_cum_valid_ratio" },
+    );
+    defer row_cum_valid_ratios.deinit();
+    const sales_cum_valid_ratio = try (try row_cum_valid_ratios.column("sales_cum_valid_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_valid_ratio);
+    const units_cum_valid_ratio = try (try row_cum_valid_ratios.column("units_cum_valid_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(units_cum_valid_ratio);
+    const active_cum_valid_ratio = try (try row_cum_valid_ratios.column("active_cum_valid_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_valid_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 1.0, 1.0 }, sales_cum_valid_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 1.0 }, units_cum_valid_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0 / 3.0, 1.0 }, active_cum_valid_ratio);
+
+    var row_cum_null_ratios = try table.withRowPrefixNullRatio(
+        &.{ "sales", "units", "active" },
+        &.{ "sales_cum_null_ratio", "units_cum_null_ratio", "active_cum_null_ratio" },
+    );
+    defer row_cum_null_ratios.deinit();
+    const sales_cum_null_ratio = try (try row_cum_null_ratios.column("sales_cum_null_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sales_cum_null_ratio);
+    const units_cum_null_ratio = try (try row_cum_null_ratios.column("units_cum_null_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(units_cum_null_ratio);
+    const active_cum_null_ratio = try (try row_cum_null_ratios.column("active_cum_null_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_null_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0 }, sales_cum_null_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.0 }, units_cum_null_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0 / 3.0, 0.0 }, active_cum_null_ratio);
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixValidCount(&.{"sales"}, &.{ "sales_cum_valid", "extra_cum_valid" }));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixValidRatio(&.{"sales"}, &.{ "sales_cum_valid_ratio", "extra_cum_valid_ratio" }));
 
     var row_null_ratios = try table.withRowNullRatio(&.{ "sales", "units", "active" }, "row_null_ratio");
     defer row_null_ratios.deinit();

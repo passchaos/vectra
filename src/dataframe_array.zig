@@ -1806,6 +1806,115 @@ pub fn withRowPrefixValidCount(
     return withRowCumulativeValidCount(DeviceDataFrame, input, names, output_names);
 }
 
+fn withRowCumulativeValidityRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+    comptime count_valid: bool,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const counts = try input.allocator.alloc(i64, input.rows);
+    defer input.allocator.free(counts);
+    @memset(counts, 0);
+    const ratios = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(ratios);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |name, output_name, col_index| {
+        const source = try input.column(name);
+        switch (source.*) {
+            inline else => |typed| {
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |validity| input.allocator.free(validity);
+                if (maybe_validity) |validity| {
+                    for (counts, validity) |*slot, valid| {
+                        if (valid == count_valid) slot.* += 1;
+                    }
+                } else if (count_valid) {
+                    for (counts) |*slot| slot.* += 1;
+                }
+            },
+        }
+
+        const denominator: f64 = @floatFromInt(col_index + 1);
+        for (ratios, counts) |*ratio, count| {
+            ratio.* = @as(f64, @floatFromInt(count)) / denominator;
+        }
+
+        var column = try DeviceColumn.fromSlice(f64, input.allocator, ratios, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowCumulativeNullRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityRatio(DeviceDataFrame, input, names, output_names, false);
+}
+
+pub fn withRowCumNullRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNullRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNullRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNullRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeValidRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidityRatio(DeviceDataFrame, input, names, output_names, true);
+}
+
+pub fn withRowCumValidRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixValidRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeValidRatio(DeviceDataFrame, input, names, output_names);
+}
+
 fn withRowValidityRatio(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
