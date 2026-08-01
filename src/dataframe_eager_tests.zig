@@ -118,6 +118,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!table.isEmpty());
     try std.testing.expect(table.hasRows());
     try std.testing.expect(table.hasColumns());
+    try std.testing.expect(table.shapeEquals(3, 3));
+    try std.testing.expect(table.hasShape(3, 3));
+    try std.testing.expect(!table.shapeEquals(3, 2));
     try std.testing.expect(table.hasColumn("sales"));
     try std.testing.expect(!table.hasColumn("missing"));
     try std.testing.expect(table.hasAllColumns(&.{ "sales", "units" }));
@@ -126,6 +129,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!table.hasAnyColumn(&.{ "missing", "absent" }));
     var table_clone = try table.clone();
     defer table_clone.deinit();
+    try std.testing.expect(table.sameShape(table_clone));
+    try std.testing.expect(table.sameHeight(table_clone));
+    try std.testing.expect(table.sameWidth(table_clone));
     try std.testing.expect(try table.equals(table_clone));
     try std.testing.expect(try table.frameEquals(table_clone));
     try std.testing.expect(try table.allClose(table_clone, 0.0, 0.0));
@@ -151,6 +157,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.InvalidShape, table.allClose(close_table, -1.0, 0.0));
     var reordered = try table.select(&.{ "sales", "active", "units" });
     defer reordered.deinit();
+    try std.testing.expect(table.sameShape(reordered));
     try std.testing.expect(!try table.equals(reordered));
     try std.testing.expect(!table.schemaEquals(reordered));
     var changed = try table.withColumnLiteral("active", bool, false);
@@ -192,12 +199,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(no_columns.isEmpty());
     try std.testing.expect(no_columns.hasRows());
     try std.testing.expect(!no_columns.hasColumns());
+    try std.testing.expect(!table.sameShape(no_columns));
+    try std.testing.expect(table.sameHeight(no_columns));
+    try std.testing.expect(!table.sameWidth(no_columns));
 
     var no_rows = try table.head(0);
     defer no_rows.deinit();
     try std.testing.expect(no_rows.isEmpty());
     try std.testing.expect(!no_rows.hasRows());
     try std.testing.expect(no_rows.hasColumns());
+    try std.testing.expect(!table.sameShape(no_rows));
+    try std.testing.expect(!table.sameHeight(no_rows));
+    try std.testing.expect(table.sameWidth(no_rows));
 
     var positional_selected = try table.selectByColumnIndices(&.{ 2, 0 });
     defer positional_selected.deinit();

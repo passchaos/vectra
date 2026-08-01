@@ -305,6 +305,26 @@ pub const DeviceDataFrame = struct {
         return dataframe_core_mod.shape(self);
     }
 
+    pub fn sameShape(self: DeviceDataFrame, other: DeviceDataFrame) bool {
+        return self.rows == other.rows and self.columns.len == other.columns.len;
+    }
+
+    pub fn shapeEquals(self: DeviceDataFrame, rows: usize, columns: usize) bool {
+        return self.rows == rows and self.columns.len == columns;
+    }
+
+    pub fn hasShape(self: DeviceDataFrame, rows: usize, columns: usize) bool {
+        return self.shapeEquals(rows, columns);
+    }
+
+    pub fn sameHeight(self: DeviceDataFrame, other: DeviceDataFrame) bool {
+        return self.rows == other.rows;
+    }
+
+    pub fn sameWidth(self: DeviceDataFrame, other: DeviceDataFrame) bool {
+        return self.columns.len == other.columns.len;
+    }
+
     pub fn columnIndex(self: DeviceDataFrame, name: []const u8) ?usize {
         return dataframe_core_mod.columnIndex(self, name);
     }
