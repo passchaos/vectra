@@ -141,10 +141,18 @@ test "device dataframe drops duplicate rows eagerly and lazily" {
     var full_distinct = try table.distinctRows();
     defer full_distinct.deinit();
     try std.testing.expectEqual(@as(usize, 4), full_distinct.height());
+    try std.testing.expectEqual(@as(usize, 4), try table.distinctRowCount());
+    try std.testing.expectEqual(@as(usize, 4), try table.uniqueRowCount());
+    try std.testing.expectEqual(@as(usize, 0), try table.duplicateRowCount());
+    try std.testing.expect(!try table.hasDuplicateRows());
 
     var full_distinct_none = try table.distinctRowsNone();
     defer full_distinct_none.deinit();
     try std.testing.expectEqual(@as(usize, 4), full_distinct_none.height());
+    try std.testing.expectEqual(@as(usize, 3), try table.distinctRowCountOn(&.{"id"}));
+    try std.testing.expectEqual(@as(usize, 1), try table.uniqueRowCountOn(&.{"id"}));
+    try std.testing.expectEqual(@as(usize, 4), try table.duplicateRowCountOn(&.{"id"}));
+    try std.testing.expect(try table.hasDuplicateRowsOn(&.{"id"}));
 
     var duplicate_flags = try table.withRowIsDuplicated(&.{"id"}, "id_is_duplicated");
     defer duplicate_flags.deinit();

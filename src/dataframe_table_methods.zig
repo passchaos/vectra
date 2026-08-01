@@ -7427,6 +7427,52 @@ pub fn distinctOnNone(self: anytype, key_names: []const []const u8) DeviceDataEr
     return keys_mod.distinctOnNone(FrameType(@TypeOf(self)), frameValue(self), key_names);
 }
 
+fn countMatchingRows(self: anytype, key_names: []const []const u8, comptime mark_unique: bool) DeviceDataError!usize {
+    const frame = frameValue(self);
+    const mask = try keys_mod.rowDuplicateMask(frame.allocator, frame, key_names, mark_unique);
+    defer frame.allocator.free(mask);
+    var count: usize = 0;
+    for (mask) |matched| {
+        if (matched) count += 1;
+    }
+    return count;
+}
+
+pub fn distinctRowCount(self: anytype) DeviceDataError!usize {
+    return distinctRowCountOn(self, frameValue(self).names);
+}
+
+pub fn distinctRowCountOn(self: anytype, key_names: []const []const u8) DeviceDataError!usize {
+    const frame = frameValue(self);
+    const indices = try keys_mod.distinctRowIndices(frame.allocator, frame, key_names);
+    defer frame.allocator.free(indices);
+    return indices.len;
+}
+
+pub fn uniqueRowCount(self: anytype) DeviceDataError!usize {
+    return uniqueRowCountOn(self, frameValue(self).names);
+}
+
+pub fn uniqueRowCountOn(self: anytype, key_names: []const []const u8) DeviceDataError!usize {
+    return countMatchingRows(self, key_names, true);
+}
+
+pub fn duplicateRowCount(self: anytype) DeviceDataError!usize {
+    return duplicateRowCountOn(self, frameValue(self).names);
+}
+
+pub fn duplicateRowCountOn(self: anytype, key_names: []const []const u8) DeviceDataError!usize {
+    return countMatchingRows(self, key_names, false);
+}
+
+pub fn hasDuplicateRows(self: anytype) DeviceDataError!bool {
+    return try duplicateRowCount(self) != 0;
+}
+
+pub fn hasDuplicateRowsOn(self: anytype, key_names: []const []const u8) DeviceDataError!bool {
+    return try duplicateRowCountOn(self, key_names) != 0;
+}
+
 pub fn withRowIsDuplicated(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return keys_mod.withRowIsDuplicated(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
 }
