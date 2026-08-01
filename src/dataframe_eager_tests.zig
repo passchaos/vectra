@@ -6277,6 +6277,14 @@ test "device dataframe selects and drops columns by name pattern" {
     defer gpa.free(codes);
     try std.testing.expectEqualSlices(i64, &.{ 10, 20, 30 }, codes);
 
+    var globbed = try table.selectByNameGlob("*_q?");
+    defer globbed.deinit();
+    try std.testing.expectEqual(@as(usize, 3), globbed.width());
+    try std.testing.expectEqual(@as(?usize, 0), globbed.columnIndex("sales_q1"));
+    try std.testing.expectEqual(@as(?usize, 1), globbed.columnIndex("sales_q2"));
+    try std.testing.expectEqual(@as(?usize, 2), globbed.columnIndex("cost_q2"));
+    try std.testing.expectEqual(@as(?usize, null), globbed.columnIndex("active_flag"));
+
     var no_matches = try table.selectByNamePrefix("missing_");
     defer no_matches.deinit();
     try std.testing.expectEqual(@as(usize, 0), no_matches.width());
@@ -6305,6 +6313,13 @@ test "device dataframe selects and drops columns by name pattern" {
     const drop_contained_codes = try (try drop_contained.column("region_code")).i64.toOwnedSlice(gpa);
     defer gpa.free(drop_contained_codes);
     try std.testing.expectEqualSlices(i64, &.{ 10, 20, 30 }, drop_contained_codes);
+
+    var drop_globbed = try table.dropByNameGlob("*_q?");
+    defer drop_globbed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), drop_globbed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_globbed.columnIndex("active_flag"));
+    try std.testing.expectEqual(@as(?usize, 1), drop_globbed.columnIndex("region_code"));
+    try std.testing.expectEqual(@as(?usize, null), drop_globbed.columnIndex("sales_q1"));
 
     var drop_no_matches = try table.dropByNameContains("missing");
     defer drop_no_matches.deinit();

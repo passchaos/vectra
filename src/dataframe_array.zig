@@ -158,6 +158,41 @@ const NameContainsPredicate = struct {
     }
 };
 
+fn globMatches(pattern: []const u8, text: []const u8) bool {
+    var pattern_index: usize = 0;
+    var text_index: usize = 0;
+    var star_index: ?usize = null;
+    var retry_text_index: usize = 0;
+
+    while (text_index < text.len) {
+        if (pattern_index < pattern.len and (pattern[pattern_index] == '?' or pattern[pattern_index] == text[text_index])) {
+            pattern_index += 1;
+            text_index += 1;
+        } else if (pattern_index < pattern.len and pattern[pattern_index] == '*') {
+            star_index = pattern_index;
+            pattern_index += 1;
+            retry_text_index = text_index;
+        } else if (star_index) |star| {
+            pattern_index = star + 1;
+            retry_text_index += 1;
+            text_index = retry_text_index;
+        } else {
+            return false;
+        }
+    }
+
+    while (pattern_index < pattern.len and pattern[pattern_index] == '*') pattern_index += 1;
+    return pattern_index == pattern.len;
+}
+
+const NameGlobPredicate = struct {
+    pattern: []const u8,
+
+    fn matches(self: @This(), name: []const u8) bool {
+        return globMatches(self.pattern, name);
+    }
+};
+
 pub fn selectByNamePrefix(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -182,6 +217,14 @@ pub fn selectByNameContains(
     return selectByNamePredicate(DeviceDataFrame, input, NameContainsPredicate{ .pattern = needle });
 }
 
+pub fn selectByNameGlob(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    pattern: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return selectByNamePredicate(DeviceDataFrame, input, NameGlobPredicate{ .pattern = pattern });
+}
+
 pub fn dropByNamePrefix(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -204,6 +247,14 @@ pub fn dropByNameContains(
     needle: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return dropByNamePredicate(DeviceDataFrame, input, NameContainsPredicate{ .pattern = needle });
+}
+
+pub fn dropByNameGlob(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    pattern: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return dropByNamePredicate(DeviceDataFrame, input, NameGlobPredicate{ .pattern = pattern });
 }
 
 fn selectByDTypePredicate(

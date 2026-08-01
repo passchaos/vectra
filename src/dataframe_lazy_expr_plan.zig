@@ -48,6 +48,12 @@ pub fn selectByNameContains(frame: anytype, needle: []const u8) DeviceDataError!
     try frame.ops.append(frame.allocator, .{ .select_name_contains = .{ .pattern = owned } });
 }
 
+pub fn selectByNameGlob(frame: anytype, pattern: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, pattern);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .select_name_glob = .{ .pattern = owned } });
+}
+
 pub fn dropByNamePrefix(frame: anytype, prefix: []const u8) DeviceDataError!void {
     const owned = try frame.allocator.dupe(u8, prefix);
     errdefer frame.allocator.free(owned);
@@ -64,6 +70,12 @@ pub fn dropByNameContains(frame: anytype, needle: []const u8) DeviceDataError!vo
     const owned = try frame.allocator.dupe(u8, needle);
     errdefer frame.allocator.free(owned);
     try frame.ops.append(frame.allocator, .{ .drop_name_contains = .{ .pattern = owned } });
+}
+
+pub fn dropByNameGlob(frame: anytype, pattern: []const u8) DeviceDataError!void {
+    const owned = try frame.allocator.dupe(u8, pattern);
+    errdefer frame.allocator.free(owned);
+    try frame.ops.append(frame.allocator, .{ .drop_name_glob = .{ .pattern = owned } });
 }
 
 pub fn selectByDTypes(frame: anytype, dtypes: []const array_mod.DType) DeviceDataError!void {

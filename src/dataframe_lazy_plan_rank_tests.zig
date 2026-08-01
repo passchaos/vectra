@@ -1157,6 +1157,21 @@ test "device lazy frame selects and drops columns by name pattern" {
     defer gpa.free(active);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true, true }, active);
 
+    var glob_plan = try DeviceLazyFrame.init(gpa, table);
+    defer glob_plan.deinit();
+    try glob_plan.withColumnScalar("sales_x2", "sales", f64, 2.0, .mul);
+    try glob_plan.selectByNameGlob("sales*");
+
+    const glob_explain = try glob_plan.explain(gpa);
+    defer gpa.free(glob_explain);
+    try std.testing.expect(std.mem.indexOf(u8, glob_explain, "select_name_glob(sales*)") != null);
+
+    var globbed = try glob_plan.collect();
+    defer globbed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), globbed.width());
+    try std.testing.expectEqual(@as(?usize, 0), globbed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), globbed.columnIndex("sales_x2"));
+
     var empty_plan = try DeviceLazyFrame.init(gpa, table);
     defer empty_plan.deinit();
     try empty_plan.selectByNameContains("missing");
@@ -1211,6 +1226,21 @@ test "device lazy frame selects and drops columns by name pattern" {
     try std.testing.expectEqual(@as(?usize, 0), drop_contained.columnIndex("sales"));
     try std.testing.expectEqual(@as(?usize, 1), drop_contained.columnIndex("units"));
     try std.testing.expectEqual(@as(?usize, null), drop_contained.columnIndex("active"));
+
+    var drop_glob_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drop_glob_plan.deinit();
+    try drop_glob_plan.dropByNameGlob("*s");
+
+    const drop_glob_explain = try drop_glob_plan.explain(gpa);
+    defer gpa.free(drop_glob_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_glob_explain, "drop_name_glob(*s)") != null);
+
+    var drop_globbed = try drop_glob_plan.collect();
+    defer drop_globbed.deinit();
+    try std.testing.expectEqual(@as(usize, 1), drop_globbed.width());
+    try std.testing.expectEqual(@as(?usize, 0), drop_globbed.columnIndex("active"));
+    try std.testing.expectEqual(@as(?usize, null), drop_globbed.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), drop_globbed.columnIndex("units"));
 
     var drop_empty_plan = try DeviceLazyFrame.init(gpa, table);
     defer drop_empty_plan.deinit();
