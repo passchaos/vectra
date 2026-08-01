@@ -1299,6 +1299,23 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_evenness[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_evenness[1], 1e-12);
     try std.testing.expectApproxEqAbs(row3_softmax_entropy / std.math.ln2, row_softmax_evenness[3], 1e-12);
+
+    var row_softmax_concentration_table = try validity_table.withRowSoftmaxConcentration(&.{ "a", "b" }, "row_softmax_concentration");
+    defer row_softmax_concentration_table.deinit();
+    const row_softmax_concentration = try (try row_softmax_concentration_table.column("row_softmax_concentration")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_concentration);
+    const row3_concentration = row3_a_softmax * row3_a_softmax + row3_b_softmax * row3_b_softmax;
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_concentration[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_softmax_concentration[1], 1e-12);
+    try std.testing.expectApproxEqAbs(row3_concentration, row_softmax_concentration[3], 1e-12);
+
+    var row_softmax_gini_table = try validity_table.withRowSoftmaxGiniImpurity(&.{ "a", "b" }, "row_softmax_gini");
+    defer row_softmax_gini_table.deinit();
+    const row_softmax_gini = try (try row_softmax_gini_table.column("row_softmax_gini")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_softmax_gini);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_softmax_gini[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - row3_concentration, row_softmax_gini[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowSoftmax(&.{"a"}, &.{ "a_softmax", "extra_softmax" }));
 
     var row_geo_table = try validity_table.withRowGeometricMean(&.{ "a", "b" }, "row_geo");
@@ -2697,6 +2714,25 @@ test "device dataframe derives stable row logsumexp for extreme logits" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), evenness[1], 1e-12);
     try std.testing.expect(std.math.isNan(evenness[2]));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), evenness[3], 1e-12);
+
+    var concentration_table = try table.withRowSoftmaxConcentration(&.{ "low", "high" }, "row_softmax_concentration");
+    defer concentration_table.deinit();
+    const concentration = try (try concentration_table.column("row_softmax_concentration")).f64.toOwnedSlice(gpa);
+    defer gpa.free(concentration);
+    const expected_concentration0 = expected_low0 * expected_low0 + expected_high0 * expected_high0;
+    try std.testing.expectApproxEqAbs(expected_concentration0, concentration[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), concentration[1], 1e-12);
+    try std.testing.expect(std.math.isNan(concentration[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), concentration[3], 1e-12);
+
+    var gini_table = try table.withRowSoftmaxGini(&.{ "low", "high" }, "row_softmax_gini");
+    defer gini_table.deinit();
+    const gini = try (try gini_table.column("row_softmax_gini")).f64.toOwnedSlice(gpa);
+    defer gpa.free(gini);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - expected_concentration0, gini[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), gini[1], 1e-12);
+    try std.testing.expect(std.math.isNan(gini[2]));
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), gini[3], 1e-12);
 }
 
 test "device dataframe selects and drops columns by nullability" {

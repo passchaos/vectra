@@ -3819,7 +3819,7 @@ pub fn withRowLogsoftmin(
     return withRowLogSoftmin(DeviceDataFrame, input, names, output_names);
 }
 
-const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness };
+const RowSoftmaxSummary = enum { entropy, perplexity, confidence, margin, evenness, concentration, gini_impurity };
 
 fn withRowSoftmaxSummary(
     comptime DeviceDataFrame: type,
@@ -3838,6 +3838,8 @@ fn withRowSoftmaxSummary(
     defer input.allocator.free(denom);
     const shifted_weighted_sum = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(shifted_weighted_sum);
+    const squared_weight_sum = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(squared_weight_sum);
     const valid_counts = try input.allocator.alloc(usize, input.rows);
     defer input.allocator.free(valid_counts);
     const pos_inf_counts = try input.allocator.alloc(usize, input.rows);
@@ -3848,6 +3850,7 @@ fn withRowSoftmaxSummary(
     @memset(secondaries, -std.math.inf(f64));
     @memset(denom, 0.0);
     @memset(shifted_weighted_sum, 0.0);
+    @memset(squared_weight_sum, 0.0);
     @memset(valid_counts, 0);
     @memset(pos_inf_counts, 0);
     @memset(row_validity, false);
@@ -3904,6 +3907,7 @@ fn withRowSoftmaxSummary(
                         const weight = std.math.exp(shifted);
                         denom[row] += weight;
                         shifted_weighted_sum[row] += weight * shifted;
+                        squared_weight_sum[row] += weight * weight;
                     }
                 }
             },
@@ -3912,11 +3916,19 @@ fn withRowSoftmaxSummary(
 
     const entropies = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(entropies);
-    for (entropies, row_validity, maxima, secondaries, denom, shifted_weighted_sum, valid_counts, pos_inf_counts) |*entropy, valid, max_value, second_value, denominator, shifted_sum, valid_count, pos_inf_count| {
+    for (entropies, row_validity, maxima, secondaries, denom, shifted_weighted_sum, squared_weight_sum, valid_counts, pos_inf_counts) |*entropy, valid, max_value, second_value, denominator, shifted_sum, squared_sum, valid_count, pos_inf_count| {
         if (!valid) {
             entropy.* = 0.0;
         } else if (std.math.isNan(max_value)) {
             entropy.* = std.math.nan(f64);
+        } else if (summary == .concentration or summary == .gini_impurity) {
+            const concentration = if (std.math.isPositiveInf(max_value))
+                1.0 / @as(f64, @floatFromInt(pos_inf_count))
+            else if (std.math.isNegativeInf(max_value))
+                1.0 / @as(f64, @floatFromInt(valid_count))
+            else
+                squared_sum / (denominator * denominator);
+            entropy.* = if (summary == .gini_impurity) 1.0 - concentration else concentration;
         } else if (summary == .confidence or summary == .margin) {
             const top_probability = if (std.math.isPositiveInf(max_value))
                 1.0 / @as(f64, @floatFromInt(pos_inf_count))
@@ -4009,6 +4021,33 @@ pub fn withRowSoftmaxNormalizedEntropy(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowSoftmaxEvenness(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowSoftmaxConcentration(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .concentration);
+}
+
+pub fn withRowSoftmaxGiniImpurity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxSummary(DeviceDataFrame, input, names, output_name, .gini_impurity);
+}
+
+pub fn withRowSoftmaxGini(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowSoftmaxGiniImpurity(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowGeometricMean(

@@ -2999,6 +2999,18 @@ pub fn withRowSoftmaxNormalizedEntropy(self: anytype, names: []const []const u8,
     return dataframe_array_mod.withRowSoftmaxNormalizedEntropy(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowSoftmaxConcentration(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxConcentration(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxGiniImpurity(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowSoftmaxGini(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowSoftmaxGini(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowGeometricMean(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowGeometricMean(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

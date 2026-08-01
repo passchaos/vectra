@@ -2110,6 +2110,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowSoftmaxNormalizedEntropy(self, names, output_name);
             }
 
+            pub fn withRowSoftmaxConcentration(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxConcentration(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxGiniImpurity(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxGiniImpurity(self, names, output_name);
+            }
+
+            pub fn withRowSoftmaxGini(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowSoftmaxGini(self, names, output_name);
+            }
+
             pub fn withRowGeometricMean(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowGeometricMean(self, names, output_name);
             }
