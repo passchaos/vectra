@@ -3971,6 +3971,145 @@ pub fn withRowMadZscore(
     return withRowRobustZScore(DeviceDataFrame, input, names, output_names);
 }
 
+pub fn withRowIqrOutlier(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
+    const flat_values = try input.allocator.alloc(f64, total_slots);
+    defer input.allocator.free(flat_values);
+    const flat_validity = try input.allocator.alloc(bool, total_slots);
+    defer input.allocator.free(flat_validity);
+    @memset(flat_values, 0.0);
+    @memset(flat_validity, false);
+
+    for (check_names, 0..) |name, col_index| {
+        const source = try input.column(name);
+        if (!source.dtype().isReal()) return error.TypeMismatch;
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid) continue;
+                    const offset = row * check_names.len + col_index;
+                    flat_values[offset] = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flat_validity[offset] = true;
+                }
+            },
+        }
+    }
+
+    const lower_fences = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(lower_fences);
+    const upper_fences = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(upper_fences);
+    const row_validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(row_validity);
+    @memset(lower_fences, 0.0);
+    @memset(upper_fences, 0.0);
+    @memset(row_validity, false);
+
+    const scratch = try input.allocator.alloc(f64, check_names.len);
+    defer input.allocator.free(scratch);
+    const tukey_multiplier = 1.5;
+    for (0..input.rows) |row| {
+        var count: usize = 0;
+        for (0..check_names.len) |col_index| {
+            const offset = row * check_names.len + col_index;
+            if (!flat_validity[offset]) continue;
+            scratch[count] = flat_values[offset];
+            count += 1;
+        }
+        if (count == 0) continue;
+
+        std.sort.insertion(f64, scratch[0..count], {}, rowQuantileLess);
+        const q1 = rowQuantileFromSorted(scratch[0..count], 0.25);
+        const q3 = rowQuantileFromSorted(scratch[0..count], 0.75);
+        const iqr = q3 - q1;
+        lower_fences[row] = q1 - tukey_multiplier * iqr;
+        upper_fences[row] = q3 + tukey_multiplier * iqr;
+        row_validity[row] = true;
+    }
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var flags = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(flags);
+        const flag_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(flag_validity);
+        @memset(flags, false);
+        @memset(flag_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !row_validity[row]) continue;
+                    flag_validity[row] = true;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    flags[row] = value < lower_fences[row] or value > upper_fences[row];
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(bool, input.allocator, flags, flag_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowIqrOutliers(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowIqrOutlier(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowTukeyOutlier(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowIqrOutlier(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowTukeyOutliers(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowIqrOutlier(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowMinMaxScale(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

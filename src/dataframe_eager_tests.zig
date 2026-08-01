@@ -1253,6 +1253,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_robust_zscore_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_robust_zscore_validity);
 
+    var row_iqr_outlier_table = try validity_table.withRowIqrOutlier(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_iqr_outlier", "b_iqr_outlier", "wa_iqr_outlier", "wb_iqr_outlier" },
+    );
+    defer row_iqr_outlier_table.deinit();
+    const row_b_iqr_outlier_column = try row_iqr_outlier_table.column("b_iqr_outlier");
+    try std.testing.expectEqual(DeviceDType.bool, row_b_iqr_outlier_column.dtype());
+    try std.testing.expect(row_b_iqr_outlier_column.bool.nullable());
+    const row_b_iqr_outlier = try row_b_iqr_outlier_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(row_b_iqr_outlier);
+    const row_b_iqr_outlier_validity = try row_b_iqr_outlier_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_iqr_outlier_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, row_b_iqr_outlier);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_iqr_outlier_validity);
+
     var row_minmax_table = try validity_table.withRowMinMaxScale(&.{ "a", "b" }, &.{ "a_minmax", "b_minmax" });
     defer row_minmax_table.deinit();
     const row_a_minmax = try (try row_minmax_table.column("a_minmax")).f64.toOwnedSlice(gpa);
@@ -1351,6 +1366,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_maxabs[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowRobustZscore(&.{"a"}, &.{ "a_robust_zscore", "extra_robust_zscore" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowTukeyOutliers(&.{"a"}, &.{ "a_iqr_outlier", "extra_iqr_outlier" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMeanNormalize(&.{"a"}, &.{ "a_mean_ratio", "extra_mean_ratio" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });

@@ -1484,6 +1484,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowCentered(&.{ "a", "b" }, &.{ "row_a_centered", "row_b_centered" });
     try plan.withRowZScore(&.{ "a", "b" }, &.{ "row_a_zscore", "row_b_zscore" });
     try plan.withRowRobustZScore(&.{ "a", "b" }, &.{ "row_a_robust_zscore", "row_b_robust_zscore" });
+    try plan.withRowIqrOutlier(&.{ "a", "b", "wa", "wb" }, &.{ "row_a_iqr_outlier", "row_b_iqr_outlier", "row_wa_iqr_outlier", "row_wb_iqr_outlier" });
     try plan.withRowMinMaxScale(&.{ "a", "b" }, &.{ "row_a_minmax", "row_b_minmax" });
     try plan.withRowL2Normalize(&.{ "a", "b" }, &.{ "row_a_l2_unit", "row_b_l2_unit" });
     try plan.withRowL1Normalize(&.{ "a", "b" }, &.{ "row_a_l1_unit", "row_b_l1_unit" });
@@ -1549,7 +1550,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try plan.withRowMagnitudeCv(&.{ "a", "b" }, "row_magnitude_cv", 0.0);
     try plan.withRowMagnitudeFano(&.{ "a", "b" }, "row_magnitude_fano", 0.0);
     try plan.withRowFano(&.{ "a", "b" }, "row_fano", 0.0);
-    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_centered", "row_b_centered", "row_a_zscore", "row_b_zscore", "row_a_robust_zscore", "row_b_robust_zscore", "row_a_minmax", "row_b_minmax", "row_a_l2_unit", "row_b_l2_unit", "row_a_l1_unit", "row_b_l1_unit", "row_a_share", "row_b_share", "row_a_mean_ratio", "row_b_mean_ratio", "row_a_maxabs", "row_b_maxabs", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_normalized_hhi", "row_softmax_gini", "row_softmax_inverse", "row_softmax_simpson_evenness", "row_logit_margin", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
+    try plan.select(&.{ "row_argmin", "row_argmax", "row_quantile", "row_quantile_range", "row_trimmed_mean", "row_winsorized_mean", "row_median", "row_iqr", "row_idr", "row_midhinge", "row_trimean", "row_bowley", "row_qcd", "row_kelley", "row_mad", "row_mode", "row_entropy", "row_gini", "row_perplexity", "row_inverse_simpson", "row_concentration", "row_evenness", "row_mode_count", "row_mode_ratio", "row_mode_margin", "row_mode_margin_ratio", "row_pair_count", "row_weighted_mean", "row_weighted_quantile", "row_weighted_median", "row_weighted_iqr", "row_weighted_mad", "row_weighted_mode", "row_weighted_mode_weight", "row_weighted_mode_ratio", "row_weighted_mode_margin", "row_weighted_mode_margin_ratio", "row_weighted_entropy", "row_weighted_gini", "row_weighted_perplexity", "row_weighted_inverse", "row_weighted_concentration", "row_weighted_evenness", "row_weighted_variance", "row_weighted_stddev", "row_weighted_covariance", "row_weighted_correlation", "row_weighted_beta", "row_dot", "row_cosine", "row_sqdist", "row_euclidean", "row_manhattan", "row_chebyshev", "row_canberra", "row_bray", "row_mean_error", "row_mae", "row_mse", "row_rmse", "row_mape", "row_smape", "row_covariance", "row_correlation", "row_beta", "row_distinct", "row_unique", "row_sum", "row_mean", "row_logsumexp", "row_logmeanexp", "row_a_centered", "row_b_centered", "row_a_zscore", "row_b_zscore", "row_a_robust_zscore", "row_b_robust_zscore", "row_a_iqr_outlier", "row_b_iqr_outlier", "row_wa_iqr_outlier", "row_wb_iqr_outlier", "row_a_minmax", "row_b_minmax", "row_a_l2_unit", "row_b_l2_unit", "row_a_l1_unit", "row_b_l1_unit", "row_a_share", "row_b_share", "row_a_mean_ratio", "row_b_mean_ratio", "row_a_maxabs", "row_b_maxabs", "row_a_softmax", "row_b_softmax", "row_a_log_softmax", "row_b_log_softmax", "row_a_softmin", "row_b_softmin", "row_a_log_softmin", "row_b_log_softmin", "row_softmax_entropy", "row_softmax_perplexity", "row_softmax_confidence", "row_softmax_margin", "row_softmax_evenness", "row_softmax_concentration", "row_softmax_normalized_hhi", "row_softmax_gini", "row_softmax_inverse", "row_softmax_simpson_evenness", "row_logit_margin", "row_geo", "row_magnitude_geo", "row_harm", "row_skew", "row_magnitude_skew", "row_kurt", "row_magnitude_kurt", "row_prod", "row_min", "row_max", "row_ptp", "row_magnitude_ptp", "row_midrange", "row_magnitude_midrange", "row_range_coeff", "row_magnitude_range_coeff", "row_mean_abs", "row_hhi", "row_magnitude_normalized_hhi", "row_magnitude_sparsity", "row_magnitude_inverse", "row_magnitude_simpson_evenness", "row_magnitude_dominance", "row_magnitude_margin", "row_magnitude_entropy", "row_magnitude_perplexity", "row_magnitude_evenness", "row_mean_abs_dev", "row_gini_mean_diff", "row_gini_coeff", "row_mad_ratio", "row_rms", "row_l1", "row_l2", "row_variance", "row_magnitude_variance", "row_stddev", "row_magnitude_stddev", "row_sem", "row_magnitude_sem", "row_cv", "row_magnitude_cv", "row_magnitude_fano", "row_fano" });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
@@ -1627,6 +1628,7 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_centered([a,b]->[row_a_centered,row_b_centered])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_zscore([a,b]->[row_a_zscore,row_b_zscore])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_robust_zscore([a,b]->[row_a_robust_zscore,row_b_robust_zscore])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_iqr_outlier([a,b,wa,wb]->[row_a_iqr_outlier,row_b_iqr_outlier,row_wa_iqr_outlier,row_wb_iqr_outlier])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_minmax_scale([a,b]->[row_a_minmax,row_b_minmax])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_l2_normalize([a,b]->[row_a_l2_unit,row_b_l2_unit])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_l1_normalize([a,b]->[row_a_l1_unit,row_b_l1_unit])") != null);
@@ -1695,7 +1697,7 @@ test "device lazy frame derives row numeric reduction columns" {
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 152), result.width());
+    try std.testing.expectEqual(@as(usize, 156), result.width());
     const row_argmin_column = try result.column("row_argmin");
     try std.testing.expect(row_argmin_column.i64.nullable());
     const row_argmin = try row_argmin_column.i64.toOwnedSlice(gpa);
@@ -2046,6 +2048,12 @@ test "device lazy frame derives row numeric reduction columns" {
     defer gpa.free(row_b_robust_zscore);
     const row_b_robust_zscore_validity = try row_b_robust_zscore_column.f64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_b_robust_zscore_validity);
+    const row_b_iqr_outlier_column = try result.column("row_b_iqr_outlier");
+    try std.testing.expect(row_b_iqr_outlier_column.bool.nullable());
+    const row_b_iqr_outlier = try row_b_iqr_outlier_column.bool.toOwnedSlice(gpa);
+    defer gpa.free(row_b_iqr_outlier);
+    const row_b_iqr_outlier_validity = try row_b_iqr_outlier_column.bool.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_iqr_outlier_validity);
     const row_a_minmax_column = try result.column("row_a_minmax");
     try std.testing.expect(row_a_minmax_column.f64.nullable());
     const row_a_minmax = try row_a_minmax_column.f64.toOwnedSlice(gpa);
@@ -2673,6 +2681,8 @@ test "device lazy frame derives row numeric reduction columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.6744897501960817), row_b_robust_zscore[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_robust_zscore_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_robust_zscore_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, row_b_iqr_outlier);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_iqr_outlier_validity);
     try std.testing.expect(std.math.isNan(row_a_minmax[0]));
     try std.testing.expect(std.math.isNan(row_b_minmax[1]));
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), row_a_minmax[3], 1e-12);
@@ -3006,6 +3016,10 @@ test "device lazy frame derives row numeric reduction columns" {
     var invalid_robust_zscore_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_robust_zscore_plan.deinit();
     try std.testing.expectError(error.LengthMismatch, invalid_robust_zscore_plan.withRowMadZscore(&.{"a"}, &.{ "bad_a_mad_zscore", "extra_mad_zscore" }));
+
+    var invalid_iqr_outlier_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_iqr_outlier_plan.deinit();
+    try std.testing.expectError(error.LengthMismatch, invalid_iqr_outlier_plan.withRowTukeyOutlier(&.{"a"}, &.{ "bad_a_iqr_outlier", "extra_iqr_outlier" }));
 
     var invalid_correction_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_correction_plan.deinit();
