@@ -2971,6 +2971,14 @@ pub fn withRowMidrange(self: anytype, names: []const []const u8, output_name: []
     return dataframe_array_mod.withRowMidrange(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowRangeCoeff(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRangeCoeff(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowRangeCoefficient(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowRangeCoefficient(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMeanAbs(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMeanAbs(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -2098,6 +2098,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowMidrange(self, names, output_name);
             }
 
+            pub fn withRowRangeCoeff(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowRangeCoeff(self, names, output_name);
+            }
+
+            pub fn withRowRangeCoefficient(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowRangeCoefficient(self, names, output_name);
+            }
+
             pub fn withRowMeanAbs(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMeanAbs(self, names, output_name);
             }
