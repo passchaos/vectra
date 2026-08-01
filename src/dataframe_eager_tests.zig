@@ -445,6 +445,29 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_valid_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 2.0 / 3.0, 1.0 }, row_valid_ratio);
 
+    var bool_alt = try DeviceColumn.fromSliceWithValidity(bool, gpa, &.{ false, true, false }, &.{ true, false, true }, .cpu);
+    defer bool_alt.deinit();
+    var bool_table = try table.withColumn("bool_alt", bool_alt);
+    defer bool_table.deinit();
+    var row_cum_true_counts = try bool_table.withRowCumulativeTrueCount(&.{ "active", "bool_alt" }, &.{ "active_cum_true", "alt_cum_true" });
+    defer row_cum_true_counts.deinit();
+    const active_cum_true = try (try row_cum_true_counts.column("active_cum_true")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_true);
+    const alt_cum_true = try (try row_cum_true_counts.column("alt_cum_true")).i64.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_true);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, active_cum_true);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1 }, alt_cum_true);
+    var row_cum_false_counts = try bool_table.withRowPrefixFalseCount(&.{ "active", "bool_alt" }, &.{ "active_cum_false", "alt_cum_false" });
+    defer row_cum_false_counts.deinit();
+    const active_cum_false = try (try row_cum_false_counts.column("active_cum_false")).i64.toOwnedSlice(gpa);
+    defer gpa.free(active_cum_false);
+    const alt_cum_false = try (try row_cum_false_counts.column("alt_cum_false")).i64.toOwnedSlice(gpa);
+    defer gpa.free(alt_cum_false);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0 }, active_cum_false);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 1 }, alt_cum_false);
+    try std.testing.expectError(error.LengthMismatch, bool_table.withRowPrefixTrueCount(&.{"active"}, &.{ "active_cum_true", "extra_cum_true" }));
+    try std.testing.expectError(error.TypeMismatch, table.withRowCumulativeTrueCount(&.{"sales"}, &.{"sales_cum_true"}));
+
     var validity_a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
     defer validity_a.deinit();
     var validity_b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);

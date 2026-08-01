@@ -5158,6 +5158,55 @@ pub fn withRowFalseCount(frame: anytype, names: []const []const u8, output_name:
     return withRowBoolPredicateCount(frame, names, output_name, false);
 }
 
+fn withRowCumulativeBoolPredicateCount(frame: anytype, names: []const []const u8, output_names: []const []const u8, comptime target: bool) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    if (target) {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_true_count = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    } else {
+        try frame.ops.append(frame.allocator, .{ .row_cumulative_false_count = .{
+            .names = owned_names,
+            .output_names = owned_outputs,
+        } });
+    }
+}
+
+pub fn withRowCumulativeTrueCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolPredicateCount(frame, names, output_names, true);
+}
+
+pub fn withRowCumTrueCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeTrueCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixTrueCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeTrueCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFalseCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeBoolPredicateCount(frame, names, output_names, false);
+}
+
+pub fn withRowCumFalseCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFalseCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixFalseCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFalseCount(frame, names, output_names);
+}
+
 fn withRowBoolReduction(
     frame: anytype,
     names: []const []const u8,

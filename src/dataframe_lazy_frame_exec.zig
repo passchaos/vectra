@@ -838,6 +838,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_kurtosis => |row_count| try current.withRowKurtosis(row_count.names, row_count.output_name),
             .row_true_count => |row_count| try current.withRowTrueCount(row_count.names, row_count.output_name),
             .row_false_count => |row_count| try current.withRowFalseCount(row_count.names, row_count.output_name),
+            .row_cumulative_true_count => |row_outputs| try current.withRowCumulativeTrueCount(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_false_count => |row_outputs| try current.withRowCumulativeFalseCount(row_outputs.names, row_outputs.output_names),
             .row_any_true => |row_count| try current.withRowAnyTrue(row_count.names, row_count.output_name),
             .row_all_true => |row_count| try current.withRowAllTrue(row_count.names, row_count.output_name),
             .row_any_false => |row_count| try current.withRowAnyFalse(row_count.names, row_count.output_name),
