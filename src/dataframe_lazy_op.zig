@@ -374,6 +374,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_magnitude_normalized_hhi: Payloads.RowValidityCount,
         row_magnitude_sparsity: Payloads.RowValidityCount,
         row_magnitude_inverse_simpson: Payloads.RowValidityCount,
+        row_magnitude_simpson_evenness: Payloads.RowValidityCount,
         row_magnitude_dominance: Payloads.RowValidityCount,
         row_magnitude_dominance_margin: Payloads.RowValidityCount,
         row_magnitude_entropy: Payloads.RowValidityCount,

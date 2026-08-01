@@ -2146,6 +2146,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowAbsInverseSimpson(self, names, output_name);
             }
 
+            pub fn withRowMagnitudeSimpsonEvenness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowMagnitudeSimpsonEvenness(self, names, output_name);
+            }
+
+            pub fn withRowAbsSimpsonEvenness(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowAbsSimpsonEvenness(self, names, output_name);
+            }
+
             pub fn withRowMagnitudeDominance(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowMagnitudeDominance(self, names, output_name);
             }

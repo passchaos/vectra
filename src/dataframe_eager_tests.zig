@@ -1351,6 +1351,20 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 121.0 / 101.0), row_magnitude_inverse[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_inverse_validity);
 
+    var row_magnitude_simpson_evenness_table = try validity_table.withRowMagnitudeSimpsonEvenness(&.{ "a", "b" }, "row_magnitude_simpson_evenness");
+    defer row_magnitude_simpson_evenness_table.deinit();
+    const row_magnitude_simpson_evenness_column = try row_magnitude_simpson_evenness_table.column("row_magnitude_simpson_evenness");
+    try std.testing.expect(row_magnitude_simpson_evenness_column.f64.nullable());
+    const row_magnitude_simpson_evenness = try row_magnitude_simpson_evenness_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_simpson_evenness);
+    const row_magnitude_simpson_evenness_validity = try row_magnitude_simpson_evenness_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_magnitude_simpson_evenness_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_simpson_evenness[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_magnitude_simpson_evenness[1], 1e-12);
+    try std.testing.expectEqual(@as(f64, 0.0), row_magnitude_simpson_evenness[2]);
+    try std.testing.expectApproxEqAbs(@as(f64, 121.0 / 202.0), row_magnitude_simpson_evenness[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_magnitude_simpson_evenness_validity);
+
     var row_magnitude_dominance_table = try validity_table.withRowMagnitudeDominance(&.{ "a", "b" }, "row_magnitude_dominance");
     defer row_magnitude_dominance_table.deinit();
     const row_magnitude_dominance_column = try row_magnitude_dominance_table.column("row_magnitude_dominance");

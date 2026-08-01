@@ -3214,7 +3214,7 @@ pub fn withRowBeta(
 
 const RowNumericArgReduction = enum { argmin, argmax };
 
-const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
+const RowNumericReduction = enum { sum, prod, mean, geometric_mean, harmonic_mean, min, max, ptp, midrange, range_coeff, mean_abs, hhi, magnitude_normalized_hhi, magnitude_sparsity, magnitude_inverse_simpson, magnitude_simpson_evenness, magnitude_dominance, magnitude_dominance_margin, magnitude_entropy, magnitude_perplexity, magnitude_evenness, rms, l1_norm, l2_norm };
 
 fn realValueAsF64(comptime T: type, value: T) f64 {
     if (comptime T == array_mod.BFloat16) return value.toF64();
@@ -3347,7 +3347,7 @@ fn withRowNumericReduction(
                     switch (reduction) {
                         .sum, .mean => values[row] += value,
                         .mean_abs, .l1_norm => values[row] += @abs(value),
-                        .hhi, .magnitude_normalized_hhi, .magnitude_sparsity, .magnitude_inverse_simpson => {
+                        .hhi, .magnitude_normalized_hhi, .magnitude_sparsity, .magnitude_inverse_simpson, .magnitude_simpson_evenness => {
                             const magnitude = @abs(value);
                             values[row] += magnitude;
                             maxima[row] += magnitude * magnitude;
@@ -3476,6 +3476,8 @@ fn withRowNumericReduction(
             }
         } else if (reduction == .magnitude_inverse_simpson) {
             value.* = if (value.* == 0.0 or aux_value == 0.0) std.math.nan(f64) else (value.* * value.*) / aux_value;
+        } else if (reduction == .magnitude_simpson_evenness) {
+            value.* = if (value.* == 0.0 or aux_value == 0.0) std.math.nan(f64) else (value.* * value.*) / (aux_value * @as(f64, @floatFromInt(count)));
         } else if (reduction == .magnitude_dominance) {
             value.* = if (value.* == 0.0) std.math.nan(f64) else aux_value / value.*;
         } else if (reduction == .magnitude_dominance_margin) {
@@ -3711,6 +3713,24 @@ pub fn withRowAbsInverseSimpson(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowMagnitudeInverseSimpson(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowMagnitudeSimpsonEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericReduction(DeviceDataFrame, input, names, output_name, .magnitude_simpson_evenness);
+}
+
+pub fn withRowAbsSimpsonEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowMagnitudeSimpsonEvenness(DeviceDataFrame, input, names, output_name);
 }
 
 pub fn withRowMagnitudeDominance(

@@ -759,6 +759,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_magnitude_normalized_hhi => |row_count| try current.withRowMagnitudeNormalizedHhi(row_count.names, row_count.output_name),
             .row_magnitude_sparsity => |row_count| try current.withRowMagnitudeSparsity(row_count.names, row_count.output_name),
             .row_magnitude_inverse_simpson => |row_count| try current.withRowMagnitudeInverseSimpson(row_count.names, row_count.output_name),
+            .row_magnitude_simpson_evenness => |row_count| try current.withRowMagnitudeSimpsonEvenness(row_count.names, row_count.output_name),
             .row_magnitude_dominance => |row_count| try current.withRowMagnitudeDominance(row_count.names, row_count.output_name),
             .row_magnitude_dominance_margin => |row_count| try current.withRowMagnitudeDominanceMargin(row_count.names, row_count.output_name),
             .row_magnitude_entropy => |row_count| try current.withRowMagnitudeEntropy(row_count.names, row_count.output_name),

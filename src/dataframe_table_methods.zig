@@ -3019,6 +3019,14 @@ pub fn withRowAbsInverseSimpson(self: anytype, names: []const []const u8, output
     return dataframe_array_mod.withRowAbsInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowMagnitudeSimpsonEvenness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowMagnitudeSimpsonEvenness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowAbsSimpsonEvenness(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowAbsSimpsonEvenness(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowMagnitudeDominance(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMagnitudeDominance(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
