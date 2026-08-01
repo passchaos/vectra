@@ -1252,6 +1252,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_dense_rank_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_dense_rank_validity);
 
+    var row_ordinal_rank_table = try validity_table.withRowOrdinalRank(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_ordinal_rank", "b_row_ordinal_rank", "wa_row_ordinal_rank", "wb_row_ordinal_rank" });
+    defer row_ordinal_rank_table.deinit();
+    const row_a_ordinal_rank_column = try row_ordinal_rank_table.column("a_row_ordinal_rank");
+    try std.testing.expectEqual(DeviceDType.i64, row_a_ordinal_rank_column.dtype());
+    try std.testing.expect(row_a_ordinal_rank_column.i64.nullable());
+    const row_a_ordinal_rank = try row_a_ordinal_rank_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_ordinal_rank);
+    const row_a_ordinal_rank_validity = try row_a_ordinal_rank_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_ordinal_rank_validity);
+    const row_b_ordinal_rank_column = try row_ordinal_rank_table.column("b_row_ordinal_rank");
+    try std.testing.expect(row_b_ordinal_rank_column.i64.nullable());
+    const row_b_ordinal_rank = try row_b_ordinal_rank_column.i64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_ordinal_rank);
+    const row_b_ordinal_rank_validity = try row_b_ordinal_rank_column.i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_ordinal_rank_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 2 }, row_a_ordinal_rank);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 3, 0, 4 }, row_b_ordinal_rank);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_ordinal_rank_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_ordinal_rank_validity);
+
     var row_competition_rank_table = try validity_table.withRowCompetitionRank(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_competition_rank", "b_row_competition_rank", "wa_row_competition_rank", "wb_row_competition_rank" });
     defer row_competition_rank_table.deinit();
     const row_a_competition_rank_column = try row_competition_rank_table.column("a_row_competition_rank");
@@ -1464,6 +1484,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.1), row_a_maxabs[3], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_b_maxabs[3], 1e-12);
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowOrdinalRanks(&.{"a"}, &.{ "a_row_ordinal_rank", "extra_row_ordinal_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowDenseRanks(&.{"a"}, &.{ "a_row_dense_rank", "extra_row_dense_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMinRanks(&.{"a"}, &.{ "a_row_min_rank", "extra_row_min_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPercentileRanks(&.{"a"}, &.{ "a_row_percent_rank", "extra_row_percent_rank" }));

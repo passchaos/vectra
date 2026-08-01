@@ -3974,6 +3974,7 @@ pub fn withRowMadZscore(
 const RowRankStorage = struct {
     flat_values: []f64,
     flat_validity: []bool,
+    flat_ordinal_ranks: []i64,
     flat_dense_ranks: []i64,
     flat_competition_ranks: []i64,
     flat_cume_counts: []usize,
@@ -3982,6 +3983,7 @@ const RowRankStorage = struct {
     fn deinit(self: @This(), allocator: std.mem.Allocator) void {
         allocator.free(self.flat_values);
         allocator.free(self.flat_validity);
+        allocator.free(self.flat_ordinal_ranks);
         allocator.free(self.flat_dense_ranks);
         allocator.free(self.flat_competition_ranks);
         allocator.free(self.flat_cume_counts);
@@ -3999,6 +4001,8 @@ fn computeRowRanks(
     errdefer input.allocator.free(flat_values);
     const flat_validity = try input.allocator.alloc(bool, total_slots);
     errdefer input.allocator.free(flat_validity);
+    const flat_ordinal_ranks = try input.allocator.alloc(i64, total_slots);
+    errdefer input.allocator.free(flat_ordinal_ranks);
     const flat_dense_ranks = try input.allocator.alloc(i64, total_slots);
     errdefer input.allocator.free(flat_dense_ranks);
     const flat_competition_ranks = try input.allocator.alloc(i64, total_slots);
@@ -4009,6 +4013,7 @@ fn computeRowRanks(
     errdefer input.allocator.free(counts);
     @memset(flat_values, 0.0);
     @memset(flat_validity, false);
+    @memset(flat_ordinal_ranks, 0);
     @memset(flat_dense_ranks, 0);
     @memset(flat_competition_ranks, 0);
     @memset(flat_cume_counts, 0);
@@ -4055,6 +4060,9 @@ fn computeRowRanks(
         if (count == 0) continue;
 
         std.sort.insertion(usize, order[0..count], OrderCtx{ .values = flat_values }, OrderCtx.less);
+        for (order[0..count], 1..) |offset, rank| {
+            flat_ordinal_ranks[offset] = @intCast(rank);
+        }
         var group_start: usize = 0;
         var dense_rank: i64 = 0;
         while (group_start < count) {
@@ -4078,11 +4086,66 @@ fn computeRowRanks(
     return .{
         .flat_values = flat_values,
         .flat_validity = flat_validity,
+        .flat_ordinal_ranks = flat_ordinal_ranks,
         .flat_dense_ranks = flat_dense_ranks,
         .flat_competition_ranks = flat_competition_ranks,
         .flat_cume_counts = flat_cume_counts,
         .counts = counts,
     };
+}
+
+pub fn withRowOrdinalRank(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const ranks_storage = try computeRowRanks(DeviceDataFrame, input, check_names);
+    defer ranks_storage.deinit(input.allocator);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names, 0..) |_, output_name, col_index| {
+        var ranks = try input.allocator.alloc(i64, input.rows);
+        defer input.allocator.free(ranks);
+        const rank_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(rank_validity);
+        @memset(ranks, 0);
+        @memset(rank_validity, false);
+
+        for (0..input.rows) |row| {
+            const offset = row * check_names.len + col_index;
+            if (!ranks_storage.flat_validity[offset]) continue;
+            ranks[row] = ranks_storage.flat_ordinal_ranks[offset];
+            rank_validity[row] = true;
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(i64, input.allocator, ranks, rank_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowOrdinalRanks(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowOrdinalRank(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowDenseRank(

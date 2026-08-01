@@ -2987,6 +2987,14 @@ pub fn withRowMadZscore(self: anytype, names: []const []const u8, output_names: 
     return dataframe_array_mod.withRowMadZscore(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowOrdinalRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowOrdinalRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowOrdinalRanks(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowOrdinalRanks(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowDenseRank(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowDenseRank(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
