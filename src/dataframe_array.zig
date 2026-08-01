@@ -12095,6 +12095,114 @@ fn withRowCumulativeNumericPredicateRatio(
     return result;
 }
 
+pub fn withRowCumulativeNaNCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .nan);
+}
+
+pub fn withRowCumNaNCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNaNCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNaNCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNaNCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .inf);
+}
+
+pub fn withRowCumInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeInfCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixInfCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeInfCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .finite);
+}
+
+pub fn withRowCumFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFiniteCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFiniteCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateCount(DeviceDataFrame, input, names, output_names, .non_finite);
+}
+
+pub fn withRowCumNonFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonFiniteCount(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonFiniteCount(DeviceDataFrame, input, names, output_names);
+}
+
 pub fn withRowCumulativeZeroCount(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -12393,6 +12501,114 @@ pub fn withRowNonFiniteRatio(
     output_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowNumericPredicateRatio(DeviceDataFrame, input, names, output_name, .non_finite);
+}
+
+pub fn withRowCumulativeNaNRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .nan);
+}
+
+pub fn withRowCumNaNRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNaNRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNaNRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNaNRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .inf);
+}
+
+pub fn withRowCumInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixInfRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeInfRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .finite);
+}
+
+pub fn withRowCumFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFiniteRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeFiniteRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNumericPredicateRatio(DeviceDataFrame, input, names, output_names, .non_finite);
+}
+
+pub fn withRowCumNonFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonFiniteRatio(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeNonFiniteRatio(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeZeroRatio(

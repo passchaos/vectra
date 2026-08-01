@@ -6589,7 +6589,7 @@ fn withRowCumulativeNumericPredicate(
     frame: anytype,
     names: []const []const u8,
     output_names: []const []const u8,
-    comptime tag_name: enum { zero, non_zero, positive, negative },
+    comptime tag_name: enum { nan, inf, finite, non_finite, zero, non_zero, positive, negative },
     comptime ratio: bool,
 ) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
@@ -6604,6 +6604,26 @@ fn withRowCumulativeNumericPredicate(
         frame.allocator.free(owned_outputs);
     }
     switch (tag_name) {
+        .nan => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_nan_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_nan_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .inf => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_inf_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_inf_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .finite => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_finite_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_finite_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
+        .non_finite => if (ratio) {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_non_finite_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
+        } else {
+            try frame.ops.append(frame.allocator, .{ .row_cumulative_non_finite_count = .{ .names = owned_names, .output_names = owned_outputs } });
+        },
         .zero => if (ratio) {
             try frame.ops.append(frame.allocator, .{ .row_cumulative_zero_ratio = .{ .names = owned_names, .output_names = owned_outputs } });
         } else {
@@ -6625,6 +6645,54 @@ fn withRowCumulativeNumericPredicate(
             try frame.ops.append(frame.allocator, .{ .row_cumulative_negative_count = .{ .names = owned_names, .output_names = owned_outputs } });
         },
     }
+}
+
+pub fn withRowCumulativeNaNCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .nan, false);
+}
+
+pub fn withRowCumNaNCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNaNCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixNaNCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNaNCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeInfCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .inf, false);
+}
+
+pub fn withRowCumInfCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeInfCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixInfCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeInfCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .finite, false);
+}
+
+pub fn withRowCumFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFiniteCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFiniteCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .non_finite, false);
+}
+
+pub fn withRowCumNonFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNonFiniteCount(frame, names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNonFiniteCount(frame, names, output_names);
 }
 
 pub fn withRowCumulativeZeroCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
@@ -6673,6 +6741,54 @@ pub fn withRowCumNegativeCount(frame: anytype, names: []const []const u8, output
 
 pub fn withRowPrefixNegativeCount(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     return withRowCumulativeNegativeCount(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNaNRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .nan, true);
+}
+
+pub fn withRowCumNaNRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNaNRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixNaNRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNaNRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeInfRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .inf, true);
+}
+
+pub fn withRowCumInfRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeInfRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixInfRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeInfRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .finite, true);
+}
+
+pub fn withRowCumFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFiniteRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeFiniteRatio(frame, names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNumericPredicate(frame, names, output_names, .non_finite, true);
+}
+
+pub fn withRowCumNonFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNonFiniteRatio(frame, names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeNonFiniteRatio(frame, names, output_names);
 }
 
 pub fn withRowCumulativeZeroRatio(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {

@@ -4624,6 +4624,102 @@ pub fn withRowNegativeRatio(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowNegativeRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowCumulativeNaNCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNaNCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNaNCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNaNCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNaNRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNaNRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNaNRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNaNRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNaNRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNaNRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeInfCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumInfCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixInfCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixInfCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeInfRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumInfRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixInfRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixInfRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNonFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNonFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNonFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNonFiniteCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeNonFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeNonFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumNonFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumNonFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixNonFiniteRatio(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixNonFiniteRatio(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowCumulativeZeroCount(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeZeroCount(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

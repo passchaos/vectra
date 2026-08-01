@@ -4578,6 +4578,33 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(row_non_finite_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, row_non_finite_ratio);
 
+    var row_cum_nan_counts = try table.withRowCumulativeNaNCount(&.{ "metric", "id" }, &.{ "metric_cum_nan", "id_cum_nan" });
+    defer row_cum_nan_counts.deinit();
+    const id_cum_nan = try (try row_cum_nan_counts.column("id_cum_nan")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_nan);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, id_cum_nan);
+
+    var row_cum_inf_counts = try table.withRowPrefixInfCount(&.{ "metric", "id" }, &.{ "metric_cum_inf", "id_cum_inf" });
+    defer row_cum_inf_counts.deinit();
+    const id_cum_inf = try (try row_cum_inf_counts.column("id_cum_inf")).i64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_inf);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, id_cum_inf);
+
+    var row_cum_finite_ratios = try table.withRowCumulativeFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_finite_ratio", "id_cum_finite_ratio" });
+    defer row_cum_finite_ratios.deinit();
+    const id_cum_finite_ratio = try (try row_cum_finite_ratios.column("id_cum_finite_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_finite_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 0.5 }, id_cum_finite_ratio);
+
+    var row_cum_non_finite_ratios = try table.withRowPrefixNonFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
+    defer row_cum_non_finite_ratios.deinit();
+    const metric_cum_non_finite_ratio = try (try row_cum_non_finite_ratios.column("metric_cum_non_finite_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(metric_cum_non_finite_ratio);
+    const id_cum_non_finite_ratio = try (try row_cum_non_finite_ratios.column("id_cum_non_finite_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(id_cum_non_finite_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 1.0, 1.0, 0.0 }, metric_cum_non_finite_ratio);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.5, 0.5, 0.0 }, id_cum_non_finite_ratio);
+
     var metric_nan_ratios = try table.withRowNanRatio(&.{"metric"}, "metric_nan_ratio");
     defer metric_nan_ratios.deinit();
     const metric_nan_ratio_column = try metric_nan_ratios.column("metric_nan_ratio");
@@ -4590,6 +4617,7 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, false }, metric_nan_ratio_validity);
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
+    try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNonFiniteRatio(&.{"metric"}, &.{ "metric_cum_non_finite", "extra_cum_non_finite" }));
 }
 
 test "device dataframe selects zero columns" {
