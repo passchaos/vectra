@@ -1268,6 +1268,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, row_b_iqr_outlier);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_iqr_outlier_validity);
 
+    var row_tukey_winsor_table = try validity_table.withRowTukeyWinsorize(
+        &.{ "a", "b", "wa", "wb" },
+        &.{ "a_tukey_winsor", "b_tukey_winsor", "wa_tukey_winsor", "wb_tukey_winsor" },
+    );
+    defer row_tukey_winsor_table.deinit();
+    const row_b_tukey_winsor_column = try row_tukey_winsor_table.column("b_tukey_winsor");
+    try std.testing.expectEqual(DeviceDType.f64, row_b_tukey_winsor_column.dtype());
+    try std.testing.expect(row_b_tukey_winsor_column.f64.nullable());
+    const row_b_tukey_winsor = try row_b_tukey_winsor_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_tukey_winsor);
+    const row_b_tukey_winsor_validity = try row_b_tukey_winsor_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_tukey_winsor_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 27.625 }, row_b_tukey_winsor);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_tukey_winsor_validity);
+
     var row_minmax_table = try validity_table.withRowMinMaxScale(&.{ "a", "b" }, &.{ "a_minmax", "b_minmax" });
     defer row_minmax_table.deinit();
     const row_a_minmax = try (try row_minmax_table.column("a_minmax")).f64.toOwnedSlice(gpa);
@@ -1367,6 +1382,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCentered(&.{"a"}, &.{ "a_centered", "extra_centered" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowRobustZscore(&.{"a"}, &.{ "a_robust_zscore", "extra_robust_zscore" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowTukeyOutliers(&.{"a"}, &.{ "a_iqr_outlier", "extra_iqr_outlier" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowIqrWinsorized(&.{"a"}, &.{ "a_tukey_winsor", "extra_tukey_winsor" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowMeanNormalize(&.{"a"}, &.{ "a_mean_ratio", "extra_mean_ratio" }));
 
     var row_softmax_table = try validity_table.withRowSoftmax(&.{ "a", "b" }, &.{ "a_softmax", "b_softmax" });

@@ -3003,6 +3003,22 @@ pub fn withRowTukeyOutliers(self: anytype, names: []const []const u8, output_nam
     return dataframe_array_mod.withRowTukeyOutliers(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowTukeyWinsorize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowTukeyWinsorize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowTukeyWinsorized(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowTukeyWinsorized(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowIqrWinsorize(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIqrWinsorize(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowIqrWinsorized(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowIqrWinsorized(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowMinMaxScale(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowMinMaxScale(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

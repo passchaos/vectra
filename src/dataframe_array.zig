@@ -3971,21 +3971,23 @@ pub fn withRowMadZscore(
     return withRowRobustZScore(DeviceDataFrame, input, names, output_names);
 }
 
-pub fn withRowIqrOutlier(
+const RowTukeyFences = struct {
+    lower: []f64,
+    upper: []f64,
+    validity: []bool,
+};
+
+fn freeRowTukeyFences(allocator: std.mem.Allocator, fences: RowTukeyFences) void {
+    allocator.free(fences.lower);
+    allocator.free(fences.upper);
+    allocator.free(fences.validity);
+}
+
+fn computeRowTukeyFences(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
-    names: []const []const u8,
-    output_names: []const []const u8,
-) DeviceFrameArrayError!DeviceDataFrame {
-    @setEvalBranchQuota(2000);
-    const check_names = if (names.len == 0) input.names else names;
-    if (output_names.len != check_names.len) return error.LengthMismatch;
-    for (output_names, 0..) |output_name, index| {
-        for (output_names[0..index]) |previous| {
-            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
-        }
-    }
-
+    check_names: []const []const u8,
+) DeviceFrameArrayError!RowTukeyFences {
     const total_slots = std.math.mul(usize, input.rows, check_names.len) catch return error.InvalidShape;
     const flat_values = try input.allocator.alloc(f64, total_slots);
     defer input.allocator.free(flat_values);
@@ -4015,11 +4017,11 @@ pub fn withRowIqrOutlier(
     }
 
     const lower_fences = try input.allocator.alloc(f64, input.rows);
-    defer input.allocator.free(lower_fences);
+    errdefer input.allocator.free(lower_fences);
     const upper_fences = try input.allocator.alloc(f64, input.rows);
-    defer input.allocator.free(upper_fences);
+    errdefer input.allocator.free(upper_fences);
     const row_validity = try input.allocator.alloc(bool, input.rows);
-    defer input.allocator.free(row_validity);
+    errdefer input.allocator.free(row_validity);
     @memset(lower_fences, 0.0);
     @memset(upper_fences, 0.0);
     @memset(row_validity, false);
@@ -4046,6 +4048,27 @@ pub fn withRowIqrOutlier(
         row_validity[row] = true;
     }
 
+    return .{ .lower = lower_fences, .upper = upper_fences, .validity = row_validity };
+}
+
+pub fn withRowIqrOutlier(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const fences = try computeRowTukeyFences(DeviceDataFrame, input, check_names);
+    defer freeRowTukeyFences(input.allocator, fences);
+
     var result = try input.clone();
     errdefer result.deinit();
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
@@ -4066,10 +4089,10 @@ pub fn withRowIqrOutlier(
                 defer if (maybe_validity) |mask| input.allocator.free(mask);
                 for (host_values, 0..) |raw_value, row| {
                     const valid = if (maybe_validity) |mask| mask[row] else true;
-                    if (!valid or !row_validity[row]) continue;
+                    if (!valid or !fences.validity[row]) continue;
                     flag_validity[row] = true;
                     const value = realValueAsF64(@TypeOf(raw_value), raw_value);
-                    flags[row] = value < lower_fences[row] or value > upper_fences[row];
+                    flags[row] = value < fences.lower[row] or value > fences.upper[row];
                 }
             },
         }
@@ -4108,6 +4131,88 @@ pub fn withRowTukeyOutliers(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowIqrOutlier(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowTukeyWinsorize(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    @setEvalBranchQuota(2000);
+    const check_names = if (names.len == 0) input.names else names;
+    if (output_names.len != check_names.len) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+
+    const fences = try computeRowTukeyFences(DeviceDataFrame, input, check_names);
+    defer freeRowTukeyFences(input.allocator, fences);
+
+    var result = try input.clone();
+    errdefer result.deinit();
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    for (check_names, output_names) |name, output_name| {
+        const source = try input.column(name);
+        var winsorized = try input.allocator.alloc(f64, input.rows);
+        defer input.allocator.free(winsorized);
+        const winsorized_validity = try input.allocator.alloc(bool, input.rows);
+        defer input.allocator.free(winsorized_validity);
+        @memset(winsorized, 0.0);
+        @memset(winsorized_validity, false);
+
+        switch (source.*) {
+            inline else => |typed| {
+                const host_values = try typed.toOwnedSlice(input.allocator);
+                defer input.allocator.free(host_values);
+                const maybe_validity = try validityValues(typed, input.allocator);
+                defer if (maybe_validity) |mask| input.allocator.free(mask);
+                for (host_values, 0..) |raw_value, row| {
+                    const valid = if (maybe_validity) |mask| mask[row] else true;
+                    if (!valid or !fences.validity[row]) continue;
+                    winsorized_validity[row] = true;
+                    const value = realValueAsF64(@TypeOf(raw_value), raw_value);
+                    winsorized[row] = @min(@max(value, fences.lower[row]), fences.upper[row]);
+                }
+            },
+        }
+
+        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, winsorized, winsorized_validity, input.device);
+        defer column.deinit();
+        const next = try withColumn(DeviceDataFrame, result, output_name, column);
+        result.deinit();
+        result = next;
+    }
+    return result;
+}
+
+pub fn withRowTukeyWinsorized(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowTukeyWinsorize(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowIqrWinsorize(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowTukeyWinsorize(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowIqrWinsorized(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowTukeyWinsorize(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowMinMaxScale(

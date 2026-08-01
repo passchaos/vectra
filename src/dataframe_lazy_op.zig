@@ -367,6 +367,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_zscore: Payloads.RowColumnOutputs,
         row_robust_zscore: Payloads.RowColumnOutputs,
         row_iqr_outlier: Payloads.RowColumnOutputs,
+        row_tukey_winsorize: Payloads.RowColumnOutputs,
         row_minmax_scale: Payloads.RowColumnOutputs,
         row_l2_normalize: Payloads.RowColumnOutputs,
         row_l1_normalize: Payloads.RowColumnOutputs,
