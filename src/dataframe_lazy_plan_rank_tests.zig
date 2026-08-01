@@ -4672,11 +4672,13 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try row_special_plan.withRowNonFiniteRatio(&.{ "metric", "id" }, "row_non_finite_ratio");
     try row_special_plan.withRowFirstNaNIndex(&.{ "metric", "id" }, "row_first_nan_index");
     try row_special_plan.withRowLastInfIndex(&.{ "metric", "id" }, "row_last_inf_index");
+    try row_special_plan.withRowFirstFiniteIndex(&.{ "metric", "id" }, "row_first_finite_index");
+    try row_special_plan.withRowLastNonFiniteIndex(&.{ "metric", "id" }, "row_last_non_finite_index");
     try row_special_plan.withRowCumulativeNaNCount(&.{ "metric", "id" }, &.{ "metric_cum_nan", "id_cum_nan" });
     try row_special_plan.withRowPrefixInfCount(&.{ "metric", "id" }, &.{ "metric_cum_inf", "id_cum_inf" });
     try row_special_plan.withRowCumulativeFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_finite_ratio", "id_cum_finite_ratio" });
     try row_special_plan.withRowPrefixNonFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
-    try row_special_plan.select(&.{ "row_nan_count", "row_inf_count", "row_finite_count", "row_non_finite_count", "row_nan_ratio", "row_inf_ratio", "row_finite_ratio", "row_non_finite_ratio", "row_first_nan_index", "row_last_inf_index", "metric_cum_nan", "id_cum_nan", "metric_cum_inf", "id_cum_inf", "metric_cum_finite_ratio", "id_cum_finite_ratio", "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
+    try row_special_plan.select(&.{ "row_nan_count", "row_inf_count", "row_finite_count", "row_non_finite_count", "row_nan_ratio", "row_inf_ratio", "row_finite_ratio", "row_non_finite_ratio", "row_first_nan_index", "row_last_inf_index", "row_first_finite_index", "row_last_non_finite_index", "metric_cum_nan", "id_cum_nan", "metric_cum_inf", "id_cum_inf", "metric_cum_finite_ratio", "id_cum_finite_ratio", "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
     const row_special_explain = try row_special_plan.explain(gpa);
     defer gpa.free(row_special_explain);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_nan_count([metric,id]->row_nan_count)") != null);
@@ -4689,6 +4691,8 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_non_finite_ratio([metric,id]->row_non_finite_ratio)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_first_nan_index([metric,id]->row_first_nan_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_last_inf_index([metric,id]->row_last_inf_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_first_finite_index([metric,id]->row_first_finite_index)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_last_non_finite_index([metric,id]->row_last_non_finite_index)") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_nan_count([metric,id]->[metric_cum_nan,id_cum_nan])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_inf_count([metric,id]->[metric_cum_inf,id_cum_inf])") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_special_explain, "row_cumulative_finite_ratio([metric,id]->[metric_cum_finite_ratio,id_cum_finite_ratio])") != null);
@@ -4719,6 +4723,14 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer gpa.free(row_last_inf);
     const row_last_inf_validity = try (try row_special.column("row_last_inf_index")).i64.validity.?.toOwnedSlice(gpa);
     defer gpa.free(row_last_inf_validity);
+    const row_first_finite = try (try row_special.column("row_first_finite_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_finite);
+    const row_first_finite_validity = try (try row_special.column("row_first_finite_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_finite_validity);
+    const row_last_non_finite = try (try row_special.column("row_last_non_finite_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_non_finite);
+    const row_last_non_finite_validity = try (try row_special.column("row_last_non_finite_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_non_finite_validity);
     const id_cum_nan = try (try row_special.column("id_cum_nan")).i64.toOwnedSlice(gpa);
     defer gpa.free(id_cum_nan);
     const id_cum_inf = try (try row_special.column("id_cum_inf")).i64.toOwnedSlice(gpa);
@@ -4741,6 +4753,10 @@ test "device lazy frame derives NaN and finite predicate columns" {
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, false }, row_first_nan_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_inf);
     try std.testing.expectEqualSlices(bool, &.{ false, false, true, false }, row_last_inf_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_first_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_first_finite_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_non_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, row_last_non_finite_validity);
     try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, id_cum_nan);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 1, 0 }, id_cum_inf);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 0.5 }, id_cum_finite_ratio);
@@ -4766,6 +4782,11 @@ test "device lazy frame derives NaN and finite predicate columns" {
     defer invalid_row_index_plan.deinit();
     try invalid_row_index_plan.withRowFirstNaNIndex(&.{"missing"}, "bad_nan_index");
     try std.testing.expectError(error.ColumnNotFound, invalid_row_index_plan.collect());
+
+    var invalid_finite_index_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_finite_index_plan.deinit();
+    try invalid_finite_index_plan.withRowFirstFiniteIndex(&.{"missing"}, "bad_finite_index");
+    try std.testing.expectError(error.ColumnNotFound, invalid_finite_index_plan.collect());
 
     var invalid_prefix_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_prefix_plan.deinit();

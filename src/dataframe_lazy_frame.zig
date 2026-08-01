@@ -3734,6 +3734,30 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowLastInfIndex(self, names, output_name);
             }
 
+            pub fn withRowFirstFiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstFiniteIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastFiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastFiniteIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstNonFiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNonFiniteIndex(self, names, output_name);
+            }
+
+            pub fn withRowFirstNonfiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowFirstNonfiniteIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNonFiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNonFiniteIndex(self, names, output_name);
+            }
+
+            pub fn withRowLastNonfiniteIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowLastNonfiniteIndex(self, names, output_name);
+            }
+
             pub fn withRowFirstZeroIndex(self: *DeviceLazyFrame, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowFirstZeroIndex(self, names, output_name);
             }

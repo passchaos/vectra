@@ -12097,6 +12097,60 @@ pub fn withRowLastInfIndex(
     return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .inf, .last);
 }
 
+pub fn withRowFirstFiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .finite, .first);
+}
+
+pub fn withRowLastFiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .finite, .last);
+}
+
+pub fn withRowFirstNonFiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .non_finite, .first);
+}
+
+pub fn withRowFirstNonfiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowFirstNonFiniteIndex(DeviceDataFrame, input, names, output_name);
+}
+
+pub fn withRowLastNonFiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowNumericPredicateIndex(DeviceDataFrame, input, names, output_name, .non_finite, .last);
+}
+
+pub fn withRowLastNonfiniteIndex(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowLastNonFiniteIndex(DeviceDataFrame, input, names, output_name);
+}
+
 pub fn withRowFirstZeroIndex(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

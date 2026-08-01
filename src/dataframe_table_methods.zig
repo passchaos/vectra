@@ -4624,6 +4624,30 @@ pub fn withRowLastInfIndex(self: anytype, names: []const []const u8, output_name
     return dataframe_array_mod.withRowLastInfIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
 
+pub fn withRowFirstFiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastFiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstNonFiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNonFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowFirstNonfiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowFirstNonfiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNonFiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNonFiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
+pub fn withRowLastNonfiniteIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowLastNonfiniteIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
+}
+
 pub fn withRowFirstZeroIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstZeroIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

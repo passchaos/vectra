@@ -4684,6 +4684,24 @@ test "device dataframe derives NaN and finite predicate columns" {
     defer gpa.free(id_cum_finite_ratio);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.5, 0.5, 0.5 }, id_cum_finite_ratio);
 
+    var row_first_finite_indices = try table.withRowFirstFiniteIndex(&.{ "metric", "id" }, "row_first_finite_index");
+    defer row_first_finite_indices.deinit();
+    const row_first_finite = try (try row_first_finite_indices.column("row_first_finite_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_first_finite);
+    const row_first_finite_validity = try (try row_first_finite_indices.column("row_first_finite_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_first_finite_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, row_first_finite);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, row_first_finite_validity);
+
+    var row_last_non_finite_indices = try table.withRowLastNonFiniteIndex(&.{ "metric", "id" }, "row_last_non_finite_index");
+    defer row_last_non_finite_indices.deinit();
+    const row_last_non_finite = try (try row_last_non_finite_indices.column("row_last_non_finite_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(row_last_non_finite);
+    const row_last_non_finite_validity = try (try row_last_non_finite_indices.column("row_last_non_finite_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_last_non_finite_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, row_last_non_finite);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, row_last_non_finite_validity);
+
     var row_cum_non_finite_ratios = try table.withRowPrefixNonFiniteRatio(&.{ "metric", "id" }, &.{ "metric_cum_non_finite_ratio", "id_cum_non_finite_ratio" });
     defer row_cum_non_finite_ratios.deinit();
     const metric_cum_non_finite_ratio = try (try row_cum_non_finite_ratios.column("metric_cum_non_finite_ratio")).f64.toOwnedSlice(gpa);
@@ -4706,6 +4724,7 @@ test "device dataframe derives NaN and finite predicate columns" {
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNCount(&.{"missing"}, "bad_count"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowNaNRatio(&.{"missing"}, "bad_ratio"));
     try std.testing.expectError(error.ColumnNotFound, table.withRowFirstNaNIndex(&.{"missing"}, "bad_nan_index"));
+    try std.testing.expectError(error.ColumnNotFound, table.withRowFirstFiniteIndex(&.{"missing"}, "bad_finite_index"));
     try std.testing.expectError(error.LengthMismatch, table.withRowPrefixNonFiniteRatio(&.{"metric"}, &.{ "metric_cum_non_finite", "extra_cum_non_finite" }));
 }
 

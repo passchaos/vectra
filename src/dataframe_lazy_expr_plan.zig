@@ -6565,7 +6565,7 @@ fn withRowNumericPredicateIndex(
     frame: anytype,
     names: []const []const u8,
     output_name: []const u8,
-    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
+    comptime search: enum { first_nan, last_nan, first_inf, last_inf, first_finite, last_finite, first_non_finite, last_non_finite, first_zero, last_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_negative, last_negative },
 ) DeviceDataError!void {
     const owned_names = try cloneNameList(frame.allocator, names);
     errdefer {
@@ -6579,6 +6579,10 @@ fn withRowNumericPredicateIndex(
         .last_nan => try frame.ops.append(frame.allocator, .{ .row_last_nan_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_inf => try frame.ops.append(frame.allocator, .{ .row_first_inf_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_inf => try frame.ops.append(frame.allocator, .{ .row_last_inf_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_finite => try frame.ops.append(frame.allocator, .{ .row_first_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_finite => try frame.ops.append(frame.allocator, .{ .row_last_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .first_non_finite => try frame.ops.append(frame.allocator, .{ .row_first_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
+        .last_non_finite => try frame.ops.append(frame.allocator, .{ .row_last_non_finite_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_zero => try frame.ops.append(frame.allocator, .{ .row_first_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .last_zero => try frame.ops.append(frame.allocator, .{ .row_last_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
         .first_non_zero => try frame.ops.append(frame.allocator, .{ .row_first_non_zero_index = .{ .names = owned_names, .output_name = owned_output } }),
@@ -6612,6 +6616,30 @@ pub fn withRowFirstInfIndex(frame: anytype, names: []const []const u8, output_na
 
 pub fn withRowLastInfIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowNumericPredicateIndex(frame, names, output_name, .last_inf);
+}
+
+pub fn withRowFirstFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_finite);
+}
+
+pub fn withRowLastFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_finite);
+}
+
+pub fn withRowFirstNonFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .first_non_finite);
+}
+
+pub fn withRowFirstNonfiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowFirstNonFiniteIndex(frame, names, output_name);
+}
+
+pub fn withRowLastNonFiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowNumericPredicateIndex(frame, names, output_name, .last_non_finite);
+}
+
+pub fn withRowLastNonfiniteIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowLastNonFiniteIndex(frame, names, output_name);
 }
 
 pub fn withRowFirstZeroIndex(frame: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!void {
