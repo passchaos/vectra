@@ -2012,6 +2012,22 @@ pub fn allColumn(self: anytype, name: []const u8) DeviceDataError!bool {
     return expr_mod.allColumn(frameValue(self), name);
 }
 
+pub fn anyTrueColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyTrueColumn(frameValue(self), name);
+}
+
+pub fn allTrueColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allTrueColumn(frameValue(self), name);
+}
+
+pub fn anyFalseColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.anyFalseColumn(frameValue(self), name);
+}
+
+pub fn allFalseColumn(self: anytype, name: []const u8) DeviceDataError!bool {
+    return expr_mod.allFalseColumn(frameValue(self), name);
+}
+
 pub fn countTrueColumn(self: anytype, name: []const u8) DeviceDataError!usize {
     return expr_mod.countTrueColumn(frameValue(self), name);
 }

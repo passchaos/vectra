@@ -1453,6 +1453,28 @@ pub fn allColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
     return col.all();
 }
 
+pub fn anyTrueColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return try col.countTrue() != 0;
+}
+
+pub fn allTrueColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    const valid_count = col.validCount();
+    return valid_count != 0 and try col.countTrue() == valid_count;
+}
+
+pub fn anyFalseColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    return try col.countFalse() != 0;
+}
+
+pub fn allFalseColumn(frame: anytype, name: []const u8) DeviceDataError!bool {
+    const col = try frame.column(name);
+    const valid_count = col.validCount();
+    return valid_count != 0 and try col.countFalse() == valid_count;
+}
+
 pub fn countTrueColumn(frame: anytype, name: []const u8) DeviceDataError!usize {
     const col = try frame.column(name);
     return col.countTrue();

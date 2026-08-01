@@ -6804,6 +6804,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectError(error.TypeUnsupported, rounding_type_table.argmaxColumn("active"));
     try std.testing.expect(try rounding_type_table.anyColumn("active"));
     try std.testing.expect(!try rounding_type_table.allColumn("active"));
+    try std.testing.expect(try rounding_type_table.anyTrueColumn("active"));
+    try std.testing.expect(!try rounding_type_table.allTrueColumn("active"));
+    try std.testing.expect(try rounding_type_table.anyFalseColumn("active"));
+    try std.testing.expect(!try rounding_type_table.allFalseColumn("active"));
     try std.testing.expectEqual(@as(usize, 2), try rounding_type_table.countTrueColumn("active"));
     try std.testing.expectEqual(@as(usize, 1), try rounding_type_table.countFalseColumn("active"));
     try std.testing.expectApproxEqAbs(@as(f64, 2.0 / 3.0), (try rounding_type_table.trueRatioColumn("active")).f64, 1e-12);
@@ -6813,6 +6817,7 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.firstFalseIndexColumn("active"));
     try std.testing.expectEqual(@as(?usize, 1), try rounding_type_table.lastFalseIndexColumn("active"));
     try std.testing.expectError(error.TypeUnsupported, table.anyColumn("sales"));
+    try std.testing.expectError(error.TypeUnsupported, table.anyFalseColumn("sales"));
     try std.testing.expectError(error.TypeUnsupported, table.trueRatioColumn("sales"));
     try std.testing.expectError(error.TypeUnsupported, table.firstTrueIndexColumn("sales"));
 
@@ -6822,6 +6827,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer nullable_bool_table.deinit();
     try std.testing.expect(!try nullable_bool_table.anyColumn("flag"));
     try std.testing.expect(!try nullable_bool_table.allColumn("flag"));
+    try std.testing.expect(!try nullable_bool_table.anyTrueColumn("flag"));
+    try std.testing.expect(!try nullable_bool_table.allTrueColumn("flag"));
+    try std.testing.expect(try nullable_bool_table.anyFalseColumn("flag"));
+    try std.testing.expect(try nullable_bool_table.allFalseColumn("flag"));
     try std.testing.expectEqual(@as(usize, 0), try nullable_bool_table.countTrueColumn("flag"));
     try std.testing.expectEqual(@as(usize, 2), try nullable_bool_table.countFalseColumn("flag"));
     try std.testing.expectEqual(DeviceScalar{ .f64 = 0.0 }, try nullable_bool_table.trueRatioColumn("flag"));
@@ -6844,6 +6853,10 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer all_null_bool.deinit();
     var all_null_bool_table = try DeviceDataFrame.init(gpa, &.{.{ .name = "flag", .data = all_null_bool }});
     defer all_null_bool_table.deinit();
+    try std.testing.expect(!try all_null_bool_table.anyTrueColumn("flag"));
+    try std.testing.expect(!try all_null_bool_table.allTrueColumn("flag"));
+    try std.testing.expect(!try all_null_bool_table.anyFalseColumn("flag"));
+    try std.testing.expect(!try all_null_bool_table.allFalseColumn("flag"));
     try std.testing.expect(std.math.isNan((try all_null_bool_table.trueRatioColumn("flag")).f64));
     try std.testing.expect(std.math.isNan((try all_null_bool_table.falseRatioColumn("flag")).f64));
 
