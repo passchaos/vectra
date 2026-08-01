@@ -613,6 +613,37 @@ test "device lazy frame filters by named boolean columns" {
     defer gpa.free(active_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 5.0, 7.0 }, active_sales);
 
+    var range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer range_plan.deinit();
+    try range_plan.filterBetweenColumn("sales", f64, 3.0, 5.0);
+    try range_plan.select(&.{"sales"});
+    const range_explain = try range_plan.explain(gpa);
+    defer gpa.free(range_explain);
+    try std.testing.expect(std.mem.indexOf(u8, range_explain, "filter_between_column(sales, lower:f64, upper:f64, lower_inclusive=true, upper_inclusive=true, keep_inside=true)") != null);
+    var range_result = try range_plan.collect();
+    defer range_result.deinit();
+    const range_sales = try (try range_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(range_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, range_sales);
+
+    var outside_plan = try DeviceLazyFrame.init(gpa, table);
+    defer outside_plan.deinit();
+    try outside_plan.filterOutsideColumn("sales", f64, 3.0, 5.0);
+    try outside_plan.select(&.{"sales"});
+    const outside_explain = try outside_plan.explain(gpa);
+    defer gpa.free(outside_explain);
+    try std.testing.expect(std.mem.indexOf(u8, outside_explain, "filter_between_column(sales, lower:f64, upper:f64, lower_inclusive=true, upper_inclusive=true, keep_inside=false)") != null);
+    var outside_result = try outside_plan.collect();
+    defer outside_result.deinit();
+    const outside_sales = try (try outside_result.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(outside_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 7.0 }, outside_sales);
+
+    var invalid_range_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_range_plan.deinit();
+    try invalid_range_plan.filterBetweenColumn("active", f64, 0.0, 1.0);
+    try std.testing.expectError(error.TypeUnsupported, invalid_range_plan.collect());
+
     var where_indices_plan = try DeviceLazyFrame.init(gpa, table);
     defer where_indices_plan.deinit();
     try where_indices_plan.whereIndicesColumn("active", "active_row");

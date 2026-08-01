@@ -591,6 +591,56 @@ pub fn filterColumn(frame: anytype, name: []const u8) DeviceDataError!void {
     try frame.ops.append(frame.allocator, .{ .filter_column = owned_name });
 }
 
+pub fn filterBetweenColumnWithDeviceScalars(frame: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_between_column = .{
+        .name = owned_name,
+        .lower = lower,
+        .upper = upper,
+        .lower_inclusive = lower_inclusive,
+        .upper_inclusive = upper_inclusive,
+        .keep_inside = true,
+    } });
+}
+
+pub fn filterBetweenColumnClosed(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    return filterBetweenColumnWithDeviceScalars(frame, name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), lower_inclusive, upper_inclusive);
+}
+
+pub fn filterBetweenColumn(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return filterBetweenColumnClosed(frame, name, T, lower, upper, true, true);
+}
+
+pub fn filterOutsideColumnWithDeviceScalars(frame: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    const owned_name = try frame.allocator.dupe(u8, name);
+    errdefer frame.allocator.free(owned_name);
+    try frame.ops.append(frame.allocator, .{ .filter_between_column = .{
+        .name = owned_name,
+        .lower = lower,
+        .upper = upper,
+        .lower_inclusive = lower_inclusive,
+        .upper_inclusive = upper_inclusive,
+        .keep_inside = false,
+    } });
+}
+
+pub fn filterOutsideColumnClosed(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+    return filterOutsideColumnWithDeviceScalars(frame, name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), lower_inclusive, upper_inclusive);
+}
+
+pub fn filterOutsideColumn(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return filterOutsideColumnClosed(frame, name, T, lower, upper, true, true);
+}
+
+pub fn dropBetweenColumn(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return filterOutsideColumn(frame, name, T, lower, upper);
+}
+
+pub fn dropOutsideColumn(frame: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+    return filterBetweenColumn(frame, name, T, lower, upper);
+}
+
 pub fn dropRowsByColumnMask(frame: anytype, name: []const u8) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);

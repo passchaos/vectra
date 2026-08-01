@@ -1202,6 +1202,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, name);
                 }
             },
+            .filter_between_column => |range| {
+                if (!nameInBorrowedList(range.name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, range.name);
+                }
+            },
             .drop_rows_by_mask_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);

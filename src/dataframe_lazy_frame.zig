@@ -849,6 +849,38 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterColumn(self, name);
             }
 
+            pub fn filterBetweenColumnWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.filterBetweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
+            pub fn filterBetweenColumnClosed(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.filterBetweenColumnClosed(self, name, T, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
+            pub fn filterBetweenColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.filterBetweenColumn(self, name, T, lower, upper);
+            }
+
+            pub fn filterOutsideColumnWithDeviceScalars(self: *DeviceLazyFrame, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.filterOutsideColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
+            pub fn filterOutsideColumnClosed(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!void {
+                return lazy_expr_mod.filterOutsideColumnClosed(self, name, T, lower, upper, lower_inclusive, upper_inclusive);
+            }
+
+            pub fn filterOutsideColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.filterOutsideColumn(self, name, T, lower, upper);
+            }
+
+            pub fn dropBetweenColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.dropBetweenColumn(self, name, T, lower, upper);
+            }
+
+            pub fn dropOutsideColumn(self: *DeviceLazyFrame, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!void {
+                return lazy_expr_mod.dropOutsideColumn(self, name, T, lower, upper);
+            }
+
             pub fn dropRowsByColumnMask(self: *DeviceLazyFrame, name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.dropRowsByColumnMask(self, name);
             }

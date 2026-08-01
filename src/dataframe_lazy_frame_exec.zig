@@ -1113,6 +1113,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .filter_mask => |mask| try current.filterColumnMask(mask),
             .filter_column => |name| try current.filterColumn(name),
+            .filter_between_column => |range| if (range.keep_inside)
+                try current.filterBetweenColumnWithDeviceScalars(range.name, range.lower, range.upper, range.lower_inclusive, range.upper_inclusive)
+            else
+                try current.filterOutsideColumnWithDeviceScalars(range.name, range.lower, range.upper, range.lower_inclusive, range.upper_inclusive),
             .drop_rows_by_mask_column => |name| try current.dropRowsByColumnMask(name),
             .where_indices_column => |predicate| try current.whereIndicesColumn(predicate.name, predicate.output_name),
             .filter_scalar => |filter_op| blk: {

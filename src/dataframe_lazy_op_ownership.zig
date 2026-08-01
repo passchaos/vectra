@@ -3797,6 +3797,17 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         },
         .filter_mask => |mask| .{ .filter_mask = try mask.clone() },
         .filter_column => |name| .{ .filter_column = try allocator.dupe(u8, name) },
+        .filter_between_column => |range| blk: {
+            const name = try allocator.dupe(u8, range.name);
+            break :blk .{ .filter_between_column = .{
+                .name = name,
+                .lower = range.lower,
+                .upper = range.upper,
+                .lower_inclusive = range.lower_inclusive,
+                .upper_inclusive = range.upper_inclusive,
+                .keep_inside = range.keep_inside,
+            } };
+        },
         .drop_rows_by_mask_column => |name| .{ .drop_rows_by_mask_column = try allocator.dupe(u8, name) },
         .where_indices_column => |predicate| blk: {
             const name = try allocator.dupe(u8, predicate.name);

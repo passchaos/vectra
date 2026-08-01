@@ -122,6 +122,14 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             lower_inclusive: bool,
             upper_inclusive: bool,
         };
+        pub const RangeFilterColumn = struct {
+            name: []const u8,
+            lower: DeviceScalar,
+            upper: DeviceScalar,
+            lower_inclusive: bool,
+            upper_inclusive: bool,
+            keep_inside: bool,
+        };
         pub const WithColumnBinaryParam = struct {
             name: []const u8,
             lhs_name: []const u8,

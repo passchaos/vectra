@@ -318,6 +318,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .filter_non_finites_column => |name| try writer.print("filter_non_finites_column({s})", .{name}),
         .filter_mask => |mask| try writer.print("filter_mask(dtype={s}, rows={d})", .{ mask.dtype().name(), mask.len() }),
         .filter_column => |name| try writer.print("filter_column({s})", .{name}),
+        .filter_between_column => |range| try writer.print("filter_between_column({s}, lower:{s}, upper:{s}, lower_inclusive={any}, upper_inclusive={any}, keep_inside={any})", .{ range.name, @tagName(range.lower), @tagName(range.upper), range.lower_inclusive, range.upper_inclusive, range.keep_inside }),
         .drop_rows_by_mask_column => |name| try writer.print("drop_rows_by_mask_column({s})", .{name}),
         .where_indices_column => |predicate| try writer.print("where_indices_column({s}->{s})", .{ predicate.name, predicate.output_name }),
         .filter_scalar => |filter_op| try writer.print("filter_scalar({s}, op={s}, dtype={s})", .{ filter_op.name, @tagName(filter_op.op), @tagName(filter_op.scalar) }),

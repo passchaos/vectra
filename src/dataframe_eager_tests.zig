@@ -8121,6 +8121,31 @@ test "device dataframe eager column expressions and boolean mask filtering" {
     defer gpa.free(filtered_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, filtered_sales_values);
 
+    var between_filtered = try table.filterBetweenColumn("sales", f64, 3.0, 5.0);
+    defer between_filtered.deinit();
+    const between_filtered_sales = try (try between_filtered.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(between_filtered_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, between_filtered_sales);
+
+    var outside_filtered = try table.filterOutsideColumn("sales", f64, 3.0, 5.0);
+    defer outside_filtered.deinit();
+    const outside_filtered_sales = try (try outside_filtered.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(outside_filtered_sales);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, outside_filtered_sales);
+
+    var drop_between = try table.dropBetweenColumn("sales", f64, 3.0, 5.0);
+    defer drop_between.deinit();
+    const drop_between_sales = try (try drop_between.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_between_sales);
+    try std.testing.expectEqualSlices(f64, &.{2.0}, drop_between_sales);
+
+    var drop_outside = try table.dropOutsideColumn("sales", f64, 3.0, 5.0);
+    defer drop_outside.deinit();
+    const drop_outside_sales = try (try drop_outside.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_outside_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, drop_outside_sales);
+    try std.testing.expectError(error.TypeUnsupported, table.filterBetweenColumn("units", f64, 0.0, 1.0));
+
     var units_mask = try table.compareColumnScalar("units", i64, 1, .gt);
     defer units_mask.deinit();
     try std.testing.expectEqual(@as(usize, 1), units_mask.bool.null_count);

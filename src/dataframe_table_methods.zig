@@ -2214,6 +2214,42 @@ pub fn filterColumn(self: anytype, name: []const u8) DeviceDataError!FrameType(@
     return expr_mod.filterColumn(FrameType(@TypeOf(self)), frameValue(self), name);
 }
 
+pub fn filterBetweenColumnWithDeviceScalars(self: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var mask = try betweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
+    defer mask.deinit();
+    return filterColumnMask(self, mask);
+}
+
+pub fn filterBetweenColumnClosed(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterBetweenColumnWithDeviceScalars(self, name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), lower_inclusive, upper_inclusive);
+}
+
+pub fn filterBetweenColumn(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterBetweenColumnClosed(self, name, T, lower, upper, true, true);
+}
+
+pub fn filterOutsideColumnWithDeviceScalars(self: anytype, name: []const u8, lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    var mask = try notBetweenColumnWithDeviceScalars(self, name, lower, upper, lower_inclusive, upper_inclusive);
+    defer mask.deinit();
+    return filterColumnMask(self, mask);
+}
+
+pub fn filterOutsideColumnClosed(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterOutsideColumnWithDeviceScalars(self, name, DeviceScalar.init(T, lower), DeviceScalar.init(T, upper), lower_inclusive, upper_inclusive);
+}
+
+pub fn filterOutsideColumn(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterOutsideColumnClosed(self, name, T, lower, upper, true, true);
+}
+
+pub fn dropBetweenColumn(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterOutsideColumn(self, name, T, lower, upper);
+}
+
+pub fn dropOutsideColumn(self: anytype, name: []const u8, comptime T: type, lower: T, upper: T) DeviceDataError!FrameType(@TypeOf(self)) {
+    return filterBetweenColumn(self, name, T, lower, upper);
+}
+
 pub fn dropRowsByColumnMask(self: anytype, name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return expr_mod.dropRowsByColumnMask(FrameType(@TypeOf(self)), frameValue(self), name);
 }
