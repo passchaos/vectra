@@ -40,6 +40,8 @@ const GroupByOnError = std.mem.Allocator.Error || std.Io.Writer.Error || array_m
 const GroupByMomentAggregation = enum {
     variance,
     stddev,
+    sem,
+    cv,
     skewness,
     kurtosis,
 };
@@ -571,6 +573,8 @@ fn groupByMomentOnTyped(
         slot.* = switch (aggregation) {
             .variance => profile.variance(),
             .stddev => profile.stddev(),
+            .sem => profile.sem(),
+            .cv => profile.cv(),
             .skewness => profile.skewness(),
             .kurtosis => profile.kurtosis(),
         };
@@ -612,6 +616,26 @@ pub fn groupByStddevOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByMomentOn(DeviceDataFrame, .stddev, frame, key_names, value_name, output_name);
+}
+
+pub fn groupBySemOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .sem, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByCvOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .cv, frame, key_names, value_name, output_name);
 }
 
 pub fn groupBySkewnessOn(

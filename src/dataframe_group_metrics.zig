@@ -45,6 +45,16 @@ pub const MomentProfile = struct {
         return std.math.sqrt(self.variance());
     }
 
+    pub fn sem(self: MomentProfile) f64 {
+        if (self.count == 0) return std.math.nan(f64);
+        return self.stddev() / std.math.sqrt(@as(f64, @floatFromInt(self.count)));
+    }
+
+    pub fn cv(self: MomentProfile) f64 {
+        if (self.count == 0) return std.math.nan(f64);
+        return self.stddev() / self.mean;
+    }
+
     pub fn skewness(self: MomentProfile) f64 {
         if (self.count < 2 or self.m2 == 0) return std.math.nan(f64);
         const n: f64 = @floatFromInt(self.count);

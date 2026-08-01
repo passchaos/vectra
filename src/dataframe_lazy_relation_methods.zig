@@ -190,6 +190,28 @@ pub fn groupByStddevOn(self: anytype, key_names: []const []const u8, value_name:
 pub const groupByStd = groupByStddev;
 pub const groupByStdOn = groupByStddevOn;
 
+pub fn groupBySem(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .sem);
+}
+
+pub fn groupBySemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .sem);
+}
+
+pub const groupBySEM = groupBySem;
+pub const groupBySEMOn = groupBySemOn;
+
+pub fn groupByCv(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .cv);
+}
+
+pub fn groupByCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .cv);
+}
+
+pub const groupByCV = groupByCv;
+pub const groupByCVOn = groupByCvOn;
+
 pub fn groupBySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .skewness);
 }

@@ -31,6 +31,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     quantile,
     variance,
     stddev,
+    sem,
+    cv,
     skewness,
     kurtosis,
     any,

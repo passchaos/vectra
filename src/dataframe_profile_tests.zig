@@ -406,6 +406,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.5), stddev_sales_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), stddev_sales_values[1], 1e-12);
 
+    var sem_sales = try table.groupBySem("store", "sales", "sales_sem_simple");
+    defer sem_sales.deinit();
+    const sem_sales_values = try (try sem_sales.column("sales_sem_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sem_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.5 / std.math.sqrt(2.0)), sem_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / std.math.sqrt(2.0)), sem_sales_values[1], 1e-12);
+
+    var cv_sales = try table.groupByCv("store", "sales", "sales_cv_simple");
+    defer cv_sales.deinit();
+    const cv_sales_values = try (try cv_sales.column("sales_cv_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(cv_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.5 / 7.5), cv_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 7.0), cv_sales_values[1], 1e-12);
+
     var skew_sales = try table.groupBySkewness("store", "sales", "sales_skewness_simple");
     defer skew_sales.deinit();
     const skew_sales_values = try (try skew_sales.column("sales_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -606,6 +620,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_stddev[3], 1e-12);
 
+    var multi_sem = try multi.groupBySemOn(&.{ "store", "day" }, "amount", "amount_sem_simple");
+    defer multi_sem.deinit();
+    const ms_simple_sem = try (try multi_sem.column("amount_sem_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_sem);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 / std.math.sqrt(2.0)), ms_simple_sem[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_sem[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_sem[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_sem[3], 1e-12);
+
+    var multi_cv = try multi.groupByCvOn(&.{ "store", "day" }, "amount", "amount_cv_simple");
+    defer multi_cv.deinit();
+    const ms_simple_cv = try (try multi_cv.column("amount_cv_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_cv);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 / 1.5), ms_simple_cv[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[3], 1e-12);
+
     var multi_skew = try multi.groupBySkewnessOn(&.{ "store", "day" }, "amount", "amount_skewness_simple");
     defer multi_skew.deinit();
     const ms_simple_skew = try (try multi_skew.column("amount_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -749,6 +781,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_variance[3], 1e-12);
+
+    var multi_sem_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_sem_plan.deinit();
+    try multi_sem_plan.groupBySemOn(&.{ "store", "day" }, "amount", "amount_sem_lazy");
+    const multi_sem_explained = try multi_sem_plan.explain(gpa);
+    defer gpa.free(multi_sem_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_sem_explained, "group_by_sem_on([store,day], value=amount -> amount_sem_lazy)") != null);
+    var lazy_multi_sem = try multi_sem_plan.collect();
+    defer lazy_multi_sem.deinit();
+    const lazy_ms_sem = try (try lazy_multi_sem.column("amount_sem_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_sem);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 / std.math.sqrt(2.0)), lazy_ms_sem[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_sem[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_sem[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_sem[3], 1e-12);
+
+    var multi_cv_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_cv_plan.deinit();
+    try multi_cv_plan.groupByCvOn(&.{ "store", "day" }, "amount", "amount_cv_lazy");
+    const multi_cv_explained = try multi_cv_plan.explain(gpa);
+    defer gpa.free(multi_cv_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_cv_explained, "group_by_cv_on([store,day], value=amount -> amount_cv_lazy)") != null);
+    var lazy_multi_cv = try multi_cv_plan.collect();
+    defer lazy_multi_cv.deinit();
+    const lazy_ms_cv = try (try lazy_multi_cv.column("amount_cv_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_cv);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 / 1.5), lazy_ms_cv[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[3], 1e-12);
 
     var multi_skew_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_skew_plan.deinit();
