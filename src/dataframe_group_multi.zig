@@ -20,6 +20,7 @@ const MomentProfile = group_profile_mod.MomentProfile;
 const compareSortValues = numeric_mod.compareSortValues;
 const castToF64 = numeric_mod.castToF64;
 const rowHasValidKeys = keys_mod.rowHasValidKeys;
+const columnRowValid = keys_mod.columnRowValid;
 const findMultiKeyGroupIndex = keys_mod.findMultiKeyGroupIndex;
 const validityValues = validity_mod.validityValues;
 
@@ -208,6 +209,59 @@ pub fn groupByMeanOn(
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value = try frame.column(value_name);
     return groupByMeanOnDispatchValue(DeviceDataFrame, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+fn groupByTakeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime keep_last: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var value_rows: std.ArrayList(usize) = .empty;
+    defer value_rows.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (!try columnRowValid(frame.allocator, value.*, row)) continue;
+        const maybe_group_index = try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row);
+        if (maybe_group_index) |group_index| {
+            if (keep_last) value_rows.items[group_index] = row;
+        } else {
+            try representative_rows.append(frame.allocator, row);
+            try value_rows.append(frame.allocator, row);
+        }
+    }
+
+    const value_column = try value.take(value_rows.items);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, value_column);
+}
+
+pub fn groupByFirstOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByTakeOn(DeviceDataFrame, frame, key_names, value_name, output_name, false);
+}
+
+pub fn groupByLastOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByTakeOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
 }
 
 fn initMultiKeyAggregatedDataFrame(

@@ -169,6 +169,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(mean_values);
     try std.testing.expectEqualSlices(f64, &.{ 7.5, 7.0 }, mean_values);
 
+    var first_sales = try table.groupByFirst("store", "sales", "sales_first");
+    defer first_sales.deinit();
+    const first_sales_values = try (try first_sales.column("sales_first")).f64.toOwnedSlice(gpa);
+    defer gpa.free(first_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, first_sales_values);
+
+    var last_sales = try table.groupByLast("store", "sales", "sales_last");
+    defer last_sales.deinit();
+    const last_sales_values = try (try last_sales.column("sales_last")).f64.toOwnedSlice(gpa);
+    defer gpa.free(last_sales_values);
+    try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, last_sales_values);
+
     var stats = try table.groupByStats("store", "sales", "sales");
     defer stats.deinit();
     try std.testing.expectEqual(@as(usize, 6), stats.width());
@@ -283,6 +295,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_mean);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_mean);
 
+    var multi_first = try multi.groupByFirstOn(&.{ "store", "day" }, "amount", "amount_first");
+    defer multi_first.deinit();
+    const ms_simple_first = try (try multi_first.column("amount_first")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_first);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 9.0, 4.0, 12.0 }, ms_simple_first);
+
+    var multi_last = try multi.groupByLastOn(&.{ "store", "day" }, "amount", "amount_last");
+    defer multi_last.deinit();
+    const ms_simple_last = try (try multi_last.column("amount_last")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_last);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, ms_simple_last);
+
     var multi_counts_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_counts_plan.deinit();
     try multi_counts_plan.valueCountsOnSortedAs(&.{ "store", "day" }, "freq_lazy");
@@ -307,6 +331,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_mean = try (try lazy_multi_mean.column("amount_mean_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_mean);
     try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, lazy_ms_mean);
+
+    var multi_last_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_last_plan.deinit();
+    try multi_last_plan.groupByLastOn(&.{ "store", "day" }, "amount", "amount_last_lazy");
+    const multi_last_explained = try multi_last_plan.explain(gpa);
+    defer gpa.free(multi_last_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_last_explained, "group_by_last_on([store,day], value=amount -> amount_last_lazy)") != null);
+    var lazy_multi_last = try multi_last_plan.collect();
+    defer lazy_multi_last.deinit();
+    const lazy_ms_last = try (try lazy_multi_last.column("amount_last_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_last);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 9.0, 4.0, 12.0 }, lazy_ms_last);
 
     var multi_stats = try multi.groupByStatsOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_stats.deinit();

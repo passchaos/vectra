@@ -154,6 +154,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     min,
     max,
     mean,
+    first,
+    last,
 };
 
 pub const DeviceLazyJoinKind = enum {
