@@ -79,6 +79,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     const dtypes = try table.columnDTypes(gpa);
     defer gpa.free(dtypes);
     try std.testing.expectEqualSlices(DeviceDType, &.{ .f64, .i64, .bool }, dtypes);
+    const dtype_byte_sizes = try table.columnDTypeByteSizes(gpa);
+    defer gpa.free(dtype_byte_sizes);
+    try std.testing.expectEqualSlices(usize, &.{ @sizeOf(f64), @sizeOf(i64), @sizeOf(bool) }, dtype_byte_sizes);
+    const dtype_bit_sizes = try table.columnDTypeBitSizes(gpa);
+    defer gpa.free(dtype_bit_sizes);
+    try std.testing.expectEqualSlices(usize, &.{ @sizeOf(f64) * 8, @sizeOf(i64) * 8, @sizeOf(bool) * 8 }, dtype_bit_sizes);
     const numeric_mask = try table.columnIsNumericMask(gpa);
     defer gpa.free(numeric_mask);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false }, numeric_mask);
