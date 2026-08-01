@@ -9,6 +9,7 @@ const keys_mod = @import("dataframe_keys.zig");
 const rank_mod = @import("dataframe_rank.zig");
 const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
+const validity_mod = @import("dataframe_validity_core.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
@@ -6729,6 +6730,49 @@ pub fn withColumnLiteralScalarAfter(self: anytype, name: []const u8, scalar: Dev
 pub fn withRowIndex(self: anytype, name: []const u8, row_offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowIndex(FrameType(@TypeOf(self)), frameValue(self), name, row_offset);
 }
+
+fn optionalValidityBit(validity: ?[]const bool, index: usize) bool {
+    return if (validity) |mask| mask[index] else true;
+}
+
+fn typedColumnsEqual(allocator: std.mem.Allocator, left: anytype, right: @TypeOf(left)) DeviceDataError!bool {
+    if (left.len() != right.len()) return false;
+    const left_validity = try validity_mod.validityValues(left, allocator);
+    defer if (left_validity) |mask| allocator.free(mask);
+    const right_validity = try validity_mod.validityValues(right, allocator);
+    defer if (right_validity) |mask| allocator.free(mask);
+    const left_values = try left.toOwnedSlice(allocator);
+    defer allocator.free(left_values);
+    const right_values = try right.toOwnedSlice(allocator);
+    defer allocator.free(right_values);
+
+    for (left_values, right_values, 0..) |left_value, right_value, row| {
+        const left_valid = optionalValidityBit(left_validity, row);
+        const right_valid = optionalValidityBit(right_validity, row);
+        if (left_valid != right_valid) return false;
+        if (left_valid and !std.meta.eql(left_value, right_value)) return false;
+    }
+    return true;
+}
+
+fn columnsEqual(allocator: std.mem.Allocator, left: anytype, right: @TypeOf(left)) DeviceDataError!bool {
+    if (left.dtype() != right.dtype()) return false;
+    return switch (left) {
+        inline else => |typed, tag| try typedColumnsEqual(allocator, typed, @field(right, @tagName(tag))),
+    };
+}
+
+pub fn equals(self: anytype, other: FrameType(@TypeOf(self))) DeviceDataError!bool {
+    const left = frameValue(self);
+    if (left.rows != other.rows or left.names.len != other.names.len) return false;
+    for (left.names, other.names, left.columns, other.columns) |left_name, right_name, left_column, right_column| {
+        if (!std.mem.eql(u8, left_name, right_name)) return false;
+        if (!try columnsEqual(left.allocator, left_column, right_column)) return false;
+    }
+    return true;
+}
+
+pub const frameEquals = equals;
 
 pub fn renameColumn(self: anytype, old_name: []const u8, new_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.renameColumn(FrameType(@TypeOf(self)), frameValue(self), old_name, new_name);
