@@ -4033,6 +4033,56 @@ pub fn withRowPrefixSum(frame: anytype, names: []const []const u8, output_names:
     return withRowCumulativeSum(frame, names, output_names);
 }
 
+pub fn withRowCumulativeMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    if (names.len != output_names.len) return error.LengthMismatch;
+    const owned_names = try cloneNameList(frame.allocator, names);
+    errdefer {
+        for (owned_names) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_names);
+    }
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer {
+        for (owned_outputs) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_outputs);
+    }
+    try frame.ops.append(frame.allocator, .{ .row_cumulative_mean = .{
+        .names = owned_names,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub fn withRowCummean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowCumMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixMean(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowCumulativeAverage(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowCumAverage(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowCumAvg(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixAverage(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
+pub fn withRowPrefixAvg(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeMean(frame, names, output_names);
+}
+
 pub fn withRowCumulativeProduct(frame: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
     if (names.len != output_names.len) return error.LengthMismatch;
     const owned_names = try cloneNameList(frame.allocator, names);

@@ -2198,6 +2198,42 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPrefixSum(self, names, output_names);
             }
 
+            pub fn withRowCumulativeMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeMean(self, names, output_names);
+            }
+
+            pub fn withRowCummean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCummean(self, names, output_names);
+            }
+
+            pub fn withRowCumMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumMean(self, names, output_names);
+            }
+
+            pub fn withRowPrefixMean(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixMean(self, names, output_names);
+            }
+
+            pub fn withRowCumulativeAverage(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeAverage(self, names, output_names);
+            }
+
+            pub fn withRowCumAverage(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAverage(self, names, output_names);
+            }
+
+            pub fn withRowCumAvg(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumAvg(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAverage(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAverage(self, names, output_names);
+            }
+
+            pub fn withRowPrefixAvg(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowPrefixAvg(self, names, output_names);
+            }
+
             pub fn withRowCumulativeProduct(self: *DeviceLazyFrame, names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeProduct(self, names, output_names);
             }

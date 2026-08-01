@@ -3087,6 +3087,42 @@ pub fn withRowPrefixSum(self: anytype, names: []const []const u8, output_names: 
     return dataframe_array_mod.withRowPrefixSum(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }
 
+pub fn withRowCumulativeMean(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeMean(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCummean(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCummean(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumMean(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumMean(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixMean(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixMean(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumulativeAverage(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeAverage(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumAverage(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumAverage(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowCumAvg(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumAvg(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixAverage(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixAverage(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
+pub fn withRowPrefixAvg(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowPrefixAvg(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
+}
+
 pub fn withRowCumulativeProduct(self: anytype, names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeProduct(FrameType(@TypeOf(self)), frameValue(self), names, output_names);
 }

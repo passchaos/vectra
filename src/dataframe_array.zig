@@ -4508,7 +4508,7 @@ pub fn withRowCumulativeDistribution(
     return withRowCumeDist(DeviceDataFrame, input, names, output_names);
 }
 
-const RowCumulativeReduction = enum { sum, product, max, min, range };
+const RowCumulativeReduction = enum { sum, product, mean, max, min, range };
 
 fn withRowCumulativeRealColumns(
     comptime DeviceDataFrame: type,
@@ -4560,10 +4560,11 @@ fn withRowCumulativeRealColumns(
     for (0..input.rows) |row| {
         var running: f64 = switch (reduction) {
             .product => 1.0,
-            .sum, .max, .min, .range => 0.0,
+            .sum, .mean, .max, .min, .range => 0.0,
         };
         var running_min: f64 = 0.0;
         var running_max: f64 = 0.0;
+        var running_count: usize = 0;
         var running_valid = false;
         for (0..check_names.len) |col_index| {
             const offset = row * check_names.len + col_index;
@@ -4572,6 +4573,10 @@ fn withRowCumulativeRealColumns(
             switch (reduction) {
                 .sum => running += value,
                 .product => running *= value,
+                .mean => {
+                    running += value;
+                    running_count += 1;
+                },
                 .max => {
                     if (!running_valid or std.math.isNan(value) or (!std.math.isNan(running) and value > running)) {
                         running = value;
@@ -4596,7 +4601,7 @@ fn withRowCumulativeRealColumns(
                     running = running_max - running_min;
                 },
             }
-            cumulative[offset] = running;
+            cumulative[offset] = if (reduction == .mean) running / @as(f64, @floatFromInt(running_count)) else running;
         }
     }
 
@@ -4661,6 +4666,87 @@ pub fn withRowPrefixSum(
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowCumulativeSum(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeRealColumns(DeviceDataFrame, input, names, output_names, .mean);
+}
+
+pub fn withRowCummean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumulativeAverage(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumAverage(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowCumAvg(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAverage(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
+}
+
+pub fn withRowPrefixAvg(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeMean(DeviceDataFrame, input, names, output_names);
 }
 
 pub fn withRowCumulativeProduct(

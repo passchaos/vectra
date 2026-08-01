@@ -758,6 +758,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_percent_rank => |row_outputs| try current.withRowPercentRank(row_outputs.names, row_outputs.output_names),
             .row_cume_dist => |row_outputs| try current.withRowCumeDist(row_outputs.names, row_outputs.output_names),
             .row_cumulative_sum => |row_outputs| try current.withRowCumulativeSum(row_outputs.names, row_outputs.output_names),
+            .row_cumulative_mean => |row_outputs| try current.withRowCumulativeMean(row_outputs.names, row_outputs.output_names),
             .row_cumulative_product => |row_outputs| try current.withRowCumulativeProduct(row_outputs.names, row_outputs.output_names),
             .row_cumulative_max => |row_outputs| try current.withRowCumulativeMax(row_outputs.names, row_outputs.output_names),
             .row_cumulative_min => |row_outputs| try current.withRowCumulativeMin(row_outputs.names, row_outputs.output_names),

@@ -1378,6 +1378,32 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cumsum_validity);
     try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cumsum_validity);
 
+    var row_cummean_table = try validity_table.withRowCumulativeMean(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cummean", "b_row_cummean", "wa_row_cummean", "wb_row_cummean" });
+    defer row_cummean_table.deinit();
+    const row_a_cummean_column = try row_cummean_table.column("a_row_cummean");
+    try std.testing.expectEqual(DeviceDType.f64, row_a_cummean_column.dtype());
+    try std.testing.expect(row_a_cummean_column.f64.nullable());
+    const row_a_cummean = try row_a_cummean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cummean);
+    const row_a_cummean_validity = try row_a_cummean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_a_cummean_validity);
+    const row_b_cummean_column = try row_cummean_table.column("b_row_cummean");
+    try std.testing.expect(row_b_cummean_column.f64.nullable());
+    const row_b_cummean = try row_b_cummean_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cummean);
+    const row_b_cummean_validity = try row_b_cummean_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_b_cummean_validity);
+    const row_wb_cummean = try (try row_cummean_table.column("wb_row_cummean")).f64.toOwnedSlice(gpa);
+    defer gpa.free(row_wb_cummean);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 0.0, 0.0, 4.0 }, row_a_cummean);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 20.0, 0.0, 22.0 }, row_b_cummean);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 3.0), row_wb_cummean[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 23.0 / 3.0), row_wb_cummean[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), row_wb_cummean[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.25), row_wb_cummean[3], 1e-12);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, row_a_cummean_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, true }, row_b_cummean_validity);
+
     var row_cumprod_table = try validity_table.withRowCumulativeProduct(&.{ "a", "b", "wa", "wb" }, &.{ "a_row_cumprod", "b_row_cumprod", "wa_row_cumprod", "wb_row_cumprod" });
     defer row_cumprod_table.deinit();
     const row_a_cumprod_column = try row_cumprod_table.column("a_row_cumprod");
@@ -1677,6 +1703,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPercentileRanks(&.{"a"}, &.{ "a_row_percent_rank", "extra_row_percent_rank" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeDistribution(&.{"a"}, &.{ "a_row_cume", "extra_row_cume" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixSum(&.{"a"}, &.{ "a_row_cumsum", "extra_row_cumsum" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixAvg(&.{"a"}, &.{ "a_row_cummean", "extra_row_cummean" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixProduct(&.{"a"}, &.{ "a_row_cumprod", "extra_row_cumprod" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixMax(&.{"a"}, &.{ "a_row_cummax", "extra_row_cummax" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowPrefixMin(&.{"a"}, &.{ "a_row_cummin", "extra_row_cummin" }));
