@@ -3638,6 +3638,26 @@ pub fn withRowWeightedEvenness(self: anytype, value_names: []const []const u8, w
     return dataframe_array_mod.withRowWeightedEvenness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowWeightedMeanAbsDev(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMeanAbsDev(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedMeanAbsDevRatio(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMeanAbsDevRatio(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedGiniMeanDiff(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedGiniMeanDiff(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedGiniCoefficient(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedGiniCoefficient(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub const withRowWeightedMeanAbsoluteDeviation = withRowWeightedMeanAbsDev;
+pub const withRowWeightedMadRatio = withRowWeightedMeanAbsDevRatio;
+pub const withRowWeightedGiniCoeff = withRowWeightedGiniCoefficient;
+
 pub fn withRowDot(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowDot(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }

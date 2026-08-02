@@ -4748,6 +4748,149 @@ pub fn withRowWeightedEvenness(
     return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .evenness);
 }
 
+const RowWeightedInequalityReduction = enum { mean_abs_dev, mean_abs_dev_ratio, gini_mean_diff, gini_coefficient };
+
+const RowWeightedInequalityStats = struct {
+    mean: f64,
+    mean_abs_dev: f64,
+    mean_diff: f64,
+};
+
+fn rowWeightedInequalityStats(active: []const RowWeightedValue, total_weight: f64) RowWeightedInequalityStats {
+    if (!(total_weight > 0.0)) return .{
+        .mean = quietNanF64(),
+        .mean_abs_dev = quietNanF64(),
+        .mean_diff = quietNanF64(),
+    };
+
+    var weighted_sum: f64 = 0.0;
+    for (active) |item| {
+        if (!(item.weight > 0.0)) continue;
+        weighted_sum += item.value * item.weight;
+    }
+    const mean = weighted_sum / total_weight;
+
+    var deviation_sum: f64 = 0.0;
+    for (active) |item| {
+        if (!(item.weight > 0.0)) continue;
+        deviation_sum += item.weight * @abs(item.value - mean);
+    }
+
+    var pair_weight_sum: f64 = 0.0;
+    var pair_diff_sum: f64 = 0.0;
+    for (active, 0..) |lhs, lhs_index| {
+        if (!(lhs.weight > 0.0)) continue;
+        for (active[lhs_index + 1 ..]) |rhs| {
+            if (!(rhs.weight > 0.0)) continue;
+            // Match the grouped weighted inequality contract: unordered
+            // distinct row pairs are averaged with product weights as support.
+            const pair_weight = lhs.weight * rhs.weight;
+            pair_weight_sum += pair_weight;
+            pair_diff_sum += pair_weight * @abs(lhs.value - rhs.value);
+        }
+    }
+
+    return .{
+        .mean = mean,
+        .mean_abs_dev = deviation_sum / total_weight,
+        .mean_diff = if (pair_weight_sum > 0.0) pair_diff_sum / pair_weight_sum else 0.0,
+    };
+}
+
+fn withRowWeightedInequality(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedInequalityReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+            total_weight += weight;
+            count += 1;
+        }
+        if (count == 0 or !(total_weight > 0.0)) continue;
+
+        const stats = rowWeightedInequalityStats(scratch[0..count], total_weight);
+        values[row] = switch (reduction) {
+            .mean_abs_dev => stats.mean_abs_dev,
+            .mean_abs_dev_ratio => if (stats.mean == 0.0) quietNanF64() else stats.mean_abs_dev / @abs(stats.mean),
+            .gini_mean_diff => stats.mean_diff,
+            .gini_coefficient => if (stats.mean == 0.0) quietNanF64() else stats.mean_diff / (2.0 * @abs(stats.mean)),
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedMeanAbsDev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_name, .mean_abs_dev);
+}
+
+pub fn withRowWeightedMeanAbsDevRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_name, .mean_abs_dev_ratio);
+}
+
+pub fn withRowWeightedGiniMeanDiff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_name, .gini_mean_diff);
+}
+
+pub fn withRowWeightedGiniCoefficient(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_name, .gini_coefficient);
+}
+
+pub const withRowWeightedMeanAbsoluteDeviation = withRowWeightedMeanAbsDev;
+pub const withRowWeightedMadRatio = withRowWeightedMeanAbsDevRatio;
+pub const withRowWeightedGiniCoeff = withRowWeightedGiniCoefficient;
+
 const RowPairedNumericReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn quietNanF64() f64 {

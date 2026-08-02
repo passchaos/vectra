@@ -1688,6 +1688,22 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), row_weighted_evenness[2], 1e-12);
     try std.testing.expectApproxEqAbs(-(@as(f64, 2.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 2.0 / 3.0)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0))) / std.math.log(f64, std.math.e, @as(f64, 2.0)), row_weighted_evenness[3], 1e-12);
 
+    var row_weighted_mean_abs_dev_table = try validity_table.withRowWeightedMeanAbsDev(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean_abs_dev");
+    defer row_weighted_mean_abs_dev_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mean_abs_dev_table, gpa, "row_weighted_mean_abs_dev", &.{ 0.0, 0.0, 0.0, 11.52 }, &.{ true, true, false, true });
+
+    var row_weighted_mad_ratio_table = try validity_table.withRowWeightedMadRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mad_ratio");
+    defer row_weighted_mad_ratio_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mad_ratio_table, gpa, "row_weighted_mad_ratio", &.{ 0.0, 0.0, 0.0, 36.0 / 35.0 }, &.{ true, true, false, true });
+
+    var row_weighted_gini_mean_diff_table = try validity_table.withRowWeightedGiniMeanDiff(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_gini_mean_diff");
+    defer row_weighted_gini_mean_diff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_gini_mean_diff_table, gpa, "row_weighted_gini_mean_diff", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ true, true, false, true });
+
+    var row_weighted_gini_coeff_table = try validity_table.withRowWeightedGiniCoeff(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_gini_coeff");
+    defer row_weighted_gini_coeff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_gini_coeff_table, gpa, "row_weighted_gini_coeff", &.{ 0.0, 0.0, 0.0, 45.0 / 28.0 }, &.{ true, true, false, true });
+
     var row_weighted_variance_table = try validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_variance", 0.0);
     defer row_weighted_variance_table.deinit();
     const row_weighted_variance_column = try row_weighted_variance_table.column("row_weighted_variance");

@@ -4140,6 +4140,41 @@ pub fn withRowWeightedEvenness(frame: anytype, value_names: []const []const u8, 
     } });
 }
 
+fn withRowWeightedInequality(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { mean_abs_dev, mean_abs_dev_ratio, gini_mean_diff, gini_coefficient }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .mean_abs_dev => .{ .row_weighted_mean_abs_dev = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .mean_abs_dev_ratio => .{ .row_weighted_mean_abs_dev_ratio = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .gini_mean_diff => .{ .row_weighted_gini_mean_diff = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .gini_coefficient => .{ .row_weighted_gini_coefficient = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedMeanAbsDev(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedInequality(frame, value_names, weight_names, output_name, .mean_abs_dev);
+}
+
+pub fn withRowWeightedMeanAbsDevRatio(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedInequality(frame, value_names, weight_names, output_name, .mean_abs_dev_ratio);
+}
+
+pub fn withRowWeightedGiniMeanDiff(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedInequality(frame, value_names, weight_names, output_name, .gini_mean_diff);
+}
+
+pub fn withRowWeightedGiniCoefficient(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedInequality(frame, value_names, weight_names, output_name, .gini_coefficient);
+}
+
+pub const withRowWeightedMeanAbsoluteDeviation = withRowWeightedMeanAbsDev;
+pub const withRowWeightedMadRatio = withRowWeightedMeanAbsDevRatio;
+pub const withRowWeightedGiniCoeff = withRowWeightedGiniCoefficient;
+
 fn withRowPairedNumeric(
     frame: anytype,
     lhs_names: []const []const u8,

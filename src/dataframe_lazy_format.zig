@@ -1030,6 +1030,58 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
+        .row_weighted_mean_abs_dev => |row_weighted| {
+            try writer.print("row_weighted_mean_abs_dev(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_mean_abs_dev_ratio => |row_weighted| {
+            try writer.print("row_weighted_mean_abs_dev_ratio(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_gini_mean_diff => |row_weighted| {
+            try writer.print("row_weighted_gini_mean_diff(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_gini_coefficient => |row_weighted| {
+            try writer.print("row_weighted_gini_coefficient(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
         .row_dot => |row_paired| {
             try writer.print("row_dot(lhs=[", .{});
             for (row_paired.value_names, 0..) |name, i| {

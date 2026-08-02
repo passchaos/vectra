@@ -801,6 +801,11 @@ row-wise distribution purity/diversity diagnostics to weighted value lists.
 `withRowWeightedSimpsonConcentration` and `withRowWeightedEvenness` expose
 the weighted Simpson concentration and normalized weighted-entropy evenness for
 aligned value/weight row lists.
+`withRowWeightedMeanAbsDev`, `withRowWeightedMadRatio`,
+`withRowWeightedGiniMeanDiff`, and `withRowWeightedGiniCoefficient` append
+row-wise weighted inequality diagnostics for aligned value/weight lists,
+sharing the grouped weighted inequality contract for product-weighted unordered
+pairs and NaN zero-mean ratio semantics.
 `withRowChebyshevDistance`, `withRowCanberraDistance`, and
 `withRowBrayCurtisDistance` extend paired row-wise distance features beyond
 Euclidean/Manhattan norms, skipping null pairs and preserving invalid all-null
