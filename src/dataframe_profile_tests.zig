@@ -1888,6 +1888,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_qcd.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_qcd, gpa, "label_cum_qcd_lazy", &group_cum_qcd_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_kelley_expected = [_]f64{ std.math.nan(f64), std.math.nan(f64), 1.0, 0.0, std.math.nan(f64), 0.0, 1.0, 0.0 };
+
+    var group_cum_kelley_label = try distinct_table.withGroupCumulativeKelleySkewness("bucket", "label", "label_cum_kelley");
+    defer group_cum_kelley_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_kelley_label, gpa, "label_cum_kelley", &group_cum_kelley_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_kelley_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_kelley_plan.deinit();
+    try cumulative_kelley_plan.withGroupCumKelleySkew("bucket", "label", "label_cum_kelley_lazy");
+    const cumulative_kelley_explained = try cumulative_kelley_plan.explain(gpa);
+    defer gpa.free(cumulative_kelley_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_kelley_explained, "group_cumulative_kelley_skewness([bucket], value=label->label_cum_kelley_lazy)") != null);
+    var lazy_cumulative_kelley = try cumulative_kelley_plan.collect();
+    defer lazy_cumulative_kelley.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_kelley, gpa, "label_cum_kelley_lazy", &group_cum_kelley_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

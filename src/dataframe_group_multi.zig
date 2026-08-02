@@ -3276,7 +3276,7 @@ pub fn withGroupCumulativeQuantileOn(comptime DeviceDataFrame: type, frame: Devi
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 
-const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion };
+const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness };
 
 fn withGroupCumulativeRobustOnTyped(
     comptime DeviceDataFrame: type,
@@ -3338,6 +3338,13 @@ fn withGroupCumulativeRobustOnTyped(
                 const q3 = quantileFromSorted(sorted, 0.75);
                 const denominator = q3 + q1;
                 break :blk if (denominator == 0.0) std.math.nan(f64) else (q3 - q1) / denominator;
+            },
+            .kelley_skewness => blk: {
+                const p10 = quantileFromSorted(sorted, 0.1);
+                const median = quantileFromSorted(sorted, 0.5);
+                const p90 = quantileFromSorted(sorted, 0.9);
+                const spread = p90 - p10;
+                break :blk if (spread == 0.0) std.math.nan(f64) else (p90 + p10 - 2.0 * median) / spread;
             },
         };
         row_validity[row] = true;
@@ -3405,6 +3412,10 @@ pub fn withGroupCumulativeQuartileCoeffDispersionOn(comptime DeviceDataFrame: ty
     return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .quartile_coeff_dispersion);
 }
 
+pub fn withGroupCumulativeKelleySkewnessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .kelley_skewness);
+}
+
 pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
 pub const withGroupCumulativeMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumulativeMedianAbsDevOn = withGroupCumulativeMadOn;
@@ -3427,6 +3438,9 @@ pub const withGroupCumulativeQCDOn = withGroupCumulativeQuartileCoeffDispersionO
 pub const withGroupCumQuartileCoeffDispersionOn = withGroupCumulativeQuartileCoeffDispersionOn;
 pub const withGroupCumQcdOn = withGroupCumulativeQuartileCoeffDispersionOn;
 pub const withGroupCumQCDOn = withGroupCumulativeQuartileCoeffDispersionOn;
+pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
+pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
+pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 

@@ -1523,6 +1523,22 @@ pub const withGroupCumQcdOn = withGroupCumulativeQuartileCoeffDispersionOn;
 pub const withGroupCumQCD = withGroupCumulativeQuartileCoeffDispersion;
 pub const withGroupCumQCDOn = withGroupCumulativeQuartileCoeffDispersionOn;
 
+pub fn withGroupCumulativeKelleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeKelleySkewnessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeKelleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeKelleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeKelleySkew = withGroupCumulativeKelleySkewness;
+pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
+pub const withGroupCumKelleySkewness = withGroupCumulativeKelleySkewness;
+pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
+pub const withGroupCumKelleySkew = withGroupCumulativeKelleySkewness;
+pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);
