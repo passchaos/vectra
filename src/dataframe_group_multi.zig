@@ -1326,11 +1326,12 @@ pub fn withGroupIsLastRowOn(
     return withGroupBoundaryFlagOn(DeviceDataFrame, frame, key_names, output_name, true);
 }
 
-pub fn withGroupIsSingletonOn(
+fn withGroupCardinalityFlagOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
     output_name: []const u8,
+    comptime singleton: bool,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
@@ -1363,12 +1364,31 @@ pub fn withGroupIsSingletonOn(
 
     for (0..frame.rows) |row| {
         if (!row_validity[row]) continue;
-        flags[row] = group_counts.items[row_group_indices[row]] == 1;
+        const count = group_counts.items[row_group_indices[row]];
+        flags[row] = if (singleton) count == 1 else count > 1;
     }
 
     var column = try DeviceColumn.fromSliceWithValidity(bool, frame.allocator, flags, row_validity, frame.device);
     defer column.deinit();
     return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupIsSingletonOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCardinalityFlagOn(DeviceDataFrame, frame, key_names, output_name, true);
+}
+
+pub fn withGroupIsDuplicatedOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCardinalityFlagOn(DeviceDataFrame, frame, key_names, output_name, false);
 }
 
 pub fn withGroupRowNumberOn(
