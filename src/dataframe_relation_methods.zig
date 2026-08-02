@@ -405,6 +405,20 @@ pub fn withGroupCumulativeMeanOn(self: anytype, key_names: []const []const u8, v
 pub const withGroupCumMean = withGroupCumulativeMean;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 
+pub fn withGroupCumulativeProduct(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeProductOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeProductOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeProductOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumProduct = withGroupCumulativeProduct;
+pub const withGroupCumProductOn = withGroupCumulativeProductOn;
+pub const withGroupCumProd = withGroupCumulativeProduct;
+pub const withGroupCumProdOn = withGroupCumulativeProductOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

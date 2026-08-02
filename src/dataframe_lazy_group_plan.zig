@@ -516,32 +516,45 @@ pub fn withGroupCumulativeNullRatio(frame: anytype, key_names: []const []const u
     return withGroupCumulativeValidityRatio(frame, key_names, value_name, output_name, true);
 }
 
-fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime mean: bool) DeviceDataError!void {
+fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
     errdefer frame.allocator.free(owned_value);
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
-    try frame.ops.append(frame.allocator, if (mean) .{ .group_cumulative_mean = .{
-        .names = owned_keys,
-        .value_name = owned_value,
-        .output_name = owned_output,
-        .offset = 0,
-    } } else .{ .group_cumulative_sum = .{
-        .names = owned_keys,
-        .value_name = owned_value,
-        .output_name = owned_output,
-        .offset = 0,
-    } });
+    try frame.ops.append(frame.allocator, switch (op) {
+        .sum => .{ .group_cumulative_sum = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .mean => .{ .group_cumulative_mean = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .product => .{ .group_cumulative_product = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+    });
 }
 
 pub fn withGroupCumulativeSum(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, false);
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .sum);
 }
 
 pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
-    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, true);
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
+}
+
+pub fn withGroupCumulativeProduct(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .product);
 }
 
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
