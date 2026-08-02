@@ -1530,6 +1530,20 @@ test "device lazy frame keeps schema-derived and schema-rewrite ops out of parqu
     defer gpa.free(result_sales);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, result_sales);
 
+    var group_rows_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer group_rows_scan.deinit();
+    try group_rows_scan.groupByTopRows("active", "sales", 1, .{ .descending = true });
+    const group_rows_explain = try group_rows_scan.explain(gpa);
+    defer gpa.free(group_rows_explain);
+    try std.testing.expect(std.mem.indexOf(u8, group_rows_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_rows_explain, "group_by_top_rows(active, sort=sales, n=1, desc=true)") != null);
+    var group_rows = try group_rows_scan.collect();
+    defer group_rows.deinit();
+    try std.testing.expectEqual(@as(usize, 3), group_rows.width());
+    try std.testing.expectEqual(@as(?usize, 0), group_rows.columnIndex("id"));
+    try std.testing.expectEqual(@as(?usize, 1), group_rows.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 2), group_rows.columnIndex("active"));
+
     var lazy_drop_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer lazy_drop_scan.deinit();
     try lazy_drop_scan.dropByNameSuffix("ive");

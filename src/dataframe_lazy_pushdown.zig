@@ -1149,6 +1149,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 if (!nameInBorrowedList(group.key_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, group.key_name);
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
@@ -1158,6 +1159,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         try appendOwnedNameUnique(allocator, &required_names, key_name);
                     }
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
@@ -1168,6 +1170,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 if (!nameInBorrowedList(group.sort_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, group.sort_name);
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
@@ -1180,6 +1183,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 if (!nameInBorrowedList(group.sort_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, group.sort_name);
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
@@ -1192,6 +1196,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         try appendOwnedNameUnique(allocator, &required_names, sort_name);
                     }
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
@@ -1206,6 +1211,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         try appendOwnedNameUnique(allocator, &required_names, sort_name);
                     }
                 }
+                projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
