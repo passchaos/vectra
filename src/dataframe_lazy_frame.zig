@@ -2433,6 +2433,13 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedSum(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowCumulativeWeightedSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSum(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
+            pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+
             pub fn withRowWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedWeightSum(self, value_names, weight_names, output_name);
             }

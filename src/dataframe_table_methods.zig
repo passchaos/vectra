@@ -3529,6 +3529,13 @@ pub fn withRowWeightedSum(self: anytype, value_names: []const []const u8, weight
     return dataframe_array_mod.withRowWeightedSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowCumulativeWeightedSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
+pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+
 pub fn withRowWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

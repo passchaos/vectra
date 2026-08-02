@@ -3704,6 +3704,23 @@ fn withRowWeightedSupport(frame: anytype, value_names: []const []const u8, weigh
     });
 }
 
+pub fn withRowCumulativeWeightedSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, .{ .row_cumulative_weighted_sum = .{
+        .value_names = owned_values,
+        .weight_names = owned_weights,
+        .output_names = owned_outputs,
+    } });
+}
+
+pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
+pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+
 pub fn withRowWeightedWeightSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowWeightedSupport(frame, value_names, weight_names, output_name, .weight_sum);
 }

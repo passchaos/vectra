@@ -771,6 +771,10 @@ paired statistics and vector metrics.
 lhs/rhs/weight row-wise metrics.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
+`withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and
+`withRowPrefixWeightedSum` append left-to-right prefix weighted sums across
+aligned value/weight row lists, preserving nullable output at invalid pair
+positions.
 `withRowWeightedWeightSum`, `withRowWeightedPositiveCount`, and
 `withRowWeightedEffectiveN`/`withRowWeightedEffectiveCount` expose per-row
 weighted support diagnostics for aligned value/weight lists, including the

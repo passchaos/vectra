@@ -1510,6 +1510,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_sum_table, gpa, "row_weighted_sum", &.{ 1.0, 20.0, 0.0, 56.0 }, &.{ true, true, false, true });
 
+    var row_cum_weighted_sum_table = try validity_table.withRowCumulativeWeightedSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumsum", "b_row_weighted_cumsum" });
+    defer row_cum_weighted_sum_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sum_table, gpa, "a_row_weighted_cumsum", &.{ 1.0, 0.0, 0.0, 16.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sum_table, gpa, "b_row_weighted_cumsum", &.{ 0.0, 20.0, 0.0, 56.0 }, &.{ false, true, false, true });
+
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");
     defer row_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_weight_sum_table, gpa, "row_weighted_weight_sum", &.{ 1.0, 1.0, 0.0, 5.0 }, &.{ true, true, false, true });
