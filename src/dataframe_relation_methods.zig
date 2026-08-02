@@ -1500,6 +1500,150 @@ pub fn groupByNullRatioOn(self: anytype, key_names: []const []const u8, value_na
     return group_multi_mod.groupByNullRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn groupByNaNCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNaNCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNaNCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNaNCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNaNRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNaNRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNaNRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNaNRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByInfCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByInfCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByInfCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByInfCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByInfRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByInfRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByInfRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByInfRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveInfCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByPositiveInfCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByPositiveInfCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByPositiveInfCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveInfRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByPositiveInfRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByPositiveInfRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByPositiveInfRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeInfCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNegativeInfCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNegativeInfCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNegativeInfCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeInfRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNegativeInfRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNegativeInfRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNegativeInfRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByFiniteCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByFiniteCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByFiniteCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByFiniteCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByFiniteRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByFiniteRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByFiniteRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByFiniteRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNormalCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNormalCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNormalCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNormalRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNormalRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNormalRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNormalRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupBySubnormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupBySubnormalCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupBySubnormalCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupBySubnormalCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupBySubnormalRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupBySubnormalRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupBySubnormalRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupBySubnormalRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNonFiniteCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNonFiniteCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNonFiniteCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNonFiniteCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn groupByNonFiniteRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNonFiniteRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByNonFiniteRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNonFiniteRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub fn groupByArgMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByArgMinOn(self, key_names[0..], value_name, output_name);

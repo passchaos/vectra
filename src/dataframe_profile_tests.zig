@@ -230,6 +230,164 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_null_ratio_on_values[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_null_ratio_on_values[3], 1e-12);
 
+    const smallest_subnormal: f64 = @bitCast(@as(u64, 1));
+    var quality_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3, 3, 4 }, .cpu);
+    defer quality_key.deinit();
+    var quality_day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 11, 11, 10, 10, 11, 10, 10, 10 }, .cpu);
+    defer quality_day.deinit();
+    var quality_values_buffer = [_]f64{
+        1.0,
+        std.math.nan(f64),
+        std.math.inf(f64),
+        -std.math.inf(f64),
+        0.0,
+        smallest_subnormal,
+        5.0,
+        std.math.nan(f64),
+        std.math.inf(f64),
+        42.0,
+    };
+    var quality_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &quality_values_buffer, &.{ true, true, true, true, true, true, false, false, true, false }, .cpu);
+    defer quality_value.deinit();
+    var quality_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = quality_key },
+        .{ .name = "day", .data = quality_day },
+        .{ .name = "metric", .data = quality_value },
+    });
+    defer quality_table.deinit();
+
+    var metric_nan_counts = try quality_table.groupByNaNCount("bucket", "metric", "metric_nan_count");
+    defer metric_nan_counts.deinit();
+    const metric_nan_count_values = try (try metric_nan_counts.column("metric_nan_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_nan_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, metric_nan_count_values);
+
+    var metric_inf_counts = try quality_table.groupByInfCount("bucket", "metric", "metric_inf_count");
+    defer metric_inf_counts.deinit();
+    const metric_inf_count_values = try (try metric_inf_counts.column("metric_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_inf_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 0, 1, 0 }, metric_inf_count_values);
+
+    var metric_positive_inf_counts = try quality_table.groupByPositiveInfCount("bucket", "metric", "metric_positive_inf_count");
+    defer metric_positive_inf_counts.deinit();
+    const metric_positive_inf_count_values = try (try metric_positive_inf_counts.column("metric_positive_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_positive_inf_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 1, 0 }, metric_positive_inf_count_values);
+
+    var metric_negative_inf_counts = try quality_table.groupByNegativeInfCount("bucket", "metric", "metric_negative_inf_count");
+    defer metric_negative_inf_counts.deinit();
+    const metric_negative_inf_count_values = try (try metric_negative_inf_counts.column("metric_negative_inf_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_negative_inf_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, metric_negative_inf_count_values);
+
+    var metric_finite_counts = try quality_table.groupByFiniteCount("bucket", "metric", "metric_finite_count");
+    defer metric_finite_counts.deinit();
+    const metric_finite_count_values = try (try metric_finite_counts.column("metric_finite_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_finite_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0, 0 }, metric_finite_count_values);
+
+    var metric_normal_counts = try quality_table.groupByNormalCount("bucket", "metric", "metric_normal_count");
+    defer metric_normal_counts.deinit();
+    const metric_normal_count_values = try (try metric_normal_counts.column("metric_normal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_normal_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, metric_normal_count_values);
+
+    var metric_subnormal_counts = try quality_table.groupBySubnormalCount("bucket", "metric", "metric_subnormal_count");
+    defer metric_subnormal_counts.deinit();
+    const metric_subnormal_count_values = try (try metric_subnormal_counts.column("metric_subnormal_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_subnormal_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, metric_subnormal_count_values);
+
+    var metric_non_finite_counts = try quality_table.groupByNonFiniteCount("bucket", "metric", "metric_non_finite_count");
+    defer metric_non_finite_counts.deinit();
+    const metric_non_finite_count_values = try (try metric_non_finite_counts.column("metric_non_finite_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_non_finite_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 0 }, metric_non_finite_count_values);
+
+    const ratio_nan = std.math.nan(f64);
+    const metric_nan_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
+    var metric_nan_ratios = try quality_table.groupByNaNRatio("bucket", "metric", "metric_nan_ratio");
+    defer metric_nan_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_nan_ratios, gpa, "metric_nan_ratio", &metric_nan_ratio_expected);
+
+    const metric_inf_ratio_expected = [_]f64{ 0.5, 0.0, 1.0, ratio_nan };
+    var metric_inf_ratios = try quality_table.groupByInfRatio("bucket", "metric", "metric_inf_ratio");
+    defer metric_inf_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_inf_ratios, gpa, "metric_inf_ratio", &metric_inf_ratio_expected);
+
+    const metric_positive_inf_ratio_expected = [_]f64{ 0.25, 0.0, 1.0, ratio_nan };
+    var metric_positive_inf_ratios = try quality_table.groupByPositiveInfRatio("bucket", "metric", "metric_positive_inf_ratio");
+    defer metric_positive_inf_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_positive_inf_ratios, gpa, "metric_positive_inf_ratio", &metric_positive_inf_ratio_expected);
+
+    const metric_negative_inf_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
+    var metric_negative_inf_ratios = try quality_table.groupByNegativeInfRatio("bucket", "metric", "metric_negative_inf_ratio");
+    defer metric_negative_inf_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_negative_inf_ratios, gpa, "metric_negative_inf_ratio", &metric_negative_inf_ratio_expected);
+
+    const metric_finite_ratio_expected = [_]f64{ 0.25, 1.0, 0.0, ratio_nan };
+    var metric_finite_ratios = try quality_table.groupByFiniteRatio("bucket", "metric", "metric_finite_ratio");
+    defer metric_finite_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_finite_ratios, gpa, "metric_finite_ratio", &metric_finite_ratio_expected);
+
+    const metric_normal_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
+    var metric_normal_ratios = try quality_table.groupByNormalRatio("bucket", "metric", "metric_normal_ratio");
+    defer metric_normal_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_normal_ratios, gpa, "metric_normal_ratio", &metric_normal_ratio_expected);
+
+    const metric_subnormal_ratio_expected = [_]f64{ 0.0, 0.5, 0.0, ratio_nan };
+    var metric_subnormal_ratios = try quality_table.groupBySubnormalRatio("bucket", "metric", "metric_subnormal_ratio");
+    defer metric_subnormal_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_subnormal_ratios, gpa, "metric_subnormal_ratio", &metric_subnormal_ratio_expected);
+
+    const metric_non_finite_ratio_expected = [_]f64{ 0.75, 0.0, 1.0, ratio_nan };
+    var metric_non_finite_ratios = try quality_table.groupByNonFiniteRatio("bucket", "metric", "metric_non_finite_ratio");
+    defer metric_non_finite_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_non_finite_ratios, gpa, "metric_non_finite_ratio", &metric_non_finite_ratio_expected);
+
+    var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
+    defer metric_nan_counts_on.deinit();
+    const metric_nan_count_on_values = try (try metric_nan_counts_on.column("metric_nan_count_on")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_nan_count_on_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0, 0, 0 }, metric_nan_count_on_values);
+
+    const metric_finite_ratio_on_expected = [_]f64{ 0.5, 0.0, 1.0, ratio_nan, 0.0, ratio_nan };
+    var metric_finite_ratios_on = try quality_table.groupByFiniteRatioOn(&.{ "bucket", "day" }, "metric", "metric_finite_ratio_on");
+    defer metric_finite_ratios_on.deinit();
+    try expectF64ColumnApproxOrNan(metric_finite_ratios_on, gpa, "metric_finite_ratio_on", &metric_finite_ratio_on_expected);
+
+    var nan_count_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer nan_count_plan.deinit();
+    try nan_count_plan.groupByNaNCountOn(&.{"bucket"}, "metric", "metric_nan_count_lazy");
+    const nan_count_explained = try nan_count_plan.explain(gpa);
+    defer gpa.free(nan_count_explained);
+    try std.testing.expect(std.mem.indexOf(u8, nan_count_explained, "group_by_nan_count_on([bucket], value=metric -> metric_nan_count_lazy)") != null);
+    var lazy_nan_count = try nan_count_plan.collect();
+    defer lazy_nan_count.deinit();
+    const lazy_nan_count_values = try (try lazy_nan_count.column("metric_nan_count_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_nan_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, lazy_nan_count_values);
+
+    var finite_ratio_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer finite_ratio_plan.deinit();
+    try finite_ratio_plan.groupByFiniteRatio("bucket", "metric", "metric_finite_ratio_lazy");
+    const finite_ratio_explained = try finite_ratio_plan.explain(gpa);
+    defer gpa.free(finite_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, finite_ratio_explained, "group_by_finite_ratio(bucket, value=metric -> metric_finite_ratio_lazy)") != null);
+    var lazy_finite_ratio = try finite_ratio_plan.collect();
+    defer lazy_finite_ratio.deinit();
+    try expectF64ColumnApproxOrNan(lazy_finite_ratio, gpa, "metric_finite_ratio_lazy", &metric_finite_ratio_expected);
+
+    var non_finite_ratio_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer non_finite_ratio_plan.deinit();
+    try non_finite_ratio_plan.groupByNonFiniteRatioOn(&.{"bucket"}, "metric", "metric_non_finite_ratio_lazy");
+    const non_finite_ratio_explained = try non_finite_ratio_plan.explain(gpa);
+    defer gpa.free(non_finite_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, non_finite_ratio_explained, "group_by_non_finite_ratio_on([bucket], value=metric -> metric_non_finite_ratio_lazy)") != null);
+    var lazy_non_finite_ratio = try non_finite_ratio_plan.collect();
+    defer lazy_non_finite_ratio.deinit();
+    try expectF64ColumnApproxOrNan(lazy_non_finite_ratio, gpa, "metric_non_finite_ratio_lazy", &metric_non_finite_ratio_expected);
+
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();
     try any_active_plan.groupByAnyOn(&.{ "store", "day" }, "active", "any_active_lazy");
