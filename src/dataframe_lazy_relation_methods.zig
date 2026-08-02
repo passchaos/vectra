@@ -1707,10 +1707,47 @@ pub const withGroupCumWeightedSum = withGroupCumulativeWeightedSum;
 pub const withGroupCumWeightedSumOn = withGroupCumulativeWeightedSumOn;
 pub const withGroupCumulativeWeightedProd = withGroupCumulativeWeightedProduct;
 pub const withGroupCumulativeWeightedProdOn = withGroupCumulativeWeightedProductOn;
+pub fn withGroupCumulativeWeightedWeightSum(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedWeightSumOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedWeightSumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedWeightSum(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedPositiveCount(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedPositiveCountOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedPositiveCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedPositiveCount(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEffectiveN(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedEffectiveNOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEffectiveNOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedEffectiveN(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedEffectiveCount = withGroupCumulativeWeightedEffectiveN;
+pub const withGroupCumulativeWeightedEffectiveCountOn = withGroupCumulativeWeightedEffectiveNOn;
 pub const withGroupCumWeightedProduct = withGroupCumulativeWeightedProduct;
 pub const withGroupCumWeightedProductOn = withGroupCumulativeWeightedProductOn;
 pub const withGroupCumWeightedProd = withGroupCumulativeWeightedProduct;
 pub const withGroupCumWeightedProdOn = withGroupCumulativeWeightedProductOn;
+pub const withGroupCumWeightedWeightSum = withGroupCumulativeWeightedWeightSum;
+pub const withGroupCumWeightedWeightSumOn = withGroupCumulativeWeightedWeightSumOn;
+pub const withGroupCumWeightedPositiveCount = withGroupCumulativeWeightedPositiveCount;
+pub const withGroupCumWeightedPositiveCountOn = withGroupCumulativeWeightedPositiveCountOn;
+pub const withGroupCumWeightedEffectiveN = withGroupCumulativeWeightedEffectiveN;
+pub const withGroupCumWeightedEffectiveNOn = withGroupCumulativeWeightedEffectiveNOn;
+pub const withGroupCumWeightedEffectiveCount = withGroupCumulativeWeightedEffectiveN;
+pub const withGroupCumWeightedEffectiveCountOn = withGroupCumulativeWeightedEffectiveNOn;
 
 pub fn withGroupCumulativeWeightedMedian(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};

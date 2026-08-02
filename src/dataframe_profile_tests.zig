@@ -3339,6 +3339,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedSum("bucket", "value", "weight", "bad_weighted_cum_sum"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedWeightSum("bucket", "value", "weight", "bad_weighted_cum_weight_sum"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedProduct("bucket", "value", "weight", "bad_weighted_cum_product"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMax("bucket", "value", "weight", "bad_weighted_cum_max"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
@@ -3366,6 +3367,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_weighted_product.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_product, gpa, "value_weighted_cum_product", &group_cum_weighted_product_expected, &.{ true, true, true, true, true, false, true, true });
 
+    var group_cum_weight_sum = try weighted_table.withGroupCumulativeWeightedWeightSum("bucket", "value", "weight", "value_weighted_cum_weight_sum");
+    defer group_cum_weight_sum.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weight_sum, gpa, "value_weighted_cum_weight_sum", &.{ 1.0, 4.0, 6.0, 1.0, 2.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_effective_n = try weighted_table.withGroupCumulativeWeightedEffectiveN("bucket", "value", "weight", "value_weighted_cum_effective_n");
+    defer group_cum_effective_n.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_effective_n, gpa, "value_weighted_cum_effective_n", &.{ 1.0, 16.0 / 10.0, 36.0 / 14.0, 1.0, 2.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
+
     var weighted_mean_plan = try DeviceLazyFrame.init(gpa, weighted_table);
     defer weighted_mean_plan.deinit();
     try weighted_mean_plan.groupByWeightedMeanOn(&.{"bucket"}, "value", "weight", "value_weighted_mean_lazy");
@@ -3385,16 +3394,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try cumulative_weighted_mean_plan.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean_lazy");
     try cumulative_weighted_mean_plan.withGroupCumulativeWeightedSum("bucket", "value", "weight", "value_weighted_cum_sum_lazy");
     try cumulative_weighted_mean_plan.withGroupCumulativeWeightedProduct("bucket", "value", "weight", "value_weighted_cum_product_lazy");
+    try cumulative_weighted_mean_plan.withGroupCumulativeWeightedWeightSum("bucket", "value", "weight", "value_weighted_cum_weight_sum_lazy");
+    try cumulative_weighted_mean_plan.withGroupCumulativeWeightedPositiveCount("bucket", "value", "weight", "value_weighted_cum_positive_count_lazy");
+    try cumulative_weighted_mean_plan.withGroupCumulativeWeightedEffectiveN("bucket", "value", "weight", "value_weighted_cum_effective_n_lazy");
     const cumulative_weighted_mean_explained = try cumulative_weighted_mean_plan.explain(gpa);
     defer gpa.free(cumulative_weighted_mean_explained);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_mean([bucket], value=value, weight=weight->value_weighted_cum_mean_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_sum([bucket], value=value, weight=weight->value_weighted_cum_sum_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_product([bucket], value=value, weight=weight->value_weighted_cum_product_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_weight_sum([bucket], value=value, weight=weight->value_weighted_cum_weight_sum_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_effective_n([bucket], value=value, weight=weight->value_weighted_cum_effective_n_lazy)") != null);
     var lazy_cumulative_weighted_mean = try cumulative_weighted_mean_plan.collect();
     defer lazy_cumulative_weighted_mean.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_mean_lazy", &.{ 10.0, 17.5, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_sum_lazy", &group_cum_weighted_sum_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_product_lazy", &group_cum_weighted_product_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_weight_sum_lazy", &.{ 1.0, 4.0, 6.0, 1.0, 2.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_positive_count_lazy", &.{ 1.0, 2.0, 3.0, 1.0, 2.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_effective_n_lazy", &.{ 1.0, 16.0 / 10.0, 36.0 / 14.0, 1.0, 2.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
 
     const group_cum_weighted_median_expected = [_]f64{ 10.0, 20.0, 20.0, 5.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_q75_expected = [_]f64{ 10.0, 20.0, 30.0, 5.0, 15.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
