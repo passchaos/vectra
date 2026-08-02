@@ -895,6 +895,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_weighted_quantile: Payloads.GroupWeightedShiftQuantile,
         group_cumulative_weighted_iqr: Payloads.GroupWeightedShift,
         group_cumulative_weighted_mad: Payloads.GroupWeightedShift,
+        group_cumulative_weighted_trimmed_mean: Payloads.GroupWeightedShiftQuantile,
+        group_cumulative_weighted_winsorized_mean: Payloads.GroupWeightedShiftQuantile,
         group_cumulative_weighted_mode: Payloads.GroupWeightedShift,
         group_cumulative_weighted_mode_weight: Payloads.GroupWeightedShift,
         group_cumulative_weighted_mode_ratio: Payloads.GroupWeightedShift,

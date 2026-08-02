@@ -3371,7 +3371,11 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedLogSumExp("bucket", "value", "weight", "bad_weighted_cum_logsumexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedLogMeanExp("bucket", "value", "weight", "bad_weighted_cum_logmeanexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedRange("bucket", "value", "weight", "bad_weighted_cum_range"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedTrimmedMean("bucket", "value", "weight", "bad_weighted_cum_trimmed", 0.25));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedWinsorizedMean("bucket", "value", "weight", "bad_weighted_cum_winsorized", 0.25));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
+    try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedTrimmedMean("bucket", "value", "weight", "bad_weighted_cum_trimmed", 0.5));
+    try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedWinsorizedMean("bucket", "value", "weight", "bad_weighted_cum_winsorized", -0.01));
 
     const group_cum_weighted_sum_expected = [_]f64{ 10.0, 70.0, 130.0, 5.0, 20.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_product_expected = [_]f64{ 10.0, std.math.exp(std.math.log(f64, std.math.e, @as(f64, 10.0)) + 3.0 * std.math.log(f64, std.math.e, @as(f64, 20.0))), weighted_product_expected[0], 5.0, weighted_product_expected[1], 0.0, std.math.nan(f64), std.math.nan(f64) };
@@ -3457,6 +3461,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_weighted_quantiles.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_median_lazy", &group_cum_weighted_median_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_q75_lazy", &group_cum_weighted_q75_expected, &.{ true, true, true, true, true, false, true, true });
+
+    const group_cum_weighted_trimmed_expected = [_]f64{ 10.0, 20.0, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_winsorized_expected = [_]f64{ 10.0, 17.5, 70.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_trimmed = try weighted_table.withGroupCumulativeWeightedTrimmedMean("bucket", "value", "weight", "value_weighted_cum_trimmed", 0.25);
+    defer group_cum_weighted_trimmed.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_trimmed, gpa, "value_weighted_cum_trimmed", &group_cum_weighted_trimmed_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_winsorized = try weighted_table.withGroupCumulativeWeightedWinsorizedMeanOn(&.{"bucket"}, "value", "weight", "value_weighted_cum_winsorized", 0.25);
+    defer group_cum_weighted_winsorized.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_winsorized, gpa, "value_weighted_cum_winsorized", &group_cum_weighted_winsorized_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var cumulative_weighted_robust_mean_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_robust_mean_plan.deinit();
+    try cumulative_weighted_robust_mean_plan.withGroupCumulativeWeightedTrimmedMean("bucket", "value", "weight", "value_weighted_cum_trimmed_lazy", 0.25);
+    try cumulative_weighted_robust_mean_plan.withGroupCumulativeWeightedWinsorizedMean("bucket", "value", "weight", "value_weighted_cum_winsorized_lazy", 0.25);
+    const cumulative_weighted_robust_mean_explained = try cumulative_weighted_robust_mean_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_robust_mean_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_robust_mean_explained, "group_cumulative_weighted_trimmed_mean([bucket], value=value, weight=weight, trim_fraction=0.25->value_weighted_cum_trimmed_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_robust_mean_explained, "group_cumulative_weighted_winsorized_mean([bucket], value=value, weight=weight, winsor_fraction=0.25->value_weighted_cum_winsorized_lazy)") != null);
+    var lazy_cumulative_weighted_robust_means = try cumulative_weighted_robust_mean_plan.collect();
+    defer lazy_cumulative_weighted_robust_means.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust_means, gpa, "value_weighted_cum_trimmed_lazy", &group_cum_weighted_trimmed_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust_means, gpa, "value_weighted_cum_winsorized_lazy", &group_cum_weighted_winsorized_expected, &.{ true, true, true, true, true, false, true, true });
 
     var weighted_robust_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2 }, .cpu);
     defer weighted_robust_key.deinit();

@@ -1296,6 +1296,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_weighted_quantile => |shift| try current.withGroupCumulativeWeightedQuantileOn(shift.names, shift.value_name, shift.weight_name, shift.output_name, shift.quantile),
             .group_cumulative_weighted_iqr => |shift| try current.withGroupCumulativeWeightedIqrOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_mad => |shift| try current.withGroupCumulativeWeightedMadOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
+            .group_cumulative_weighted_trimmed_mean => |shift| try current.withGroupCumulativeWeightedTrimmedMeanOn(shift.names, shift.value_name, shift.weight_name, shift.output_name, shift.quantile),
+            .group_cumulative_weighted_winsorized_mean => |shift| try current.withGroupCumulativeWeightedWinsorizedMeanOn(shift.names, shift.value_name, shift.weight_name, shift.output_name, shift.quantile),
             .group_cumulative_weighted_mode => |shift| try current.withGroupCumulativeWeightedModeOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_mode_weight => |shift| try current.withGroupCumulativeWeightedModeWeightOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_mode_ratio => |shift| try current.withGroupCumulativeWeightedModeRatioOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),

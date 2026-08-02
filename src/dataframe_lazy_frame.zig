@@ -6215,6 +6215,10 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumulativeWeightedEffectiveNOn = lazy_relation_methods_mod.withGroupCumulativeWeightedEffectiveNOn;
             pub const withGroupCumulativeWeightedEffectiveCount = lazy_relation_methods_mod.withGroupCumulativeWeightedEffectiveCount;
             pub const withGroupCumulativeWeightedEffectiveCountOn = lazy_relation_methods_mod.withGroupCumulativeWeightedEffectiveCountOn;
+            pub const withGroupCumulativeWeightedTrimmedMean = lazy_relation_methods_mod.withGroupCumulativeWeightedTrimmedMean;
+            pub const withGroupCumulativeWeightedTrimmedMeanOn = lazy_relation_methods_mod.withGroupCumulativeWeightedTrimmedMeanOn;
+            pub const withGroupCumulativeWeightedWinsorizedMean = lazy_relation_methods_mod.withGroupCumulativeWeightedWinsorizedMean;
+            pub const withGroupCumulativeWeightedWinsorizedMeanOn = lazy_relation_methods_mod.withGroupCumulativeWeightedWinsorizedMeanOn;
             pub const withGroupCumulativeWeightedProd = lazy_relation_methods_mod.withGroupCumulativeWeightedProd;
             pub const withGroupCumulativeWeightedProdOn = lazy_relation_methods_mod.withGroupCumulativeWeightedProdOn;
             pub const withGroupCumWeightedMean = lazy_relation_methods_mod.withGroupCumWeightedMean;
@@ -6231,6 +6235,10 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumWeightedEffectiveNOn = lazy_relation_methods_mod.withGroupCumWeightedEffectiveNOn;
             pub const withGroupCumWeightedEffectiveCount = lazy_relation_methods_mod.withGroupCumWeightedEffectiveCount;
             pub const withGroupCumWeightedEffectiveCountOn = lazy_relation_methods_mod.withGroupCumWeightedEffectiveCountOn;
+            pub const withGroupCumWeightedTrimmedMean = lazy_relation_methods_mod.withGroupCumWeightedTrimmedMean;
+            pub const withGroupCumWeightedTrimmedMeanOn = lazy_relation_methods_mod.withGroupCumWeightedTrimmedMeanOn;
+            pub const withGroupCumWeightedWinsorizedMean = lazy_relation_methods_mod.withGroupCumWeightedWinsorizedMean;
+            pub const withGroupCumWeightedWinsorizedMeanOn = lazy_relation_methods_mod.withGroupCumWeightedWinsorizedMeanOn;
             pub const withGroupCumWeightedProd = lazy_relation_methods_mod.withGroupCumWeightedProd;
             pub const withGroupCumWeightedProdOn = lazy_relation_methods_mod.withGroupCumWeightedProdOn;
             pub const withGroupCumulativeWeightedMedian = lazy_relation_methods_mod.withGroupCumulativeWeightedMedian;

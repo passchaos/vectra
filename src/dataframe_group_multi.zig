@@ -3707,7 +3707,7 @@ pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
 const GroupCumulativeWeightedMoment = enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano };
 
-const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
+const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean };
 
 const GroupCumulativeWeightedModeOp = enum { mode, mode_weight, mode_ratio, mode_margin, mode_margin_ratio };
 
@@ -4272,6 +4272,7 @@ fn withGroupCumulativeWeightedQuantileCoreOn(
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     if (op == .quantile and (std.math.isNan(q) or q < 0.0 or q > 1.0)) return error.InvalidShape;
+    if ((op == .trimmed_mean or op == .winsorized_mean) and (std.math.isNan(q) or q < 0.0 or q >= 0.5)) return error.InvalidShape;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value_column = try frame.column(value_name);
     const weight_column = try frame.column(weight_name);
@@ -4329,6 +4330,8 @@ fn withGroupCumulativeWeightedQuantileCoreOn(
             .quantile => groupWeightedQuantileFromSorted(group_values.items[group_index].items, q, weight_sum),
             .iqr => groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum) - groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum),
             .mad => try groupWeightedMadFromSorted(frame.allocator, group_values.items[group_index].items, weight_sum),
+            .trimmed_mean => weightedTrimmedMeanFromSorted(group_values.items[group_index].items, weight_sum, q),
+            .winsorized_mean => weightedWinsorizedMeanFromSorted(group_values.items[group_index].items, weight_sum, q),
         } else std.math.nan(f64);
         row_validity[row] = true;
     }
@@ -4381,6 +4384,30 @@ pub fn withGroupCumulativeWeightedMadOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .mad);
+}
+
+pub fn withGroupCumulativeWeightedTrimmedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    trim_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, trim_fraction, .trimmed_mean);
+}
+
+pub fn withGroupCumulativeWeightedWinsorizedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    winsor_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, winsor_fraction, .winsorized_mean);
 }
 
 fn withGroupCumulativeWeightedModeCoreOn(
@@ -4833,6 +4860,8 @@ pub const withGroupCumWeightedRangeOn = withGroupCumulativeWeightedRangeOn;
 pub const withGroupCumWeightedMidrangeOn = withGroupCumulativeWeightedMidrangeOn;
 pub const withGroupCumWeightedRangeCoeffOn = withGroupCumulativeWeightedRangeCoeffOn;
 pub const withGroupCumWeightedRangeCoefficientOn = withGroupCumulativeWeightedRangeCoeffOn;
+pub const withGroupCumWeightedTrimmedMeanOn = withGroupCumulativeWeightedTrimmedMeanOn;
+pub const withGroupCumWeightedWinsorizedMeanOn = withGroupCumulativeWeightedWinsorizedMeanOn;
 pub const withGroupCumWeightedSumOn = withGroupCumulativeWeightedSumOn;
 pub const withGroupCumWeightedWeightSumOn = withGroupCumulativeWeightedWeightSumOn;
 pub const withGroupCumWeightedPositiveCountOn = withGroupCumulativeWeightedPositiveCountOn;

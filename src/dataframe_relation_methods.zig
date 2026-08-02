@@ -1831,6 +1831,29 @@ pub const withGroupCumWeightedMADOn = withGroupCumulativeWeightedMadOn;
 pub const withGroupCumWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
 pub const withGroupCumWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
 
+pub fn withGroupCumulativeWeightedTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedTrimmedMeanOn(self, key_names[0..], value_name, weight_name, output_name, trim_fraction);
+}
+
+pub fn withGroupCumulativeWeightedTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedTrimmedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, trim_fraction);
+}
+
+pub fn withGroupCumulativeWeightedWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedWinsorizedMeanOn(self, key_names[0..], value_name, weight_name, output_name, winsor_fraction);
+}
+
+pub fn withGroupCumulativeWeightedWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedWinsorizedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, winsor_fraction);
+}
+
+pub const withGroupCumWeightedTrimmedMean = withGroupCumulativeWeightedTrimmedMean;
+pub const withGroupCumWeightedTrimmedMeanOn = withGroupCumulativeWeightedTrimmedMeanOn;
+pub const withGroupCumWeightedWinsorizedMean = withGroupCumulativeWeightedWinsorizedMean;
+pub const withGroupCumWeightedWinsorizedMeanOn = withGroupCumulativeWeightedWinsorizedMeanOn;
+
 pub fn withGroupCumulativeWeightedMode(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedModeOn(self, key_names[0..], value_name, weight_name, output_name);
