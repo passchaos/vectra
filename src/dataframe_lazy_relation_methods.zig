@@ -2123,6 +2123,41 @@ pub const withGroupCumWeightedCVOn = withGroupCumulativeWeightedCvOn;
 pub const withGroupCumWeightedFano = withGroupCumulativeWeightedFano;
 pub const withGroupCumWeightedFanoOn = withGroupCumulativeWeightedFanoOn;
 
+pub fn withGroupCumulativeWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanSquareOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanSquareOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMeanSquare(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRms(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedRmsOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRmsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedRms(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedMeanSquared = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumulativeWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumulativeWeightedMeanSq = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumulativeWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumulativeWeightedRMS = withGroupCumulativeWeightedRms;
+pub const withGroupCumulativeWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumWeightedMeanSquare = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedMeanSquareOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedMeanSquared = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedMeanSq = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedRms = withGroupCumulativeWeightedRms;
+pub const withGroupCumWeightedRmsOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumWeightedRMS = withGroupCumulativeWeightedRms;
+pub const withGroupCumWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
@@ -2877,6 +2912,29 @@ pub fn groupByWeightedMean(self: anytype, key_name: []const u8, value_name: []co
 pub fn groupByWeightedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_mean);
 }
+
+pub fn groupByWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_mean_square);
+}
+
+pub fn groupByWeightedMeanSquareOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_mean_square);
+}
+
+pub fn groupByWeightedRms(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_rms);
+}
+
+pub fn groupByWeightedRmsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_rms);
+}
+
+pub const groupByWeightedMeanSquared = groupByWeightedMeanSquare;
+pub const groupByWeightedMeanSquaredOn = groupByWeightedMeanSquareOn;
+pub const groupByWeightedMeanSq = groupByWeightedMeanSquare;
+pub const groupByWeightedMeanSqOn = groupByWeightedMeanSquareOn;
+pub const groupByWeightedRMS = groupByWeightedRms;
+pub const groupByWeightedRMSOn = groupByWeightedRmsOn;
 
 pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);

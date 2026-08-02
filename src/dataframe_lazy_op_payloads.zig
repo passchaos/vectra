@@ -185,6 +185,8 @@ pub const DeviceLazyGroupByAggregation = enum {
 
 pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_mean,
+    weighted_mean_square,
+    weighted_rms,
     weighted_variance,
     weighted_stddev,
     weighted_sem,

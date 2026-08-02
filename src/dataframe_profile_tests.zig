@@ -2863,6 +2863,17 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_mean_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_mean_values[2]));
 
+    const weighted_mean_square_expected = [_]f64{ 1550.0 / 3.0, 125.0, std.math.nan(f64) };
+    const weighted_rms_expected = [_]f64{ std.math.sqrt(@as(f64, 1550.0 / 3.0)), std.math.sqrt(@as(f64, 125.0)), std.math.nan(f64) };
+
+    var weighted_mean_square = try weighted_table.groupByWeightedMeanSquare("bucket", "value", "weight", "value_weighted_mean_square");
+    defer weighted_mean_square.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mean_square, gpa, "value_weighted_mean_square", &weighted_mean_square_expected);
+
+    var weighted_rms = try weighted_table.groupByWeightedRMS("bucket", "value", "weight", "value_weighted_rms");
+    defer weighted_rms.deinit();
+    try expectF64ColumnApproxOrNan(weighted_rms, gpa, "value_weighted_rms", &weighted_rms_expected);
+
     var weighted_variance = try weighted_table.groupByWeightedVarOn(&.{"bucket"}, "value", "weight", "value_weighted_variance");
     defer weighted_variance.deinit();
     const weighted_variance_values = try (try weighted_variance.column("value_weighted_variance")).f64.toOwnedSlice(gpa);
@@ -3624,6 +3635,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         explain: []const u8,
         expected: []const f64,
     }{
+        .{ .method = .weighted_mean_square, .output_name = "value_weighted_mean_square_lazy", .explain = "group_by_weighted_mean_square(bucket, value=value, weight=weight -> value_weighted_mean_square_lazy)", .expected = &weighted_mean_square_expected },
+        .{ .method = .weighted_rms, .output_name = "value_weighted_rms_lazy", .explain = "group_by_weighted_rms(bucket, value=value, weight=weight -> value_weighted_rms_lazy)", .expected = &weighted_rms_expected },
         .{ .method = .weighted_mode, .output_name = "value_weighted_mode_lazy", .explain = "group_by_weighted_mode(bucket, value=value, weight=weight -> value_weighted_mode_lazy)", .expected = &weighted_mode_expected },
         .{ .method = .weighted_mode_weight, .output_name = "value_weighted_mode_weight_lazy", .explain = "group_by_weighted_mode_weight(bucket, value=value, weight=weight -> value_weighted_mode_weight_lazy)", .expected = &weighted_mode_weight_expected },
         .{ .method = .weighted_mode_ratio, .output_name = "value_weighted_mode_ratio_lazy", .explain = "group_by_weighted_mode_ratio(bucket, value=value, weight=weight -> value_weighted_mode_ratio_lazy)", .expected = &weighted_mode_ratio_expected },
@@ -3643,6 +3656,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         var plan = try DeviceLazyFrame.init(gpa, weighted_table);
         defer plan.deinit();
         try switch (case.method) {
+            .weighted_mean_square => plan.groupByWeightedMeanSquare("bucket", "value", "weight", case.output_name),
+            .weighted_rms => plan.groupByWeightedRms("bucket", "value", "weight", case.output_name),
             .weighted_mode => plan.groupByWeightedMode("bucket", "value", "weight", case.output_name),
             .weighted_mode_weight => plan.groupByWeightedModeWeight("bucket", "value", "weight", case.output_name),
             .weighted_mode_ratio => plan.groupByWeightedModeRatio("bucket", "value", "weight", case.output_name),

@@ -225,6 +225,8 @@ const GroupByArgAggregation = enum {
 
 const GroupByWeightedAggregation = enum {
     weighted_mean,
+    weighted_mean_square,
+    weighted_rms,
     weighted_variance,
     weighted_stddev,
     weighted_sem,
@@ -3484,7 +3486,7 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-const GroupCumulativeWeightedMoment = enum { mean, variance, stddev, sem, cv, fano };
+const GroupCumulativeWeightedMoment = enum { mean, mean_square, rms, variance, stddev, sem, cv, fano };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
 
@@ -3620,6 +3622,8 @@ fn withGroupCumulativeWeightedMomentOn(
         const weight_sum = weight_sums.items[group_index];
         outputs[row] = if (weight_sum > 0.0) switch (moment) {
             .mean => weighted_sums.items[group_index] / weight_sum,
+            .mean_square => weighted_square_sums.items[group_index] / weight_sum,
+            .rms => std.math.sqrt(weighted_square_sums.items[group_index] / weight_sum),
             .variance, .stddev, .sem, .cv, .fano => blk: {
                 var centered_square_sum = weighted_square_sums.items[group_index] - weighted_sums.items[group_index] * weighted_sums.items[group_index] / weight_sum;
                 // The one-pass prefix formula can produce a tiny negative value
@@ -3636,7 +3640,7 @@ fn withGroupCumulativeWeightedMomentOn(
                     .sem => std.math.sqrt(variance / weight_sum),
                     .cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
                     .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
-                    .mean => unreachable,
+                    .mean, .mean_square, .rms => unreachable,
                 };
             },
         } else std.math.nan(f64);
@@ -3657,6 +3661,28 @@ pub fn withGroupCumulativeWeightedMeanOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mean);
+}
+
+pub fn withGroupCumulativeWeightedMeanSquareOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mean_square);
+}
+
+pub fn withGroupCumulativeWeightedRmsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .rms);
 }
 
 pub fn withGroupCumulativeWeightedVarianceOn(
@@ -4270,6 +4296,14 @@ pub fn withGroupCumulativeWeightedSmapeOn(comptime DeviceDataFrame: type, frame:
     return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .smape);
 }
 
+pub const withGroupCumulativeWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumulativeWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumulativeWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumWeightedMeanSquareOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
+pub const withGroupCumWeightedRmsOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
@@ -6502,6 +6536,8 @@ pub fn groupByWeightedOn(
         }
         slot.* = switch (aggregation) {
             .weighted_mean => weighted_sum / weight_sum,
+            .weighted_mean_square => weighted_square_sum / weight_sum,
+            .weighted_rms => std.math.sqrt(weighted_square_sum / weight_sum),
             .weighted_variance, .weighted_stddev, .weighted_sem, .weighted_cv, .weighted_fano => blk: {
                 var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
                 if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
@@ -6564,6 +6600,32 @@ pub fn groupByWeightedMeanOn(
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_mean, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
+
+pub fn groupByWeightedMeanSquareOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mean_square, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedRmsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_rms, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedMeanSquaredOn = groupByWeightedMeanSquareOn;
+pub const groupByWeightedMeanSqOn = groupByWeightedMeanSquareOn;
+pub const groupByWeightedRMSOn = groupByWeightedRmsOn;
 
 pub fn groupByWeightedVarianceOn(
     comptime DeviceDataFrame: type,

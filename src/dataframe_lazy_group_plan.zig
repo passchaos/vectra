@@ -1787,7 +1787,7 @@ pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, va
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, variance, stddev, sem, cv, fano }) DeviceDataError!void {
+fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, mean_square, rms, variance, stddev, sem, cv, fano }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1798,6 +1798,8 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
     errdefer frame.allocator.free(owned_output);
     try frame.ops.append(frame.allocator, switch (op) {
         .mean => .{ .group_cumulative_weighted_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .mean_square => .{ .group_cumulative_weighted_mean_square = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .rms => .{ .group_cumulative_weighted_rms = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .variance => .{ .group_cumulative_weighted_variance = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .stddev => .{ .group_cumulative_weighted_stddev = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .sem => .{ .group_cumulative_weighted_sem = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
@@ -1808,6 +1810,14 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
 
 pub fn withGroupCumulativeWeightedMean(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .mean);
+}
+
+pub fn withGroupCumulativeWeightedMeanSquare(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .mean_square);
+}
+
+pub fn withGroupCumulativeWeightedRms(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .rms);
 }
 
 fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile, iqr, mad }) DeviceDataError!void {
@@ -2044,6 +2054,14 @@ pub fn withGroupCumulativeWeightedFano(frame: anytype, key_names: []const []cons
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .fano);
 }
 
+pub const withGroupCumulativeWeightedMeanSquared = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumulativeWeightedMeanSq = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumulativeWeightedRMS = withGroupCumulativeWeightedRms;
+pub const withGroupCumWeightedMeanSquare = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedMeanSquared = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedMeanSq = withGroupCumulativeWeightedMeanSquare;
+pub const withGroupCumWeightedRms = withGroupCumulativeWeightedRms;
+pub const withGroupCumWeightedRMS = withGroupCumulativeWeightedRms;
 pub const withGroupCumulativeWeightedVar = withGroupCumulativeWeightedVariance;
 pub const withGroupCumulativeWeightedStd = withGroupCumulativeWeightedStddev;
 pub const withGroupCumulativeWeightedSEM = withGroupCumulativeWeightedSem;
