@@ -2411,6 +2411,20 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowPairCount(self, lhs_names, rhs_names, output_name);
             }
 
+            pub fn withRowWeightedPairWeightSum(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedPairWeightSum(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedPairPositiveCount(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedPairPositiveCount(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedPairEffectiveN(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedPairEffectiveN(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedPairEffectiveCount = withRowWeightedPairEffectiveN;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }

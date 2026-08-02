@@ -3331,6 +3331,112 @@ pub fn withRowPairCount(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+const RowWeightedPairSupportReduction = enum { weight_sum, positive_count, effective_n };
+
+fn withRowWeightedPairSupport(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedPairSupportReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len or lhs_names.len != weight_names.len) return error.LengthMismatch;
+
+    const weight_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weight_sums);
+    const weight_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weight_square_sums);
+    const positive_counts = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(positive_counts);
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(weight_sums, 0.0);
+    @memset(weight_square_sums, 0.0);
+    @memset(positive_counts, 0.0);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (lhs_names, rhs_names, weight_names) |lhs_name, rhs_name, weight_name| {
+        const lhs_source = try input.column(lhs_name);
+        const rhs_source = try input.column(rhs_name);
+        const weight_source = try input.column(weight_name);
+
+        var lhs_column = try ownedRealF64Column(input.allocator, lhs_source);
+        defer lhs_column.deinit();
+        var rhs_column = try ownedRealF64Column(input.allocator, rhs_source);
+        defer rhs_column.deinit();
+        var weight_column = try ownedRealF64Column(input.allocator, weight_source);
+        defer weight_column.deinit();
+
+        for (lhs_column.values, rhs_column.values, weight_column.values, 0..) |_, _, weight, row| {
+            const lhs_valid = if (lhs_column.validity) |mask| mask[row] else true;
+            const rhs_valid = if (rhs_column.validity) |mask| mask[row] else true;
+            const weight_valid = if (weight_column.validity) |mask| mask[row] else true;
+            if (!lhs_valid or !rhs_valid or !weight_valid) continue;
+            if (weight < 0.0) return error.InvalidShape;
+            validity[row] = true;
+            weight_sums[row] += weight;
+            if (weight > 0.0) {
+                weight_square_sums[row] += weight * weight;
+                positive_counts[row] += 1.0;
+            }
+        }
+    }
+
+    for (values, weight_sums, weight_square_sums, positive_counts, validity) |*value, weight_sum, weight_square_sum, positive_count, valid| {
+        if (!valid) continue;
+        value.* = switch (reduction) {
+            .weight_sum => weight_sum,
+            .positive_count => positive_count,
+            .effective_n => rowWeightedEffectiveN(weight_sum, weight_square_sum),
+        };
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedPairWeightSum(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairSupport(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, .weight_sum);
+}
+
+pub fn withRowWeightedPairPositiveCount(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairSupport(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, .positive_count);
+}
+
+pub fn withRowWeightedPairEffectiveN(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairSupport(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, .effective_n);
+}
+
+pub const withRowWeightedPairEffectiveCount = withRowWeightedPairEffectiveN;
+
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 
 fn withRowValidityMatchIndex(

@@ -3459,6 +3459,20 @@ pub fn withRowPairCount(self: anytype, lhs_names: []const []const u8, rhs_names:
     return dataframe_array_mod.withRowPairCount(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, output_name);
 }
 
+pub fn withRowWeightedPairWeightSum(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedPairWeightSum(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedPairPositiveCount(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedPairPositiveCount(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedPairEffectiveN(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedPairEffectiveN(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub const withRowWeightedPairEffectiveCount = withRowWeightedPairEffectiveN;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

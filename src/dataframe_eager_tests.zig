@@ -1071,6 +1071,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_pair_count);
     try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0, 2 }, row_pair_count);
 
+    var row_weighted_pair_weight_sum_table = try validity_table.withRowWeightedPairWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_pair_weight_sum");
+    defer row_weighted_pair_weight_sum_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_pair_weight_sum_table, gpa, "row_weighted_pair_weight_sum", &.{ 1.0, 1.0, 0.0, 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_pair_positive_count_table = try validity_table.withRowWeightedPairPositiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_pair_positive_count");
+    defer row_weighted_pair_positive_count_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_pair_positive_count_table, gpa, "row_weighted_pair_positive_count", &.{ 1.0, 1.0, 0.0, 2.0 }, &.{ true, true, false, true });
+
+    var row_weighted_pair_effective_n_table = try validity_table.withRowWeightedPairEffectiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_pair_effective_n");
+    defer row_weighted_pair_effective_n_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_pair_effective_n_table, gpa, "row_weighted_pair_effective_n", &.{ 1.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ true, true, false, true });
+
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
     defer row_argmin_table.deinit();
     const row_argmin_column = try row_argmin_table.column("row_argmin");

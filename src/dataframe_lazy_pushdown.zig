@@ -1098,7 +1098,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_weighted_dot, .row_weighted_cosine_similarity, .row_weighted_squared_euclidean_distance, .row_weighted_euclidean_distance, .row_weighted_manhattan_distance, .row_weighted_chebyshev_distance, .row_weighted_canberra_distance, .row_weighted_bray_curtis_distance, .row_weighted_mean_error, .row_weighted_mae, .row_weighted_mse, .row_weighted_rmse, .row_weighted_mape, .row_weighted_smape, .row_weighted_covariance, .row_weighted_correlation, .row_weighted_beta => |row_weighted| {
+            .row_weighted_pair_weight_sum, .row_weighted_pair_positive_count, .row_weighted_pair_effective_n, .row_weighted_dot, .row_weighted_cosine_similarity, .row_weighted_squared_euclidean_distance, .row_weighted_euclidean_distance, .row_weighted_manhattan_distance, .row_weighted_chebyshev_distance, .row_weighted_canberra_distance, .row_weighted_bray_curtis_distance, .row_weighted_mean_error, .row_weighted_mae, .row_weighted_mse, .row_weighted_rmse, .row_weighted_mape, .row_weighted_smape, .row_weighted_covariance, .row_weighted_correlation, .row_weighted_beta => |row_weighted| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
                 if (row_weighted.lhs_names.len == 0 or row_weighted.lhs_names.len != row_weighted.rhs_names.len or row_weighted.lhs_names.len != row_weighted.weight_names.len) {
                     projection_blocked = true;
