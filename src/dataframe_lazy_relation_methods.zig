@@ -1450,6 +1450,18 @@ pub fn withGroupCumulativeMidhingeOn(self: anytype, key_names: []const []const u
 pub const withGroupCumMidhinge = withGroupCumulativeMidhinge;
 pub const withGroupCumMidhingeOn = withGroupCumulativeMidhingeOn;
 
+pub fn withGroupCumulativeTrimean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeTrimeanOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeTrimeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeTrimean(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumTrimean = withGroupCumulativeTrimean;
+pub const withGroupCumTrimeanOn = withGroupCumulativeTrimeanOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

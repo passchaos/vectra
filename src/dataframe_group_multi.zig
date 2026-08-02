@@ -3276,7 +3276,7 @@ pub fn withGroupCumulativeQuantileOn(comptime DeviceDataFrame: type, frame: Devi
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 
-const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range, midhinge };
+const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range, midhinge, trimean };
 
 fn withGroupCumulativeRobustOnTyped(
     comptime DeviceDataFrame: type,
@@ -3325,6 +3325,7 @@ fn withGroupCumulativeRobustOnTyped(
             .mad => try medianAbsDevFromSorted(frame.allocator, sorted),
             .interdecile_range => quantileFromSorted(sorted, 0.9) - quantileFromSorted(sorted, 0.1),
             .midhinge => (quantileFromSorted(sorted, 0.25) + quantileFromSorted(sorted, 0.75)) / 2.0,
+            .trimean => (quantileFromSorted(sorted, 0.25) + 2.0 * quantileFromSorted(sorted, 0.5) + quantileFromSorted(sorted, 0.75)) / 4.0,
         };
         row_validity[row] = true;
     }
@@ -3379,6 +3380,10 @@ pub fn withGroupCumulativeMidhingeOn(comptime DeviceDataFrame: type, frame: Devi
     return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .midhinge);
 }
 
+pub fn withGroupCumulativeTrimeanOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .trimean);
+}
+
 pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
 pub const withGroupCumulativeMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumulativeMedianAbsDevOn = withGroupCumulativeMadOn;
@@ -3392,6 +3397,7 @@ pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
 pub const withGroupCumIdrOn = withGroupCumulativeInterdecileRangeOn;
 pub const withGroupCumIDROn = withGroupCumulativeInterdecileRangeOn;
 pub const withGroupCumMidhingeOn = withGroupCumulativeMidhingeOn;
+pub const withGroupCumTrimeanOn = withGroupCumulativeTrimeanOn;
 
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 

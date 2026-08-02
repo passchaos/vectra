@@ -1840,6 +1840,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_midhinge.deinit();
     try expectF64ColumnWithValidity(lazy_cumulative_midhinge, gpa, "label_cum_midhinge_lazy", &group_cum_midhinge_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_trimean_expected = [_]f64{ 5.0, 5.0, 5.25, 0.0, 1.0, 1.5, 1.125, 0.0 };
+
+    var group_cum_trimean_label = try distinct_table.withGroupCumulativeTrimean("bucket", "label", "label_cum_trimean");
+    defer group_cum_trimean_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_trimean_label, gpa, "label_cum_trimean", &group_cum_trimean_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_trimean_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_trimean_plan.deinit();
+    try cumulative_trimean_plan.withGroupCumTrimean("bucket", "label", "label_cum_trimean_lazy");
+    const cumulative_trimean_explained = try cumulative_trimean_plan.explain(gpa);
+    defer gpa.free(cumulative_trimean_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_trimean_explained, "group_cumulative_trimean([bucket], value=label->label_cum_trimean_lazy)") != null);
+    var lazy_cumulative_trimean = try cumulative_trimean_plan.collect();
+    defer lazy_cumulative_trimean.deinit();
+    try expectF64ColumnWithValidity(lazy_cumulative_trimean, gpa, "label_cum_trimean_lazy", &group_cum_trimean_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
