@@ -394,6 +394,29 @@ pub const withGroupCumProductOn = withGroupCumulativeProductOn;
 pub const withGroupCumProd = withGroupCumulativeProduct;
 pub const withGroupCumProdOn = withGroupCumulativeProductOn;
 
+pub fn withGroupCumulativeMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMinOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMinOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeMin(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeMax(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMaxOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMaxOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeMax(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumMin = withGroupCumulativeMin;
+pub const withGroupCumMinOn = withGroupCumulativeMinOn;
+pub const withGroupCumMax = withGroupCumulativeMax;
+pub const withGroupCumMaxOn = withGroupCumulativeMaxOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

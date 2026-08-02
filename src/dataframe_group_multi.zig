@@ -2044,7 +2044,7 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max };
 
 fn withGroupCumulativeNumericOnTyped(
     comptime DeviceDataFrame: type,
@@ -2086,13 +2086,16 @@ fn withGroupCumulativeNumericOnTyped(
         const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
         if (!value_valid) continue;
         const value_f64 = castToF64(V, value_item);
+        const seen_before = group_counts.items[group_index];
         switch (op) {
             .sum, .mean => group_accumulators.items[group_index] += value_f64,
             .product => group_accumulators.items[group_index] *= value_f64,
+            .min => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @min(group_accumulators.items[group_index], value_f64),
+            .max => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @max(group_accumulators.items[group_index], value_f64),
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
-            .sum, .product => group_accumulators.items[group_index],
+            .sum, .product, .min, .max => group_accumulators.items[group_index],
             .mean => group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index])),
         };
         row_validity[row] = true;
@@ -2162,10 +2165,32 @@ pub fn withGroupCumulativeProductOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .product);
 }
 
+pub fn withGroupCumulativeMinOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .min);
+}
+
+pub fn withGroupCumulativeMaxOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .max);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
 pub const withGroupCumProdOn = withGroupCumulativeProductOn;
+pub const withGroupCumMinOn = withGroupCumulativeMinOn;
+pub const withGroupCumMaxOn = withGroupCumulativeMaxOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,

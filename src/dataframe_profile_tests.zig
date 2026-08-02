@@ -1050,6 +1050,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_product_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_product_sales, gpa, "store_sales_cum_product", &.{ 2.0, 3.0, 0.0, 0.0, 33.0, 26.0 }, &.{ true, true, false, false, true, true });
 
+    var group_cum_min_sales = try table.withGroupCumulativeMin("store", "sales", "store_sales_cum_min");
+    defer group_cum_min_sales.deinit();
+    try expectF64ColumnWithValidity(group_cum_min_sales, gpa, "store_sales_cum_min", &.{ 2.0, 3.0, 0.0, 0.0, 3.0, 2.0 }, &.{ true, true, false, false, true, true });
+
+    var group_cum_max_sales = try table.withGroupCumulativeMax("store", "sales", "store_sales_cum_max");
+    defer group_cum_max_sales.deinit();
+    try expectF64ColumnWithValidity(group_cum_max_sales, gpa, "store_sales_cum_max", &.{ 2.0, 3.0, 0.0, 0.0, 11.0, 13.0 }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1270,6 +1278,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum_lazy");
     try group_cume_dist_plan.withGroupCumulativeMean("store", "sales", "store_sales_cum_mean_lazy");
     try group_cume_dist_plan.withGroupCumulativeProduct("store", "sales", "store_sales_cum_product_lazy");
+    try group_cume_dist_plan.withGroupCumulativeMin("store", "sales", "store_sales_cum_min_lazy");
+    try group_cume_dist_plan.withGroupCumulativeMax("store", "sales", "store_sales_cum_max_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1293,6 +1303,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_sum([store], value=sales->store_sales_cum_sum_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_mean([store], value=sales->store_sales_cum_mean_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_product([store], value=sales->store_sales_cum_product_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_min([store], value=sales->store_sales_cum_min_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_max([store], value=sales->store_sales_cum_max_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1316,6 +1328,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_sum_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_mean_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 7.0, 7.5 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_product_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 33.0, 26.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_min_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 3.0, 2.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_max_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 11.0, 13.0 }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
