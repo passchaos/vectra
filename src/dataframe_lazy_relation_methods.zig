@@ -1336,6 +1336,38 @@ pub fn groupByFalseRatioOn(self: anytype, key_names: []const []const u8, value_n
     return self.groupByValueOn(key_names, value_name, output_name, .false_ratio);
 }
 
+pub fn groupByFirstTrueIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_true_index);
+}
+
+pub fn groupByFirstTrueIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_true_index);
+}
+
+pub fn groupByLastTrueIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_true_index);
+}
+
+pub fn groupByLastTrueIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_true_index);
+}
+
+pub fn groupByFirstFalseIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_false_index);
+}
+
+pub fn groupByFirstFalseIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_false_index);
+}
+
+pub fn groupByLastFalseIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_false_index);
+}
+
+pub fn groupByLastFalseIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_false_index);
+}
+
 pub fn groupByValidCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .valid_count);
 }

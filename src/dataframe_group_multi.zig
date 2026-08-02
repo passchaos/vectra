@@ -126,6 +126,13 @@ const GroupByBoolAggregation = enum {
     false_ratio,
 };
 
+const GroupByBoolIndexAggregation = enum {
+    first_true_index,
+    last_true_index,
+    first_false_index,
+    last_false_index,
+};
+
 const GroupByValidityAggregation = enum {
     valid_count,
     null_count,
@@ -3888,6 +3895,102 @@ pub fn groupByFalseRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByBoolOn(DeviceDataFrame, .false_ratio, frame, key_names, value_name, output_name);
+}
+
+fn groupByBoolIndexOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByBoolIndexAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    if (value.* != .bool) return error.TypeUnsupported;
+
+    const values = try value.bool.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value.bool, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const match_value = switch (aggregation) {
+        .first_true_index, .last_true_index => true,
+        .first_false_index, .last_false_index => false,
+    };
+    const keep_last = switch (aggregation) {
+        .first_true_index, .first_false_index => false,
+        .last_true_index, .last_false_index => true,
+    };
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var index_values: std.ArrayList(i64) = .empty;
+    defer index_values.deinit(frame.allocator);
+    var output_validity: std.ArrayList(bool) = .empty;
+    defer output_validity.deinit(frame.allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try index_values.append(frame.allocator, 0);
+            try output_validity.append(frame.allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (value_item != match_value) continue;
+        if (keep_last or !output_validity.items[group_index]) {
+            index_values.items[group_index] = @intCast(row);
+            output_validity.items[group_index] = true;
+        }
+    }
+
+    const output_column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, index_values.items, output_validity.items, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByFirstTrueIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolIndexOn(DeviceDataFrame, .first_true_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastTrueIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolIndexOn(DeviceDataFrame, .last_true_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstFalseIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolIndexOn(DeviceDataFrame, .first_false_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastFalseIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByBoolIndexOn(DeviceDataFrame, .last_false_index, frame, key_names, value_name, output_name);
 }
 
 fn groupByValidityCountOn(
