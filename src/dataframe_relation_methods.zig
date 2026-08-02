@@ -218,6 +218,30 @@ pub fn withGroupPercentRankOn(self: anytype, key_names: []const []const u8, outp
 pub const withGroupPercentileRank = withGroupPercentRank;
 pub const withGroupPercentileRankOn = withGroupPercentRankOn;
 
+pub fn withGroupReverseCumeDist(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupReverseCumeDistOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupReverseCumeDistOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupReverseCumeDistOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
+pub const withGroupReverseCumulativeDistribution = withGroupReverseCumeDist;
+pub const withGroupReverseCumulativeDistributionOn = withGroupReverseCumeDistOn;
+
+pub fn withGroupReversePercentRank(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupReversePercentRankOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupReversePercentRankOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupReversePercentRankOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
+pub const withGroupReversePercentileRank = withGroupReversePercentRank;
+pub const withGroupReversePercentileRankOn = withGroupReversePercentRankOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

@@ -1397,6 +1397,7 @@ fn withGroupPositionRatioOn(
     key_names: []const []const u8,
     output_name: []const u8,
     comptime cume_dist: bool,
+    comptime reverse: bool,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
@@ -1433,12 +1434,13 @@ fn withGroupPositionRatioOn(
     for (0..frame.rows) |row| {
         if (!row_validity[row]) continue;
         const group_size = group_counts.items[row_group_indices[row]];
+        const ordinal = if (reverse) group_size - 1 - forward_numbers[row] else forward_numbers[row];
         ratios[row] = if (cume_dist)
-            @as(f64, @floatFromInt(forward_numbers[row] + 1)) / @as(f64, @floatFromInt(group_size))
+            @as(f64, @floatFromInt(ordinal + 1)) / @as(f64, @floatFromInt(group_size))
         else if (group_size <= 1)
             0.0
         else
-            @as(f64, @floatFromInt(forward_numbers[row])) / @as(f64, @floatFromInt(group_size - 1));
+            @as(f64, @floatFromInt(ordinal)) / @as(f64, @floatFromInt(group_size - 1));
     }
 
     var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, ratios, row_validity, frame.device);
@@ -1452,7 +1454,7 @@ pub fn withGroupCumeDistOn(
     key_names: []const []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, true);
+    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, true, false);
 }
 
 pub fn withGroupPercentRankOn(
@@ -1461,7 +1463,25 @@ pub fn withGroupPercentRankOn(
     key_names: []const []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, false);
+    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, false, false);
+}
+
+pub fn withGroupReverseCumeDistOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, true, true);
+}
+
+pub fn withGroupReversePercentRankOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, false, true);
 }
 
 pub fn withGroupRowNumberOn(
