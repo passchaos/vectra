@@ -783,6 +783,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_mad);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, ms_simple_mad);
 
+    var multi_midhinge = try multi.groupByMidhingeOn(&.{ "store", "day" }, "amount", "amount_midhinge_simple");
+    defer multi_midhinge.deinit();
+    const ms_simple_midhinge = try (try multi_midhinge.column("amount_midhinge_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_midhinge);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_midhinge);
+
+    var multi_trimean = try multi.groupByTrimeanOn(&.{ "store", "day" }, "amount", "amount_trimean_simple");
+    defer multi_trimean.deinit();
+    const ms_simple_trimean = try (try multi_trimean.column("amount_trimean_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_trimean);
+    try std.testing.expectEqualSlices(f64, &.{ 1.5, 9.0, 4.0, 12.0 }, ms_simple_trimean);
+
+    var multi_bowley = try multi.groupByBowleySkewOn(&.{ "store", "day" }, "amount", "amount_bowley_simple");
+    defer multi_bowley.deinit();
+    const ms_simple_bowley = try (try multi_bowley.column("amount_bowley_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_bowley);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_bowley[0], 1e-12);
+    try std.testing.expect(std.math.isNan(ms_simple_bowley[1]));
+    try std.testing.expect(std.math.isNan(ms_simple_bowley[2]));
+    try std.testing.expect(std.math.isNan(ms_simple_bowley[3]));
+
+    var multi_qcd = try multi.groupByQcdOn(&.{ "store", "day" }, "amount", "amount_qcd_simple");
+    defer multi_qcd.deinit();
+    const ms_simple_qcd = try (try multi_qcd.column("amount_qcd_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_qcd);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 6.0), ms_simple_qcd[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[3], 1e-12);
+
     var multi_variance = try multi.groupByVarianceOn(&.{ "store", "day" }, "amount", "amount_variance_simple");
     defer multi_variance.deinit();
     const ms_simple_variance = try (try multi_variance.column("amount_variance_simple")).f64.toOwnedSlice(gpa);
@@ -1106,6 +1136,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_mad = try (try lazy_multi_mad.column("amount_mad_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_mad);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, lazy_ms_mad);
+
+    var multi_qcd_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_qcd_plan.deinit();
+    try multi_qcd_plan.groupByQcdOn(&.{ "store", "day" }, "amount", "amount_qcd_lazy");
+    const multi_qcd_explained = try multi_qcd_plan.explain(gpa);
+    defer gpa.free(multi_qcd_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_qcd_explained, "group_by_quartile_coeff_dispersion_on([store,day], value=amount -> amount_qcd_lazy)") != null);
+    var lazy_multi_qcd = try multi_qcd_plan.collect();
+    defer lazy_multi_qcd.deinit();
+    const lazy_ms_qcd = try (try lazy_multi_qcd.column("amount_qcd_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_qcd);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 6.0), lazy_ms_qcd[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[3], 1e-12);
 
     var multi_variance_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_variance_plan.deinit();
