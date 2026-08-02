@@ -2601,6 +2601,42 @@ pub fn DeviceLazyTypes(
 
             pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
+            pub fn withRowWeightedMeanError(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMeanError(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedBias = withRowWeightedMeanError;
+
+            pub fn withRowWeightedMae(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMae(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedMAE = withRowWeightedMae;
+
+            pub fn withRowWeightedMse(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMse(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedMSE = withRowWeightedMse;
+
+            pub fn withRowWeightedRmse(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedRmse(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedRMSE = withRowWeightedRmse;
+
+            pub fn withRowWeightedMape(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMape(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedMAPE = withRowWeightedMape;
+
+            pub fn withRowWeightedSmape(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedSmape(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedSMAPE = withRowWeightedSmape;
+
             pub fn withRowWeightedCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedCovariance(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }

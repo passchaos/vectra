@@ -803,6 +803,10 @@ rejection, zero-variance NaN semantics, and correction-controlled denominators.
 `withRowWeightedSquaredEuclideanDistance`, `withRowWeightedEuclideanDistance`,
 and `withRowWeightedManhattanDistance` extend those aligned weighted pair lists
 to vector similarity and distance diagnostics.
+`withRowWeightedMeanError`/`withRowWeightedBias`, `withRowWeightedMae`,
+`withRowWeightedMse`, `withRowWeightedRmse`, `withRowWeightedMape`, and
+`withRowWeightedSmape` append weighted row-wise forecast/error diagnostics over
+the same aligned lhs/rhs/weight triples.
 `withRowWeightedQuantile` and `withRowWeightedMedian` append per-row
 weighted distribution statistics for aligned value/weight column lists, using
 cumulative-weight threshold semantics while skipping null pairs and rejecting

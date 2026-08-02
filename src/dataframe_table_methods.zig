@@ -3682,6 +3682,37 @@ pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDi
 pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
 pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
+pub fn withRowWeightedMeanError(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMeanError(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedMae(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMae(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedMse(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMse(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedRmse(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedRmse(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedMape(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMape(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedSmape(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSmape(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub const withRowWeightedBias = withRowWeightedMeanError;
+pub const withRowWeightedMAE = withRowWeightedMae;
+pub const withRowWeightedMSE = withRowWeightedMse;
+pub const withRowWeightedRMSE = withRowWeightedRmse;
+pub const withRowWeightedMAPE = withRowWeightedMape;
+pub const withRowWeightedSMAPE = withRowWeightedSmape;
+
 pub fn withRowWeightedCovariance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedCovariance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }

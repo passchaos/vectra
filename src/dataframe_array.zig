@@ -4532,7 +4532,7 @@ fn ownedRealF64Column(allocator: std.mem.Allocator, source: anytype) DeviceFrame
     }
 }
 
-const RowWeightedPairReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, covariance, correlation, beta };
+const RowWeightedPairReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta };
 
 fn withRowWeightedPairReduction(
     comptime DeviceDataFrame: type,
@@ -4561,6 +4561,10 @@ fn withRowWeightedPairReduction(
     defer input.allocator.free(cross_sums);
     const weighted_abs_error_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(weighted_abs_error_sums);
+    const weighted_mape_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weighted_mape_sums);
+    const weighted_smape_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weighted_smape_sums);
     const validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(validity);
     @memset(weight_sums, 0.0);
@@ -4570,6 +4574,8 @@ fn withRowWeightedPairReduction(
     @memset(rhs_square_sums, 0.0);
     @memset(cross_sums, 0.0);
     @memset(weighted_abs_error_sums, 0.0);
+    @memset(weighted_mape_sums, 0.0);
+    @memset(weighted_smape_sums, 0.0);
     @memset(validity, false);
 
     for (lhs_names, rhs_names, weight_names) |lhs_name, rhs_name, weight_name| {
@@ -4597,13 +4603,19 @@ fn withRowWeightedPairReduction(
             lhs_square_sums[row] += weight * lhs * lhs;
             rhs_square_sums[row] += weight * rhs * rhs;
             cross_sums[row] += weight * lhs * rhs;
-            weighted_abs_error_sums[row] += weight * @abs(lhs - rhs);
+            const abs_error = @abs(lhs - rhs);
+            const abs_lhs = @abs(lhs);
+            const abs_rhs = @abs(rhs);
+            const abs_sum = abs_lhs + abs_rhs;
+            weighted_abs_error_sums[row] += weight * abs_error;
+            weighted_mape_sums[row] += if (lhs == 0.0) quietNanF64() else weight * abs_error / abs_lhs;
+            weighted_smape_sums[row] += if (abs_sum == 0.0) quietNanF64() else weight * 2.0 * abs_error / abs_sum;
         }
     }
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, weight_sums, lhs_sums, rhs_sums, lhs_square_sums, rhs_square_sums, cross_sums, weighted_abs_error_sums) |*value, *valid, weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, weighted_abs_error_sum| {
+    for (values, validity, weight_sums, lhs_sums, rhs_sums, lhs_square_sums, rhs_square_sums, cross_sums, weighted_abs_error_sums, weighted_mape_sums, weighted_smape_sums) |*value, *valid, weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, weighted_abs_error_sum, weighted_mape_sum, weighted_smape_sum| {
         valid.* = weight_sum > 0.0;
         if (!valid.*) {
             value.* = 0.0;
@@ -4624,6 +4636,12 @@ fn withRowWeightedPairReduction(
             .squared_euclidean => squared_distance,
             .euclidean => std.math.sqrt(squared_distance),
             .manhattan => weighted_abs_error_sum,
+            .mean_error => (lhs_sum - rhs_sum) / weight_sum,
+            .mae => weighted_abs_error_sum / weight_sum,
+            .mse => squared_distance / weight_sum,
+            .rmse => std.math.sqrt(squared_distance / weight_sum),
+            .mape => weighted_mape_sum / weight_sum,
+            .smape => weighted_smape_sum / weight_sum,
             .covariance => covariance,
             .correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) quietNanF64() else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
             .beta => if (denominator <= 0.0 or lhs_centered == 0.0) quietNanF64() else cross_centered / lhs_centered,
@@ -4696,6 +4714,79 @@ pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistan
 pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
 pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
 pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
+
+pub fn withRowWeightedMeanError(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .mean_error);
+}
+
+pub fn withRowWeightedMae(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .mae);
+}
+
+pub fn withRowWeightedMse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .mse);
+}
+
+pub fn withRowWeightedRmse(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .rmse);
+}
+
+pub fn withRowWeightedMape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .mape);
+}
+
+pub fn withRowWeightedSmape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .smape);
+}
+
+pub const withRowWeightedBias = withRowWeightedMeanError;
+pub const withRowWeightedMAE = withRowWeightedMae;
+pub const withRowWeightedMSE = withRowWeightedMse;
+pub const withRowWeightedRMSE = withRowWeightedRmse;
+pub const withRowWeightedMAPE = withRowWeightedMape;
+pub const withRowWeightedSMAPE = withRowWeightedSmape;
 
 pub fn withRowWeightedCovariance(
     comptime DeviceDataFrame: type,

@@ -1900,6 +1900,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_manhattan_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_manhattan_table, gpa, "row_weighted_manhattan", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ true, true, false, true });
 
+    var row_weighted_bias_table = try validity_table.withRowWeightedBias(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_bias");
+    defer row_weighted_bias_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_bias_table, gpa, "row_weighted_bias", &.{ 0.0, 19.0, 0.0, 39.0 / 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_mae_table = try validity_table.withRowWeightedMAE(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_mae");
+    defer row_weighted_mae_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mae_table, gpa, "row_weighted_mae", &.{ 0.0, 19.0, 0.0, 39.0 / 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_mse_table = try validity_table.withRowWeightedMSE(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_mse");
+    defer row_weighted_mse_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mse_table, gpa, "row_weighted_mse", &.{ 0.0, 361.0, 0.0, 1521.0 / 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_rmse_table = try validity_table.withRowWeightedRMSE(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_rmse");
+    defer row_weighted_rmse_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_rmse_table, gpa, "row_weighted_rmse", &.{ 0.0, 19.0, 0.0, std.math.sqrt(@as(f64, 1521.0 / 5.0)) }, &.{ true, true, false, true });
+
+    var row_weighted_mape_table = try validity_table.withRowWeightedMAPE(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_mape");
+    defer row_weighted_mape_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mape_table, gpa, "row_weighted_mape", &.{ 0.0, 19.0 / 20.0, 0.0, 39.0 / 200.0 }, &.{ true, true, false, true });
+
+    var row_weighted_smape_table = try validity_table.withRowWeightedSMAPE(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_smape");
+    defer row_weighted_smape_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_smape_table, gpa, "row_weighted_smape", &.{ 0.0, 38.0 / 21.0, 0.0, 78.0 / 205.0 }, &.{ true, true, false, true });
+
     var row_dot_table = try validity_table.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     defer row_dot_table.deinit();
     const row_dot_column = try row_dot_table.column("row_dot");

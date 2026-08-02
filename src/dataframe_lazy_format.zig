@@ -873,6 +873,12 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_weighted_squared_euclidean_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_squared_euclidean_distance", row_weighted),
         .row_weighted_euclidean_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_euclidean_distance", row_weighted),
         .row_weighted_manhattan_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_manhattan_distance", row_weighted),
+        .row_weighted_mean_error => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_mean_error", row_weighted),
+        .row_weighted_mae => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_mae", row_weighted),
+        .row_weighted_mse => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_mse", row_weighted),
+        .row_weighted_rmse => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_rmse", row_weighted),
+        .row_weighted_mape => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_mape", row_weighted),
+        .row_weighted_smape => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_smape", row_weighted),
         .row_weighted_covariance => |row_weighted| {
             try writer.print("row_weighted_covariance(lhs=[", .{});
             for (row_weighted.lhs_names, 0..) |name, i| {

@@ -3939,7 +3939,7 @@ fn withRowWeightedPair(
     weight_names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { dot, cosine, squared_euclidean, euclidean, manhattan, covariance, correlation, beta },
+    comptime reduction: enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
 ) DeviceDataError!void {
     const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -3988,6 +3988,48 @@ fn withRowWeightedPair(
             .correction = correction,
         } }),
         .manhattan => try frame.ops.append(frame.allocator, .{ .row_weighted_manhattan_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .mean_error => try frame.ops.append(frame.allocator, .{ .row_weighted_mean_error = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .mae => try frame.ops.append(frame.allocator, .{ .row_weighted_mae = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .mse => try frame.ops.append(frame.allocator, .{ .row_weighted_mse = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .rmse => try frame.ops.append(frame.allocator, .{ .row_weighted_rmse = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .mape => try frame.ops.append(frame.allocator, .{ .row_weighted_mape = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .smape => try frame.ops.append(frame.allocator, .{ .row_weighted_smape = .{
             .lhs_names = owned_lhs,
             .rhs_names = owned_rhs,
             .weight_names = owned_weights,
@@ -4043,6 +4085,37 @@ pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistan
 pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
 pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
 pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
+
+pub fn withRowWeightedMeanError(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .mean_error);
+}
+
+pub fn withRowWeightedMae(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .mae);
+}
+
+pub fn withRowWeightedMse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .mse);
+}
+
+pub fn withRowWeightedRmse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .rmse);
+}
+
+pub fn withRowWeightedMape(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .mape);
+}
+
+pub fn withRowWeightedSmape(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .smape);
+}
+
+pub const withRowWeightedBias = withRowWeightedMeanError;
+pub const withRowWeightedMAE = withRowWeightedMae;
+pub const withRowWeightedMSE = withRowWeightedMse;
+pub const withRowWeightedRMSE = withRowWeightedRmse;
+pub const withRowWeightedMAPE = withRowWeightedMape;
+pub const withRowWeightedSMAPE = withRowWeightedSmape;
 
 pub fn withRowWeightedCovariance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .covariance);
