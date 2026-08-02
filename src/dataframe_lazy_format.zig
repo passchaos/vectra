@@ -3786,6 +3786,55 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}, weight={s}, winsor_fraction={d}->{s})", .{ shift.value_name, shift.weight_name, shift.quantile, shift.output_name });
         },
+
+        .group_cumulative_weighted_interdecile_range => |shift| {
+            try writer.print("group_cumulative_weighted_interdecile_range([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_midhinge => |shift| {
+            try writer.print("group_cumulative_weighted_midhinge([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_trimean => |shift| {
+            try writer.print("group_cumulative_weighted_trimean([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_bowley_skewness => |shift| {
+            try writer.print("group_cumulative_weighted_bowley_skewness([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_quartile_coeff_dispersion => |shift| {
+            try writer.print("group_cumulative_weighted_quartile_coeff_dispersion([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_kelley_skewness => |shift| {
+            try writer.print("group_cumulative_weighted_kelley_skewness([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
         .group_cumulative_weighted_mode => |shift| {
             try writer.print("group_cumulative_weighted_mode([", .{});
             for (shift.names, 0..) |name, i| {

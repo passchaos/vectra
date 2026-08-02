@@ -3761,7 +3761,7 @@ pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
 const GroupCumulativeWeightedMoment = enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano, skewness, kurtosis };
 
-const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean };
+const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness };
 
 const GroupCumulativeWeightedModeOp = enum { mode, mode_weight, mode_ratio, mode_margin, mode_margin_ratio };
 
@@ -4519,6 +4519,29 @@ fn withGroupCumulativeWeightedQuantileCoreOn(
             .mad => try groupWeightedMadFromSorted(frame.allocator, group_values.items[group_index].items, weight_sum),
             .trimmed_mean => weightedTrimmedMeanFromSorted(group_values.items[group_index].items, weight_sum, q),
             .winsorized_mean => weightedWinsorizedMeanFromSorted(group_values.items[group_index].items, weight_sum, q),
+            .interdecile_range => groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.90, weight_sum) - groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.10, weight_sum),
+            .midhinge => (groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum) + groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum)) / 2.0,
+            .trimean => (groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum) + 2.0 * groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.50, weight_sum) + groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum)) / 4.0,
+            .bowley_skewness => blk: {
+                const q25 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum);
+                const q50 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.50, weight_sum);
+                const q75 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum);
+                const denominator = q75 - q25;
+                break :blk if (denominator == 0.0) std.math.nan(f64) else (q75 + q25 - 2.0 * q50) / denominator;
+            },
+            .quartile_coeff_dispersion => blk: {
+                const q25 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum);
+                const q75 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum);
+                const denominator = q75 + q25;
+                break :blk if (denominator == 0.0) std.math.nan(f64) else (q75 - q25) / denominator;
+            },
+            .kelley_skewness => blk: {
+                const q10 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.10, weight_sum);
+                const q50 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.50, weight_sum);
+                const q90 = groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.90, weight_sum);
+                const denominator = q90 - q10;
+                break :blk if (denominator == 0.0) std.math.nan(f64) else (q90 + q10 - 2.0 * q50) / denominator;
+            },
         } else std.math.nan(f64);
         row_validity[row] = true;
     }
@@ -4596,6 +4619,48 @@ pub fn withGroupCumulativeWeightedWinsorizedMeanOn(
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, winsor_fraction, .winsorized_mean);
 }
+
+pub fn withGroupCumulativeWeightedInterdecileRangeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .interdecile_range);
+}
+
+pub fn withGroupCumulativeWeightedMidhingeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .midhinge);
+}
+
+pub fn withGroupCumulativeWeightedTrimeanOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .trimean);
+}
+
+pub fn withGroupCumulativeWeightedBowleySkewnessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .bowley_skewness);
+}
+
+pub fn withGroupCumulativeWeightedQuartileCoeffDispersionOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .quartile_coeff_dispersion);
+}
+
+pub fn withGroupCumulativeWeightedKelleySkewnessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .kelley_skewness);
+}
+
+pub const withGroupCumulativeWeightedIdrOn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumulativeWeightedIDROn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedIdrOn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedIDROn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedMidhingeOn = withGroupCumulativeWeightedMidhingeOn;
+pub const withGroupCumWeightedTrimeanOn = withGroupCumulativeWeightedTrimeanOn;
+pub const withGroupCumulativeWeightedBowleySkewOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumWeightedBowleySkewnessOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumWeightedBowleySkewOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumulativeWeightedQcdOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumulativeWeightedQCDOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQuartileCoeffDispersionOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQcdOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQCDOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumulativeWeightedKelleySkewOn = withGroupCumulativeWeightedKelleySkewnessOn;
+pub const withGroupCumWeightedKelleySkewnessOn = withGroupCumulativeWeightedKelleySkewnessOn;
+pub const withGroupCumWeightedKelleySkewOn = withGroupCumulativeWeightedKelleySkewnessOn;
 
 fn withGroupCumulativeWeightedModeCoreOn(
     comptime DeviceDataFrame: type,

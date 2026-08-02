@@ -5056,6 +5056,12 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .quantile = shift.quantile,
             } };
         },
+        .group_cumulative_weighted_interdecile_range => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_interdecile_range"),
+        .group_cumulative_weighted_midhinge => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_midhinge"),
+        .group_cumulative_weighted_trimean => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_trimean"),
+        .group_cumulative_weighted_bowley_skewness => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_bowley_skewness"),
+        .group_cumulative_weighted_quartile_coeff_dispersion => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_quartile_coeff_dispersion"),
+        .group_cumulative_weighted_kelley_skewness => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_kelley_skewness"),
         .group_cumulative_weighted_iqr => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);

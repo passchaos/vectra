@@ -3518,6 +3518,58 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_median_lazy", &group_cum_weighted_median_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_q75_lazy", &group_cum_weighted_q75_expected, &.{ true, true, true, true, true, false, true, true });
 
+    const group_cum_weighted_idr_expected = [_]f64{ 0.0, 10.0, 20.0, 0.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_midhinge_expected = [_]f64{ 10.0, 15.0, 25.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_trimean_expected = [_]f64{ 10.0, 17.5, 22.5, 5.0, 7.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_bowley_expected = [_]f64{ std.math.nan(f64), -1.0, 1.0, std.math.nan(f64), 1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_qcd_expected = [_]f64{ 0.0, 1.0 / 3.0, 0.2, 0.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_kelley_expected = [_]f64{ std.math.nan(f64), -1.0, 0.0, std.math.nan(f64), 1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_idr = try weighted_table.withGroupCumulativeWeightedInterdecileRange("bucket", "value", "weight", "value_weighted_cum_idr");
+    defer group_cum_weighted_idr.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_idr, gpa, "value_weighted_cum_idr", &group_cum_weighted_idr_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_midhinge = try weighted_table.withGroupCumulativeWeightedMidhinge("bucket", "value", "weight", "value_weighted_cum_midhinge");
+    defer group_cum_weighted_midhinge.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_midhinge, gpa, "value_weighted_cum_midhinge", &group_cum_weighted_midhinge_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_trimean = try weighted_table.withGroupCumulativeWeightedTrimean("bucket", "value", "weight", "value_weighted_cum_trimean");
+    defer group_cum_weighted_trimean.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_trimean, gpa, "value_weighted_cum_trimean", &group_cum_weighted_trimean_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_bowley = try weighted_table.withGroupCumulativeWeightedBowleySkewness("bucket", "value", "weight", "value_weighted_cum_bowley");
+    defer group_cum_weighted_bowley.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_bowley, gpa, "value_weighted_cum_bowley", &group_cum_weighted_bowley_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_qcd = try weighted_table.withGroupCumulativeWeightedQcd("bucket", "value", "weight", "value_weighted_cum_qcd");
+    defer group_cum_weighted_qcd.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_qcd, gpa, "value_weighted_cum_qcd", &group_cum_weighted_qcd_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_kelley = try weighted_table.withGroupCumulativeWeightedKelleySkewness("bucket", "value", "weight", "value_weighted_cum_kelley");
+    defer group_cum_weighted_kelley.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_kelley, gpa, "value_weighted_cum_kelley", &group_cum_weighted_kelley_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var cumulative_weighted_shape_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_shape_plan.deinit();
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedInterdecileRange("bucket", "value", "weight", "value_weighted_cum_idr_lazy");
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedMidhinge("bucket", "value", "weight", "value_weighted_cum_midhinge_lazy");
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedTrimean("bucket", "value", "weight", "value_weighted_cum_trimean_lazy");
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedBowleySkewness("bucket", "value", "weight", "value_weighted_cum_bowley_lazy");
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedQcd("bucket", "value", "weight", "value_weighted_cum_qcd_lazy");
+    try cumulative_weighted_shape_plan.withGroupCumulativeWeightedKelleySkewness("bucket", "value", "weight", "value_weighted_cum_kelley_lazy");
+    const cumulative_weighted_shape_explained = try cumulative_weighted_shape_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_shape_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_shape_explained, "group_cumulative_weighted_interdecile_range([bucket], value=value, weight=weight->value_weighted_cum_idr_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_shape_explained, "group_cumulative_weighted_kelley_skewness([bucket], value=value, weight=weight->value_weighted_cum_kelley_lazy)") != null);
+    var lazy_cumulative_weighted_shapes = try cumulative_weighted_shape_plan.collect();
+    defer lazy_cumulative_weighted_shapes.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_idr_lazy", &group_cum_weighted_idr_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_midhinge_lazy", &group_cum_weighted_midhinge_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_trimean_lazy", &group_cum_weighted_trimean_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_bowley_lazy", &group_cum_weighted_bowley_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_qcd_lazy", &group_cum_weighted_qcd_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_shapes, gpa, "value_weighted_cum_kelley_lazy", &group_cum_weighted_kelley_expected, &.{ true, true, true, true, true, false, true, true });
+
     const group_cum_weighted_trimmed_expected = [_]f64{ 10.0, 20.0, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_winsorized_expected = [_]f64{ 10.0, 17.5, 70.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
 

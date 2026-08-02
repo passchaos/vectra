@@ -1849,6 +1849,95 @@ pub fn withGroupCumulativeWeightedWinsorizedMeanOn(self: anytype, key_names: []c
     return group_multi_mod.withGroupCumulativeWeightedWinsorizedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, winsor_fraction);
 }
 
+pub fn withGroupCumulativeWeightedInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedInterdecileRangeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedInterdecileRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedInterdecileRangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMidhinge(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMidhingeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMidhingeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMidhingeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedTrimean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedTrimeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedTrimeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedTrimeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedBowleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedBowleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedBowleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedBowleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedQuartileCoeffDispersion(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedQuartileCoeffDispersionOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedQuartileCoeffDispersionOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedQuartileCoeffDispersionOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedKelleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedKelleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedKelleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedKelleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedIdr = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumulativeWeightedIdrOn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumulativeWeightedIDR = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumulativeWeightedIDROn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedIdr = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumWeightedIdrOn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedIDR = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumWeightedIDROn = withGroupCumulativeWeightedInterdecileRangeOn;
+pub const withGroupCumWeightedMidhinge = withGroupCumulativeWeightedMidhinge;
+pub const withGroupCumWeightedMidhingeOn = withGroupCumulativeWeightedMidhingeOn;
+pub const withGroupCumWeightedTrimean = withGroupCumulativeWeightedTrimean;
+pub const withGroupCumWeightedTrimeanOn = withGroupCumulativeWeightedTrimeanOn;
+pub const withGroupCumulativeWeightedBowleySkew = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumulativeWeightedBowleySkewOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumWeightedBowleySkewness = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumWeightedBowleySkewnessOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumWeightedBowleySkew = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumWeightedBowleySkewOn = withGroupCumulativeWeightedBowleySkewnessOn;
+pub const withGroupCumulativeWeightedQcd = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumulativeWeightedQcdOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumulativeWeightedQCD = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumulativeWeightedQCDOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQuartileCoeffDispersion = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQuartileCoeffDispersionOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQcd = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQcdOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumWeightedQCD = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQCDOn = withGroupCumulativeWeightedQuartileCoeffDispersionOn;
+pub const withGroupCumulativeWeightedKelleySkew = withGroupCumulativeWeightedKelleySkewness;
+pub const withGroupCumulativeWeightedKelleySkewOn = withGroupCumulativeWeightedKelleySkewnessOn;
+pub const withGroupCumWeightedKelleySkewness = withGroupCumulativeWeightedKelleySkewness;
+pub const withGroupCumWeightedKelleySkewnessOn = withGroupCumulativeWeightedKelleySkewnessOn;
+pub const withGroupCumWeightedKelleySkew = withGroupCumulativeWeightedKelleySkewness;
+pub const withGroupCumWeightedKelleySkewOn = withGroupCumulativeWeightedKelleySkewnessOn;
+
 pub const withGroupCumWeightedTrimmedMean = withGroupCumulativeWeightedTrimmedMean;
 pub const withGroupCumWeightedTrimmedMeanOn = withGroupCumulativeWeightedTrimmedMeanOn;
 pub const withGroupCumWeightedWinsorizedMean = withGroupCumulativeWeightedWinsorizedMean;

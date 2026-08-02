@@ -1913,7 +1913,7 @@ pub fn withGroupCumulativeWeightedRangeCoeff(frame: anytype, key_names: []const 
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .range_coeff);
 }
 
-fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean }) DeviceDataError!void {
+fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1929,6 +1929,12 @@ fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []
         .mad => .{ .group_cumulative_weighted_mad = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .trimmed_mean => .{ .group_cumulative_weighted_trimmed_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output, .quantile = q } },
         .winsorized_mean => .{ .group_cumulative_weighted_winsorized_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output, .quantile = q } },
+        .interdecile_range => .{ .group_cumulative_weighted_interdecile_range = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .midhinge => .{ .group_cumulative_weighted_midhinge = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .trimean => .{ .group_cumulative_weighted_trimean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .bowley_skewness => .{ .group_cumulative_weighted_bowley_skewness = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .quartile_coeff_dispersion => .{ .group_cumulative_weighted_quartile_coeff_dispersion = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .kelley_skewness => .{ .group_cumulative_weighted_kelley_skewness = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
     });
 }
 
@@ -1956,6 +1962,30 @@ pub fn withGroupCumulativeWeightedWinsorizedMean(frame: anytype, key_names: []co
     return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, winsor_fraction, .winsorized_mean);
 }
 
+pub fn withGroupCumulativeWeightedInterdecileRange(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .interdecile_range);
+}
+
+pub fn withGroupCumulativeWeightedMidhinge(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .midhinge);
+}
+
+pub fn withGroupCumulativeWeightedTrimean(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .trimean);
+}
+
+pub fn withGroupCumulativeWeightedBowleySkewness(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .bowley_skewness);
+}
+
+pub fn withGroupCumulativeWeightedQuartileCoeffDispersion(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .quartile_coeff_dispersion);
+}
+
+pub fn withGroupCumulativeWeightedKelleySkewness(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .kelley_skewness);
+}
+
 fn withGroupCumulativeWeightedModeCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mode, weight, ratio, margin, margin_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
@@ -1973,6 +2003,24 @@ fn withGroupCumulativeWeightedModeCore(frame: anytype, key_names: []const []cons
         .margin_ratio => .{ .group_cumulative_weighted_mode_margin_ratio = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
     });
 }
+
+pub const withGroupCumulativeWeightedIdr = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumulativeWeightedIDR = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumWeightedIdr = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumWeightedIDR = withGroupCumulativeWeightedInterdecileRange;
+pub const withGroupCumWeightedMidhinge = withGroupCumulativeWeightedMidhinge;
+pub const withGroupCumWeightedTrimean = withGroupCumulativeWeightedTrimean;
+pub const withGroupCumulativeWeightedBowleySkew = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumWeightedBowleySkewness = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumWeightedBowleySkew = withGroupCumulativeWeightedBowleySkewness;
+pub const withGroupCumulativeWeightedQcd = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumulativeWeightedQCD = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQuartileCoeffDispersion = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQcd = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumWeightedQCD = withGroupCumulativeWeightedQuartileCoeffDispersion;
+pub const withGroupCumulativeWeightedKelleySkew = withGroupCumulativeWeightedKelleySkewness;
+pub const withGroupCumWeightedKelleySkewness = withGroupCumulativeWeightedKelleySkewness;
+pub const withGroupCumWeightedKelleySkew = withGroupCumulativeWeightedKelleySkewness;
 
 pub fn withGroupCumulativeWeightedMode(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .mode);
