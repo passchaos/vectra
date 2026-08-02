@@ -4039,7 +4039,9 @@ pub fn withRowWeightedRangeCoeff(
 pub const withRowWeightedMinimum = withRowWeightedMin;
 pub const withRowWeightedMaximum = withRowWeightedMax;
 pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+pub const withRowWeightedMaxAbsolute = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+pub const withRowWeightedMinAbsolute = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
 const RowWeightedLogProductReduction = enum { product, geometric_mean, harmonic_mean, logsumexp, logmeanexp };
@@ -4235,6 +4237,7 @@ pub fn withRowWeightedLogMeanExp(
     return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .logmeanexp);
 }
 
+pub const withRowWeightedProd = withRowWeightedProduct;
 pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
 pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
 pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
@@ -4860,6 +4863,9 @@ pub fn withRowWeightedCorrelation(
     return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, correction, .correlation);
 }
 
+pub const withRowWeightedCov = withRowWeightedCovariance;
+pub const withRowWeightedCorr = withRowWeightedCorrelation;
+
 pub fn withRowWeightedBeta(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5304,6 +5310,8 @@ pub fn withRowWeightedKelleySkewness(comptime DeviceDataFrame: type, input: Devi
 
 pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
 pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+pub const withRowWeightedIQR = withRowWeightedIqr;
+pub const withRowWeightedMAD = withRowWeightedMad;
 pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
 pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
@@ -5634,6 +5642,8 @@ pub fn withRowWeightedGiniImpurity(
     return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .gini_impurity);
 }
 
+pub const withRowWeightedGini = withRowWeightedGiniImpurity;
+
 pub fn withRowWeightedPerplexity(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5663,6 +5673,8 @@ pub fn withRowWeightedSimpsonConcentration(
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_name, .simpson_concentration);
 }
+
+pub const withRowWeightedConcentration = withRowWeightedSimpsonConcentration;
 
 pub fn withRowWeightedEvenness(
     comptime DeviceDataFrame: type,

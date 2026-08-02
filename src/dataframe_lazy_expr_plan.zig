@@ -3779,7 +3779,9 @@ pub fn withRowWeightedRangeCoeff(frame: anytype, value_names: []const []const u8
 pub const withRowWeightedMinimum = withRowWeightedMin;
 pub const withRowWeightedMaximum = withRowWeightedMax;
 pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+pub const withRowWeightedMaxAbsolute = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+pub const withRowWeightedMinAbsolute = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
 fn withRowWeightedLogProduct(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { product, geometric_mean, harmonic_mean, logsumexp, logmeanexp }) DeviceDataError!void {
@@ -3818,6 +3820,7 @@ pub fn withRowWeightedLogMeanExp(frame: anytype, value_names: []const []const u8
     return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .logmeanexp);
 }
 
+pub const withRowWeightedProd = withRowWeightedProduct;
 pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
 pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
 pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
@@ -4158,6 +4161,9 @@ pub fn withRowWeightedCorrelation(frame: anytype, lhs_names: []const []const u8,
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .correlation);
 }
 
+pub const withRowWeightedCov = withRowWeightedCovariance;
+pub const withRowWeightedCorr = withRowWeightedCorrelation;
+
 pub fn withRowWeightedBeta(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
 }
@@ -4324,6 +4330,8 @@ pub fn withRowWeightedKelleySkewness(frame: anytype, value_names: []const []cons
 
 pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
 pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+pub const withRowWeightedIQR = withRowWeightedIqr;
+pub const withRowWeightedMAD = withRowWeightedMad;
 pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
 pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
@@ -4461,6 +4469,8 @@ pub fn withRowWeightedGiniImpurity(frame: anytype, value_names: []const []const 
     } });
 }
 
+pub const withRowWeightedGini = withRowWeightedGiniImpurity;
+
 pub fn withRowWeightedPerplexity(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer {
@@ -4520,6 +4530,8 @@ pub fn withRowWeightedSimpsonConcentration(frame: anytype, value_names: []const 
         .output_name = owned_output,
     } });
 }
+
+pub const withRowWeightedConcentration = withRowWeightedSimpsonConcentration;
 
 pub fn withRowWeightedEvenness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);

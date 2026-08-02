@@ -3586,7 +3586,9 @@ pub fn withRowWeightedRangeCoeff(self: anytype, value_names: []const []const u8,
 pub const withRowWeightedMinimum = withRowWeightedMin;
 pub const withRowWeightedMaximum = withRowWeightedMax;
 pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+pub const withRowWeightedMaxAbsolute = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+pub const withRowWeightedMinAbsolute = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
 pub fn withRowWeightedProduct(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
@@ -3609,6 +3611,7 @@ pub fn withRowWeightedLogMeanExp(self: anytype, value_names: []const []const u8,
     return dataframe_array_mod.withRowWeightedLogMeanExp(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub const withRowWeightedProd = withRowWeightedProduct;
 pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
 pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
 pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
@@ -3733,6 +3736,9 @@ pub fn withRowWeightedCorrelation(self: anytype, lhs_names: []const []const u8, 
     return dataframe_array_mod.withRowWeightedCorrelation(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }
 
+pub const withRowWeightedCov = withRowWeightedCovariance;
+pub const withRowWeightedCorr = withRowWeightedCorrelation;
+
 pub fn withRowWeightedBeta(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedBeta(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }
@@ -3787,6 +3793,8 @@ pub fn withRowWeightedKelleySkewness(self: anytype, value_names: []const []const
 
 pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
 pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+pub const withRowWeightedIQR = withRowWeightedIqr;
+pub const withRowWeightedMAD = withRowWeightedMad;
 pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
 pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
@@ -3820,6 +3828,8 @@ pub fn withRowWeightedGiniImpurity(self: anytype, value_names: []const []const u
     return dataframe_array_mod.withRowWeightedGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub const withRowWeightedGini = withRowWeightedGiniImpurity;
+
 pub fn withRowWeightedPerplexity(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedPerplexity(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
@@ -3831,6 +3841,8 @@ pub fn withRowWeightedInverseSimpson(self: anytype, value_names: []const []const
 pub fn withRowWeightedSimpsonConcentration(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedSimpsonConcentration(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
+
+pub const withRowWeightedConcentration = withRowWeightedSimpsonConcentration;
 
 pub fn withRowWeightedEvenness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedEvenness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);

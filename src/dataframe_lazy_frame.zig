@@ -2479,12 +2479,14 @@ pub fn DeviceLazyTypes(
             }
 
             pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+            pub const withRowWeightedMaxAbsolute = withRowWeightedMaxAbs;
 
             pub fn withRowWeightedMinAbs(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMinAbs(self, value_names, weight_names, output_name);
             }
 
             pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+            pub const withRowWeightedMinAbsolute = withRowWeightedMinAbs;
 
             pub fn withRowWeightedRange(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedRange(self, value_names, weight_names, output_name);
@@ -2503,6 +2505,8 @@ pub fn DeviceLazyTypes(
             pub fn withRowWeightedProduct(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedProduct(self, value_names, weight_names, output_name);
             }
+
+            pub const withRowWeightedProd = withRowWeightedProduct;
 
             pub fn withRowWeightedGeometricMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedGeometricMean(self, value_names, weight_names, output_name);
@@ -2657,6 +2661,9 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedCorrelation(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }
 
+            pub const withRowWeightedCov = withRowWeightedCovariance;
+            pub const withRowWeightedCorr = withRowWeightedCorrelation;
+
             pub fn withRowWeightedBeta(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedBeta(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }
@@ -2676,6 +2683,9 @@ pub fn DeviceLazyTypes(
             pub fn withRowWeightedMad(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMad(self, value_names, weight_names, output_name);
             }
+
+            pub const withRowWeightedIQR = withRowWeightedIqr;
+            pub const withRowWeightedMAD = withRowWeightedMad;
 
             pub fn withRowWeightedTrimmedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedTrimmedMean(self, value_names, weight_names, output_name, trim_fraction);
@@ -2747,6 +2757,8 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedGiniImpurity(self, value_names, weight_names, output_name);
             }
 
+            pub const withRowWeightedGini = withRowWeightedGiniImpurity;
+
             pub fn withRowWeightedPerplexity(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedPerplexity(self, value_names, weight_names, output_name);
             }
@@ -2758,6 +2770,8 @@ pub fn DeviceLazyTypes(
             pub fn withRowWeightedSimpsonConcentration(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedSimpsonConcentration(self, value_names, weight_names, output_name);
             }
+
+            pub const withRowWeightedConcentration = withRowWeightedSimpsonConcentration;
 
             pub fn withRowWeightedEvenness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedEvenness(self, value_names, weight_names, output_name);
