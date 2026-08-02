@@ -2792,6 +2792,170 @@ pub const withGroupCumCountDistinctOn = withGroupCumulativeDistinctCountOn;
 pub const withGroupCumNUniqueOn = withGroupCumulativeNUniqueOn;
 pub const withGroupCumNuniqueOn = withGroupCumulativeNUniqueOn;
 
+const GroupCumulativeModeOp = enum { value, count, ratio, margin, margin_ratio };
+
+fn groupCumulativeModeZeroValue(comptime V: type) V {
+    return switch (@typeInfo(V)) {
+        .bool => false,
+        .int => 0,
+        .float => 0.0,
+        else => unreachable,
+    };
+}
+
+fn withGroupCumulativeModeOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    comptime op: GroupCumulativeModeOp,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(frame.allocator);
+        group_value_rows.deinit(frame.allocator);
+    }
+
+    if (op == .value) {
+        const outputs = try frame.allocator.alloc(V, frame.rows);
+        defer frame.allocator.free(outputs);
+        @memset(outputs, groupCumulativeModeZeroValue(V));
+        for (values, 0..) |_, row| {
+            if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+            const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+            if (!value_valid) continue;
+            const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                try representative_rows.append(frame.allocator, row);
+                try group_value_rows.append(frame.allocator, .empty);
+                break :blk representative_rows.items.len - 1;
+            };
+            try group_value_rows.items[group_index].append(frame.allocator, row);
+            const stats = groupModeStats(V, values, group_value_rows.items[group_index].items);
+            outputs[row] = values[stats.row];
+            row_validity[row] = true;
+        }
+        var column = try DeviceColumn.fromSliceWithValidity(V, frame.allocator, outputs, row_validity, frame.device);
+        defer column.deinit();
+        return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+    }
+
+    if (op == .count or op == .margin) {
+        const outputs = try frame.allocator.alloc(i64, frame.rows);
+        defer frame.allocator.free(outputs);
+        @memset(outputs, 0);
+        for (values, 0..) |_, row| {
+            if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+            const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+            if (!value_valid) continue;
+            const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                try representative_rows.append(frame.allocator, row);
+                try group_value_rows.append(frame.allocator, .empty);
+                break :blk representative_rows.items.len - 1;
+            };
+            try group_value_rows.items[group_index].append(frame.allocator, row);
+            const stats = groupModeStats(V, values, group_value_rows.items[group_index].items);
+            const numerator = if (op == .count) stats.count else stats.count - stats.second_count;
+            outputs[row] = @intCast(numerator);
+            row_validity[row] = true;
+        }
+        var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, outputs, row_validity, frame.device);
+        defer column.deinit();
+        return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+    }
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    @memset(outputs, 0.0);
+    for (values, 0..) |_, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_value_rows.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_value_rows.items[group_index].append(frame.allocator, row);
+        const stats = groupModeStats(V, values, group_value_rows.items[group_index].items);
+        const numerator = if (op == .ratio) stats.count else stats.count - stats.second_count;
+        outputs[row] = @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(stats.total_count));
+        row_validity[row] = true;
+    }
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeModeOpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime op: GroupCumulativeModeOp,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .bool => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, bool, frame, key_names, output_name, typed, op),
+        .i8 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, op),
+        .i16 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, op),
+        .i32 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, op),
+        .i64 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, op),
+        .u8 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, op),
+        .u16 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, op),
+        .u32 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, op),
+        .u64 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, op),
+        .usize => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, op),
+        .isize => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, op),
+        .f16 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, op),
+        .f32 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, op),
+        .f64 => |typed| withGroupCumulativeModeOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, op),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeModeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeModeOpOn(DeviceDataFrame, frame, key_names, value_name, output_name, .value);
+}
+
+pub fn withGroupCumulativeModeCountOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeModeOpOn(DeviceDataFrame, frame, key_names, value_name, output_name, .count);
+}
+
+pub fn withGroupCumulativeModeRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeModeOpOn(DeviceDataFrame, frame, key_names, value_name, output_name, .ratio);
+}
+
+pub fn withGroupCumulativeModeMarginOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeModeOpOn(DeviceDataFrame, frame, key_names, value_name, output_name, .margin);
+}
+
+pub fn withGroupCumulativeModeMarginRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeModeOpOn(DeviceDataFrame, frame, key_names, value_name, output_name, .margin_ratio);
+}
+
+pub const withGroupCumModeOn = withGroupCumulativeModeOn;
+pub const withGroupCumModeCountOn = withGroupCumulativeModeCountOn;
+pub const withGroupCumModeRatioOn = withGroupCumulativeModeRatioOn;
+pub const withGroupCumModeMarginOn = withGroupCumulativeModeMarginOn;
+pub const withGroupCumModeMarginRatioOn = withGroupCumulativeModeMarginRatioOn;
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(

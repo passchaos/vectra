@@ -1202,6 +1202,62 @@ pub const withGroupCumNUniqueOn = withGroupCumulativeNUniqueOn;
 pub const withGroupCumNunique = withGroupCumulativeNUnique;
 pub const withGroupCumNuniqueOn = withGroupCumulativeNUniqueOn;
 
+pub fn withGroupCumulativeMode(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeModeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeModeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeModeCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeModeCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeModeRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeModeRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeMargin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeModeMarginOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeMarginOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeModeMarginOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeMarginRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeModeMarginRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeModeMarginRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeModeMarginRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumMode = withGroupCumulativeMode;
+pub const withGroupCumModeOn = withGroupCumulativeModeOn;
+pub const withGroupCumModeCount = withGroupCumulativeModeCount;
+pub const withGroupCumModeCountOn = withGroupCumulativeModeCountOn;
+pub const withGroupCumModeRatio = withGroupCumulativeModeRatio;
+pub const withGroupCumModeRatioOn = withGroupCumulativeModeRatioOn;
+pub const withGroupCumModeMargin = withGroupCumulativeModeMargin;
+pub const withGroupCumModeMarginOn = withGroupCumulativeModeMarginOn;
+pub const withGroupCumModeMarginRatio = withGroupCumulativeModeMarginRatio;
+pub const withGroupCumModeMarginRatioOn = withGroupCumulativeModeMarginRatioOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

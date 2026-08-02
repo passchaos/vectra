@@ -1587,6 +1587,65 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectNullableI64Column(lazy_cumulative_distinct, gpa, "label_cum_distinct_lazy", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
     try expectNullableI64Column(lazy_cumulative_distinct, gpa, "label_cum_n_unique_lazy", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
 
+    const group_cum_mode_values_expected = [_]i32{ 5, 5, 5, 0, 1, 1, 1, 0 };
+    const group_cum_mode_validity_expected = [_]bool{ true, true, true, false, true, true, true, false };
+    const group_cum_mode_count_expected = [_]i64{ 1, 2, 2, 0, 1, 1, 2, 0 };
+    const group_cum_mode_ratio_expected = [_]f64{ 1.0, 1.0, 2.0 / 3.0, 0.0, 1.0, 0.5, 2.0 / 3.0, 0.0 };
+    const group_cum_mode_margin_expected = [_]i64{ 1, 2, 1, 0, 1, 0, 1, 0 };
+    const group_cum_mode_margin_ratio_expected = [_]f64{ 1.0, 1.0, 1.0 / 3.0, 0.0, 1.0, 0.0, 1.0 / 3.0, 0.0 };
+
+    var group_cum_mode_label = try distinct_table.withGroupCumulativeMode("bucket", "label", "label_cum_mode");
+    defer group_cum_mode_label.deinit();
+    const group_cum_mode_label_values = try (try group_cum_mode_label.column("label_cum_mode")).i32.toOwnedSlice(gpa);
+    defer gpa.free(group_cum_mode_label_values);
+    const group_cum_mode_label_validity = try (try group_cum_mode_label.column("label_cum_mode")).i32.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(group_cum_mode_label_validity);
+    try std.testing.expectEqualSlices(i32, &group_cum_mode_values_expected, group_cum_mode_label_values);
+    try std.testing.expectEqualSlices(bool, &group_cum_mode_validity_expected, group_cum_mode_label_validity);
+
+    var group_cum_mode_count_label = try distinct_table.withGroupCumulativeModeCount("bucket", "label", "label_cum_mode_count");
+    defer group_cum_mode_count_label.deinit();
+    try expectNullableI64Column(group_cum_mode_count_label, gpa, "label_cum_mode_count", &group_cum_mode_count_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_mode_ratio_label = try distinct_table.withGroupCumulativeModeRatio("bucket", "label", "label_cum_mode_ratio");
+    defer group_cum_mode_ratio_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_mode_ratio_label, gpa, "label_cum_mode_ratio", &group_cum_mode_ratio_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_mode_margin_label = try distinct_table.withGroupCumulativeModeMargin("bucket", "label", "label_cum_mode_margin");
+    defer group_cum_mode_margin_label.deinit();
+    try expectNullableI64Column(group_cum_mode_margin_label, gpa, "label_cum_mode_margin", &group_cum_mode_margin_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_mode_margin_ratio_label = try distinct_table.withGroupCumulativeModeMarginRatio("bucket", "label", "label_cum_mode_margin_ratio");
+    defer group_cum_mode_margin_ratio_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_mode_margin_ratio_label, gpa, "label_cum_mode_margin_ratio", &group_cum_mode_margin_ratio_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_mode_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_mode_plan.deinit();
+    try cumulative_mode_plan.withGroupCumulativeMode("bucket", "label", "label_cum_mode_lazy");
+    try cumulative_mode_plan.withGroupCumulativeModeCount("bucket", "label", "label_cum_mode_count_lazy");
+    try cumulative_mode_plan.withGroupCumulativeModeRatio("bucket", "label", "label_cum_mode_ratio_lazy");
+    try cumulative_mode_plan.withGroupCumulativeModeMargin("bucket", "label", "label_cum_mode_margin_lazy");
+    try cumulative_mode_plan.withGroupCumulativeModeMarginRatio("bucket", "label", "label_cum_mode_margin_ratio_lazy");
+    const cumulative_mode_explained = try cumulative_mode_plan.explain(gpa);
+    defer gpa.free(cumulative_mode_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mode_explained, "group_cumulative_mode([bucket], value=label->label_cum_mode_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mode_explained, "group_cumulative_mode_count([bucket], value=label->label_cum_mode_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mode_explained, "group_cumulative_mode_ratio([bucket], value=label->label_cum_mode_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mode_explained, "group_cumulative_mode_margin([bucket], value=label->label_cum_mode_margin_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mode_explained, "group_cumulative_mode_margin_ratio([bucket], value=label->label_cum_mode_margin_ratio_lazy)") != null);
+    var lazy_cumulative_mode = try cumulative_mode_plan.collect();
+    defer lazy_cumulative_mode.deinit();
+    const lazy_group_cum_mode_values = try (try lazy_cumulative_mode.column("label_cum_mode_lazy")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_group_cum_mode_values);
+    const lazy_group_cum_mode_validity = try (try lazy_cumulative_mode.column("label_cum_mode_lazy")).i32.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_group_cum_mode_validity);
+    try std.testing.expectEqualSlices(i32, &group_cum_mode_values_expected, lazy_group_cum_mode_values);
+    try std.testing.expectEqualSlices(bool, &group_cum_mode_validity_expected, lazy_group_cum_mode_validity);
+    try expectNullableI64Column(lazy_cumulative_mode, gpa, "label_cum_mode_count_lazy", &group_cum_mode_count_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnWithValidity(lazy_cumulative_mode, gpa, "label_cum_mode_ratio_lazy", &group_cum_mode_ratio_expected, &group_cum_mode_validity_expected);
+    try expectNullableI64Column(lazy_cumulative_mode, gpa, "label_cum_mode_margin_lazy", &group_cum_mode_margin_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnWithValidity(lazy_cumulative_mode, gpa, "label_cum_mode_margin_ratio_lazy", &group_cum_mode_margin_ratio_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

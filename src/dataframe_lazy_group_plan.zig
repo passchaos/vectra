@@ -1217,6 +1217,67 @@ pub fn withGroupCumulativeNUnique(frame: anytype, key_names: []const []const u8,
     return withGroupCumulativeDistinctCountCore(frame, key_names, value_name, output_name, true);
 }
 
+fn withGroupCumulativeModeOp(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { value, count, ratio, margin, margin_ratio }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .value => .{ .group_cumulative_mode = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .count => .{ .group_cumulative_mode_count = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .ratio => .{ .group_cumulative_mode_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .margin => .{ .group_cumulative_mode_margin = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .margin_ratio => .{ .group_cumulative_mode_margin_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+    });
+}
+
+pub fn withGroupCumulativeMode(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .value);
+}
+
+pub fn withGroupCumulativeModeCount(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .count);
+}
+
+pub fn withGroupCumulativeModeRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .ratio);
+}
+
+pub fn withGroupCumulativeModeMargin(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .margin);
+}
+
+pub fn withGroupCumulativeModeMarginRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .margin_ratio);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
