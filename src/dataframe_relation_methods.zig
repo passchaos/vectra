@@ -3557,6 +3557,24 @@ pub fn groupByWeightedMadOn(self: anytype, key_names: []const []const u8, value_
 pub const groupByWeightedMAD = groupByWeightedMad;
 pub const groupByWeightedMADOn = groupByWeightedMadOn;
 
+pub fn groupByWeightedTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedTrimmedMeanOn(self, key_names[0..], value_name, weight_name, output_name, trim_fraction);
+}
+
+pub fn groupByWeightedTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedTrimmedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, trim_fraction);
+}
+
+pub fn groupByWeightedWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedWinsorizedMeanOn(self, key_names[0..], value_name, weight_name, output_name, winsor_fraction);
+}
+
+pub fn groupByWeightedWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedWinsorizedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, winsor_fraction);
+}
+
 pub fn groupByWeightedMode(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedModeOn(self, key_names[0..], value_name, weight_name, output_name);

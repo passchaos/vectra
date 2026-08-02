@@ -257,6 +257,8 @@ const GroupByWeightedAggregation = enum {
     weighted_median,
     weighted_iqr,
     weighted_mad,
+    weighted_trimmed_mean,
+    weighted_winsorized_mean,
     weighted_mode,
     weighted_mode_weight,
     weighted_mode_ratio,
@@ -645,6 +647,73 @@ fn groupWeightedShapeFromRows(rows: []const usize, values: []const f64, weights:
     return switch (op) {
         .skewness => std.math.sqrt(weight_sum) * centered3 / std.math.pow(f64, centered2, 1.5),
         .kurtosis => weight_sum * centered4 / (centered2 * centered2) - 3.0,
+    };
+}
+
+fn weightedTrimmedMeanFromSorted(sorted: []const GroupWeightedValue, total_weight: f64, trim_fraction: f64) f64 {
+    if (!(total_weight > 0.0)) return std.math.nan(f64);
+    const lower_cut = trim_fraction * total_weight;
+    const upper_cut = (1.0 - trim_fraction) * total_weight;
+    if (!(upper_cut > lower_cut)) return std.math.nan(f64);
+
+    var cumulative: f64 = 0.0;
+    var kept_sum: f64 = 0.0;
+    var kept_weight: f64 = 0.0;
+    for (sorted) |item| {
+        if (!(item.weight > 0.0)) continue;
+        const start = cumulative;
+        const end = cumulative + item.weight;
+        const kept = @max(@as(f64, 0.0), @min(end, upper_cut) - @max(start, lower_cut));
+        if (kept > 0.0) {
+            kept_sum += kept * item.value;
+            kept_weight += kept;
+        }
+        cumulative = end;
+    }
+    return if (kept_weight > 0.0) kept_sum / kept_weight else std.math.nan(f64);
+}
+
+fn weightedWinsorizedMeanFromSorted(sorted: []const GroupWeightedValue, total_weight: f64, winsor_fraction: f64) f64 {
+    if (!(total_weight > 0.0)) return std.math.nan(f64);
+    const lower_value = groupWeightedQuantileFromSorted(sorted, winsor_fraction, total_weight);
+    const upper_value = groupWeightedQuantileFromSorted(sorted, 1.0 - winsor_fraction, total_weight);
+
+    var total: f64 = 0.0;
+    for (sorted) |item| {
+        if (!(item.weight > 0.0)) continue;
+        const clipped = @min(@max(item.value, lower_value), upper_value);
+        total += item.weight * clipped;
+    }
+    return total / total_weight;
+}
+
+fn groupWeightedRobustMeanFromRows(
+    allocator: std.mem.Allocator,
+    rows: []const usize,
+    values: []const f64,
+    weights: []const f64,
+    fraction: f64,
+    op: enum { trimmed_mean, winsorized_mean },
+) (std.mem.Allocator.Error || error{InvalidShape})!f64 {
+    if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
+    const scratch = try allocator.alloc(GroupWeightedValue, rows.len);
+    defer allocator.free(scratch);
+
+    var total_weight: f64 = 0.0;
+    var len: usize = 0;
+    for (rows) |row| {
+        const weight = weights[row];
+        if (!(weight > 0.0)) continue;
+        scratch[len] = .{ .value = values[row], .weight = weight };
+        total_weight += weight;
+        len += 1;
+    }
+    if (len == 0 or !(total_weight > 0.0)) return std.math.nan(f64);
+    const active = scratch[0..len];
+    std.sort.insertion(GroupWeightedValue, active, {}, groupWeightedValueLess);
+    return switch (op) {
+        .trimmed_mean => weightedTrimmedMeanFromSorted(active, total_weight, fraction),
+        .winsorized_mean => weightedWinsorizedMeanFromSorted(active, total_weight, fraction),
     };
 }
 
@@ -6971,6 +7040,7 @@ pub fn groupByWeightedOn(
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     if (aggregation == .weighted_quantile and (std.math.isNan(q) or q < 0.0 or q > 1.0)) return error.InvalidShape;
+    if ((aggregation == .weighted_trimmed_mean or aggregation == .weighted_winsorized_mean) and (std.math.isNan(q) or q < 0.0 or q >= 0.5)) return error.InvalidShape;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value_column = try frame.column(value_name);
     const weight_column = try frame.column(weight_name);
@@ -7138,6 +7208,8 @@ pub fn groupByWeightedOn(
                     .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
                     .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
                     .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
+                    .weighted_trimmed_mean => try groupWeightedRobustMeanFromRows(frame.allocator, rows.items, values.values, weights.values, q, .trimmed_mean),
+                    .weighted_winsorized_mean => try groupWeightedRobustMeanFromRows(frame.allocator, rows.items, values.values, weights.values, q, .winsorized_mean),
                     .weighted_mode => groupWeightedModeStats(rows.items, values.values, weights.values).mode,
                     .weighted_mode_weight => groupWeightedModeStats(rows.items, values.values, weights.values).mode_weight,
                     .weighted_mode_ratio => blk: {
@@ -7566,6 +7638,30 @@ pub fn groupByWeightedMadOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_mad, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedTrimmedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    trim_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_trimmed_mean, frame, key_names, value_name, weight_name, output_name, trim_fraction);
+}
+
+pub fn groupByWeightedWinsorizedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    winsor_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_winsorized_mean, frame, key_names, value_name, weight_name, output_name, winsor_fraction);
 }
 
 pub fn groupByWeightedModeOn(

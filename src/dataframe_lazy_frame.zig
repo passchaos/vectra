@@ -6955,6 +6955,10 @@ pub fn DeviceLazyTypes(
             pub const groupByWeightedMadOn = lazy_relation_methods_mod.groupByWeightedMadOn;
             pub const groupByWeightedMAD = lazy_relation_methods_mod.groupByWeightedMAD;
             pub const groupByWeightedMADOn = lazy_relation_methods_mod.groupByWeightedMADOn;
+            pub const groupByWeightedTrimmedMean = lazy_relation_methods_mod.groupByWeightedTrimmedMean;
+            pub const groupByWeightedTrimmedMeanOn = lazy_relation_methods_mod.groupByWeightedTrimmedMeanOn;
+            pub const groupByWeightedWinsorizedMean = lazy_relation_methods_mod.groupByWeightedWinsorizedMean;
+            pub const groupByWeightedWinsorizedMeanOn = lazy_relation_methods_mod.groupByWeightedWinsorizedMeanOn;
             pub const groupByWeightedMode = lazy_relation_methods_mod.groupByWeightedMode;
             pub const groupByWeightedModeOn = lazy_relation_methods_mod.groupByWeightedModeOn;
             pub const groupByWeightedModeWeight = lazy_relation_methods_mod.groupByWeightedModeWeight;

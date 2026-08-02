@@ -2886,6 +2886,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_positive_count.deinit();
     try expectF64ColumnApproxOrNan(weighted_positive_count, gpa, "value_weight_positive_count", &weighted_positive_count_expected);
 
+    const weighted_trimmed_expected = [_]f64{ 65.0 / 3.0, 10.0, std.math.nan(f64) };
+    const weighted_winsorized_expected = [_]f64{ 70.0 / 3.0, 10.0, std.math.nan(f64) };
+    var weighted_trimmed = try weighted_table.groupByWeightedTrimmedMean("bucket", "value", "weight", "value_weighted_trimmed", 0.25);
+    defer weighted_trimmed.deinit();
+    try expectF64ColumnApproxOrNan(weighted_trimmed, gpa, "value_weighted_trimmed", &weighted_trimmed_expected);
+    var weighted_winsorized = try weighted_table.groupByWeightedWinsorizedMeanOn(&.{"bucket"}, "value", "weight", "value_weighted_winsorized", 0.25);
+    defer weighted_winsorized.deinit();
+    try expectF64ColumnApproxOrNan(weighted_winsorized, gpa, "value_weighted_winsorized", &weighted_winsorized_expected);
+
     const weighted_mean_square_expected = [_]f64{ 1550.0 / 3.0, 125.0, std.math.nan(f64) };
     const weighted_rms_expected = [_]f64{ std.math.sqrt(@as(f64, 1550.0 / 3.0)), std.math.sqrt(@as(f64, 125.0)), std.math.nan(f64) };
 
@@ -3325,6 +3334,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNan(weighted_covariance_on, gpa, "lhs_rhs_weighted_cov_on", &weighted_cov_on_expected);
 
     try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedQuantile("bucket", "value", "weight", "bad_weighted_q", 1.5));
+    try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedTrimmedMean("bucket", "value", "weight", "bad_weighted_trimmed", 0.5));
+    try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedWinsorizedMean("bucket", "value", "weight", "bad_weighted_winsorized", -0.01));
     try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedCovariance("bucket", "lhs", "rhs", "weight", "bad_weighted_cov", -1.0));
 
     var negative_weight_key = try DeviceColumn.fromSlice(i32, gpa, &.{1}, .cpu);
@@ -3903,6 +3914,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_weight_sum, .output_name = "value_weight_sum_lazy", .explain = "group_by_weighted_weight_sum(bucket, value=value, weight=weight -> value_weight_sum_lazy)", .expected = &weighted_weight_sum_expected },
         .{ .method = .weighted_positive_count, .output_name = "value_weight_positive_count_lazy", .explain = "group_by_weighted_positive_count(bucket, value=value, weight=weight -> value_weight_positive_count_lazy)", .expected = &weighted_positive_count_expected },
         .{ .method = .weighted_effective_n, .output_name = "value_weighted_effective_n_lazy", .explain = "group_by_weighted_effective_n(bucket, value=value, weight=weight -> value_weighted_effective_n_lazy)", .expected = &weighted_effective_n_expected },
+        .{ .method = .weighted_trimmed_mean, .output_name = "value_weighted_trimmed_lazy", .explain = "group_by_weighted_trimmed_mean(bucket, value=value, weight=weight, trim_fraction=0.25 -> value_weighted_trimmed_lazy)", .expected = &weighted_trimmed_expected },
+        .{ .method = .weighted_winsorized_mean, .output_name = "value_weighted_winsorized_lazy", .explain = "group_by_weighted_winsorized_mean(bucket, value=value, weight=weight, winsor_fraction=0.25 -> value_weighted_winsorized_lazy)", .expected = &weighted_winsorized_expected },
         .{ .method = .weighted_mean_square, .output_name = "value_weighted_mean_square_lazy", .explain = "group_by_weighted_mean_square(bucket, value=value, weight=weight -> value_weighted_mean_square_lazy)", .expected = &weighted_mean_square_expected },
         .{ .method = .weighted_rms, .output_name = "value_weighted_rms_lazy", .explain = "group_by_weighted_rms(bucket, value=value, weight=weight -> value_weighted_rms_lazy)", .expected = &weighted_rms_expected },
         .{ .method = .weighted_min, .output_name = "value_weighted_min_lazy", .explain = "group_by_weighted_min(bucket, value=value, weight=weight -> value_weighted_min_lazy)", .expected = &weighted_min_expected },
@@ -3945,6 +3958,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_weight_sum => plan.groupByWeightedWeightSum("bucket", "value", "weight", case.output_name),
             .weighted_positive_count => plan.groupByWeightedPositiveCount("bucket", "value", "weight", case.output_name),
             .weighted_effective_n => plan.groupByWeightedEffectiveN("bucket", "value", "weight", case.output_name),
+            .weighted_trimmed_mean => plan.groupByWeightedTrimmedMean("bucket", "value", "weight", case.output_name, 0.25),
+            .weighted_winsorized_mean => plan.groupByWeightedWinsorizedMean("bucket", "value", "weight", case.output_name, 0.25),
             .weighted_mean_square => plan.groupByWeightedMeanSquare("bucket", "value", "weight", case.output_name),
             .weighted_rms => plan.groupByWeightedRms("bucket", "value", "weight", case.output_name),
             .weighted_min => plan.groupByWeightedMin("bucket", "value", "weight", case.output_name),

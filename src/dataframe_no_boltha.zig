@@ -349,6 +349,8 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_median,
     weighted_iqr,
     weighted_mad,
+    weighted_trimmed_mean,
+    weighted_winsorized_mean,
     weighted_mode,
     weighted_mode_weight,
     weighted_mode_ratio,

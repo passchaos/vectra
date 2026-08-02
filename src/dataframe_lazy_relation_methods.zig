@@ -3491,6 +3491,22 @@ pub fn groupByWeightedMadOn(self: anytype, key_names: []const []const u8, value_
 pub const groupByWeightedMAD = groupByWeightedMad;
 pub const groupByWeightedMADOn = groupByWeightedMadOn;
 
+pub fn groupByWeightedTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedQuantile(self, key_name, value_name, weight_name, output_name, .weighted_trimmed_mean, trim_fraction);
+}
+
+pub fn groupByWeightedTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedOnQuantile(self, key_names, value_name, weight_name, output_name, .weighted_trimmed_mean, trim_fraction);
+}
+
+pub fn groupByWeightedWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedQuantile(self, key_name, value_name, weight_name, output_name, .weighted_winsorized_mean, winsor_fraction);
+}
+
+pub fn groupByWeightedWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedOnQuantile(self, key_names, value_name, weight_name, output_name, .weighted_winsorized_mean, winsor_fraction);
+}
+
 pub fn groupByWeightedMode(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_mode);
 }

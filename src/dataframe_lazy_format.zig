@@ -4379,6 +4379,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .group_by_weighted => |group| switch (group.aggregation) {
             .weighted_quantile => try writer.print("group_by_weighted_quantile({s}, value={s}, weight={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.weight_name, group.quantile, group.output_name }),
+            .weighted_trimmed_mean => try writer.print("group_by_weighted_trimmed_mean({s}, value={s}, weight={s}, trim_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.weight_name, group.quantile, group.output_name }),
+            .weighted_winsorized_mean => try writer.print("group_by_weighted_winsorized_mean({s}, value={s}, weight={s}, winsor_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.weight_name, group.quantile, group.output_name }),
             else => try writer.print("group_by_{s}({s}, value={s}, weight={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.weight_name, group.output_name }),
         },
         .group_by_weighted_on => |group| {
@@ -4389,6 +4391,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             switch (group.aggregation) {
                 .weighted_quantile => try writer.print("], value={s}, weight={s}, q={d} -> {s})", .{ group.value_name, group.weight_name, group.quantile, group.output_name }),
+                .weighted_trimmed_mean => try writer.print("], value={s}, weight={s}, trim_fraction={d} -> {s})", .{ group.value_name, group.weight_name, group.quantile, group.output_name }),
+                .weighted_winsorized_mean => try writer.print("], value={s}, weight={s}, winsor_fraction={d} -> {s})", .{ group.value_name, group.weight_name, group.quantile, group.output_name }),
                 else => try writer.print("], value={s}, weight={s} -> {s})", .{ group.value_name, group.weight_name, group.output_name }),
             }
         },
