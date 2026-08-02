@@ -3674,6 +3674,48 @@ pub fn withRowWeightedEffectiveN(frame: anytype, value_names: []const []const u8
 
 pub const withRowWeightedEffectiveCount = withRowWeightedEffectiveN;
 
+fn withRowWeightedMoment(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { mean_square, rms, mean_abs, l1_norm, l2_norm }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .mean_square => .{ .row_weighted_mean_square = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .rms => .{ .row_weighted_rms = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .mean_abs => .{ .row_weighted_mean_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .l1_norm => .{ .row_weighted_l1_norm = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .l2_norm => .{ .row_weighted_l2_norm = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedMeanSquare(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedMoment(frame, value_names, weight_names, output_name, .mean_square);
+}
+
+pub fn withRowWeightedRms(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedMoment(frame, value_names, weight_names, output_name, .rms);
+}
+
+pub fn withRowWeightedMeanAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedMoment(frame, value_names, weight_names, output_name, .mean_abs);
+}
+
+pub fn withRowWeightedL1Norm(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedMoment(frame, value_names, weight_names, output_name, .l1_norm);
+}
+
+pub fn withRowWeightedL2Norm(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedMoment(frame, value_names, weight_names, output_name, .l2_norm);
+}
+
+pub const withRowWeightedMeanSquared = withRowWeightedMeanSquare;
+pub const withRowWeightedMeanSq = withRowWeightedMeanSquare;
+pub const withRowWeightedRMS = withRowWeightedRms;
+pub const withRowWeightedL1 = withRowWeightedL1Norm;
+pub const withRowWeightedL2 = withRowWeightedL2Norm;
+
 fn withRowWeightedDispersion(
     frame: anytype,
     value_names: []const []const u8,

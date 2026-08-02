@@ -770,6 +770,10 @@ paired statistics and vector metrics.
 `withRowWeightedEffectiveN`/`withRowWeightedEffectiveCount` expose per-row
 weighted support diagnostics for aligned value/weight lists, including the
 Kish effective sample size `sum(w)^2 / sum(w^2)` over positive weights.
+`withRowWeightedMeanSquare`, `withRowWeightedRms`, `withRowWeightedMeanAbs`,
+`withRowWeightedL1Norm`, and `withRowWeightedL2Norm` append per-row weighted
+moment/norm diagnostics over aligned value/weight lists, mirroring the grouped
+weighted mean-square, RMS, absolute-moment, and L1/L2 norm contracts.
 `withRowWeightedVariance` and `withRowWeightedStddev` append per-row
 weighted dispersion for aligned value/weight column lists, skipping null pairs,
 rejecting negative weights, and honoring a correction parameter for denominator

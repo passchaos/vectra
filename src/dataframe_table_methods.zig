@@ -3525,6 +3525,32 @@ pub fn withRowWeightedEffectiveN(self: anytype, value_names: []const []const u8,
 
 pub const withRowWeightedEffectiveCount = withRowWeightedEffectiveN;
 
+pub fn withRowWeightedMeanSquare(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMeanSquare(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedRms(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedRms(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedMeanAbs(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedMeanAbs(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedL1Norm(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedL1Norm(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedL2Norm(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedL2Norm(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub const withRowWeightedMeanSquared = withRowWeightedMeanSquare;
+pub const withRowWeightedMeanSq = withRowWeightedMeanSquare;
+pub const withRowWeightedRMS = withRowWeightedRms;
+pub const withRowWeightedL1 = withRowWeightedL1Norm;
+pub const withRowWeightedL2 = withRowWeightedL2Norm;
+
 pub fn withRowWeightedVariance(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedVariance(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, correction);
 }

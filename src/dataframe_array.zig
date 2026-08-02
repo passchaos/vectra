@@ -3740,6 +3740,114 @@ pub fn withRowWeightedEffectiveN(
 
 pub const withRowWeightedEffectiveCount = withRowWeightedEffectiveN;
 
+const RowWeightedMomentReduction = enum { mean_square, rms, mean_abs, l1_norm, l2_norm };
+
+fn withRowWeightedMoment(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedMomentReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var weighted_square_sum: f64 = 0.0;
+        var weighted_abs_sum: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            const value = flat.values[offset];
+            weight_sum += weight;
+            weighted_square_sum += value * value * weight;
+            weighted_abs_sum += @abs(value) * weight;
+        }
+        if (!(weight_sum > 0.0)) continue;
+
+        values[row] = switch (reduction) {
+            .mean_square => weighted_square_sum / weight_sum,
+            .rms => std.math.sqrt(weighted_square_sum / weight_sum),
+            .mean_abs => weighted_abs_sum / weight_sum,
+            .l1_norm => weighted_abs_sum,
+            .l2_norm => std.math.sqrt(weighted_square_sum),
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedMeanSquare(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_name, .mean_square);
+}
+
+pub fn withRowWeightedRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_name, .rms);
+}
+
+pub fn withRowWeightedMeanAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_name, .mean_abs);
+}
+
+pub fn withRowWeightedL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_name, .l1_norm);
+}
+
+pub fn withRowWeightedL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_name, .l2_norm);
+}
+
+pub const withRowWeightedMeanSquared = withRowWeightedMeanSquare;
+pub const withRowWeightedMeanSq = withRowWeightedMeanSquare;
+pub const withRowWeightedRMS = withRowWeightedRms;
+pub const withRowWeightedL1 = withRowWeightedL1Norm;
+pub const withRowWeightedL2 = withRowWeightedL2Norm;
+
 const RowWeightedDispersion = enum { variance, stddev };
 
 fn withRowWeightedDispersion(

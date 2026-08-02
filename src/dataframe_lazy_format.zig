@@ -690,6 +690,71 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
+        .row_weighted_mean_square => |row_weighted| {
+            try writer.print("row_weighted_mean_square(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_rms => |row_weighted| {
+            try writer.print("row_weighted_rms(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_mean_abs => |row_weighted| {
+            try writer.print("row_weighted_mean_abs(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_l1_norm => |row_weighted| {
+            try writer.print("row_weighted_l1_norm(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
+        .row_weighted_l2_norm => |row_weighted| {
+            try writer.print("row_weighted_l2_norm(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_weighted.output_name});
+        },
         .row_weighted_variance => |row_weighted| {
             try writer.print("row_weighted_variance(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

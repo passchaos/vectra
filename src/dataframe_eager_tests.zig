@@ -1506,6 +1506,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_effective_n_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_effective_n_table, gpa, "row_weighted_effective_n", &.{ 1.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ true, true, false, true });
 
+    var row_weighted_mean_square_table = try validity_table.withRowWeightedMeanSq(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean_square");
+    defer row_weighted_mean_square_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mean_square_table, gpa, "row_weighted_mean_square", &.{ 1.0, 400.0, 0.0, 1664.0 / 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_rms_table = try validity_table.withRowWeightedRMS(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_rms");
+    defer row_weighted_rms_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_rms_table, gpa, "row_weighted_rms", &.{ 1.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0 / 5.0)) }, &.{ true, true, false, true });
+
+    var row_weighted_mean_abs_table = try validity_table.withRowWeightedMeanAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_mean_abs");
+    defer row_weighted_mean_abs_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_mean_abs_table, gpa, "row_weighted_mean_abs", &.{ 1.0, 20.0, 0.0, 56.0 / 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_l1_table = try validity_table.withRowWeightedL1(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_l1");
+    defer row_weighted_l1_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_l1_table, gpa, "row_weighted_l1", &.{ 1.0, 20.0, 0.0, 56.0 }, &.{ true, true, false, true });
+
+    var row_weighted_l2_table = try validity_table.withRowWeightedL2Norm(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_l2");
+    defer row_weighted_l2_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_l2_table, gpa, "row_weighted_l2", &.{ 1.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0)) }, &.{ true, true, false, true });
+
     var row_weighted_quantile_table = try validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
     defer row_weighted_quantile_table.deinit();
     const row_weighted_quantile_column = try row_weighted_quantile_table.column("row_weighted_quantile");
