@@ -230,6 +230,10 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_inverse_simpson,
     weighted_simpson_concentration,
     weighted_evenness,
+    weighted_mean_abs_dev,
+    weighted_mean_abs_dev_ratio,
+    weighted_gini_mean_diff,
+    weighted_gini_coefficient,
 };
 
 pub const DeviceLazyPairGroupByAggregation = enum {

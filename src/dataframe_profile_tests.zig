@@ -3124,6 +3124,27 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_evenness.deinit();
     try expectF64ColumnApproxOrNan(weighted_evenness, gpa, "value_weighted_evenness", &weighted_evenness_expected);
 
+    const weighted_mean_abs_dev_expected = [_]f64{ 50.0 / 9.0, 5.0, weighted_nan };
+    const weighted_mean_abs_dev_ratio_expected = [_]f64{ 10.0 / 39.0, 0.5, weighted_nan };
+    const weighted_gini_mean_diff_expected = [_]f64{ 130.0 / 11.0, 10.0, weighted_nan };
+    const weighted_gini_coeff_expected = [_]f64{ 3.0 / 11.0, 0.5, weighted_nan };
+
+    var weighted_mean_abs_dev = try weighted_table.groupByWeightedMeanAbsDev("bucket", "value", "weight", "value_weighted_mean_abs_dev");
+    defer weighted_mean_abs_dev.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mean_abs_dev, gpa, "value_weighted_mean_abs_dev", &weighted_mean_abs_dev_expected);
+
+    var weighted_mean_abs_dev_ratio = try weighted_table.groupByWeightedMeanAbsDevRatio("bucket", "value", "weight", "value_weighted_mean_abs_dev_ratio");
+    defer weighted_mean_abs_dev_ratio.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mean_abs_dev_ratio, gpa, "value_weighted_mean_abs_dev_ratio", &weighted_mean_abs_dev_ratio_expected);
+
+    var weighted_gini_mean_diff = try weighted_table.groupByWeightedGiniMeanDiff("bucket", "value", "weight", "value_weighted_gini_mean_diff");
+    defer weighted_gini_mean_diff.deinit();
+    try expectF64ColumnApproxOrNan(weighted_gini_mean_diff, gpa, "value_weighted_gini_mean_diff", &weighted_gini_mean_diff_expected);
+
+    var weighted_gini_coeff = try weighted_table.groupByWeightedGiniCoefficient("bucket", "value", "weight", "value_weighted_gini_coeff");
+    defer weighted_gini_coeff.deinit();
+    try expectF64ColumnApproxOrNan(weighted_gini_coeff, gpa, "value_weighted_gini_coeff", &weighted_gini_coeff_expected);
+
     var pair_count = try weighted_table.groupByPairCount("bucket", "lhs", "rhs", "lhs_rhs_pair_count");
     defer pair_count.deinit();
     const pair_count_values = try (try pair_count.column("lhs_rhs_pair_count")).i64.toOwnedSlice(gpa);
@@ -4021,6 +4042,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_inverse_simpson, .output_name = "value_weighted_inverse_lazy", .explain = "group_by_weighted_inverse_simpson(bucket, value=value, weight=weight -> value_weighted_inverse_lazy)", .expected = &weighted_inverse_simpson_expected },
         .{ .method = .weighted_simpson_concentration, .output_name = "value_weighted_concentration_lazy", .explain = "group_by_weighted_simpson_concentration(bucket, value=value, weight=weight -> value_weighted_concentration_lazy)", .expected = &weighted_concentration_expected },
         .{ .method = .weighted_evenness, .output_name = "value_weighted_evenness_lazy", .explain = "group_by_weighted_evenness(bucket, value=value, weight=weight -> value_weighted_evenness_lazy)", .expected = &weighted_evenness_expected },
+        .{ .method = .weighted_mean_abs_dev, .output_name = "value_weighted_mean_abs_dev_lazy", .explain = "group_by_weighted_mean_abs_dev(bucket, value=value, weight=weight -> value_weighted_mean_abs_dev_lazy)", .expected = &weighted_mean_abs_dev_expected },
+        .{ .method = .weighted_mean_abs_dev_ratio, .output_name = "value_weighted_mean_abs_dev_ratio_lazy", .explain = "group_by_weighted_mean_abs_dev_ratio(bucket, value=value, weight=weight -> value_weighted_mean_abs_dev_ratio_lazy)", .expected = &weighted_mean_abs_dev_ratio_expected },
+        .{ .method = .weighted_gini_mean_diff, .output_name = "value_weighted_gini_mean_diff_lazy", .explain = "group_by_weighted_gini_mean_diff(bucket, value=value, weight=weight -> value_weighted_gini_mean_diff_lazy)", .expected = &weighted_gini_mean_diff_expected },
+        .{ .method = .weighted_gini_coefficient, .output_name = "value_weighted_gini_coeff_lazy", .explain = "group_by_weighted_gini_coefficient(bucket, value=value, weight=weight -> value_weighted_gini_coeff_lazy)", .expected = &weighted_gini_coeff_expected },
         .{ .method = .weighted_sem, .output_name = "value_weighted_sem_lazy", .explain = "group_by_weighted_sem(bucket, value=value, weight=weight -> value_weighted_sem_lazy)", .expected = &weighted_sem_expected },
         .{ .method = .weighted_cv, .output_name = "value_weighted_cv_lazy", .explain = "group_by_weighted_cv(bucket, value=value, weight=weight -> value_weighted_cv_lazy)", .expected = &weighted_cv_expected },
         .{ .method = .weighted_fano, .output_name = "value_weighted_fano_lazy", .explain = "group_by_weighted_fano(bucket, value=value, weight=weight -> value_weighted_fano_lazy)", .expected = &weighted_fano_expected },
@@ -4065,6 +4090,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_inverse_simpson => plan.groupByWeightedInverseSimpson("bucket", "value", "weight", case.output_name),
             .weighted_simpson_concentration => plan.groupByWeightedConcentration("bucket", "value", "weight", case.output_name),
             .weighted_evenness => plan.groupByWeightedEvenness("bucket", "value", "weight", case.output_name),
+            .weighted_mean_abs_dev => plan.groupByWeightedMeanAbsDev("bucket", "value", "weight", case.output_name),
+            .weighted_mean_abs_dev_ratio => plan.groupByWeightedMeanAbsDevRatio("bucket", "value", "weight", case.output_name),
+            .weighted_gini_mean_diff => plan.groupByWeightedGiniMeanDiff("bucket", "value", "weight", case.output_name),
+            .weighted_gini_coefficient => plan.groupByWeightedGiniCoefficient("bucket", "value", "weight", case.output_name),
             .weighted_sem => plan.groupByWeightedSem("bucket", "value", "weight", case.output_name),
             .weighted_cv => plan.groupByWeightedCv("bucket", "value", "weight", case.output_name),
             .weighted_fano => plan.groupByWeightedFano("bucket", "value", "weight", case.output_name),

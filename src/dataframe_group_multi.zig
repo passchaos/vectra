@@ -270,6 +270,10 @@ const GroupByWeightedAggregation = enum {
     weighted_inverse_simpson,
     weighted_simpson_concentration,
     weighted_evenness,
+    weighted_mean_abs_dev,
+    weighted_mean_abs_dev_ratio,
+    weighted_gini_mean_diff,
+    weighted_gini_coefficient,
 };
 
 fn finishWeightedRange(min_value: f64, max_value: f64, positive_weight_count: usize, op: enum { range, midrange, range_coeff }) f64 {
@@ -3782,6 +3786,50 @@ fn groupWeightedInequalityStats(items: []const GroupWeightedValue, total_weight:
             const pair_weight = lhs.weight * rhs.weight;
             pair_weight_sum += pair_weight;
             pair_diff_sum += pair_weight * @abs(lhs.value - rhs.value);
+        }
+    }
+
+    return .{
+        .mean = mean,
+        .mean_abs_dev = deviation_sum / total_weight,
+        .mean_diff = if (pair_weight_sum > 0.0) pair_diff_sum / pair_weight_sum else 0.0,
+    };
+}
+
+fn groupWeightedInequalityStatsFromRows(rows: []const usize, values: []const f64, weights: []const f64, total_weight: f64) GroupWeightedInequalityStats {
+    if (!(total_weight > 0.0)) return .{
+        .mean = std.math.nan(f64),
+        .mean_abs_dev = std.math.nan(f64),
+        .mean_diff = std.math.nan(f64),
+    };
+
+    var weighted_sum: f64 = 0.0;
+    for (rows) |row| {
+        const weight = weights[row];
+        if (!(weight > 0.0)) continue;
+        weighted_sum += values[row] * weight;
+    }
+    const mean = weighted_sum / total_weight;
+
+    var deviation_sum: f64 = 0.0;
+    for (rows) |row| {
+        const weight = weights[row];
+        if (!(weight > 0.0)) continue;
+        deviation_sum += weight * @abs(values[row] - mean);
+    }
+
+    var pair_weight_sum: f64 = 0.0;
+    var pair_diff_sum: f64 = 0.0;
+    for (rows, 0..) |lhs_row, lhs_index| {
+        const lhs_weight = weights[lhs_row];
+        if (!(lhs_weight > 0.0)) continue;
+        const lhs_value = values[lhs_row];
+        for (rows[lhs_index + 1 ..]) |rhs_row| {
+            const rhs_weight = weights[rhs_row];
+            if (!(rhs_weight > 0.0)) continue;
+            const pair_weight = lhs_weight * rhs_weight;
+            pair_weight_sum += pair_weight;
+            pair_diff_sum += pair_weight * @abs(lhs_value - values[rhs_row]);
         }
     }
 
@@ -7462,6 +7510,16 @@ pub fn groupByWeightedOn(
                         const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
                         break :blk2 if (stats.distinct_positive_weight_count <= 1) 1.0 else stats.entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(stats.distinct_positive_weight_count)));
                     },
+                    .weighted_mean_abs_dev => groupWeightedInequalityStatsFromRows(rows.items, values.values, weights.values, weight_sum).mean_abs_dev,
+                    .weighted_mean_abs_dev_ratio => blk: {
+                        const stats = groupWeightedInequalityStatsFromRows(rows.items, values.values, weights.values, weight_sum);
+                        break :blk if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_abs_dev / @abs(stats.mean);
+                    },
+                    .weighted_gini_mean_diff => groupWeightedInequalityStatsFromRows(rows.items, values.values, weights.values, weight_sum).mean_diff,
+                    .weighted_gini_coefficient => blk: {
+                        const stats = groupWeightedInequalityStatsFromRows(rows.items, values.values, weights.values, weight_sum);
+                        break :blk if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_diff / (2.0 * @abs(stats.mean));
+                    },
                     .weighted_weight_sum, .weighted_positive_count, .weighted_effective_n => unreachable,
                 };
             },
@@ -8010,6 +8068,53 @@ pub fn groupByWeightedEvennessOn(
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_evenness, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
+
+pub fn groupByWeightedMeanAbsDevOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mean_abs_dev, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedMeanAbsDevRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mean_abs_dev_ratio, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedGiniMeanDiffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_gini_mean_diff, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedGiniCoefficientOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_gini_coefficient, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedMeanAbsoluteDeviationOn = groupByWeightedMeanAbsDevOn;
+pub const groupByWeightedGiniCoeffOn = groupByWeightedGiniCoefficientOn;
 
 pub fn groupByPairCountOn(
     comptime DeviceDataFrame: type,

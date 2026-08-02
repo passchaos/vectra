@@ -3785,6 +3785,47 @@ pub fn groupByWeightedEvennessOn(self: anytype, key_names: []const []const u8, v
     return group_multi_mod.groupByWeightedEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
 }
 
+pub fn groupByWeightedMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMeanAbsDevOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanAbsDevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMeanAbsDevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanAbsDevRatio(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMeanAbsDevRatioOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanAbsDevRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMeanAbsDevRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedGiniMeanDiff(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedGiniMeanDiffOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedGiniMeanDiffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedGiniMeanDiffOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedGiniCoefficient(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedGiniCoefficientOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedGiniCoefficientOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedGiniCoefficientOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedMeanAbsoluteDeviation = groupByWeightedMeanAbsDev;
+pub const groupByWeightedMeanAbsoluteDeviationOn = groupByWeightedMeanAbsDevOn;
+pub const groupByWeightedGiniCoeff = groupByWeightedGiniCoefficient;
+pub const groupByWeightedGiniCoeffOn = groupByWeightedGiniCoefficientOn;
+
 pub fn groupByPairCount(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByPairCountOn(self, key_names[0..], lhs_name, rhs_name, output_name);

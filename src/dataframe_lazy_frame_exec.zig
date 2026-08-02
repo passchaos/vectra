@@ -1835,6 +1835,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .weighted_inverse_simpson => try current.groupByWeightedInverseSimpson(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_simpson_concentration => try current.groupByWeightedSimpsonConcentration(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_evenness => try current.groupByWeightedEvenness(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_mean_abs_dev => try current.groupByWeightedMeanAbsDev(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_mean_abs_dev_ratio => try current.groupByWeightedMeanAbsDevRatio(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_gini_mean_diff => try current.groupByWeightedGiniMeanDiff(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_gini_coefficient => try current.groupByWeightedGiniCoefficient(group.key_name, group.value_name, group.weight_name, group.output_name),
             },
             .group_by_weighted_on => |group| switch (group.aggregation) {
                 .weighted_sum => try current.groupByWeightedSumOn(group.key_names, group.value_name, group.weight_name, group.output_name),
@@ -1883,6 +1887,10 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .weighted_inverse_simpson => try current.groupByWeightedInverseSimpsonOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_simpson_concentration => try current.groupByWeightedSimpsonConcentrationOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_evenness => try current.groupByWeightedEvennessOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_mean_abs_dev => try current.groupByWeightedMeanAbsDevOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_mean_abs_dev_ratio => try current.groupByWeightedMeanAbsDevRatioOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_gini_mean_diff => try current.groupByWeightedGiniMeanDiffOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_gini_coefficient => try current.groupByWeightedGiniCoefficientOn(group.key_names, group.value_name, group.weight_name, group.output_name),
             },
             .group_by_weighted_pair => |group| switch (group.aggregation) {
                 .weighted_dot => try current.groupByWeightedDot(group.key_name, group.lhs_name, group.rhs_name, group.weight_name, group.output_name),
