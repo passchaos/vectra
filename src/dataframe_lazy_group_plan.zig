@@ -82,6 +82,10 @@ pub fn groupByValueOnQuantile(frame: anytype, key_names: []const []const u8, val
 }
 
 pub fn groupByWeighted(frame: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    return groupByWeightedQuantile(frame, key_name, value_name, weight_name, output_name, aggregation, 0.5);
+}
+
+pub fn groupByWeightedQuantile(frame: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation, quantile: f64) DeviceDataError!void {
     const owned_key = try frame.allocator.dupe(u8, key_name);
     errdefer frame.allocator.free(owned_key);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -96,10 +100,15 @@ pub fn groupByWeighted(frame: anytype, key_name: []const u8, value_name: []const
         .weight_name = owned_weight,
         .output_name = owned_output,
         .aggregation = aggregation,
+        .quantile = quantile,
     } });
 }
 
 pub fn groupByWeightedOn(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    return groupByWeightedOnQuantile(frame, key_names, value_name, weight_name, output_name, aggregation, 0.5);
+}
+
+pub fn groupByWeightedOnQuantile(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation, quantile: f64) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -114,6 +123,7 @@ pub fn groupByWeightedOn(frame: anytype, key_names: []const []const u8, value_na
         .weight_name = owned_weight,
         .output_name = owned_output,
         .aggregation = aggregation,
+        .quantile = quantile,
     } });
 }
 

@@ -142,6 +142,10 @@ const GroupByWeightedAggregation = enum {
     weighted_mean,
     weighted_variance,
     weighted_stddev,
+    weighted_quantile,
+    weighted_median,
+    weighted_iqr,
+    weighted_mad,
 };
 
 const OwnedGroupRealColumn = struct {
@@ -192,6 +196,73 @@ fn ownedGroupRealColumnTyped(
         .values = values,
         .validity = maybe_validity,
     };
+}
+
+const GroupWeightedValue = struct {
+    value: f64,
+    weight: f64,
+};
+
+fn groupWeightedValueLess(_: void, lhs: GroupWeightedValue, rhs: GroupWeightedValue) bool {
+    return groupByQuantileLess({}, lhs.value, rhs.value);
+}
+
+fn groupWeightedQuantileFromSorted(sorted: []const GroupWeightedValue, q: f64, total_weight: f64) f64 {
+    const threshold = q * total_weight;
+    var cumulative: f64 = 0.0;
+    for (sorted) |item| {
+        cumulative += item.weight;
+        if (cumulative >= threshold) return item.value;
+    }
+    return sorted[sorted.len - 1].value;
+}
+
+fn groupWeightedQuantileFromRows(
+    allocator: std.mem.Allocator,
+    rows: []const usize,
+    values: []const f64,
+    weights: []const f64,
+    q: f64,
+    subtract_q: ?f64,
+) std.mem.Allocator.Error!f64 {
+    const scratch = try allocator.alloc(GroupWeightedValue, rows.len);
+    defer allocator.free(scratch);
+
+    var total_weight: f64 = 0.0;
+    for (rows, 0..) |row, index| {
+        const weight = weights[row];
+        scratch[index] = .{ .value = values[row], .weight = weight };
+        total_weight += weight;
+    }
+    if (rows.len == 0 or !(total_weight > 0.0)) return std.math.nan(f64);
+
+    std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
+    const hi = groupWeightedQuantileFromSorted(scratch, q, total_weight);
+    return if (subtract_q) |lo_q| hi - groupWeightedQuantileFromSorted(scratch, lo_q, total_weight) else hi;
+}
+
+fn groupWeightedMadFromRows(
+    allocator: std.mem.Allocator,
+    rows: []const usize,
+    values: []const f64,
+    weights: []const f64,
+) std.mem.Allocator.Error!f64 {
+    const scratch = try allocator.alloc(GroupWeightedValue, rows.len);
+    defer allocator.free(scratch);
+
+    var total_weight: f64 = 0.0;
+    for (rows, 0..) |row, index| {
+        const weight = weights[row];
+        scratch[index] = .{ .value = values[row], .weight = weight };
+        total_weight += weight;
+    }
+    if (rows.len == 0 or !(total_weight > 0.0)) return std.math.nan(f64);
+
+    std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
+    const center = groupWeightedQuantileFromSorted(scratch, 0.5, total_weight);
+    for (scratch) |*item| item.value = @abs(item.value - center);
+    std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
+    return groupWeightedQuantileFromSorted(scratch, 0.5, total_weight);
 }
 
 pub fn groupByStatsOnDispatchValue(
@@ -1189,8 +1260,10 @@ pub fn groupByWeightedOn(
     value_name: []const u8,
     weight_name: []const u8,
     output_name: []const u8,
+    q: f64,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
+    if (aggregation == .weighted_quantile and (std.math.isNan(q) or q < 0.0 or q > 1.0)) return error.InvalidShape;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value_column = try frame.column(value_name);
     const weight_column = try frame.column(weight_name);
@@ -1209,6 +1282,11 @@ pub fn groupByWeightedOn(
     defer weighted_sums.deinit(frame.allocator);
     var weighted_square_sums: std.ArrayList(f64) = .empty;
     defer weighted_square_sums.deinit(frame.allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(frame.allocator);
+        group_value_rows.deinit(frame.allocator);
+    }
 
     for (0..frame.rows) |row| {
         if (values.validity) |validity| {
@@ -1218,24 +1296,26 @@ pub fn groupByWeightedOn(
             if (!validity[row]) continue;
         }
         const weight = weights.values[row];
-        if (weight < 0.0) return error.InvalidShape;
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (weight < 0.0) return error.InvalidShape;
         const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
             try representative_rows.append(frame.allocator, row);
             try weight_sums.append(frame.allocator, 0.0);
             try weighted_sums.append(frame.allocator, 0.0);
             try weighted_square_sums.append(frame.allocator, 0.0);
+            try group_value_rows.append(frame.allocator, .empty);
             break :blk representative_rows.items.len - 1;
         };
         const value = values.values[row];
         weight_sums.items[group_index] += weight;
         weighted_sums.items[group_index] += value * weight;
         weighted_square_sums.items[group_index] += value * value * weight;
+        try group_value_rows.items[group_index].append(frame.allocator, row);
     }
 
     const out = try frame.allocator.alloc(f64, representative_rows.items.len);
     defer frame.allocator.free(out);
-    for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, out) |weight_sum, weighted_sum, weighted_square_sum, *slot| {
+    for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, group_value_rows.items, out) |weight_sum, weighted_sum, weighted_square_sum, rows, *slot| {
         if (weight_sum == 0.0) {
             slot.* = std.math.nan(f64);
             continue;
@@ -1248,6 +1328,10 @@ pub fn groupByWeightedOn(
                 const variance = centered_square_sum / weight_sum;
                 break :blk if (aggregation == .weighted_stddev) std.math.sqrt(variance) else variance;
             },
+            .weighted_quantile => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, q, null),
+            .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
+            .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
+            .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
         };
     }
 
@@ -1263,7 +1347,7 @@ pub fn groupByWeightedMeanOn(
     weight_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByWeightedOn(DeviceDataFrame, .weighted_mean, frame, key_names, value_name, weight_name, output_name);
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mean, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
 
 pub fn groupByWeightedVarianceOn(
@@ -1274,7 +1358,7 @@ pub fn groupByWeightedVarianceOn(
     weight_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByWeightedOn(DeviceDataFrame, .weighted_variance, frame, key_names, value_name, weight_name, output_name);
+    return groupByWeightedOn(DeviceDataFrame, .weighted_variance, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
 
 pub fn groupByWeightedStddevOn(
@@ -1285,7 +1369,52 @@ pub fn groupByWeightedStddevOn(
     weight_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByWeightedOn(DeviceDataFrame, .weighted_stddev, frame, key_names, value_name, weight_name, output_name);
+    return groupByWeightedOn(DeviceDataFrame, .weighted_stddev, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedQuantileOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    q: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_quantile, frame, key_names, value_name, weight_name, output_name, q);
+}
+
+pub fn groupByWeightedMedianOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_median, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedIqrOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_iqr, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedMadOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mad, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
 
 pub fn groupByMomentOnDispatchValue(

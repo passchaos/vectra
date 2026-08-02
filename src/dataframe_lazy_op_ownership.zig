@@ -3972,6 +3972,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .weight_name = weight_name,
                 .output_name = output_name,
                 .aggregation = group.aggregation,
+                .quantile = group.quantile,
             } };
         },
         .group_by_weighted_on => |group| blk: {
@@ -3989,6 +3990,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .weight_name = weight_name,
                 .output_name = output_name,
                 .aggregation = group.aggregation,
+                .quantile = group.quantile,
             } };
         },
         .group_by_stats => |group| blk: {

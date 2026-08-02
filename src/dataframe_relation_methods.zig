@@ -319,6 +319,48 @@ pub fn groupByWeightedStddevOn(self: anytype, key_names: []const []const u8, val
 pub const groupByWeightedStd = groupByWeightedStddev;
 pub const groupByWeightedStdOn = groupByWeightedStddevOn;
 
+pub fn groupByWeightedQuantile(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedQuantileOn(self, key_names[0..], value_name, weight_name, output_name, q);
+}
+
+pub fn groupByWeightedQuantileOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedQuantileOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name, q);
+}
+
+pub fn groupByWeightedMedian(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMedianOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMedianOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMedianOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedIqr(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedIqrOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedIqrOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedIqrOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedIQR = groupByWeightedIqr;
+pub const groupByWeightedIQROn = groupByWeightedIqrOn;
+
+pub fn groupByWeightedMad(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMadOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMadOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMadOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedMAD = groupByWeightedMad;
+pub const groupByWeightedMADOn = groupByWeightedMadOn;
+
 pub fn groupByMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByMeanAbsDevOn(self, key_names[0..], value_name, output_name);

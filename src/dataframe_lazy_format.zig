@@ -2644,14 +2644,20 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
                 else => try writer.print("], value={s} -> {s})", .{ group.value_name, group.output_name }),
             }
         },
-        .group_by_weighted => |group| try writer.print("group_by_{s}({s}, value={s}, weight={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.weight_name, group.output_name }),
+        .group_by_weighted => |group| switch (group.aggregation) {
+            .weighted_quantile => try writer.print("group_by_weighted_quantile({s}, value={s}, weight={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.weight_name, group.quantile, group.output_name }),
+            else => try writer.print("group_by_{s}({s}, value={s}, weight={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.weight_name, group.output_name }),
+        },
         .group_by_weighted_on => |group| {
             try writer.print("group_by_{s}_on([", .{@tagName(group.aggregation)});
             for (group.key_names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
             }
-            try writer.print("], value={s}, weight={s} -> {s})", .{ group.value_name, group.weight_name, group.output_name });
+            switch (group.aggregation) {
+                .weighted_quantile => try writer.print("], value={s}, weight={s}, q={d} -> {s})", .{ group.value_name, group.weight_name, group.quantile, group.output_name }),
+                else => try writer.print("], value={s}, weight={s} -> {s})", .{ group.value_name, group.weight_name, group.output_name }),
+            }
         },
         .group_by_stats => |group| try writer.print("group_by_stats({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),
         .group_by_stats_on => |group| {

@@ -568,6 +568,49 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_mean_on_values[2], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_mean_on_values[3]));
 
+    var weighted_quantile = try weighted_table.groupByWeightedQuantile("bucket", "value", "weight", "value_weighted_q75", 0.75);
+    defer weighted_quantile.deinit();
+    const weighted_quantile_values = try (try weighted_quantile.column("value_weighted_q75")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_quantile_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), weighted_quantile_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), weighted_quantile_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_quantile_values[2]));
+
+    var weighted_median = try weighted_table.groupByWeightedMedian("bucket", "value", "weight", "value_weighted_median");
+    defer weighted_median.deinit();
+    const weighted_median_values = try (try weighted_median.column("value_weighted_median")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_median_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), weighted_median_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), weighted_median_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_median_values[2]));
+
+    var weighted_iqr = try weighted_table.groupByWeightedIQROn(&.{"bucket"}, "value", "weight", "value_weighted_iqr");
+    defer weighted_iqr.deinit();
+    const weighted_iqr_values = try (try weighted_iqr.column("value_weighted_iqr")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_iqr_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_iqr_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_iqr_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_iqr_values[2]));
+
+    var weighted_mad = try weighted_table.groupByWeightedMad("bucket", "value", "weight", "value_weighted_mad");
+    defer weighted_mad.deinit();
+    const weighted_mad_values = try (try weighted_mad.column("value_weighted_mad")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_mad_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), weighted_mad_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), weighted_mad_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_mad_values[2]));
+
+    var weighted_median_on = try weighted_table.groupByWeightedMedianOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_median_on");
+    defer weighted_median_on.deinit();
+    const weighted_median_on_values = try (try weighted_median_on.column("value_weighted_median_on")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_median_on_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), weighted_median_on_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), weighted_median_on_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), weighted_median_on_values[2], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_median_on_values[3]));
+
+    try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedQuantile("bucket", "value", "weight", "bad_weighted_q", 1.5));
+
     var negative_weight_key = try DeviceColumn.fromSlice(i32, gpa, &.{1}, .cpu);
     defer negative_weight_key.deinit();
     var negative_weight_value = try DeviceColumn.fromSlice(f64, gpa, &.{1.0}, .cpu);
@@ -609,6 +652,62 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 425.0 / 9.0)), lazy_weighted_std_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_weighted_std_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(lazy_weighted_std_values[2]));
+
+    var weighted_quantile_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_quantile_plan.deinit();
+    try weighted_quantile_plan.groupByWeightedQuantileOn(&.{"bucket"}, "value", "weight", "value_weighted_q75_lazy", 0.75);
+    const weighted_quantile_explained = try weighted_quantile_plan.explain(gpa);
+    defer gpa.free(weighted_quantile_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_quantile_explained, "group_by_weighted_quantile_on([bucket], value=value, weight=weight, q=0.75 -> value_weighted_q75_lazy)") != null);
+    var lazy_weighted_quantile = try weighted_quantile_plan.collect();
+    defer lazy_weighted_quantile.deinit();
+    const lazy_weighted_quantile_values = try (try lazy_weighted_quantile.column("value_weighted_q75_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_quantile_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), lazy_weighted_quantile_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15.0), lazy_weighted_quantile_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_quantile_values[2]));
+
+    var weighted_median_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_median_plan.deinit();
+    try weighted_median_plan.groupByWeightedMedian("bucket", "value", "weight", "value_weighted_median_lazy");
+    const weighted_median_explained = try weighted_median_plan.explain(gpa);
+    defer gpa.free(weighted_median_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_median_explained, "group_by_weighted_median(bucket, value=value, weight=weight -> value_weighted_median_lazy)") != null);
+    var lazy_weighted_median = try weighted_median_plan.collect();
+    defer lazy_weighted_median.deinit();
+    const lazy_weighted_median_values = try (try lazy_weighted_median.column("value_weighted_median_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_median_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 20.0), lazy_weighted_median_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_weighted_median_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_median_values[2]));
+
+    var weighted_iqr_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_iqr_plan.deinit();
+    try weighted_iqr_plan.groupByWeightedIqr("bucket", "value", "weight", "value_weighted_iqr_lazy");
+    const weighted_iqr_explained = try weighted_iqr_plan.explain(gpa);
+    defer gpa.free(weighted_iqr_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_iqr_explained, "group_by_weighted_iqr(bucket, value=value, weight=weight -> value_weighted_iqr_lazy)") != null);
+    var lazy_weighted_iqr = try weighted_iqr_plan.collect();
+    defer lazy_weighted_iqr.deinit();
+    const lazy_weighted_iqr_values = try (try lazy_weighted_iqr.column("value_weighted_iqr_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_iqr_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), lazy_weighted_iqr_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), lazy_weighted_iqr_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_iqr_values[2]));
+
+    var weighted_mad_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_mad_plan.deinit();
+    try weighted_mad_plan.groupByWeightedMad("bucket", "value", "weight", "value_weighted_mad_lazy");
+    const weighted_mad_explained = try weighted_mad_plan.explain(gpa);
+    defer gpa.free(weighted_mad_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_mad_explained, "group_by_weighted_mad(bucket, value=value, weight=weight -> value_weighted_mad_lazy)") != null);
+    var lazy_weighted_mad = try weighted_mad_plan.collect();
+    defer lazy_weighted_mad.deinit();
+    const lazy_weighted_mad_values = try (try lazy_weighted_mad.column("value_weighted_mad_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_mad_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_weighted_mad_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_weighted_mad_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_mad_values[2]));
 
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();
