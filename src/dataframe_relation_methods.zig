@@ -381,6 +381,51 @@ pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatio = withGroupCumulativeNullRatio;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
+pub fn withGroupCumulativeFirstValidIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstValidIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstValidIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeFirstValidIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastValidIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastValidIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastValidIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeLastValidIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNullIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNullIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNullIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeFirstNullIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNullIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNullIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNullIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeLastNullIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumFirstValidIndex = withGroupCumulativeFirstValidIndex;
+pub const withGroupCumFirstValidIndexOn = withGroupCumulativeFirstValidIndexOn;
+pub const withGroupCumLastValidIndex = withGroupCumulativeLastValidIndex;
+pub const withGroupCumLastValidIndexOn = withGroupCumulativeLastValidIndexOn;
+pub const withGroupCumFirstNullIndex = withGroupCumulativeFirstNullIndex;
+pub const withGroupCumFirstNullIndexOn = withGroupCumulativeFirstNullIndexOn;
+pub const withGroupCumLastNullIndex = withGroupCumulativeLastNullIndex;
+pub const withGroupCumLastNullIndexOn = withGroupCumulativeLastNullIndexOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

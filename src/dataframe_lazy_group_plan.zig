@@ -516,6 +516,57 @@ pub fn withGroupCumulativeNullRatio(frame: anytype, key_names: []const []const u
     return withGroupCumulativeValidityRatio(frame, key_names, value_name, output_name, true);
 }
 
+fn withGroupCumulativeValidityIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { first_valid, last_valid, first_null, last_null }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .first_valid => .{ .group_cumulative_first_valid_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_valid => .{ .group_cumulative_last_valid_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_null => .{ .group_cumulative_first_null_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_null => .{ .group_cumulative_last_null_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+    });
+}
+
+pub fn withGroupCumulativeFirstValidIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeValidityIndex(frame, key_names, value_name, output_name, .first_valid);
+}
+
+pub fn withGroupCumulativeLastValidIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeValidityIndex(frame, key_names, value_name, output_name, .last_valid);
+}
+
+pub fn withGroupCumulativeFirstNullIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeValidityIndex(frame, key_names, value_name, output_name, .first_null);
+}
+
+pub fn withGroupCumulativeLastNullIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeValidityIndex(frame, key_names, value_name, output_name, .last_null);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

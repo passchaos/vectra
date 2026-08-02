@@ -1244,6 +1244,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_argmax_sales.deinit();
     try expectNullableI64Column(group_cum_argmax_sales, gpa, "store_sales_cum_argmax", &.{ 0, 1, 0, 0, 4, 5 }, &.{ true, true, false, false, true, true });
 
+    var group_cum_first_valid_sales = try table.withGroupCumulativeFirstValidIndex("store", "sales", "store_sales_cum_first_valid_index");
+    defer group_cum_first_valid_sales.deinit();
+    try expectNullableI64Column(group_cum_first_valid_sales, gpa, "store_sales_cum_first_valid_index", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
+
+    var group_cum_last_valid_sales = try table.withGroupCumulativeLastValidIndex("store", "sales", "store_sales_cum_last_valid_index");
+    defer group_cum_last_valid_sales.deinit();
+    try expectNullableI64Column(group_cum_last_valid_sales, gpa, "store_sales_cum_last_valid_index", &.{ 0, 1, 0, 0, 4, 5 }, &.{ true, true, true, false, true, true });
+
+    var group_cum_first_null_sales = try table.withGroupCumulativeFirstNullIndex("store", "sales", "store_sales_cum_first_null_index");
+    defer group_cum_first_null_sales.deinit();
+    try expectNullableI64Column(group_cum_first_null_sales, gpa, "store_sales_cum_first_null_index", &.{ 0, 0, 2, 0, 0, 2 }, &.{ false, false, true, false, false, true });
+
+    var group_cum_last_null_sales = try table.withGroupCumulativeLastNullIndex("store", "sales", "store_sales_cum_last_null_index");
+    defer group_cum_last_null_sales.deinit();
+    try expectNullableI64Column(group_cum_last_null_sales, gpa, "store_sales_cum_last_null_index", &.{ 0, 0, 2, 0, 0, 2 }, &.{ false, false, true, false, false, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1489,6 +1505,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeHarmonicMean("store", "sales", "store_sales_cum_harmonic_lazy");
     try group_cume_dist_plan.withGroupCumulativeArgMin("store", "sales", "store_sales_cum_argmin_lazy");
     try group_cume_dist_plan.withGroupCumulativeArgMax("store", "sales", "store_sales_cum_argmax_lazy");
+    try group_cume_dist_plan.withGroupCumulativeFirstValidIndex("store", "sales", "store_sales_cum_first_valid_index_lazy");
+    try group_cume_dist_plan.withGroupCumulativeLastValidIndex("store", "sales", "store_sales_cum_last_valid_index_lazy");
+    try group_cume_dist_plan.withGroupCumulativeFirstNullIndex("store", "sales", "store_sales_cum_first_null_index_lazy");
+    try group_cume_dist_plan.withGroupCumulativeLastNullIndex("store", "sales", "store_sales_cum_last_null_index_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1537,6 +1557,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_harmonic_mean([store], value=sales->store_sales_cum_harmonic_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_argmin([store], value=sales->store_sales_cum_argmin_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_argmax([store], value=sales->store_sales_cum_argmax_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_first_valid_index([store], value=sales->store_sales_cum_first_valid_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_last_valid_index([store], value=sales->store_sales_cum_last_valid_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_first_null_index([store], value=sales->store_sales_cum_first_null_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_last_null_index([store], value=sales->store_sales_cum_last_null_index_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1585,6 +1609,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_harmonic_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 33.0 / 7.0, 52.0 / 15.0 }, &.{ true, true, false, false, true, true });
     try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_argmin_lazy", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, false, false, true, true });
     try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_argmax_lazy", &.{ 0, 1, 0, 0, 4, 5 }, &.{ true, true, false, false, true, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_first_valid_index_lazy", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_last_valid_index_lazy", &.{ 0, 1, 0, 0, 4, 5 }, &.{ true, true, true, false, true, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_first_null_index_lazy", &.{ 0, 0, 2, 0, 0, 2 }, &.{ false, false, true, false, false, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_last_null_index_lazy", &.{ 0, 0, 2, 0, 0, 2 }, &.{ false, false, true, false, false, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
