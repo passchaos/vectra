@@ -8,6 +8,7 @@ const series_mod = @import("series.zig");
 
 const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
 const DeviceLazyWeightedGroupByAggregation = lazy_op_mod.DeviceLazyWeightedGroupByAggregation;
+const DeviceLazyWeightedPairGroupByAggregation = lazy_op_mod.DeviceLazyWeightedPairGroupByAggregation;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const cloneNameList = names_mod.cloneNameList;
 const freeNameList = names_mod.freeNameList;
@@ -124,6 +125,50 @@ pub fn groupByWeightedOnQuantile(frame: anytype, key_names: []const []const u8, 
         .output_name = owned_output,
         .aggregation = aggregation,
         .quantile = quantile,
+    } });
+}
+
+pub fn groupByWeightedPair(frame: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedPairGroupByAggregation, correction: f64) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_by_weighted_pair = .{
+        .key_name = owned_key,
+        .lhs_name = owned_lhs,
+        .rhs_name = owned_rhs,
+        .weight_name = owned_weight,
+        .output_name = owned_output,
+        .aggregation = aggregation,
+        .correction = correction,
+    } });
+}
+
+pub fn groupByWeightedPairOn(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedPairGroupByAggregation, correction: f64) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_by_weighted_pair_on = .{
+        .key_names = owned_keys,
+        .lhs_name = owned_lhs,
+        .rhs_name = owned_rhs,
+        .weight_name = owned_weight,
+        .output_name = owned_output,
+        .aggregation = aggregation,
+        .correction = correction,
     } });
 }
 

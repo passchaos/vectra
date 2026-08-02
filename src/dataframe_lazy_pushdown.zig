@@ -1195,6 +1195,40 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 saw_select = true;
                 break :op_loop;
             },
+            .group_by_weighted_pair => |group| {
+                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
+                }
+                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
+                }
+                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
+                }
+                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
+            .group_by_weighted_pair_on => |group| {
+                for (group.key_names) |key_name| {
+                    if (!nameInBorrowedList(key_name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, key_name);
+                    }
+                }
+                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
+                }
+                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
+                }
+                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
+                }
+                saw_select = true;
+                break :op_loop;
+            },
             .group_by_stats => |group| {
                 if (!nameInBorrowedList(group.key_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, group.key_name);

@@ -159,6 +159,12 @@ const GroupByWeightedAggregation = enum {
     weighted_evenness,
 };
 
+const GroupByWeightedPairAggregation = enum {
+    weighted_covariance,
+    weighted_correlation,
+    weighted_beta,
+};
+
 const OwnedGroupRealColumn = struct {
     allocator: std.mem.Allocator,
     values: []f64,
@@ -1657,6 +1663,143 @@ pub fn groupByWeightedEvennessOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_evenness, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedPairOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByWeightedPairAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    correction: f64,
+) GroupByOnError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const lhs_column = try frame.column(lhs_name);
+    const rhs_column = try frame.column(rhs_name);
+    const weight_column = try frame.column(weight_name);
+
+    var lhs = try ownedGroupRealColumn(frame.allocator, lhs_column.*);
+    defer lhs.deinit();
+    var rhs = try ownedGroupRealColumn(frame.allocator, rhs_column.*);
+    defer rhs.deinit();
+    var weights = try ownedGroupRealColumn(frame.allocator, weight_column.*);
+    defer weights.deinit();
+    if (frame.rows != lhs.values.len or frame.rows != rhs.values.len or frame.rows != weights.values.len) return error.LengthMismatch;
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var weight_sums: std.ArrayList(f64) = .empty;
+    defer weight_sums.deinit(frame.allocator);
+    var lhs_sums: std.ArrayList(f64) = .empty;
+    defer lhs_sums.deinit(frame.allocator);
+    var rhs_sums: std.ArrayList(f64) = .empty;
+    defer rhs_sums.deinit(frame.allocator);
+    var lhs_square_sums: std.ArrayList(f64) = .empty;
+    defer lhs_square_sums.deinit(frame.allocator);
+    var rhs_square_sums: std.ArrayList(f64) = .empty;
+    defer rhs_square_sums.deinit(frame.allocator);
+    var cross_sums: std.ArrayList(f64) = .empty;
+    defer cross_sums.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (lhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (rhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (weights.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const weight = weights.values[row];
+        if (weight < 0.0) return error.InvalidShape;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try weight_sums.append(frame.allocator, 0.0);
+            try lhs_sums.append(frame.allocator, 0.0);
+            try rhs_sums.append(frame.allocator, 0.0);
+            try lhs_square_sums.append(frame.allocator, 0.0);
+            try rhs_square_sums.append(frame.allocator, 0.0);
+            try cross_sums.append(frame.allocator, 0.0);
+            break :blk representative_rows.items.len - 1;
+        };
+        const lhs_value = lhs.values[row];
+        const rhs_value = rhs.values[row];
+        weight_sums.items[group_index] += weight;
+        lhs_sums.items[group_index] += weight * lhs_value;
+        rhs_sums.items[group_index] += weight * rhs_value;
+        lhs_square_sums.items[group_index] += weight * lhs_value * lhs_value;
+        rhs_square_sums.items[group_index] += weight * rhs_value * rhs_value;
+        cross_sums.items[group_index] += weight * lhs_value * rhs_value;
+    }
+
+    const out = try frame.allocator.alloc(f64, representative_rows.items.len);
+    defer frame.allocator.free(out);
+    for (weight_sums.items, lhs_sums.items, rhs_sums.items, lhs_square_sums.items, rhs_square_sums.items, cross_sums.items, out) |weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, *slot| {
+        if (!(weight_sum > 0.0)) {
+            slot.* = std.math.nan(f64);
+            continue;
+        }
+        const denominator = weight_sum - correction;
+        var lhs_centered = lhs_square_sum - lhs_sum * lhs_sum / weight_sum;
+        var rhs_centered = rhs_square_sum - rhs_sum * rhs_sum / weight_sum;
+        const cross_centered = cross_sum - lhs_sum * rhs_sum / weight_sum;
+        if (lhs_centered < 0.0 and lhs_centered > -1e-12) lhs_centered = 0.0;
+        if (rhs_centered < 0.0 and rhs_centered > -1e-12) rhs_centered = 0.0;
+        slot.* = switch (aggregation) {
+            .weighted_covariance => if (denominator <= 0.0) std.math.nan(f64) else cross_centered / denominator,
+            .weighted_correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) std.math.nan(f64) else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
+            .weighted_beta => if (denominator <= 0.0 or lhs_centered == 0.0) std.math.nan(f64) else cross_centered / lhs_centered,
+        };
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, frame.allocator, out, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByWeightedCovarianceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    correction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedPairOn(DeviceDataFrame, .weighted_covariance, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn groupByWeightedCorrelationOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    correction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedPairOn(DeviceDataFrame, .weighted_correlation, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn groupByWeightedBetaOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    correction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedPairOn(DeviceDataFrame, .weighted_beta, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction);
 }
 
 pub fn groupByMomentOnDispatchValue(

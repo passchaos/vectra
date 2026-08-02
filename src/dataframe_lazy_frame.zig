@@ -5731,6 +5731,16 @@ pub fn DeviceLazyTypes(
             pub const groupByWeightedConcentrationOn = lazy_relation_methods_mod.groupByWeightedConcentrationOn;
             pub const groupByWeightedEvenness = lazy_relation_methods_mod.groupByWeightedEvenness;
             pub const groupByWeightedEvennessOn = lazy_relation_methods_mod.groupByWeightedEvennessOn;
+            pub const groupByWeightedCovariance = lazy_relation_methods_mod.groupByWeightedCovariance;
+            pub const groupByWeightedCovarianceOn = lazy_relation_methods_mod.groupByWeightedCovarianceOn;
+            pub const groupByWeightedCov = lazy_relation_methods_mod.groupByWeightedCov;
+            pub const groupByWeightedCovOn = lazy_relation_methods_mod.groupByWeightedCovOn;
+            pub const groupByWeightedCorrelation = lazy_relation_methods_mod.groupByWeightedCorrelation;
+            pub const groupByWeightedCorrelationOn = lazy_relation_methods_mod.groupByWeightedCorrelationOn;
+            pub const groupByWeightedCorr = lazy_relation_methods_mod.groupByWeightedCorr;
+            pub const groupByWeightedCorrOn = lazy_relation_methods_mod.groupByWeightedCorrOn;
+            pub const groupByWeightedBeta = lazy_relation_methods_mod.groupByWeightedBeta;
+            pub const groupByWeightedBetaOn = lazy_relation_methods_mod.groupByWeightedBetaOn;
             pub const groupByMeanAbsDev = lazy_relation_methods_mod.groupByMeanAbsDev;
             pub const groupByMeanAbsDevOn = lazy_relation_methods_mod.groupByMeanAbsDevOn;
             pub const groupByMeanAbsDevRatio = lazy_relation_methods_mod.groupByMeanAbsDevRatio;

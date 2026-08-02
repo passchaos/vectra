@@ -89,6 +89,7 @@ pub const DeviceColumnSchema = struct {
 
 pub const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
 pub const DeviceLazyWeightedGroupByAggregation = lazy_op_mod.DeviceLazyWeightedGroupByAggregation;
+pub const DeviceLazyWeightedPairGroupByAggregation = lazy_op_mod.DeviceLazyWeightedPairGroupByAggregation;
 pub const DeviceLazyJoinKind = lazy_op_mod.DeviceLazyJoinKind;
 pub const DeviceLazyOp = lazy_op_mod.DeviceLazyOp(DeviceDataFrame, DeviceColumn);
 
@@ -2620,6 +2621,16 @@ pub const DeviceDataFrame = struct {
     pub const groupByWeightedConcentrationOn = relation_methods_mod.groupByWeightedConcentrationOn;
     pub const groupByWeightedEvenness = relation_methods_mod.groupByWeightedEvenness;
     pub const groupByWeightedEvennessOn = relation_methods_mod.groupByWeightedEvennessOn;
+    pub const groupByWeightedCovariance = relation_methods_mod.groupByWeightedCovariance;
+    pub const groupByWeightedCovarianceOn = relation_methods_mod.groupByWeightedCovarianceOn;
+    pub const groupByWeightedCov = relation_methods_mod.groupByWeightedCov;
+    pub const groupByWeightedCovOn = relation_methods_mod.groupByWeightedCovOn;
+    pub const groupByWeightedCorrelation = relation_methods_mod.groupByWeightedCorrelation;
+    pub const groupByWeightedCorrelationOn = relation_methods_mod.groupByWeightedCorrelationOn;
+    pub const groupByWeightedCorr = relation_methods_mod.groupByWeightedCorr;
+    pub const groupByWeightedCorrOn = relation_methods_mod.groupByWeightedCorrOn;
+    pub const groupByWeightedBeta = relation_methods_mod.groupByWeightedBeta;
+    pub const groupByWeightedBetaOn = relation_methods_mod.groupByWeightedBetaOn;
     pub const groupByMeanAbsDev = relation_methods_mod.groupByMeanAbsDev;
     pub const groupByMeanAbsDevOn = relation_methods_mod.groupByMeanAbsDevOn;
     pub const groupByMeanAbsDevRatio = relation_methods_mod.groupByMeanAbsDevRatio;

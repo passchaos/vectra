@@ -1370,6 +1370,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .weighted_simpson_concentration => try current.groupByWeightedSimpsonConcentrationOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_evenness => try current.groupByWeightedEvennessOn(group.key_names, group.value_name, group.weight_name, group.output_name),
             },
+            .group_by_weighted_pair => |group| switch (group.aggregation) {
+                .weighted_covariance => try current.groupByWeightedCovariance(group.key_name, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+                .weighted_correlation => try current.groupByWeightedCorrelation(group.key_name, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+                .weighted_beta => try current.groupByWeightedBeta(group.key_name, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+            },
+            .group_by_weighted_pair_on => |group| switch (group.aggregation) {
+                .weighted_covariance => try current.groupByWeightedCovarianceOn(group.key_names, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+                .weighted_correlation => try current.groupByWeightedCorrelationOn(group.key_names, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+                .weighted_beta => try current.groupByWeightedBetaOn(group.key_names, group.lhs_name, group.rhs_name, group.weight_name, group.output_name, group.correction),
+            },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),
             .group_by_profile => |group| try current.groupByProfile(group.key_name, group.value_name, group.output_prefix),

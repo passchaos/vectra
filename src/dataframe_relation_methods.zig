@@ -466,6 +466,39 @@ pub fn groupByWeightedEvennessOn(self: anytype, key_names: []const []const u8, v
     return group_multi_mod.groupByWeightedEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
 }
 
+pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn groupByWeightedCovarianceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedCovarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub const groupByWeightedCov = groupByWeightedCovariance;
+pub const groupByWeightedCovOn = groupByWeightedCovarianceOn;
+
+pub fn groupByWeightedCorrelation(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedCorrelationOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn groupByWeightedCorrelationOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedCorrelationOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub const groupByWeightedCorr = groupByWeightedCorrelation;
+pub const groupByWeightedCorrOn = groupByWeightedCorrelationOn;
+
+pub fn groupByWeightedBeta(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedBetaOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn groupByWeightedBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedBetaOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
 pub fn groupByMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByMeanAbsDevOn(self, key_names[0..], value_name, output_name);

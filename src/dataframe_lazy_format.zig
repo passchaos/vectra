@@ -2659,6 +2659,21 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
                 else => try writer.print("], value={s}, weight={s} -> {s})", .{ group.value_name, group.weight_name, group.output_name }),
             }
         },
+        .group_by_weighted_pair => |group| {
+            try writer.print("group_by_{s}({s}, lhs={s}, rhs={s}, weight={s}", .{ @tagName(group.aggregation), group.key_name, group.lhs_name, group.rhs_name, group.weight_name });
+            if (group.correction != 0.0) try writer.print(", correction={d}", .{group.correction});
+            try writer.print(" -> {s})", .{group.output_name});
+        },
+        .group_by_weighted_pair_on => |group| {
+            try writer.print("group_by_{s}_on([", .{@tagName(group.aggregation)});
+            for (group.key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], lhs={s}, rhs={s}, weight={s}", .{ group.lhs_name, group.rhs_name, group.weight_name });
+            if (group.correction != 0.0) try writer.print(", correction={d}", .{group.correction});
+            try writer.print(" -> {s})", .{group.output_name});
+        },
         .group_by_stats => |group| try writer.print("group_by_stats({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),
         .group_by_stats_on => |group| {
             try writer.print("group_by_stats_on([", .{});

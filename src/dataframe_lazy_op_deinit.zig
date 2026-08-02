@@ -695,6 +695,20 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(group.weight_name);
             allocator.free(group.output_name);
         },
+        .group_by_weighted_pair => |group| {
+            allocator.free(group.key_name);
+            allocator.free(group.lhs_name);
+            allocator.free(group.rhs_name);
+            allocator.free(group.weight_name);
+            allocator.free(group.output_name);
+        },
+        .group_by_weighted_pair_on => |group| {
+            freeNameList(allocator, group.key_names);
+            allocator.free(group.lhs_name);
+            allocator.free(group.rhs_name);
+            allocator.free(group.weight_name);
+            allocator.free(group.output_name);
+        },
         .group_by_stats => |group| {
             allocator.free(group.key_name);
             allocator.free(group.value_name);

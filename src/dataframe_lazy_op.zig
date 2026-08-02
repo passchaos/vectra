@@ -15,6 +15,7 @@ const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 
 pub const DeviceLazyGroupByAggregation = payloads_mod.DeviceLazyGroupByAggregation;
 pub const DeviceLazyWeightedGroupByAggregation = payloads_mod.DeviceLazyWeightedGroupByAggregation;
+pub const DeviceLazyWeightedPairGroupByAggregation = payloads_mod.DeviceLazyWeightedPairGroupByAggregation;
 pub const DeviceLazyJoinKind = payloads_mod.DeviceLazyJoinKind;
 
 pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
@@ -743,6 +744,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_by_value_on: Payloads.GroupByValueOn,
         group_by_weighted: Payloads.GroupByWeighted,
         group_by_weighted_on: Payloads.GroupByWeightedOn,
+        group_by_weighted_pair: Payloads.GroupByWeightedPair,
+        group_by_weighted_pair_on: Payloads.GroupByWeightedPairOn,
         group_by_stats: Payloads.GroupByOutput,
         group_by_stats_on: Payloads.GroupByOutputOn,
         group_by_profile: Payloads.GroupByOutput,
