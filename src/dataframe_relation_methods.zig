@@ -158,6 +158,24 @@ pub fn withGroupLastRowIndexOn(self: anytype, key_names: []const []const u8, out
     return group_multi_mod.withGroupLastRowIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
 }
 
+pub fn withGroupIsFirstRow(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupIsFirstRowOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupIsFirstRowOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupIsFirstRowOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
+pub fn withGroupIsLastRow(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupIsLastRowOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupIsLastRowOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupIsLastRowOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

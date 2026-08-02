@@ -1264,6 +1264,68 @@ pub fn withGroupLastRowIndexOn(
     return withGroupBoundaryRowIndexOn(DeviceDataFrame, frame, key_names, output_name, true);
 }
 
+fn withGroupBoundaryFlagOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    comptime keep_last: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+
+    const flags = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(flags);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(flags, false);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_boundary_rows: std.ArrayList(usize) = .empty;
+    defer group_boundary_rows.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        row_validity[row] = true;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_boundary_rows.append(frame.allocator, row);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (keep_last) group_boundary_rows.items[group_index] = row;
+    }
+
+    if (keep_last) {
+        for (group_boundary_rows.items) |row| flags[row] = true;
+    } else {
+        for (representative_rows.items) |row| flags[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(bool, frame.allocator, flags, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupIsFirstRowOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupBoundaryFlagOn(DeviceDataFrame, frame, key_names, output_name, false);
+}
+
+pub fn withGroupIsLastRowOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupBoundaryFlagOn(DeviceDataFrame, frame, key_names, output_name, true);
+}
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

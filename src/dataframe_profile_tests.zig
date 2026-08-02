@@ -44,6 +44,16 @@ fn expectNullableI64Column(frame: anytype, allocator: std.mem.Allocator, name: [
     try std.testing.expectEqualSlices(bool, expected_validity, validity);
 }
 
+fn expectNullableBoolColumn(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected_values: []const bool, expected_validity: []const bool) !void {
+    const column = try frame.column(name);
+    const values = try column.bool.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const validity = try column.bool.validity.?.toOwnedSlice(allocator);
+    defer allocator.free(validity);
+    try std.testing.expectEqualSlices(bool, expected_values, values);
+    try std.testing.expectEqualSlices(bool, expected_validity, validity);
+}
+
 fn expectF64ColumnWithValidity(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected_values: []const f64, expected_validity: []const bool) !void {
     const column = try frame.column(name);
     const values = try column.f64.toOwnedSlice(allocator);
@@ -927,6 +937,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_last_row_indices.deinit();
     try expectNullableI64Column(group_last_row_indices, gpa, "store_last_row_index", &.{ 5, 4, 5, 0, 4, 5 }, &.{ true, true, true, false, true, true });
 
+    var group_is_first_rows = try table.withGroupIsFirstRow("store", "store_is_first_row");
+    defer group_is_first_rows.deinit();
+    try expectNullableBoolColumn(group_is_first_rows, gpa, "store_is_first_row", &.{ true, true, false, false, false, false }, &.{ true, true, true, false, true, true });
+
+    var group_is_last_rows = try table.withGroupIsLastRow("store", "store_is_last_row");
+    defer group_is_last_rows.deinit();
+    try expectNullableBoolColumn(group_is_last_rows, gpa, "store_is_last_row", &.{ false, false, false, false, true, true }, &.{ true, true, true, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1097,6 +1115,19 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_group_boundaries.deinit();
     try expectNullableI64Column(lazy_group_boundaries, gpa, "store_first_row_index_lazy", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
     try expectNullableI64Column(lazy_group_boundaries, gpa, "store_last_row_index_lazy", &.{ 5, 4, 5, 0, 4, 5 }, &.{ true, true, true, false, true, true });
+
+    var group_boundary_flag_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_boundary_flag_plan.deinit();
+    try group_boundary_flag_plan.withGroupIsFirstRow("store", "store_is_first_row_lazy");
+    try group_boundary_flag_plan.withGroupIsLastRow("store", "store_is_last_row_lazy");
+    const group_boundary_flag_explained = try group_boundary_flag_plan.explain(gpa);
+    defer gpa.free(group_boundary_flag_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_boundary_flag_explained, "group_is_first_row([store]->store_is_first_row_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_boundary_flag_explained, "group_is_last_row([store]->store_is_last_row_lazy)") != null);
+    var lazy_group_boundary_flags = try group_boundary_flag_plan.collect();
+    defer lazy_group_boundary_flags.deinit();
+    try expectNullableBoolColumn(lazy_group_boundary_flags, gpa, "store_is_first_row_lazy", &.{ true, true, false, false, false, false }, &.{ true, true, true, false, true, true });
+    try expectNullableBoolColumn(lazy_group_boundary_flags, gpa, "store_is_last_row_lazy", &.{ false, false, false, false, true, true }, &.{ true, true, true, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
