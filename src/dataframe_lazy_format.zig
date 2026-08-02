@@ -846,6 +846,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s}, correction={d})", .{ row_weighted.output_name, row_weighted.correction });
         },
+        .row_weighted_skewness => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_skewness", row_weighted),
+        .row_weighted_kurtosis => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_kurtosis", row_weighted),
         .row_weighted_covariance => |row_weighted| {
             try writer.print("row_weighted_covariance(lhs=[", .{});
             for (row_weighted.lhs_names, 0..) |name, i| {

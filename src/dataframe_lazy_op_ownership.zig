@@ -3487,6 +3487,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_weighted_mean_abs_dev_ratio => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean_abs_dev_ratio"),
         .row_weighted_gini_mean_diff => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_gini_mean_diff"),
         .row_weighted_gini_coefficient => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_gini_coefficient"),
+        .row_weighted_skewness => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_skewness"),
+        .row_weighted_kurtosis => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_kurtosis"),
         .row_weighted_variance => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_variance"),
         .row_weighted_stddev => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_stddev"),
         .row_weighted_sem => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_sem"),

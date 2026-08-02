@@ -3641,6 +3641,17 @@ pub fn withRowWeightedFano(self: anytype, value_names: []const []const u8, weigh
 pub const withRowWeightedSEM = withRowWeightedSem;
 pub const withRowWeightedCV = withRowWeightedCv;
 
+pub fn withRowWeightedSkewness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSkewness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedKurtosis(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedKurtosis(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub const withRowWeightedSkew = withRowWeightedSkewness;
+pub const withRowWeightedKurt = withRowWeightedKurtosis;
+
 pub fn withRowWeightedCovariance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedCovariance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }

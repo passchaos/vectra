@@ -4373,6 +4373,91 @@ pub fn withRowWeightedFano(
 pub const withRowWeightedSEM = withRowWeightedSem;
 pub const withRowWeightedCV = withRowWeightedCv;
 
+const RowWeightedShapeReduction = enum { skewness, kurtosis };
+
+fn withRowWeightedShape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedShapeReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var weighted_sum: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            weight_sum += weight;
+            weighted_sum += flat.values[offset] * weight;
+        }
+        if (!(weight_sum > 0.0)) continue;
+        const mean = weighted_sum / weight_sum;
+
+        var centered2: f64 = 0.0;
+        var centered3: f64 = 0.0;
+        var centered4: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            const centered = flat.values[offset] - mean;
+            const centered_sq = centered * centered;
+            centered2 += weight * centered_sq;
+            centered3 += weight * centered_sq * centered;
+            centered4 += weight * centered_sq * centered_sq;
+        }
+
+        values[row] = if (centered2 == 0.0) quietNanF64() else switch (reduction) {
+            .skewness => std.math.sqrt(weight_sum) * centered3 / std.math.pow(f64, centered2, 1.5),
+            .kurtosis => weight_sum * centered4 / (centered2 * centered2) - 3.0,
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedSkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedShape(DeviceDataFrame, input, value_names, weight_names, output_name, .skewness);
+}
+
+pub fn withRowWeightedKurtosis(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedShape(DeviceDataFrame, input, value_names, weight_names, output_name, .kurtosis);
+}
+
+pub const withRowWeightedSkew = withRowWeightedSkewness;
+pub const withRowWeightedKurt = withRowWeightedKurtosis;
+
 const OwnedRealF64Column = struct {
     allocator: std.mem.Allocator,
     values: []f64,

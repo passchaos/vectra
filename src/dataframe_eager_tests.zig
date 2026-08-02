@@ -1824,6 +1824,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_fano_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_fano_table, gpa, "row_weighted_fano", &.{ 0.0, 0.0, 0.0, 648.0 / 35.0 }, &.{ true, true, false, true });
 
+    const row_weighted_skew3 = std.math.sqrt(@as(f64, 5.0)) * @as(f64, 22394.88) / std.math.pow(f64, @as(f64, 1036.8), 1.5);
+    var row_weighted_skew_table = try validity_table.withRowWeightedSkewness(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_skew");
+    defer row_weighted_skew_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_skew_table, gpa, "row_weighted_skew", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, row_weighted_skew3 }, &.{ true, true, false, true });
+
+    const row_weighted_kurt3 = @as(f64, 5.0) * @as(f64, 698720.256) / (@as(f64, 1036.8) * @as(f64, 1036.8)) - 3.0;
+    var row_weighted_kurt_table = try validity_table.withRowWeightedKurtosis(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_kurt");
+    defer row_weighted_kurt_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_kurt_table, gpa, "row_weighted_kurt", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, row_weighted_kurt3 }, &.{ true, true, false, true });
+
     var row_weighted_covariance_table = try validity_table.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_covariance", 0.0);
     defer row_weighted_covariance_table.deinit();
     const row_weighted_covariance_column = try row_weighted_covariance_table.column("row_weighted_covariance");

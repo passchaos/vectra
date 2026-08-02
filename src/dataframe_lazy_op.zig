@@ -363,6 +363,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_weighted_sem: Payloads.RowWeightedDispersion,
         row_weighted_cv: Payloads.RowWeightedDispersion,
         row_weighted_fano: Payloads.RowWeightedDispersion,
+        row_weighted_skewness: Payloads.RowWeightedMean,
+        row_weighted_kurtosis: Payloads.RowWeightedMean,
         row_weighted_covariance: Payloads.RowWeightedPair,
         row_weighted_correlation: Payloads.RowWeightedPair,
         row_weighted_beta: Payloads.RowWeightedPair,

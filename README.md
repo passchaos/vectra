@@ -790,6 +790,9 @@ control.
 `withRowWeightedSem`, `withRowWeightedCv`, and `withRowWeightedFano` expose
 standard-error, coefficient-of-variation, and variance-to-mean diagnostics over
 the same weighted dispersion core.
+`withRowWeightedSkewness` and `withRowWeightedKurtosis` append weighted
+central-moment shape diagnostics, matching grouped weighted skew/kurtosis
+normalization and returning NaN for zero weighted variance.
 `withRowWeightedCovariance`, `withRowWeightedCorrelation`, and
 `withRowWeightedBeta` append per-row weighted paired statistics for aligned
 lhs/rhs/weight column lists, sharing null-pair skipping, negative-weight

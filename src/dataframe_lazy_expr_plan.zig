@@ -3894,6 +3894,30 @@ pub fn withRowWeightedFano(frame: anytype, value_names: []const []const u8, weig
 pub const withRowWeightedSEM = withRowWeightedSem;
 pub const withRowWeightedCV = withRowWeightedCv;
 
+fn withRowWeightedShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { skewness, kurtosis }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .skewness => .{ .row_weighted_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .kurtosis => .{ .row_weighted_kurtosis = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedSkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedShape(frame, value_names, weight_names, output_name, .skewness);
+}
+
+pub fn withRowWeightedKurtosis(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedShape(frame, value_names, weight_names, output_name, .kurtosis);
+}
+
+pub const withRowWeightedSkew = withRowWeightedSkewness;
+pub const withRowWeightedKurt = withRowWeightedKurtosis;
+
 fn withRowWeightedPair(
     frame: anytype,
     lhs_names: []const []const u8,

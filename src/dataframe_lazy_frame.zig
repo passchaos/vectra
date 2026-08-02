@@ -2556,6 +2556,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedFano(self, value_names, weight_names, output_name, correction);
             }
 
+            pub fn withRowWeightedSkewness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedSkewness(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedSkew = withRowWeightedSkewness;
+
+            pub fn withRowWeightedKurtosis(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedKurtosis(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedKurt = withRowWeightedKurtosis;
+
             pub fn withRowWeightedCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedCovariance(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }
