@@ -241,6 +241,25 @@ pub fn groupByEvennessOn(self: anytype, key_names: []const []const u8, value_nam
     return self.groupByValueOn(key_names, value_name, output_name, .evenness);
 }
 
+pub fn groupByGiniMeanDiff(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .gini_mean_diff);
+}
+
+pub fn groupByGiniMeanDiffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .gini_mean_diff);
+}
+
+pub fn groupByGiniCoefficient(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .gini_coefficient);
+}
+
+pub fn groupByGiniCoefficientOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .gini_coefficient);
+}
+
+pub const groupByGiniCoeff = groupByGiniCoefficient;
+pub const groupByGiniCoeffOn = groupByGiniCoefficientOn;
+
 pub fn groupByMedian(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .median);
 }

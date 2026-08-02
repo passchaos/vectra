@@ -37,6 +37,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     inverse_simpson,
     simpson_concentration,
     evenness,
+    gini_mean_diff,
+    gini_coefficient,
     median,
     quantile,
     iqr,

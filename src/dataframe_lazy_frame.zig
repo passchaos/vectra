@@ -5675,6 +5675,12 @@ pub fn DeviceLazyTypes(
             pub const groupByConcentrationOn = lazy_relation_methods_mod.groupByConcentrationOn;
             pub const groupByEvenness = lazy_relation_methods_mod.groupByEvenness;
             pub const groupByEvennessOn = lazy_relation_methods_mod.groupByEvennessOn;
+            pub const groupByGiniMeanDiff = lazy_relation_methods_mod.groupByGiniMeanDiff;
+            pub const groupByGiniMeanDiffOn = lazy_relation_methods_mod.groupByGiniMeanDiffOn;
+            pub const groupByGiniCoefficient = lazy_relation_methods_mod.groupByGiniCoefficient;
+            pub const groupByGiniCoefficientOn = lazy_relation_methods_mod.groupByGiniCoefficientOn;
+            pub const groupByGiniCoeff = lazy_relation_methods_mod.groupByGiniCoeff;
+            pub const groupByGiniCoeffOn = lazy_relation_methods_mod.groupByGiniCoeffOn;
             pub const groupByMedian = lazy_relation_methods_mod.groupByMedian;
             pub const groupByMedianOn = lazy_relation_methods_mod.groupByMedianOn;
             pub const groupByQuantile = lazy_relation_methods_mod.groupByQuantile;

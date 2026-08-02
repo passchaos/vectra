@@ -93,6 +93,11 @@ const GroupByDistributionAggregation = enum {
     evenness,
 };
 
+const GroupByInequalityAggregation = enum {
+    gini_mean_diff,
+    gini_coefficient,
+};
+
 const GroupByBoolAggregation = enum {
     any,
     all,
@@ -908,6 +913,149 @@ pub fn groupByEvennessOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByDistributionOn(DeviceDataFrame, .evenness, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByInequalityOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByInequalityAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByInequalityOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByInequalityOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByInequalityOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByInequalityOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByInequalityOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByInequalityOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByInequalityOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByInequalityOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByInequalityOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByInequalityOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByInequalityOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByInequalityOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByInequalityOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+const GroupGiniStats = struct {
+    mean: f64,
+    mean_diff: f64,
+};
+
+fn groupGiniStats(comptime V: type, values: []const V, rows: []const usize) GroupGiniStats {
+    if (rows.len == 0) return .{ .mean = std.math.nan(f64), .mean_diff = std.math.nan(f64) };
+
+    var total: f64 = 0.0;
+    for (rows) |row| total += castToF64(V, values[row]);
+    const mean = total / @as(f64, @floatFromInt(rows.len));
+
+    var pair_sum: f64 = 0.0;
+    var pair_count: usize = 0;
+    for (rows, 0..) |lhs_row, lhs_index| {
+        const lhs = castToF64(V, values[lhs_row]);
+        for (rows[lhs_index + 1 ..]) |rhs_row| {
+            pair_sum += @abs(lhs - castToF64(V, values[rhs_row]));
+            pair_count += 1;
+        }
+    }
+
+    // Match the existing row-wise contract: a singleton group has zero mean
+    // pairwise difference, while the normalized coefficient below still
+    // reports NaN for zero-mean groups because the denominator is undefined.
+    const mean_diff = if (pair_count == 0) 0.0 else pair_sum / @as(f64, @floatFromInt(pair_count));
+    return .{ .mean = mean, .mean_diff = mean_diff };
+}
+
+fn groupByInequalityOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByInequalityAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(allocator);
+        group_value_rows.deinit(allocator);
+    }
+
+    for (values, 0..) |_, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try group_value_rows.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_value_rows.items[group_index].append(allocator, row);
+    }
+
+    const out = try allocator.alloc(f64, group_value_rows.items.len);
+    defer allocator.free(out);
+    for (group_value_rows.items, out) |rows, *slot| {
+        const stats = groupGiniStats(V, values, rows.items);
+        slot.* = switch (aggregation) {
+            .gini_mean_diff => stats.mean_diff,
+            .gini_coefficient => if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_diff / (2.0 * @abs(stats.mean)),
+        };
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, allocator, out, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByInequalityOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByInequalityAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByInequalityOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+pub fn groupByGiniMeanDiffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByInequalityOn(DeviceDataFrame, .gini_mean_diff, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByGiniCoefficientOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByInequalityOn(DeviceDataFrame, .gini_coefficient, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByMomentOnDispatchValue(

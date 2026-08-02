@@ -470,6 +470,35 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(group_entropy_1 / group_distinct_log, evenness_group_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(group_entropy_2 / group_distinct_log, evenness_group_values[1], 1e-12);
 
+    var gini_mean_diff_group = try mode_diag_table.groupByGiniMeanDiff("bucket", "label", "label_gini_mean_diff");
+    defer gini_mean_diff_group.deinit();
+    const gini_mean_diff_values = try (try gini_mean_diff_group.column("label_gini_mean_diff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(gini_mean_diff_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 6.0), gini_mean_diff_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), gini_mean_diff_values[1], 1e-12);
+
+    var gini_coeff_group = try mode_diag_table.groupByGiniCoeffOn(&.{"bucket"}, "label", "label_gini_coeff");
+    defer gini_coeff_group.deinit();
+    const gini_coeff_values = try (try gini_coeff_group.column("label_gini_coeff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(gini_coeff_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 75.0), gini_coeff_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 18.0), gini_coeff_values[1], 1e-12);
+
+    var zero_gini_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1 }, .cpu);
+    defer zero_gini_key.deinit();
+    var zero_gini_value = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 1.0 }, .cpu);
+    defer zero_gini_value.deinit();
+    var zero_gini_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = zero_gini_key },
+        .{ .name = "value", .data = zero_gini_value },
+    });
+    defer zero_gini_table.deinit();
+    var zero_gini_coeff = try zero_gini_table.groupByGiniCoefficient("bucket", "value", "value_gini_coeff");
+    defer zero_gini_coeff.deinit();
+    const zero_gini_coeff_values = try (try zero_gini_coeff.column("value_gini_coeff")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_gini_coeff_values);
+    try std.testing.expect(std.math.isNan(zero_gini_coeff_values[0]));
+
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();
     try mode_count_plan.groupByModeCount("bucket", "label", "label_mode_count_lazy");
@@ -597,6 +626,32 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_evenness_group_values);
     try std.testing.expectApproxEqAbs(group_entropy_1 / group_distinct_log, lazy_evenness_group_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(group_entropy_2 / group_distinct_log, lazy_evenness_group_values[1], 1e-12);
+
+    var gini_mean_diff_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer gini_mean_diff_plan.deinit();
+    try gini_mean_diff_plan.groupByGiniMeanDiffOn(&.{"bucket"}, "label", "label_gini_mean_diff_lazy");
+    const gini_mean_diff_explained = try gini_mean_diff_plan.explain(gpa);
+    defer gpa.free(gini_mean_diff_explained);
+    try std.testing.expect(std.mem.indexOf(u8, gini_mean_diff_explained, "group_by_gini_mean_diff_on([bucket], value=label -> label_gini_mean_diff_lazy)") != null);
+    var lazy_gini_mean_diff = try gini_mean_diff_plan.collect();
+    defer lazy_gini_mean_diff.deinit();
+    const lazy_gini_mean_diff_values = try (try lazy_gini_mean_diff.column("label_gini_mean_diff_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_gini_mean_diff_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 6.0), lazy_gini_mean_diff_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_gini_mean_diff_values[1], 1e-12);
+
+    var gini_coeff_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer gini_coeff_plan.deinit();
+    try gini_coeff_plan.groupByGiniCoefficient("bucket", "label", "label_gini_coeff_lazy");
+    const gini_coeff_explained = try gini_coeff_plan.explain(gpa);
+    defer gpa.free(gini_coeff_explained);
+    try std.testing.expect(std.mem.indexOf(u8, gini_coeff_explained, "group_by_gini_coefficient(bucket, value=label -> label_gini_coeff_lazy)") != null);
+    var lazy_gini_coeff = try gini_coeff_plan.collect();
+    defer lazy_gini_coeff.deinit();
+    const lazy_gini_coeff_values = try (try lazy_gini_coeff.column("label_gini_coeff_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_gini_coeff_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 75.0), lazy_gini_coeff_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 18.0), lazy_gini_coeff_values[1], 1e-12);
 
     var median_sales = try table.groupByMedian("store", "sales", "sales_median");
     defer median_sales.deinit();
