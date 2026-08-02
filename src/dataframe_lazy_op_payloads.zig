@@ -581,6 +581,8 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
         pub const GroupByRows = struct {
             key_name: []const u8,
             start: usize = 0,
+            signed_start: isize = 0,
+            use_signed_start: bool = false,
             step: usize = 1,
             n: usize,
             keep_tail: bool,
@@ -588,6 +590,8 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
         pub const GroupByRowsOn = struct {
             key_names: [][]const u8,
             start: usize = 0,
+            signed_start: isize = 0,
+            use_signed_start: bool = false,
             step: usize = 1,
             n: usize,
             keep_tail: bool,

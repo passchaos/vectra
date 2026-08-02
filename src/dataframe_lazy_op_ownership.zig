@@ -3934,6 +3934,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             break :blk .{ .group_by_rows = .{
                 .key_name = key_name,
                 .start = group.start,
+                .signed_start = group.signed_start,
+                .use_signed_start = group.use_signed_start,
                 .step = group.step,
                 .n = group.n,
                 .keep_tail = group.keep_tail,
@@ -3945,6 +3947,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             break :blk .{ .group_by_rows_on = .{
                 .key_names = key_names,
                 .start = group.start,
+                .signed_start = group.signed_start,
+                .use_signed_start = group.use_signed_start,
                 .step = group.step,
                 .n = group.n,
                 .keep_tail = group.keep_tail,

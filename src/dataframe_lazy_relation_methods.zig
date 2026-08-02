@@ -55,6 +55,22 @@ pub fn groupBySliceRowsStepOn(self: anytype, key_names: []const []const u8, star
     return lazy_group_mod.groupBySliceRowsStepOn(self, key_names, start, length, step);
 }
 
+pub fn groupBySliceRowsSigned(self: anytype, key_name: []const u8, start: isize, length: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRowsSigned(self, key_name, start, length);
+}
+
+pub fn groupBySliceRowsSignedOn(self: anytype, key_names: []const []const u8, start: isize, length: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRowsSignedOn(self, key_names, start, length);
+}
+
+pub fn groupBySliceRowsSignedStep(self: anytype, key_name: []const u8, start: isize, length: usize, step: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRowsSignedStep(self, key_name, start, length, step);
+}
+
+pub fn groupBySliceRowsSignedStepOn(self: anytype, key_names: []const []const u8, start: isize, length: usize, step: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRowsSignedStepOn(self, key_names, start, length, step);
+}
+
 pub fn groupByTopRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
     return lazy_group_mod.groupBySortedRows(self, key_name, sort_name, n, options_value, false);
 }

@@ -848,6 +848,61 @@ fn groupBySliceRowsCoreOn(
     return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
 }
 
+fn normalizeGroupSliceStart(start: isize, group_len: usize) GroupByOnError!usize {
+    if (start >= 0) return std.math.cast(usize, start) orelse error.IndexOutOfBounds;
+    const group_len_signed = std.math.cast(isize, group_len) orelse return error.IndexOutOfBounds;
+    const normalized = group_len_signed + start;
+    if (normalized < 0) return error.IndexOutOfBounds;
+    return @intCast(normalized);
+}
+
+fn groupBySliceRowsSignedCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: isize,
+    length: usize,
+    step: usize,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    if (step == 0) return error.InvalidShape;
+    if (length == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var groups: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (groups.items) |*group| group.deinit(frame.allocator);
+        groups.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            var rows: std.ArrayList(usize) = .empty;
+            errdefer rows.deinit(frame.allocator);
+            try groups.append(frame.allocator, rows);
+            break :blk groups.items.len - 1;
+        };
+        try groups.items[group_index].append(frame.allocator, row);
+    }
+
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(frame.allocator);
+    for (groups.items) |group| {
+        const begin = try normalizeGroupSliceStart(start, group.items.len);
+        if (begin >= group.items.len) continue;
+        const stop = @min(begin +| length, group.items.len);
+        var index = begin;
+        while (index < stop) : (index += step) {
+            try row_indices.append(frame.allocator, group.items[index]);
+        }
+    }
+    return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
+}
+
 fn RowSortContext(comptime T: type) type {
     return struct {
         values: []const T,
@@ -991,6 +1046,27 @@ pub fn groupBySliceRowsStepOn(
     step: usize,
 ) GroupByOnError!DeviceDataFrame {
     return groupBySliceRowsCoreOn(DeviceDataFrame, frame, key_names, start, length, step);
+}
+
+pub fn groupBySliceRowsSignedOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: isize,
+    length: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupBySliceRowsSignedCoreOn(DeviceDataFrame, frame, key_names, start, length, 1);
+}
+
+pub fn groupBySliceRowsSignedStepOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: isize,
+    length: usize,
+    step: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupBySliceRowsSignedCoreOn(DeviceDataFrame, frame, key_names, start, length, step);
 }
 
 pub fn groupByTopRowsOn(

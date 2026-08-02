@@ -43,6 +43,8 @@ pub fn groupByRows(frame: anytype, key_name: []const u8, n: usize, keep_tail: bo
     try frame.ops.append(frame.allocator, .{ .group_by_rows = .{
         .key_name = owned_key,
         .start = 0,
+        .signed_start = 0,
+        .use_signed_start = false,
         .step = 1,
         .n = n,
         .keep_tail = keep_tail,
@@ -55,6 +57,8 @@ pub fn groupByRowsOn(frame: anytype, key_names: []const []const u8, n: usize, ke
     try frame.ops.append(frame.allocator, .{ .group_by_rows_on = .{
         .key_names = owned_keys,
         .start = 0,
+        .signed_start = 0,
+        .use_signed_start = false,
         .step = 1,
         .n = n,
         .keep_tail = keep_tail,
@@ -71,6 +75,8 @@ pub fn groupBySliceRowsStep(frame: anytype, key_name: []const u8, start: usize, 
     try frame.ops.append(frame.allocator, .{ .group_by_rows = .{
         .key_name = owned_key,
         .start = start,
+        .signed_start = 0,
+        .use_signed_start = false,
         .step = step,
         .n = length,
         .keep_tail = false,
@@ -87,6 +93,44 @@ pub fn groupBySliceRowsStepOn(frame: anytype, key_names: []const []const u8, sta
     try frame.ops.append(frame.allocator, .{ .group_by_rows_on = .{
         .key_names = owned_keys,
         .start = start,
+        .signed_start = 0,
+        .use_signed_start = false,
+        .step = step,
+        .n = length,
+        .keep_tail = false,
+    } });
+}
+
+pub fn groupBySliceRowsSigned(frame: anytype, key_name: []const u8, start: isize, length: usize) DeviceDataError!void {
+    return groupBySliceRowsSignedStep(frame, key_name, start, length, 1);
+}
+
+pub fn groupBySliceRowsSignedStep(frame: anytype, key_name: []const u8, start: isize, length: usize, step: usize) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    try frame.ops.append(frame.allocator, .{ .group_by_rows = .{
+        .key_name = owned_key,
+        .start = 0,
+        .signed_start = start,
+        .use_signed_start = true,
+        .step = step,
+        .n = length,
+        .keep_tail = false,
+    } });
+}
+
+pub fn groupBySliceRowsSignedOn(frame: anytype, key_names: []const []const u8, start: isize, length: usize) DeviceDataError!void {
+    return groupBySliceRowsSignedStepOn(frame, key_names, start, length, 1);
+}
+
+pub fn groupBySliceRowsSignedStepOn(frame: anytype, key_names: []const []const u8, start: isize, length: usize, step: usize) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    try frame.ops.append(frame.allocator, .{ .group_by_rows_on = .{
+        .key_names = owned_keys,
+        .start = 0,
+        .signed_start = start,
+        .use_signed_start = true,
         .step = step,
         .n = length,
         .keep_tail = false,

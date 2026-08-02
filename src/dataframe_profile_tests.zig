@@ -980,6 +980,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(stepped_slice_rows, gpa, "sales", &.{ 2.0, 13.0, 3.0 }, &.{ true, true, true });
     try std.testing.expectError(error.InvalidShape, table.groupBySliceRowsStep("store", 0, 2, 0));
 
+    var signed_slice_rows = try table.groupBySliceRowsSigned("store", -2, 2);
+    defer signed_slice_rows.deinit();
+    const signed_slice_keys = try (try signed_slice_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(signed_slice_keys);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, signed_slice_keys);
+    try expectF64ColumnWithValidity(signed_slice_rows, gpa, "sales", &.{ 5.0, 13.0, 3.0, 11.0 }, &.{ false, true, true, true });
+    try std.testing.expectError(error.IndexOutOfBounds, table.groupBySliceRowsSigned("store", -4, 1));
+
     var top_sales_rows = try table.groupByTopRows("store", "sales", 2, .{ .descending = true, .nulls = .last });
     defer top_sales_rows.deinit();
     const top_sales_keys = try (try top_sales_rows.column("store")).i32.toOwnedSlice(gpa);
@@ -1090,6 +1098,19 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_stepped_sales);
     try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2 }, lazy_stepped_keys);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 13.0, 3.0 }, lazy_stepped_sales);
+
+    var signed_slice_plan = try DeviceLazyFrame.init(gpa, table);
+    defer signed_slice_plan.deinit();
+    try signed_slice_plan.groupBySliceRowsSigned("store", -2, 2);
+    const signed_slice_explained = try signed_slice_plan.explain(gpa);
+    defer gpa.free(signed_slice_explained);
+    try std.testing.expect(std.mem.indexOf(u8, signed_slice_explained, "group_by_slice_rows_signed_step(store, start=-2, length=2, step=1)") != null);
+    var lazy_signed_slice = try signed_slice_plan.collect();
+    defer lazy_signed_slice.deinit();
+    const lazy_signed_keys = try (try lazy_signed_slice.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_signed_keys);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, lazy_signed_keys);
+    try expectF64ColumnWithValidity(lazy_signed_slice, gpa, "sales", &.{ 5.0, 13.0, 3.0, 11.0 }, &.{ false, true, true, true });
 
     var top_rows_plan = try DeviceLazyFrame.init(gpa, table);
     defer top_rows_plan.deinit();
