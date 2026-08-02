@@ -1308,6 +1308,59 @@ pub const withGroupCumGiniOn = withGroupCumulativeGiniImpurityOn;
 pub const withGroupCumConcentration = withGroupCumulativeSimpsonConcentration;
 pub const withGroupCumConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
 
+pub fn withGroupCumulativeMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMeanAbsDevOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMeanAbsDevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeMeanAbsDev(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeMeanAbsDevRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMeanAbsDevRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMeanAbsDevRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeMeanAbsDevRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniMeanDiff(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeGiniMeanDiffOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniMeanDiffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeGiniMeanDiff(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniCoefficient(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeGiniCoefficientOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniCoefficientOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeGiniCoefficient(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeMeanAbsoluteDeviation = withGroupCumulativeMeanAbsDev;
+pub const withGroupCumulativeMeanAbsoluteDeviationOn = withGroupCumulativeMeanAbsDevOn;
+pub const withGroupCumulativeGiniCoeff = withGroupCumulativeGiniCoefficient;
+pub const withGroupCumulativeGiniCoeffOn = withGroupCumulativeGiniCoefficientOn;
+pub const withGroupCumMeanAbsDev = withGroupCumulativeMeanAbsDev;
+pub const withGroupCumMeanAbsDevOn = withGroupCumulativeMeanAbsDevOn;
+pub const withGroupCumMeanAbsDevRatio = withGroupCumulativeMeanAbsDevRatio;
+pub const withGroupCumMeanAbsDevRatioOn = withGroupCumulativeMeanAbsDevRatioOn;
+pub const withGroupCumGiniMeanDiff = withGroupCumulativeGiniMeanDiff;
+pub const withGroupCumGiniMeanDiffOn = withGroupCumulativeGiniMeanDiffOn;
+pub const withGroupCumGiniCoefficient = withGroupCumulativeGiniCoefficient;
+pub const withGroupCumGiniCoefficientOn = withGroupCumulativeGiniCoefficientOn;
+pub const withGroupCumMeanAbsoluteDeviation = withGroupCumulativeMeanAbsDev;
+pub const withGroupCumMeanAbsoluteDeviationOn = withGroupCumulativeMeanAbsDevOn;
+pub const withGroupCumGiniCoeff = withGroupCumulativeGiniCoefficient;
+pub const withGroupCumGiniCoeffOn = withGroupCumulativeGiniCoefficientOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

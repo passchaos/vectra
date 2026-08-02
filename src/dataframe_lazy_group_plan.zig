@@ -1319,6 +1319,37 @@ pub fn withGroupCumulativeEvenness(frame: anytype, key_names: []const []const u8
     return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .evenness);
 }
 
+fn withGroupCumulativeInequality(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { mean_abs_dev, mean_abs_dev_ratio, gini_mean_diff, gini_coefficient }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .mean_abs_dev => .{ .group_cumulative_mean_abs_dev = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .mean_abs_dev_ratio => .{ .group_cumulative_mean_abs_dev_ratio = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .gini_mean_diff => .{ .group_cumulative_gini_mean_diff = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .gini_coefficient => .{ .group_cumulative_gini_coefficient = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+    });
+}
+
+pub fn withGroupCumulativeMeanAbsDev(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeInequality(frame, key_names, value_name, output_name, .mean_abs_dev);
+}
+
+pub fn withGroupCumulativeMeanAbsDevRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeInequality(frame, key_names, value_name, output_name, .mean_abs_dev_ratio);
+}
+
+pub fn withGroupCumulativeGiniMeanDiff(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeInequality(frame, key_names, value_name, output_name, .gini_mean_diff);
+}
+
+pub fn withGroupCumulativeGiniCoefficient(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeInequality(frame, key_names, value_name, output_name, .gini_coefficient);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

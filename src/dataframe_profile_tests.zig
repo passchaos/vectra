@@ -1702,6 +1702,46 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_concentration_lazy", &group_cum_concentration_expected, &group_cum_mode_validity_expected);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_evenness_lazy", &group_cum_evenness_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_mad_expected = [_]f64{ 0.0, 0.0, 8.0 / 9.0, 0.0, 0.0, 0.5, 4.0 / 9.0, 0.0 };
+    const group_cum_mad_ratio_expected = [_]f64{ 0.0, 0.0, (8.0 / 9.0) / (17.0 / 3.0), 0.0, 0.0, 1.0 / 3.0, (4.0 / 9.0) / (4.0 / 3.0), 0.0 };
+    const group_cum_gini_mean_diff_expected = [_]f64{ 0.0, 0.0, 4.0 / 3.0, 0.0, 0.0, 1.0, 2.0 / 3.0, 0.0 };
+    const group_cum_gini_coeff_expected = [_]f64{ 0.0, 0.0, (4.0 / 3.0) / (2.0 * (17.0 / 3.0)), 0.0, 0.0, 1.0 / 3.0, (2.0 / 3.0) / (2.0 * (4.0 / 3.0)), 0.0 };
+
+    var group_cum_mad_label = try distinct_table.withGroupCumulativeMeanAbsDev("bucket", "label", "label_cum_mad");
+    defer group_cum_mad_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_mad_label, gpa, "label_cum_mad", &group_cum_mad_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_mad_ratio_label = try distinct_table.withGroupCumulativeMeanAbsDevRatio("bucket", "label", "label_cum_mad_ratio");
+    defer group_cum_mad_ratio_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_mad_ratio_label, gpa, "label_cum_mad_ratio", &group_cum_mad_ratio_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_gini_mean_diff_label = try distinct_table.withGroupCumulativeGiniMeanDiff("bucket", "label", "label_cum_gini_mean_diff");
+    defer group_cum_gini_mean_diff_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_gini_mean_diff_label, gpa, "label_cum_gini_mean_diff", &group_cum_gini_mean_diff_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_gini_coeff_label = try distinct_table.withGroupCumulativeGiniCoeff("bucket", "label", "label_cum_gini_coeff");
+    defer group_cum_gini_coeff_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_gini_coeff_label, gpa, "label_cum_gini_coeff", &group_cum_gini_coeff_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_inequality_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_inequality_plan.deinit();
+    try cumulative_inequality_plan.withGroupCumulativeMeanAbsDev("bucket", "label", "label_cum_mad_lazy");
+    try cumulative_inequality_plan.withGroupCumulativeMeanAbsDevRatio("bucket", "label", "label_cum_mad_ratio_lazy");
+    try cumulative_inequality_plan.withGroupCumulativeGiniMeanDiff("bucket", "label", "label_cum_gini_mean_diff_lazy");
+    try cumulative_inequality_plan.withGroupCumulativeGiniCoefficient("bucket", "label", "label_cum_gini_coeff_lazy");
+    const cumulative_inequality_explained = try cumulative_inequality_plan.explain(gpa);
+    defer gpa.free(cumulative_inequality_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_inequality_explained, "group_cumulative_mean_abs_dev([bucket], value=label->label_cum_mad_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_inequality_explained, "group_cumulative_mean_abs_dev_ratio([bucket], value=label->label_cum_mad_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_inequality_explained, "group_cumulative_gini_mean_diff([bucket], value=label->label_cum_gini_mean_diff_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_inequality_explained, "group_cumulative_gini_coefficient([bucket], value=label->label_cum_gini_coeff_lazy)") != null);
+    var lazy_cumulative_inequality = try cumulative_inequality_plan.collect();
+    defer lazy_cumulative_inequality.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_mad_lazy", &group_cum_mad_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_mad_ratio_lazy", &group_cum_mad_ratio_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_gini_mean_diff_lazy", &group_cum_gini_mean_diff_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_gini_coeff_lazy", &group_cum_gini_coeff_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
