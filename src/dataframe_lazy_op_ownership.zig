@@ -84,6 +84,26 @@ fn cloneRowWeightedMean(
     });
 }
 
+fn cloneRowWeightedDispersion(
+    comptime Self: type,
+    allocator: std.mem.Allocator,
+    row_weighted: anytype,
+    comptime tag_name: []const u8,
+) DeviceDataError!Self {
+    const value_names = try cloneNameList(allocator, row_weighted.value_names);
+    errdefer freeNameList(allocator, value_names);
+    const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+    errdefer freeNameList(allocator, weight_names);
+    const output_name = try allocator.dupe(u8, row_weighted.output_name);
+    errdefer allocator.free(output_name);
+    return @unionInit(Self, tag_name, .{
+        .value_names = value_names,
+        .weight_names = weight_names,
+        .output_name = output_name,
+        .correction = row_weighted.correction,
+    });
+}
+
 pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) DeviceDataError!Self {
     return switch (self) {
         .select => |names| blk: {
@@ -3467,34 +3487,11 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_weighted_mean_abs_dev_ratio => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean_abs_dev_ratio"),
         .row_weighted_gini_mean_diff => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_gini_mean_diff"),
         .row_weighted_gini_coefficient => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_gini_coefficient"),
-        .row_weighted_variance => |row_weighted| blk: {
-            const value_names = try cloneNameList(allocator, row_weighted.value_names);
-            errdefer freeNameList(allocator, value_names);
-            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
-            errdefer freeNameList(allocator, weight_names);
-            const output_name = try allocator.dupe(u8, row_weighted.output_name);
-            errdefer allocator.free(output_name);
-            break :blk .{ .row_weighted_variance = .{
-                .value_names = value_names,
-                .weight_names = weight_names,
-                .output_name = output_name,
-                .correction = row_weighted.correction,
-            } };
-        },
-        .row_weighted_stddev => |row_weighted| blk: {
-            const value_names = try cloneNameList(allocator, row_weighted.value_names);
-            errdefer freeNameList(allocator, value_names);
-            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
-            errdefer freeNameList(allocator, weight_names);
-            const output_name = try allocator.dupe(u8, row_weighted.output_name);
-            errdefer allocator.free(output_name);
-            break :blk .{ .row_weighted_stddev = .{
-                .value_names = value_names,
-                .weight_names = weight_names,
-                .output_name = output_name,
-                .correction = row_weighted.correction,
-            } };
-        },
+        .row_weighted_variance => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_variance"),
+        .row_weighted_stddev => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_stddev"),
+        .row_weighted_sem => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_sem"),
+        .row_weighted_cv => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_cv"),
+        .row_weighted_fano => |row_weighted| try cloneRowWeightedDispersion(Self, allocator, row_weighted, "row_weighted_fano"),
         .row_weighted_quantile => |row_weighted| blk: {
             const value_names = try cloneNameList(allocator, row_weighted.value_names);
             errdefer freeNameList(allocator, value_names);

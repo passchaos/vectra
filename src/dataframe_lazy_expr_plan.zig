@@ -3815,7 +3815,7 @@ fn withRowWeightedDispersion(
     weight_names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { variance, stddev },
+    comptime reduction: enum { variance, stddev, sem, cv, fano },
 ) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer {
@@ -3842,6 +3842,24 @@ fn withRowWeightedDispersion(
             .output_name = owned_output,
             .correction = correction,
         } }),
+        .sem => try frame.ops.append(frame.allocator, .{ .row_weighted_sem = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .cv => try frame.ops.append(frame.allocator, .{ .row_weighted_cv = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .fano => try frame.ops.append(frame.allocator, .{ .row_weighted_fano = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
     }
 }
 
@@ -3860,6 +3878,21 @@ pub fn withRowWeightedStddev(frame: anytype, value_names: []const []const u8, we
 pub fn withRowWeightedStd(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowWeightedStddev(frame, value_names, weight_names, output_name, correction);
 }
+
+pub fn withRowWeightedSem(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedDispersion(frame, value_names, weight_names, output_name, correction, .sem);
+}
+
+pub fn withRowWeightedCv(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedDispersion(frame, value_names, weight_names, output_name, correction, .cv);
+}
+
+pub fn withRowWeightedFano(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withRowWeightedDispersion(frame, value_names, weight_names, output_name, correction, .fano);
+}
+
+pub const withRowWeightedSEM = withRowWeightedSem;
+pub const withRowWeightedCV = withRowWeightedCv;
 
 fn withRowWeightedPair(
     frame: anytype,

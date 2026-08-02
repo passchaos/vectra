@@ -1812,6 +1812,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 207.36)), row_weighted_stddev[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_stddev_validity);
 
+    var row_weighted_sem_table = try validity_table.withRowWeightedSEM(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_sem", 0.0);
+    defer row_weighted_sem_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_sem_table, gpa, "row_weighted_sem", &.{ 0.0, 0.0, 0.0, std.math.sqrt(@as(f64, 207.36 / 5.0)) }, &.{ true, true, false, true });
+
+    var row_weighted_cv_table = try validity_table.withRowWeightedCV(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_cv", 0.0);
+    defer row_weighted_cv_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_cv_table, gpa, "row_weighted_cv", &.{ 0.0, 0.0, 0.0, 9.0 / 7.0 }, &.{ true, true, false, true });
+
+    var row_weighted_fano_table = try validity_table.withRowWeightedFano(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_fano", 0.0);
+    defer row_weighted_fano_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_fano_table, gpa, "row_weighted_fano", &.{ 0.0, 0.0, 0.0, 648.0 / 35.0 }, &.{ true, true, false, true });
+
     var row_weighted_covariance_table = try validity_table.withRowWeightedCovariance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_covariance", 0.0);
     defer row_weighted_covariance_table.deinit();
     const row_weighted_covariance_column = try row_weighted_covariance_table.column("row_weighted_covariance");

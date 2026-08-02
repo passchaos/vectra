@@ -787,6 +787,9 @@ aggregations.
 weighted dispersion for aligned value/weight column lists, skipping null pairs,
 rejecting negative weights, and honoring a correction parameter for denominator
 control.
+`withRowWeightedSem`, `withRowWeightedCv`, and `withRowWeightedFano` expose
+standard-error, coefficient-of-variation, and variance-to-mean diagnostics over
+the same weighted dispersion core.
 `withRowWeightedCovariance`, `withRowWeightedCorrelation`, and
 `withRowWeightedBeta` append per-row weighted paired statistics for aligned
 lhs/rhs/weight column lists, sharing null-pair skipping, negative-weight

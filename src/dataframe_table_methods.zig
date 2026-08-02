@@ -3626,6 +3626,21 @@ pub fn withRowWeightedStd(self: anytype, value_names: []const []const u8, weight
     return withRowWeightedStddev(self, value_names, weight_names, output_name, correction);
 }
 
+pub fn withRowWeightedSem(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSem(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, correction);
+}
+
+pub fn withRowWeightedCv(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedCv(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, correction);
+}
+
+pub fn withRowWeightedFano(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedFano(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, correction);
+}
+
+pub const withRowWeightedSEM = withRowWeightedSem;
+pub const withRowWeightedCV = withRowWeightedCv;
+
 pub fn withRowWeightedCovariance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedCovariance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }

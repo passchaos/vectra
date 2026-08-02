@@ -2540,6 +2540,22 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedStd(self, value_names, weight_names, output_name, correction);
             }
 
+            pub fn withRowWeightedSem(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedSem(self, value_names, weight_names, output_name, correction);
+            }
+
+            pub const withRowWeightedSEM = withRowWeightedSem;
+
+            pub fn withRowWeightedCv(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedCv(self, value_names, weight_names, output_name, correction);
+            }
+
+            pub const withRowWeightedCV = withRowWeightedCv;
+
+            pub fn withRowWeightedFano(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedFano(self, value_names, weight_names, output_name, correction);
+            }
+
             pub fn withRowWeightedCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedCovariance(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }

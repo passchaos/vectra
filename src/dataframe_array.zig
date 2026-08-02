@@ -4201,7 +4201,7 @@ pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
 pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
 pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
 
-const RowWeightedDispersion = enum { variance, stddev };
+const RowWeightedDispersion = enum { variance, stddev, sem, cv, fano };
 
 fn withRowWeightedDispersion(
     comptime DeviceDataFrame: type,
@@ -4276,9 +4276,14 @@ fn withRowWeightedDispersion(
         var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
         if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
         const variance = if (denominator <= 0.0) quietNanF64() else centered_square_sum / denominator;
+        const stddev = std.math.sqrt(variance);
+        const mean = weighted_sum / weight_sum;
         value.* = switch (reduction) {
             .variance => variance,
-            .stddev => std.math.sqrt(variance),
+            .stddev => stddev,
+            .sem => if (denominator <= 0.0) quietNanF64() else std.math.sqrt(variance / weight_sum),
+            .cv => if (mean == 0.0) quietNanF64() else stddev / mean,
+            .fano => if (mean == 0.0) quietNanF64() else variance / mean,
         };
     }
 
@@ -4331,6 +4336,42 @@ pub fn withRowWeightedStd(
 ) DeviceFrameArrayError!DeviceDataFrame {
     return withRowWeightedStddev(DeviceDataFrame, input, value_names, weight_names, output_name, correction);
 }
+
+pub fn withRowWeightedSem(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_name, correction, .sem);
+}
+
+pub fn withRowWeightedCv(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_name, correction, .cv);
+}
+
+pub fn withRowWeightedFano(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_name, correction, .fano);
+}
+
+pub const withRowWeightedSEM = withRowWeightedSem;
+pub const withRowWeightedCV = withRowWeightedCv;
 
 const OwnedRealF64Column = struct {
     allocator: std.mem.Allocator,
