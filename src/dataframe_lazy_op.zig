@@ -746,6 +746,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_is_last_row: Payloads.RowValidityCount,
         group_is_singleton: Payloads.RowValidityCount,
         group_is_duplicated: Payloads.RowValidityCount,
+        group_cume_dist: Payloads.RowValidityCount,
         group_row_number: Payloads.RowValidityCount,
         group_size: Payloads.RowValidityCount,
         group_reverse_row_number: Payloads.RowValidityCount,

@@ -169,6 +169,18 @@ pub fn withGroupIsDuplicatedOn(self: anytype, key_names: []const []const u8, out
     return lazy_group_mod.withGroupIsDuplicated(self, key_names, output_name);
 }
 
+pub fn withGroupCumeDist(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumeDistOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupCumeDistOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumeDist(self, key_names, output_name);
+}
+
+pub const withGroupCumulativeDistribution = withGroupCumeDist;
+pub const withGroupCumulativeDistributionOn = withGroupCumeDistOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

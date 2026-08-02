@@ -961,6 +961,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer store_sales_duplicated_groups.deinit();
     try expectNullableBoolColumn(store_sales_duplicated_groups, gpa, "store_sales_is_duplicated_group", &.{ false, false, false, false, false, false }, &.{ true, true, false, false, true, true });
 
+    var group_cume_dist = try table.withGroupCumeDist("store", "store_cume_dist");
+    defer group_cume_dist.deinit();
+    try expectF64ColumnWithValidity(group_cume_dist, gpa, "store_cume_dist", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1157,6 +1161,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_group_singletons.deinit();
     try expectNullableBoolColumn(lazy_group_singletons, gpa, "store_sales_is_singleton_lazy", &.{ true, true, false, false, true, true }, &.{ true, true, false, false, true, true });
     try expectNullableBoolColumn(lazy_group_singletons, gpa, "store_is_duplicated_group_lazy", &.{ true, true, true, false, true, true }, &.{ true, true, true, false, true, true });
+
+    var group_cume_dist_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_cume_dist_plan.deinit();
+    try group_cume_dist_plan.withGroupCumeDist("store", "store_cume_dist_lazy");
+    const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
+    defer gpa.free(group_cume_dist_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
+    var lazy_group_cume_dist = try group_cume_dist_plan.collect();
+    defer lazy_group_cume_dist.deinit();
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();

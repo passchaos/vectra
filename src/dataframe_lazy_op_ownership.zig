@@ -3978,6 +3978,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .group_cume_dist => |row_count| blk: {
+            const names = try cloneNameList(allocator, row_count.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_count.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_cume_dist = .{
+                .names = names,
+                .output_name = output_name,
+            } };
+        },
         .group_row_number => |row_count| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);
