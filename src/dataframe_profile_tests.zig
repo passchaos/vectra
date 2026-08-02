@@ -1646,6 +1646,62 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectNullableI64Column(lazy_cumulative_mode, gpa, "label_cum_mode_margin_lazy", &group_cum_mode_margin_expected, &group_cum_mode_validity_expected);
     try expectF64ColumnWithValidity(lazy_cumulative_mode, gpa, "label_cum_mode_margin_ratio_lazy", &group_cum_mode_margin_ratio_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_entropy_expected = [_]f64{ 0.0, 0.0, -((2.0 / 3.0) * std.math.log(f64, std.math.e, 2.0 / 3.0) + (1.0 / 3.0) * std.math.log(f64, std.math.e, 1.0 / 3.0)), 0.0, 0.0, std.math.log(f64, std.math.e, 2.0), -((2.0 / 3.0) * std.math.log(f64, std.math.e, 2.0 / 3.0) + (1.0 / 3.0) * std.math.log(f64, std.math.e, 1.0 / 3.0)), 0.0 };
+    const group_cum_gini_expected = [_]f64{ 0.0, 0.0, 4.0 / 9.0, 0.0, 0.0, 0.5, 4.0 / 9.0, 0.0 };
+    const group_cum_perplexity_expected = [_]f64{ 1.0, 1.0, std.math.exp(group_cum_entropy_expected[2]), 0.0, 1.0, 2.0, std.math.exp(group_cum_entropy_expected[6]), 0.0 };
+    const group_cum_inverse_simpson_expected = [_]f64{ 1.0, 1.0, 9.0 / 5.0, 0.0, 1.0, 2.0, 9.0 / 5.0, 0.0 };
+    const group_cum_concentration_expected = [_]f64{ 1.0, 1.0, 5.0 / 9.0, 0.0, 1.0, 0.5, 5.0 / 9.0, 0.0 };
+    const group_cum_evenness_expected = [_]f64{ 1.0, 1.0, group_cum_entropy_expected[2] / std.math.log(f64, std.math.e, 2.0), 0.0, 1.0, 1.0, group_cum_entropy_expected[6] / std.math.log(f64, std.math.e, 2.0), 0.0 };
+
+    var group_cum_entropy_label = try distinct_table.withGroupCumulativeEntropy("bucket", "label", "label_cum_entropy");
+    defer group_cum_entropy_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_entropy_label, gpa, "label_cum_entropy", &group_cum_entropy_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_gini_label = try distinct_table.withGroupCumulativeGiniImpurity("bucket", "label", "label_cum_gini");
+    defer group_cum_gini_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_gini_label, gpa, "label_cum_gini", &group_cum_gini_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_perplexity_label = try distinct_table.withGroupCumulativePerplexity("bucket", "label", "label_cum_perplexity");
+    defer group_cum_perplexity_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_perplexity_label, gpa, "label_cum_perplexity", &group_cum_perplexity_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_inverse_label = try distinct_table.withGroupCumulativeInverseSimpson("bucket", "label", "label_cum_inverse_simpson");
+    defer group_cum_inverse_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_inverse_label, gpa, "label_cum_inverse_simpson", &group_cum_inverse_simpson_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_concentration_label = try distinct_table.withGroupCumulativeConcentration("bucket", "label", "label_cum_concentration");
+    defer group_cum_concentration_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_concentration_label, gpa, "label_cum_concentration", &group_cum_concentration_expected, &group_cum_mode_validity_expected);
+
+    var group_cum_evenness_label = try distinct_table.withGroupCumulativeEvenness("bucket", "label", "label_cum_evenness");
+    defer group_cum_evenness_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_evenness_label, gpa, "label_cum_evenness", &group_cum_evenness_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_distribution_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_distribution_plan.deinit();
+    try cumulative_distribution_plan.withGroupCumulativeEntropy("bucket", "label", "label_cum_entropy_lazy");
+    try cumulative_distribution_plan.withGroupCumulativeGini("bucket", "label", "label_cum_gini_lazy");
+    try cumulative_distribution_plan.withGroupCumulativePerplexity("bucket", "label", "label_cum_perplexity_lazy");
+    try cumulative_distribution_plan.withGroupCumulativeInverseSimpson("bucket", "label", "label_cum_inverse_simpson_lazy");
+    try cumulative_distribution_plan.withGroupCumulativeConcentration("bucket", "label", "label_cum_concentration_lazy");
+    try cumulative_distribution_plan.withGroupCumulativeEvenness("bucket", "label", "label_cum_evenness_lazy");
+    const cumulative_distribution_explained = try cumulative_distribution_plan.explain(gpa);
+    defer gpa.free(cumulative_distribution_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_entropy([bucket], value=label->label_cum_entropy_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_gini_impurity([bucket], value=label->label_cum_gini_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_perplexity([bucket], value=label->label_cum_perplexity_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_inverse_simpson([bucket], value=label->label_cum_inverse_simpson_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_simpson_concentration([bucket], value=label->label_cum_concentration_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distribution_explained, "group_cumulative_evenness([bucket], value=label->label_cum_evenness_lazy)") != null);
+    var lazy_cumulative_distribution = try cumulative_distribution_plan.collect();
+    defer lazy_cumulative_distribution.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_entropy_lazy", &group_cum_entropy_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_gini_lazy", &group_cum_gini_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_perplexity_lazy", &group_cum_perplexity_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_inverse_simpson_lazy", &group_cum_inverse_simpson_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_concentration_lazy", &group_cum_concentration_expected, &group_cum_mode_validity_expected);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_distribution, gpa, "label_cum_evenness_lazy", &group_cum_evenness_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

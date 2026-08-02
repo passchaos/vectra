@@ -1278,6 +1278,47 @@ pub fn withGroupCumulativeModeMarginRatio(frame: anytype, key_names: []const []c
     return withGroupCumulativeModeOp(frame, key_names, value_name, output_name, .margin_ratio);
 }
 
+fn withGroupCumulativeDistribution(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .entropy => .{ .group_cumulative_entropy = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .gini_impurity => .{ .group_cumulative_gini_impurity = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .perplexity => .{ .group_cumulative_perplexity = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .inverse_simpson => .{ .group_cumulative_inverse_simpson = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .simpson_concentration => .{ .group_cumulative_simpson_concentration = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+        .evenness => .{ .group_cumulative_evenness = .{ .names = owned_keys, .value_name = owned_value, .output_name = owned_output, .offset = 0 } },
+    });
+}
+
+pub fn withGroupCumulativeEntropy(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .entropy);
+}
+
+pub fn withGroupCumulativeGiniImpurity(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .gini_impurity);
+}
+
+pub fn withGroupCumulativePerplexity(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .perplexity);
+}
+
+pub fn withGroupCumulativeInverseSimpson(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .inverse_simpson);
+}
+
+pub fn withGroupCumulativeSimpsonConcentration(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .simpson_concentration);
+}
+
+pub fn withGroupCumulativeEvenness(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeDistribution(frame, key_names, value_name, output_name, .evenness);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

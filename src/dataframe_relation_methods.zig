@@ -1258,6 +1258,81 @@ pub const withGroupCumModeMarginOn = withGroupCumulativeModeMarginOn;
 pub const withGroupCumModeMarginRatio = withGroupCumulativeModeMarginRatio;
 pub const withGroupCumModeMarginRatioOn = withGroupCumulativeModeMarginRatioOn;
 
+pub fn withGroupCumulativeEntropy(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeEntropyOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeEntropyOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeEntropyOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniImpurity(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeGiniImpurityOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeGiniImpurityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeGiniImpurityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePerplexity(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePerplexityOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePerplexityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativePerplexityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeInverseSimpson(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeInverseSimpsonOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeInverseSimpsonOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeInverseSimpsonOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeSimpsonConcentration(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSimpsonConcentrationOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSimpsonConcentrationOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeSimpsonConcentrationOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeEvenness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeEvennessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeEvennessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeGini = withGroupCumulativeGiniImpurity;
+pub const withGroupCumulativeGiniOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumulativeConcentration = withGroupCumulativeSimpsonConcentration;
+pub const withGroupCumulativeConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+pub const withGroupCumEntropy = withGroupCumulativeEntropy;
+pub const withGroupCumEntropyOn = withGroupCumulativeEntropyOn;
+pub const withGroupCumGiniImpurity = withGroupCumulativeGiniImpurity;
+pub const withGroupCumGiniImpurityOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumPerplexity = withGroupCumulativePerplexity;
+pub const withGroupCumPerplexityOn = withGroupCumulativePerplexityOn;
+pub const withGroupCumInverseSimpson = withGroupCumulativeInverseSimpson;
+pub const withGroupCumInverseSimpsonOn = withGroupCumulativeInverseSimpsonOn;
+pub const withGroupCumSimpsonConcentration = withGroupCumulativeSimpsonConcentration;
+pub const withGroupCumSimpsonConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+pub const withGroupCumEvenness = withGroupCumulativeEvenness;
+pub const withGroupCumEvennessOn = withGroupCumulativeEvennessOn;
+pub const withGroupCumGini = withGroupCumulativeGiniImpurity;
+pub const withGroupCumGiniOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumConcentration = withGroupCumulativeSimpsonConcentration;
+pub const withGroupCumConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

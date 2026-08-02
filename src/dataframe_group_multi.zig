@@ -2956,6 +2956,120 @@ pub const withGroupCumModeRatioOn = withGroupCumulativeModeRatioOn;
 pub const withGroupCumModeMarginOn = withGroupCumulativeModeMarginOn;
 pub const withGroupCumModeMarginRatioOn = withGroupCumulativeModeMarginRatioOn;
 
+fn withGroupCumulativeDistributionOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    comptime aggregation: GroupByDistributionAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(frame.allocator);
+        group_value_rows.deinit(frame.allocator);
+    }
+
+    for (values, 0..) |_, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_value_rows.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_value_rows.items[group_index].append(frame.allocator, row);
+        outputs[row] = distributionMetric(V, aggregation, values, group_value_rows.items[group_index].items);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeDistributionOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime aggregation: GroupByDistributionAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .bool => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, bool, frame, key_names, output_name, typed, aggregation),
+        .i8 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation),
+        .i16 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation),
+        .i32 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation),
+        .i64 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation),
+        .u8 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation),
+        .u16 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation),
+        .u32 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation),
+        .u64 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation),
+        .usize => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation),
+        .isize => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation),
+        .f16 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation),
+        .f32 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation),
+        .f64 => |typed| withGroupCumulativeDistributionOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeEntropyOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .entropy);
+}
+
+pub fn withGroupCumulativeGiniImpurityOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .gini_impurity);
+}
+
+pub fn withGroupCumulativePerplexityOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .perplexity);
+}
+
+pub fn withGroupCumulativeInverseSimpsonOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .inverse_simpson);
+}
+
+pub fn withGroupCumulativeSimpsonConcentrationOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .simpson_concentration);
+}
+
+pub fn withGroupCumulativeEvennessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeDistributionOn(DeviceDataFrame, frame, key_names, value_name, output_name, .evenness);
+}
+
+pub const withGroupCumulativeGiniOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumulativeConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+pub const withGroupCumEntropyOn = withGroupCumulativeEntropyOn;
+pub const withGroupCumGiniImpurityOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumGiniOn = withGroupCumulativeGiniImpurityOn;
+pub const withGroupCumPerplexityOn = withGroupCumulativePerplexityOn;
+pub const withGroupCumInverseSimpsonOn = withGroupCumulativeInverseSimpsonOn;
+pub const withGroupCumSimpsonConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+pub const withGroupCumConcentrationOn = withGroupCumulativeSimpsonConcentrationOn;
+pub const withGroupCumEvennessOn = withGroupCumulativeEvennessOn;
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(
