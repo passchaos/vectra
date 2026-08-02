@@ -5031,6 +5031,12 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_mode_ratio => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_mode_ratio"),
         .group_cumulative_weighted_mode_margin => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_mode_margin"),
         .group_cumulative_weighted_mode_margin_ratio => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_mode_margin_ratio"),
+        .group_cumulative_weighted_entropy => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_entropy"),
+        .group_cumulative_weighted_gini_impurity => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_gini_impurity"),
+        .group_cumulative_weighted_perplexity => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_perplexity"),
+        .group_cumulative_weighted_inverse_simpson => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_inverse_simpson"),
+        .group_cumulative_weighted_simpson_concentration => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_simpson_concentration"),
+        .group_cumulative_weighted_evenness => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_evenness"),
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);

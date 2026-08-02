@@ -1291,7 +1291,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
                 }
             },
-            .group_cumulative_weighted_mean, .group_cumulative_weighted_median, .group_cumulative_weighted_iqr, .group_cumulative_weighted_mad, .group_cumulative_weighted_mode, .group_cumulative_weighted_mode_weight, .group_cumulative_weighted_mode_ratio, .group_cumulative_weighted_mode_margin, .group_cumulative_weighted_mode_margin_ratio, .group_cumulative_weighted_variance, .group_cumulative_weighted_stddev => |shift| {
+            .group_cumulative_weighted_mean, .group_cumulative_weighted_median, .group_cumulative_weighted_iqr, .group_cumulative_weighted_mad, .group_cumulative_weighted_mode, .group_cumulative_weighted_mode_weight, .group_cumulative_weighted_mode_ratio, .group_cumulative_weighted_mode_margin, .group_cumulative_weighted_mode_margin_ratio, .group_cumulative_weighted_entropy, .group_cumulative_weighted_gini_impurity, .group_cumulative_weighted_perplexity, .group_cumulative_weighted_inverse_simpson, .group_cumulative_weighted_simpson_concentration, .group_cumulative_weighted_evenness, .group_cumulative_weighted_variance, .group_cumulative_weighted_stddev => |shift| {
                 try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
                 if (shift.names.len == 0) {
                     projection_blocked = true;

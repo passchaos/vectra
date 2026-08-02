@@ -3210,6 +3210,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "bad_weighted_cum_mode"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "bad_weighted_cum_entropy"));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
@@ -3346,6 +3347,62 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_ratio_lazy", &group_cum_weighted_mode_ratio_expected, &group_cum_weighted_mode_validity);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_margin_lazy", &group_cum_weighted_mode_margin_expected, &group_cum_weighted_mode_validity);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_margin_ratio_lazy", &group_cum_weighted_mode_margin_ratio_expected, &group_cum_weighted_mode_validity);
+
+    const weighted_entropy_12 = -(@as(f64, 0.25) * std.math.log(f64, std.math.e, @as(f64, 0.25)) + @as(f64, 0.75) * std.math.log(f64, std.math.e, @as(f64, 0.75)));
+    const weighted_entropy_123 = -(@as(f64, 1.0 / 6.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 6.0)) + @as(f64, 0.5) * std.math.log(f64, std.math.e, @as(f64, 0.5)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0)));
+    const ln2 = std.math.log(f64, std.math.e, @as(f64, 2.0));
+    const ln3 = std.math.log(f64, std.math.e, @as(f64, 3.0));
+    const group_cum_weighted_entropy_expected = [_]f64{ 0.0, weighted_entropy_12, weighted_entropy_123, 0.0, ln2, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_gini_expected = [_]f64{ 0.0, 0.375, 11.0 / 18.0, 0.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_perplexity_expected = [_]f64{ 1.0, std.math.exp(weighted_entropy_12), std.math.exp(weighted_entropy_123), 1.0, 2.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_inverse_expected = [_]f64{ 1.0, 1.6, 18.0 / 7.0, 1.0, 2.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_concentration_expected = [_]f64{ 1.0, 0.625, 7.0 / 18.0, 1.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_evenness_expected = [_]f64{ 1.0, weighted_entropy_12 / ln2, weighted_entropy_123 / ln3, 1.0, 1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_entropy = try weighted_table.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "value_weighted_cum_entropy");
+    defer group_cum_weighted_entropy.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_entropy, gpa, "value_weighted_cum_entropy", &group_cum_weighted_entropy_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_gini = try weighted_table.withGroupCumulativeWeightedGini("bucket", "value", "weight", "value_weighted_cum_gini");
+    defer group_cum_weighted_gini.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_gini, gpa, "value_weighted_cum_gini", &group_cum_weighted_gini_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_perplexity = try weighted_table.withGroupCumulativeWeightedPerplexity("bucket", "value", "weight", "value_weighted_cum_perplexity");
+    defer group_cum_weighted_perplexity.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_perplexity, gpa, "value_weighted_cum_perplexity", &group_cum_weighted_perplexity_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_inverse = try weighted_table.withGroupCumulativeWeightedInverseSimpson("bucket", "value", "weight", "value_weighted_cum_inverse");
+    defer group_cum_weighted_inverse.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_inverse, gpa, "value_weighted_cum_inverse", &group_cum_weighted_inverse_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_concentration = try weighted_table.withGroupCumulativeWeightedConcentration("bucket", "value", "weight", "value_weighted_cum_concentration");
+    defer group_cum_weighted_concentration.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_concentration, gpa, "value_weighted_cum_concentration", &group_cum_weighted_concentration_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_evenness = try weighted_table.withGroupCumulativeWeightedEvenness("bucket", "value", "weight", "value_weighted_cum_evenness");
+    defer group_cum_weighted_evenness.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_evenness, gpa, "value_weighted_cum_evenness", &group_cum_weighted_evenness_expected, &group_cum_weighted_mode_validity);
+
+    var cumulative_weighted_distribution_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_distribution_plan.deinit();
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "value_weighted_cum_entropy_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedGini("bucket", "value", "weight", "value_weighted_cum_gini_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedPerplexity("bucket", "value", "weight", "value_weighted_cum_perplexity_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedInverseSimpson("bucket", "value", "weight", "value_weighted_cum_inverse_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedConcentration("bucket", "value", "weight", "value_weighted_cum_concentration_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedEvenness("bucket", "value", "weight", "value_weighted_cum_evenness_lazy");
+    const cumulative_weighted_distribution_explained = try cumulative_weighted_distribution_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_distribution_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_entropy([bucket], value=value, weight=weight->value_weighted_cum_entropy_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_evenness([bucket], value=value, weight=weight->value_weighted_cum_evenness_lazy)") != null);
+    var lazy_cumulative_weighted_distribution = try cumulative_weighted_distribution_plan.collect();
+    defer lazy_cumulative_weighted_distribution.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_entropy_lazy", &group_cum_weighted_entropy_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_gini_lazy", &group_cum_weighted_gini_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_perplexity_lazy", &group_cum_weighted_perplexity_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_inverse_lazy", &group_cum_weighted_inverse_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_concentration_lazy", &group_cum_weighted_concentration_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_evenness_lazy", &group_cum_weighted_evenness_expected, &group_cum_weighted_mode_validity);
 
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };

@@ -1799,6 +1799,81 @@ pub const withGroupCumWeightedModeMarginOn = withGroupCumulativeWeightedModeMarg
 pub const withGroupCumWeightedModeMarginRatio = withGroupCumulativeWeightedModeMarginRatio;
 pub const withGroupCumWeightedModeMarginRatioOn = withGroupCumulativeWeightedModeMarginRatioOn;
 
+pub fn withGroupCumulativeWeightedEntropy(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedEntropyOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEntropyOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedEntropy(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniImpurity(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedGiniImpurityOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniImpurityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedGiniImpurity(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedPerplexity(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedPerplexityOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedPerplexityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedPerplexity(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedInverseSimpson(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedInverseSimpsonOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedInverseSimpsonOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedInverseSimpson(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSimpsonConcentration(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSimpsonConcentrationOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSimpsonConcentrationOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedSimpsonConcentration(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEvenness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedEvennessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEvennessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedEvenness(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedGini = withGroupCumulativeWeightedGiniImpurity;
+pub const withGroupCumulativeWeightedGiniOn = withGroupCumulativeWeightedGiniImpurityOn;
+pub const withGroupCumulativeWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
+pub const withGroupCumulativeWeightedConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
+pub const withGroupCumWeightedEntropy = withGroupCumulativeWeightedEntropy;
+pub const withGroupCumWeightedEntropyOn = withGroupCumulativeWeightedEntropyOn;
+pub const withGroupCumWeightedGiniImpurity = withGroupCumulativeWeightedGiniImpurity;
+pub const withGroupCumWeightedGiniImpurityOn = withGroupCumulativeWeightedGiniImpurityOn;
+pub const withGroupCumWeightedGini = withGroupCumulativeWeightedGiniImpurity;
+pub const withGroupCumWeightedGiniOn = withGroupCumulativeWeightedGiniImpurityOn;
+pub const withGroupCumWeightedPerplexity = withGroupCumulativeWeightedPerplexity;
+pub const withGroupCumWeightedPerplexityOn = withGroupCumulativeWeightedPerplexityOn;
+pub const withGroupCumWeightedInverseSimpson = withGroupCumulativeWeightedInverseSimpson;
+pub const withGroupCumWeightedInverseSimpsonOn = withGroupCumulativeWeightedInverseSimpsonOn;
+pub const withGroupCumWeightedSimpsonConcentration = withGroupCumulativeWeightedSimpsonConcentration;
+pub const withGroupCumWeightedSimpsonConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
+pub const withGroupCumWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
+pub const withGroupCumWeightedConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
+pub const withGroupCumWeightedEvenness = withGroupCumulativeWeightedEvenness;
+pub const withGroupCumWeightedEvennessOn = withGroupCumulativeWeightedEvennessOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
