@@ -265,6 +265,24 @@ pub fn withGroupNthRowValueOn(self: anytype, key_names: []const []const u8, valu
 pub const withGroupNthValue = withGroupNthRowValue;
 pub const withGroupNthValueOn = withGroupNthRowValueOn;
 
+pub fn withGroupFirstValidValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupFirstValidValueOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupFirstValidValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupFirstValidValue(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupLastValidValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupLastValidValueOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupLastValidValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupLastValidValue(self, key_names, value_name, output_name);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);
