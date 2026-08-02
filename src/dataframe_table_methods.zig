@@ -3682,6 +3682,18 @@ pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDi
 pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
 pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
+pub fn withRowWeightedChebyshevDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedChebyshevDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedCanberraDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedCanberraDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedBrayCurtisDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedBrayCurtisDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
 pub fn withRowWeightedMeanError(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMeanError(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
 }

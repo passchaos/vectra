@@ -633,7 +633,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_weighted.weight_names);
             allocator.free(row_weighted.output_name);
         },
-        .row_weighted_dot, .row_weighted_cosine_similarity, .row_weighted_squared_euclidean_distance, .row_weighted_euclidean_distance, .row_weighted_manhattan_distance, .row_weighted_mean_error, .row_weighted_mae, .row_weighted_mse, .row_weighted_rmse, .row_weighted_mape, .row_weighted_smape, .row_weighted_covariance, .row_weighted_correlation, .row_weighted_beta => |row_weighted| {
+        .row_weighted_dot, .row_weighted_cosine_similarity, .row_weighted_squared_euclidean_distance, .row_weighted_euclidean_distance, .row_weighted_manhattan_distance, .row_weighted_chebyshev_distance, .row_weighted_canberra_distance, .row_weighted_bray_curtis_distance, .row_weighted_mean_error, .row_weighted_mae, .row_weighted_mse, .row_weighted_rmse, .row_weighted_mape, .row_weighted_smape, .row_weighted_covariance, .row_weighted_correlation, .row_weighted_beta => |row_weighted| {
             freeNameList(allocator, row_weighted.lhs_names);
             freeNameList(allocator, row_weighted.rhs_names);
             freeNameList(allocator, row_weighted.weight_names);

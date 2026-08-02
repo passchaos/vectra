@@ -1900,6 +1900,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_manhattan_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_manhattan_table, gpa, "row_weighted_manhattan", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ true, true, false, true });
 
+    var row_weighted_chebyshev_table = try validity_table.withRowWeightedChebyshevDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_chebyshev");
+    defer row_weighted_chebyshev_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_chebyshev_table, gpa, "row_weighted_chebyshev", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ true, true, false, true });
+
+    var row_weighted_canberra_table = try validity_table.withRowWeightedCanberraDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_canberra");
+    defer row_weighted_canberra_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_canberra_table, gpa, "row_weighted_canberra", &.{ 0.0, 19.0 / 21.0, 0.0, 39.0 / 41.0 }, &.{ true, true, false, true });
+
+    var row_weighted_bray_table = try validity_table.withRowWeightedBrayCurtisDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_bray");
+    defer row_weighted_bray_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_bray_table, gpa, "row_weighted_bray", &.{ 0.0, 19.0 / 21.0, 0.0, 39.0 / 73.0 }, &.{ true, true, false, true });
+
     var row_weighted_bias_table = try validity_table.withRowWeightedBias(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_bias");
     defer row_weighted_bias_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_bias_table, gpa, "row_weighted_bias", &.{ 0.0, 19.0, 0.0, 39.0 / 5.0 }, &.{ true, true, false, true });

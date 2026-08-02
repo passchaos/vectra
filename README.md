@@ -801,8 +801,10 @@ lhs/rhs/weight column lists, sharing null-pair skipping, negative-weight
 rejection, zero-variance NaN semantics, and correction-controlled denominators.
 `withRowWeightedDot`, `withRowWeightedCosineSimilarity`,
 `withRowWeightedSquaredEuclideanDistance`, `withRowWeightedEuclideanDistance`,
-and `withRowWeightedManhattanDistance` extend those aligned weighted pair lists
-to vector similarity and distance diagnostics.
+`withRowWeightedManhattanDistance`, `withRowWeightedChebyshevDistance`,
+`withRowWeightedCanberraDistance`, and `withRowWeightedBrayCurtisDistance`
+extend those aligned weighted pair lists to vector similarity and distance
+diagnostics.
 `withRowWeightedMeanError`/`withRowWeightedBias`, `withRowWeightedMae`,
 `withRowWeightedMse`, `withRowWeightedRmse`, `withRowWeightedMape`, and
 `withRowWeightedSmape` append weighted row-wise forecast/error diagnostics over

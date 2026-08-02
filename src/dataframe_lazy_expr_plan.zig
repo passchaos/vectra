@@ -3939,7 +3939,7 @@ fn withRowWeightedPair(
     weight_names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { dot, cosine, squared_euclidean, euclidean, manhattan, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
+    comptime reduction: enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta },
 ) DeviceDataError!void {
     const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -3988,6 +3988,27 @@ fn withRowWeightedPair(
             .correction = correction,
         } }),
         .manhattan => try frame.ops.append(frame.allocator, .{ .row_weighted_manhattan_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .chebyshev => try frame.ops.append(frame.allocator, .{ .row_weighted_chebyshev_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .canberra => try frame.ops.append(frame.allocator, .{ .row_weighted_canberra_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .bray_curtis => try frame.ops.append(frame.allocator, .{ .row_weighted_bray_curtis_distance = .{
             .lhs_names = owned_lhs,
             .rhs_names = owned_rhs,
             .weight_names = owned_weights,
@@ -4085,6 +4106,18 @@ pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistan
 pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
 pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
 pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
+
+pub fn withRowWeightedChebyshevDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .chebyshev);
+}
+
+pub fn withRowWeightedCanberraDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .canberra);
+}
+
+pub fn withRowWeightedBrayCurtisDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .bray_curtis);
+}
 
 pub fn withRowWeightedMeanError(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .mean_error);

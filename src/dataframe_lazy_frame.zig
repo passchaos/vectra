@@ -2601,6 +2601,18 @@ pub fn DeviceLazyTypes(
 
             pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
+            pub fn withRowWeightedChebyshevDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedChebyshevDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedCanberraDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedCanberraDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedBrayCurtisDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedBrayCurtisDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
             pub fn withRowWeightedMeanError(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMeanError(self, lhs_names, rhs_names, weight_names, output_name);
             }
