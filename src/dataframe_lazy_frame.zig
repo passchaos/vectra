@@ -2467,6 +2467,40 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedWinsorizedMean(self, value_names, weight_names, output_name, winsor_fraction);
             }
 
+            pub fn withRowWeightedInterdecileRange(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedInterdecileRange(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
+            pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+
+            pub fn withRowWeightedMidhinge(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedMidhinge(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedTrimean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedTrimean(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedBowleySkewness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedBowleySkewness(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
+
+            pub fn withRowWeightedQuartileCoeffDispersion(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedQuartileCoeffDispersion(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
+            pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
+
+            pub fn withRowWeightedKelleySkewness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedKelleySkewness(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedKelleySkew = withRowWeightedKelleySkewness;
+
             pub fn withRowWeightedMode(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMode(self, value_names, weight_names, output_name);
             }

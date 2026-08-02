@@ -4285,6 +4285,104 @@ pub fn withRowWeightedWinsorizedMean(
     return withRowWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
 }
 
+fn withRowWeightedPercentileShape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness },
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+            total_weight += weight;
+            count += 1;
+        }
+        if (count == 0 or !(total_weight > 0.0)) continue;
+
+        const active = scratch[0..count];
+        std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+        const q10 = rowWeightedQuantileFromSorted(active, 0.10, total_weight);
+        const q25 = rowWeightedQuantileFromSorted(active, 0.25, total_weight);
+        const q50 = rowWeightedQuantileFromSorted(active, 0.50, total_weight);
+        const q75 = rowWeightedQuantileFromSorted(active, 0.75, total_weight);
+        const q90 = rowWeightedQuantileFromSorted(active, 0.90, total_weight);
+        values[row] = switch (op) {
+            .interdecile_range => q90 - q10,
+            .midhinge => (q25 + q75) / 2.0,
+            .trimean => (q25 + 2.0 * q50 + q75) / 4.0,
+            .bowley_skewness => blk: {
+                const denominator = q75 - q25;
+                break :blk if (denominator == 0.0) quietNanF64() else (q75 + q25 - 2.0 * q50) / denominator;
+            },
+            .quartile_coeff_dispersion => blk: {
+                const denominator = q75 + q25;
+                break :blk if (denominator == 0.0) quietNanF64() else (q75 - q25) / denominator;
+            },
+            .kelley_skewness => blk: {
+                const denominator = q90 - q10;
+                break :blk if (denominator == 0.0) quietNanF64() else (q90 + q10 - 2.0 * q50) / denominator;
+            },
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedInterdecileRange(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .interdecile_range);
+}
+
+pub fn withRowWeightedMidhinge(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .midhinge);
+}
+
+pub fn withRowWeightedTrimean(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .trimean);
+}
+
+pub fn withRowWeightedBowleySkewness(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .bowley_skewness);
+}
+
+pub fn withRowWeightedQuartileCoeffDispersion(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .quartile_coeff_dispersion);
+}
+
+pub fn withRowWeightedKelleySkewness(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_name, .kelley_skewness);
+}
+
+pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
+pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
+pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
+pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
+pub const withRowWeightedKelleySkew = withRowWeightedKelleySkewness;
+
 pub fn withRowWeightedMode(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

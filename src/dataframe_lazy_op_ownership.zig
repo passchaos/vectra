@@ -3311,6 +3311,60 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .row_weighted_interdecile_range => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_interdecile_range = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
+        .row_weighted_midhinge => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_midhinge = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
+        .row_weighted_trimean => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_trimean = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
+        .row_weighted_bowley_skewness => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_bowley_skewness = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
+        .row_weighted_quartile_coeff_dispersion => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_quartile_coeff_dispersion = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
+        .row_weighted_kelley_skewness => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_kelley_skewness = .{ .value_names = value_names, .weight_names = weight_names, .output_name = output_name } };
+        },
         .row_weighted_mode => |row_weighted| blk: {
             const value_names = try cloneNameList(allocator, row_weighted.value_names);
             errdefer freeNameList(allocator, value_names);

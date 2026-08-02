@@ -25,6 +25,11 @@ fn cloneNameList(allocator: std.mem.Allocator, names: []const []const u8) std.me
     return owned;
 }
 
+fn freeNameList(allocator: std.mem.Allocator, names: []const []const u8) void {
+    for (names) |name| allocator.free(name);
+    allocator.free(names);
+}
+
 pub fn select(frame: anytype, names: []const []const u8) DeviceDataError!void {
     const owned = try cloneNameList(frame.allocator, names);
     try frame.ops.append(frame.allocator, .{ .select = owned });
@@ -3874,6 +3879,54 @@ pub fn withRowWeightedTrimmedMean(frame: anytype, value_names: []const []const u
 pub fn withRowWeightedWinsorizedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
     return withRowWeightedRobustMean(frame, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
 }
+
+fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .interdecile_range => .{ .row_weighted_interdecile_range = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .midhinge => .{ .row_weighted_midhinge = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .trimean => .{ .row_weighted_trimean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .bowley_skewness => .{ .row_weighted_bowley_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .quartile_coeff_dispersion => .{ .row_weighted_quartile_coeff_dispersion = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .kelley_skewness => .{ .row_weighted_kelley_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedInterdecileRange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .interdecile_range);
+}
+
+pub fn withRowWeightedMidhinge(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .midhinge);
+}
+
+pub fn withRowWeightedTrimean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .trimean);
+}
+
+pub fn withRowWeightedBowleySkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .bowley_skewness);
+}
+
+pub fn withRowWeightedQuartileCoeffDispersion(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .quartile_coeff_dispersion);
+}
+
+pub fn withRowWeightedKelleySkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPercentileShape(frame, value_names, weight_names, output_name, .kelley_skewness);
+}
+
+pub const withRowWeightedIdr = withRowWeightedInterdecileRange;
+pub const withRowWeightedIDR = withRowWeightedInterdecileRange;
+pub const withRowWeightedBowleySkew = withRowWeightedBowleySkewness;
+pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
+pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
+pub const withRowWeightedKelleySkew = withRowWeightedKelleySkewness;
 
 pub fn withRowWeightedMode(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);

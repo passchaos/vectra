@@ -11,6 +11,35 @@ const DeviceScalar = vectra.DeviceScalar;
 const DeviceValidityEncoding = vectra.DeviceValidityEncoding;
 const DeviceParquetScan = vectra.DeviceParquetScan;
 
+fn expectApproxOrNan(expected: f64, actual: f64) !void {
+    if (std.math.isNan(expected)) {
+        try std.testing.expect(std.math.isNan(actual));
+    } else {
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+}
+
+fn expectF64SliceApproxOrNan(expected: []const f64, actual: []const f64) !void {
+    try std.testing.expectEqual(expected.len, actual.len);
+    for (expected, actual) |expected_item, actual_item| {
+        try expectApproxOrNan(expected_item, actual_item);
+    }
+}
+
+fn expectF64ColumnApproxOrNanWithValidity(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected_values: []const f64, expected_validity: []const bool) !void {
+    const column = try frame.column(name);
+    const values = try column.f64.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    try expectF64SliceApproxOrNan(expected_values, values);
+    if (column.f64.validity) |mask| {
+        const validity = try mask.toOwnedSlice(allocator);
+        defer allocator.free(validity);
+        try std.testing.expectEqualSlices(bool, expected_validity, validity);
+    } else {
+        for (expected_validity) |valid| try std.testing.expect(valid);
+    }
+}
+
 test "dataframe select filter groupby and csv" {
     const gpa = std.testing.allocator;
     var df = try DataFrame.init(gpa, &.{
@@ -1530,6 +1559,30 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(row_weighted_winsorized_validity);
     try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_weighted_winsorized);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_winsorized_validity);
+
+    var row_weighted_idr_table = try validity_table.withRowWeightedInterdecileRange(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_idr");
+    defer row_weighted_idr_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_idr_table, gpa, "row_weighted_idr", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ true, true, false, true });
+
+    var row_weighted_midhinge_table = try validity_table.withRowWeightedMidhinge(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_midhinge");
+    defer row_weighted_midhinge_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_midhinge_table, gpa, "row_weighted_midhinge", &.{ 1.0, 20.0, 0.0, 4.0 }, &.{ true, true, false, true });
+
+    var row_weighted_trimean_table = try validity_table.withRowWeightedTrimean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_trimean");
+    defer row_weighted_trimean_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_trimean_table, gpa, "row_weighted_trimean", &.{ 1.0, 20.0, 0.0, 4.0 }, &.{ true, true, false, true });
+
+    var row_weighted_bowley_table = try validity_table.withRowWeightedBowleySkewness(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_bowley");
+    defer row_weighted_bowley_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_bowley_table, gpa, "row_weighted_bowley", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, std.math.nan(f64) }, &.{ true, true, false, true });
+
+    var row_weighted_qcd_table = try validity_table.withRowWeightedQcd(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_qcd");
+    defer row_weighted_qcd_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_qcd_table, gpa, "row_weighted_qcd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, false, true });
+
+    var row_weighted_kelley_table = try validity_table.withRowWeightedKelleySkewness(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_kelley");
+    defer row_weighted_kelley_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_kelley_table, gpa, "row_weighted_kelley", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, 1.0 }, &.{ true, true, false, true });
 
     var row_weighted_mode_table = try validity_table.withRowWeightedMode(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode");
     defer row_weighted_mode_table.deinit();

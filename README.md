@@ -781,6 +781,13 @@ negative weights.
 `withRowWeightedIqr` and `withRowWeightedMad` extend those weighted row
 distribution semantics to robust spread statistics, using weighted quartile
 spread and weighted median absolute deviation.
+`withRowWeightedInterdecileRange`, `withRowWeightedIdr`,
+`withRowWeightedMidhinge`, `withRowWeightedTrimean`,
+`withRowWeightedBowleySkewness`, `withRowWeightedQuartileCoeffDispersion`, and
+`withRowWeightedKelleySkewness` append weighted row-wise percentile-shape
+diagnostics over aligned value/weight lists, using the same cumulative-weight
+threshold quantile semantics while preserving null rows and NaN zero-spread
+skewness semantics.
 `withRowWeightedMode` appends the highest total-weight distinct row-wise
 value, preserving first-distinct tie-breaking while skipping null pairs and
 rejecting negative weights.
