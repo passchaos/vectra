@@ -53,6 +53,8 @@ const GroupByRealAggregation = enum {
     l2_norm,
     geometric_mean,
     harmonic_mean,
+    logsumexp,
+    logmeanexp,
     ptp,
     midrange,
     range_coeff,
@@ -760,6 +762,27 @@ fn groupByRealOnTyped(
                     totals.items[group_index] += 1.0 / value_f64;
                 }
             },
+            .logsumexp, .logmeanexp => {
+                if (std.math.isNan(value_f64)) {
+                    totals.items[group_index] = std.math.nan(f64);
+                    aux_values.items[group_index] = std.math.nan(f64);
+                } else if (counts.items[group_index] == 0) {
+                    aux_values.items[group_index] = value_f64;
+                    totals.items[group_index] = 1.0;
+                } else if (!std.math.isNan(totals.items[group_index])) {
+                    if (std.math.isPositiveInf(aux_values.items[group_index])) {
+                        totals.items[group_index] = 1.0;
+                    } else if (std.math.isPositiveInf(value_f64)) {
+                        aux_values.items[group_index] = value_f64;
+                        totals.items[group_index] = 1.0;
+                    } else if (value_f64 > aux_values.items[group_index]) {
+                        totals.items[group_index] = totals.items[group_index] * std.math.exp(aux_values.items[group_index] - value_f64) + 1.0;
+                        aux_values.items[group_index] = value_f64;
+                    } else if (!(std.math.isNegativeInf(aux_values.items[group_index]) and std.math.isNegativeInf(value_f64))) {
+                        totals.items[group_index] += std.math.exp(value_f64 - aux_values.items[group_index]);
+                    }
+                }
+            },
             .ptp, .midrange, .range_coeff => {
                 if (counts.items[group_index] == 0) {
                     totals.items[group_index] = value_f64;
@@ -786,6 +809,13 @@ fn groupByRealOnTyped(
             .l2_norm => std.math.sqrt(total),
             .geometric_mean => if (std.math.isNan(total)) std.math.nan(f64) else if (has_zero) 0.0 else std.math.exp(total / @as(f64, @floatFromInt(count))),
             .harmonic_mean => if (std.math.isInf(total)) 0.0 else @as(f64, @floatFromInt(count)) / total,
+            .logsumexp, .logmeanexp => blk: {
+                if (std.math.isNan(total) or std.math.isNan(aux_value)) break :blk std.math.nan(f64);
+                if (std.math.isPositiveInf(aux_value) or std.math.isNegativeInf(aux_value)) break :blk aux_value;
+                var result = aux_value + std.math.log(f64, std.math.e, total);
+                if (aggregation == .logmeanexp) result -= std.math.log(f64, std.math.e, @as(f64, @floatFromInt(count)));
+                break :blk result;
+            },
             .ptp => aux_value - total,
             .midrange => (total + aux_value) / 2.0,
             .range_coeff => blk: {
@@ -871,6 +901,26 @@ pub fn groupByHarmonicMeanOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRealOn(DeviceDataFrame, .harmonic_mean, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLogSumExpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .logsumexp, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLogMeanExpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .logmeanexp, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByPtpOn(

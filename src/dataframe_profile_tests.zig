@@ -520,6 +520,32 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), harmonic_ratio_values[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, -8.0 / 3.0), harmonic_ratio_values[3], 1e-12);
 
+    var log_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3 }, .cpu);
+    defer log_key.deinit();
+    var logit = try DeviceColumn.fromSlice(f64, gpa, &.{ 1000.0, 1001.0, -std.math.inf(f64), -std.math.inf(f64), std.math.nan(f64), 1.0 }, .cpu);
+    defer logit.deinit();
+    var log_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = log_key },
+        .{ .name = "logit", .data = logit },
+    });
+    defer log_table.deinit();
+
+    var logsumexp_logits = try log_table.groupByLogSumExp("bucket", "logit", "logit_logsumexp");
+    defer logsumexp_logits.deinit();
+    const logsumexp_logit_values = try (try logsumexp_logits.column("logit_logsumexp")).f64.toOwnedSlice(gpa);
+    defer gpa.free(logsumexp_logit_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1001.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))), logsumexp_logit_values[0], 1e-12);
+    try std.testing.expect(std.math.isNegativeInf(logsumexp_logit_values[1]));
+    try std.testing.expect(std.math.isNan(logsumexp_logit_values[2]));
+
+    var logmeanexp_logits = try log_table.groupByLogMeanExp("bucket", "logit", "logit_logmeanexp");
+    defer logmeanexp_logits.deinit();
+    const logmeanexp_logit_values = try (try logmeanexp_logits.column("logit_logmeanexp")).f64.toOwnedSlice(gpa);
+    defer gpa.free(logmeanexp_logit_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1001.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))) - std.math.ln2, logmeanexp_logit_values[0], 1e-12);
+    try std.testing.expect(std.math.isNegativeInf(logmeanexp_logit_values[1]));
+    try std.testing.expect(std.math.isNan(logmeanexp_logit_values[2]));
+
     var skew_sales = try table.groupBySkewness("store", "sales", "sales_skewness_simple");
     defer skew_sales.deinit();
     const skew_sales_values = try (try skew_sales.column("sales_skewness_simple")).f64.toOwnedSlice(gpa);
@@ -792,6 +818,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_harmonic[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_harmonic[3], 1e-12);
 
+    var multi_logsumexp = try multi.groupByLogSumExpOn(&.{ "store", "day" }, "amount", "amount_logsumexp_simple");
+    defer multi_logsumexp.deinit();
+    const ms_simple_logsumexp = try (try multi_logsumexp.column("amount_logsumexp_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_logsumexp);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))), ms_simple_logsumexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_logsumexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_logsumexp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_logsumexp[3], 1e-12);
+
+    var multi_logmeanexp = try multi.groupByLogMeanExpOn(&.{ "store", "day" }, "amount", "amount_logmeanexp_simple");
+    defer multi_logmeanexp.deinit();
+    const ms_simple_logmeanexp = try (try multi_logmeanexp.column("amount_logmeanexp_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_logmeanexp);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))) - std.math.ln2, ms_simple_logmeanexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_logmeanexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_logmeanexp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_logmeanexp[3], 1e-12);
+
     var multi_ptp = try multi.groupByPTPOn(&.{ "store", "day" }, "amount", "amount_ptp_simple");
     defer multi_ptp.deinit();
     const ms_simple_ptp = try (try multi_ptp.column("amount_ptp_simple")).f64.toOwnedSlice(gpa);
@@ -1052,6 +1096,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_harmonic[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_harmonic[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_harmonic[3], 1e-12);
+
+    var multi_logsumexp_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_logsumexp_plan.deinit();
+    try multi_logsumexp_plan.groupByLogsumexpOn(&.{ "store", "day" }, "amount", "amount_logsumexp_lazy");
+    const multi_logsumexp_explained = try multi_logsumexp_plan.explain(gpa);
+    defer gpa.free(multi_logsumexp_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_logsumexp_explained, "group_by_logsumexp_on([store,day], value=amount -> amount_logsumexp_lazy)") != null);
+    var lazy_multi_logsumexp = try multi_logsumexp_plan.collect();
+    defer lazy_multi_logsumexp.deinit();
+    const lazy_ms_logsumexp = try (try lazy_multi_logsumexp.column("amount_logsumexp_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_logsumexp);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))), lazy_ms_logsumexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_logsumexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_logsumexp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_logsumexp[3], 1e-12);
+
+    var multi_logmeanexp_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_logmeanexp_plan.deinit();
+    try multi_logmeanexp_plan.groupByLogMeanExpOn(&.{ "store", "day" }, "amount", "amount_logmeanexp_lazy");
+    const multi_logmeanexp_explained = try multi_logmeanexp_plan.explain(gpa);
+    defer gpa.free(multi_logmeanexp_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_logmeanexp_explained, "group_by_logmeanexp_on([store,day], value=amount -> amount_logmeanexp_lazy)") != null);
+    var lazy_multi_logmeanexp = try multi_logmeanexp_plan.collect();
+    defer lazy_multi_logmeanexp.deinit();
+    const lazy_ms_logmeanexp = try (try lazy_multi_logmeanexp.column("amount_logmeanexp_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_logmeanexp);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0) + std.math.log1p(std.math.exp(@as(f64, -1.0))) - std.math.ln2, lazy_ms_logmeanexp[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_logmeanexp[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_logmeanexp[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_logmeanexp[3], 1e-12);
 
     var multi_ptp_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_ptp_plan.deinit();

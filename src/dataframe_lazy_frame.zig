@@ -5693,6 +5693,14 @@ pub fn DeviceLazyTypes(
             pub const groupByGeoMeanOn = lazy_relation_methods_mod.groupByGeoMeanOn;
             pub const groupByHarmonicMean = lazy_relation_methods_mod.groupByHarmonicMean;
             pub const groupByHarmonicMeanOn = lazy_relation_methods_mod.groupByHarmonicMeanOn;
+            pub const groupByLogSumExp = lazy_relation_methods_mod.groupByLogSumExp;
+            pub const groupByLogSumExpOn = lazy_relation_methods_mod.groupByLogSumExpOn;
+            pub const groupByLogsumexp = lazy_relation_methods_mod.groupByLogsumexp;
+            pub const groupByLogsumexpOn = lazy_relation_methods_mod.groupByLogsumexpOn;
+            pub const groupByLogMeanExp = lazy_relation_methods_mod.groupByLogMeanExp;
+            pub const groupByLogMeanExpOn = lazy_relation_methods_mod.groupByLogMeanExpOn;
+            pub const groupByLogmeanexp = lazy_relation_methods_mod.groupByLogmeanexp;
+            pub const groupByLogmeanexpOn = lazy_relation_methods_mod.groupByLogmeanexpOn;
             pub const groupByPtp = lazy_relation_methods_mod.groupByPtp;
             pub const groupByPtpOn = lazy_relation_methods_mod.groupByPtpOn;
             pub const groupByPTP = lazy_relation_methods_mod.groupByPTP;

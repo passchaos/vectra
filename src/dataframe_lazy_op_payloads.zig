@@ -41,6 +41,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     l2_norm,
     geometric_mean,
     harmonic_mean,
+    logsumexp,
+    logmeanexp,
     ptp,
     midrange,
     range_coeff,

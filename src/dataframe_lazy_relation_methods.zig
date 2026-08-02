@@ -287,6 +287,28 @@ pub fn groupByHarmonicMeanOn(self: anytype, key_names: []const []const u8, value
     return self.groupByValueOn(key_names, value_name, output_name, .harmonic_mean);
 }
 
+pub fn groupByLogSumExp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .logsumexp);
+}
+
+pub fn groupByLogSumExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .logsumexp);
+}
+
+pub const groupByLogsumexp = groupByLogSumExp;
+pub const groupByLogsumexpOn = groupByLogSumExpOn;
+
+pub fn groupByLogMeanExp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .logmeanexp);
+}
+
+pub fn groupByLogMeanExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .logmeanexp);
+}
+
+pub const groupByLogmeanexp = groupByLogMeanExp;
+pub const groupByLogmeanexpOn = groupByLogMeanExpOn;
+
 pub fn groupByPtp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .ptp);
 }
