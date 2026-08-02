@@ -5665,6 +5665,10 @@ pub fn DeviceLazyTypes(
             pub const groupByMADOn = lazy_relation_methods_mod.groupByMADOn;
             pub const groupByMedianAbsDev = lazy_relation_methods_mod.groupByMedianAbsDev;
             pub const groupByMedianAbsDevOn = lazy_relation_methods_mod.groupByMedianAbsDevOn;
+            pub const groupByTrimmedMean = lazy_relation_methods_mod.groupByTrimmedMean;
+            pub const groupByTrimmedMeanOn = lazy_relation_methods_mod.groupByTrimmedMeanOn;
+            pub const groupByWinsorizedMean = lazy_relation_methods_mod.groupByWinsorizedMean;
+            pub const groupByWinsorizedMeanOn = lazy_relation_methods_mod.groupByWinsorizedMeanOn;
             pub const groupByInterdecileRange = lazy_relation_methods_mod.groupByInterdecileRange;
             pub const groupByInterdecileRangeOn = lazy_relation_methods_mod.groupByInterdecileRangeOn;
             pub const groupByIdr = lazy_relation_methods_mod.groupByIdr;

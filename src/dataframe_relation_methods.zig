@@ -213,6 +213,24 @@ pub const groupByMADOn = groupByMadOn;
 pub const groupByMedianAbsDev = groupByMad;
 pub const groupByMedianAbsDevOn = groupByMadOn;
 
+pub fn groupByTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByTrimmedMeanOn(self, key_names[0..], value_name, output_name, trim_fraction);
+}
+
+pub fn groupByTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByTrimmedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, trim_fraction);
+}
+
+pub fn groupByWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWinsorizedMeanOn(self, key_names[0..], value_name, output_name, winsor_fraction);
+}
+
+pub fn groupByWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWinsorizedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, winsor_fraction);
+}
+
 pub fn groupByInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByInterdecileRangeOn(self, key_names[0..], value_name, output_name);

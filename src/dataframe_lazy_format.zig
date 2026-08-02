@@ -2624,10 +2624,11 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             try writer.print("] -> {s})", .{group.output_name});
         },
         .group_by_value => |group| {
-            if (group.aggregation == .quantile) {
-                try writer.print("group_by_quantile({s}, value={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name });
-            } else {
-                try writer.print("group_by_{s}({s}, value={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.output_name });
+            switch (group.aggregation) {
+                .quantile => try writer.print("group_by_quantile({s}, value={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
+                .trimmed_mean => try writer.print("group_by_trimmed_mean({s}, value={s}, trim_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
+                .winsorized_mean => try writer.print("group_by_winsorized_mean({s}, value={s}, winsor_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
+                else => try writer.print("group_by_{s}({s}, value={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.output_name }),
             }
         },
         .group_by_value_on => |group| {
@@ -2636,10 +2637,11 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
             }
-            if (group.aggregation == .quantile) {
-                try writer.print("], value={s}, q={d} -> {s})", .{ group.value_name, group.quantile, group.output_name });
-            } else {
-                try writer.print("], value={s} -> {s})", .{ group.value_name, group.output_name });
+            switch (group.aggregation) {
+                .quantile => try writer.print("], value={s}, q={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
+                .trimmed_mean => try writer.print("], value={s}, trim_fraction={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
+                .winsorized_mean => try writer.print("], value={s}, winsor_fraction={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
+                else => try writer.print("], value={s} -> {s})", .{ group.value_name, group.output_name }),
             }
         },
         .group_by_stats => |group| try writer.print("group_by_stats({s}, value={s}, prefix={s})", .{ group.key_name, group.value_name, group.output_prefix }),

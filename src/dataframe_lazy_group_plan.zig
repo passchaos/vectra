@@ -34,7 +34,14 @@ pub fn groupByCountOn(frame: anytype, key_names: []const []const u8, output_name
 }
 
 pub fn groupByValue(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
-    return groupByValueQuantile(frame, key_name, value_name, output_name, aggregation, 0.5);
+    return groupByValueQuantile(frame, key_name, value_name, output_name, aggregation, defaultAggregationParameter(aggregation));
+}
+
+fn defaultAggregationParameter(aggregation: DeviceLazyGroupByAggregation) f64 {
+    return switch (aggregation) {
+        .trimmed_mean, .winsorized_mean => 0.0,
+        else => 0.5,
+    };
 }
 
 pub fn groupByValueQuantile(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64) DeviceDataError!void {
@@ -54,7 +61,7 @@ pub fn groupByValueQuantile(frame: anytype, key_name: []const u8, value_name: []
 }
 
 pub fn groupByValueOn(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
-    return groupByValueOnQuantile(frame, key_names, value_name, output_name, aggregation, 0.5);
+    return groupByValueOnQuantile(frame, key_names, value_name, output_name, aggregation, defaultAggregationParameter(aggregation));
 }
 
 pub fn groupByValueOnQuantile(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64) DeviceDataError!void {

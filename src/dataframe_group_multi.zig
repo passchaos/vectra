@@ -67,6 +67,8 @@ const GroupByRealAggregation = enum {
 const GroupByRobustAggregation = enum {
     iqr,
     mad,
+    trimmed_mean,
+    winsorized_mean,
     interdecile_range,
     midhinge,
     trimean,
@@ -1041,6 +1043,38 @@ fn quantileFromSorted(sorted_values: []const f64, q: f64) f64 {
     return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight;
 }
 
+fn validateTailFraction(fraction: f64) GroupByOnError!void {
+    if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
+}
+
+fn groupByRobustUsesTailFraction(aggregation: GroupByRobustAggregation) bool {
+    return switch (aggregation) {
+        .trimmed_mean, .winsorized_mean => true,
+        else => false,
+    };
+}
+
+fn tailCount(len: usize, fraction: f64) usize {
+    return @intFromFloat(@floor(@as(f64, @floatFromInt(len)) * fraction));
+}
+
+fn trimmedMeanFromSorted(sorted_values: []const f64, trim_fraction: f64) f64 {
+    const trim_count = tailCount(sorted_values.len, trim_fraction);
+    const trimmed = sorted_values[trim_count .. sorted_values.len - trim_count];
+    var total: f64 = 0.0;
+    for (trimmed) |value| total += value;
+    return total / @as(f64, @floatFromInt(trimmed.len));
+}
+
+fn winsorizedMeanFromSorted(sorted_values: []const f64, winsor_fraction: f64) f64 {
+    const winsor_count = tailCount(sorted_values.len, winsor_fraction);
+    const lower = sorted_values[winsor_count];
+    const upper = sorted_values[sorted_values.len - winsor_count - 1];
+    var total: f64 = 0.0;
+    for (sorted_values) |value| total += @min(@max(value, lower), upper);
+    return total / @as(f64, @floatFromInt(sorted_values.len));
+}
+
 pub fn groupByQuantileOnDispatchValue(
     comptime DeviceDataFrame: type,
     allocator: std.mem.Allocator,
@@ -1152,21 +1186,23 @@ pub fn groupByRobustOnDispatchValue(
     output_name: []const u8,
     value: DeviceColumn,
     device_value: array_mod.Device,
+    fraction: f64,
 ) GroupByOnError!DeviceDataFrame {
+    if (groupByRobustUsesTailFraction(aggregation)) try validateTailFraction(fraction);
     return switch (value) {
-        .i8 => |typed| groupByRobustOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i16 => |typed| groupByRobustOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i32 => |typed| groupByRobustOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .i64 => |typed| groupByRobustOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u8 => |typed| groupByRobustOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u16 => |typed| groupByRobustOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u32 => |typed| groupByRobustOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .u64 => |typed| groupByRobustOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .usize => |typed| groupByRobustOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .isize => |typed| groupByRobustOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f16 => |typed| groupByRobustOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f32 => |typed| groupByRobustOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
-        .f64 => |typed| groupByRobustOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i8 => |typed| groupByRobustOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .i16 => |typed| groupByRobustOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .i32 => |typed| groupByRobustOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .i64 => |typed| groupByRobustOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .u8 => |typed| groupByRobustOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .u16 => |typed| groupByRobustOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .u32 => |typed| groupByRobustOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .u64 => |typed| groupByRobustOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .usize => |typed| groupByRobustOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .isize => |typed| groupByRobustOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .f16 => |typed| groupByRobustOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .f32 => |typed| groupByRobustOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
+        .f64 => |typed| groupByRobustOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value, fraction),
         .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
     };
 }
@@ -1181,6 +1217,7 @@ fn groupByRobustOnTyped(
     output_name: []const u8,
     value: DeviceTypedColumn(V),
     device_value: array_mod.Device,
+    fraction: f64,
 ) GroupByOnError!DeviceDataFrame {
     if (frame.rows != value.len()) return error.LengthMismatch;
     const values = try value.values.toOwnedSlice(allocator);
@@ -1221,6 +1258,8 @@ fn groupByRobustOnTyped(
                 std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
                 break :blk quantileFromSorted(values_for_group.items, 0.5);
             },
+            .trimmed_mean => trimmedMeanFromSorted(values_for_group.items, fraction),
+            .winsorized_mean => winsorizedMeanFromSorted(values_for_group.items, fraction),
             .interdecile_range => quantileFromSorted(values_for_group.items, 0.9) - quantileFromSorted(values_for_group.items, 0.1),
             .midhinge => (quantileFromSorted(values_for_group.items, 0.25) + quantileFromSorted(values_for_group.items, 0.75)) / 2.0,
             .trimean => (quantileFromSorted(values_for_group.items, 0.25) + 2.0 * quantileFromSorted(values_for_group.items, 0.5) + quantileFromSorted(values_for_group.items, 0.75)) / 4.0,
@@ -1258,11 +1297,13 @@ fn groupByRobustOn(
     key_names: []const []const u8,
     value_name: []const u8,
     output_name: []const u8,
+    fraction: f64,
 ) GroupByOnError!DeviceDataFrame {
+    if (groupByRobustUsesTailFraction(aggregation)) try validateTailFraction(fraction);
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value = try frame.column(value_name);
-    return groupByRobustOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+    return groupByRobustOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device, fraction);
 }
 
 pub fn groupByIqrOn(
@@ -1272,7 +1313,7 @@ pub fn groupByIqrOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .iqr, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .iqr, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByMadOn(
@@ -1282,7 +1323,29 @@ pub fn groupByMadOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .mad, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .mad, frame, key_names, value_name, output_name, 0.0);
+}
+
+pub fn groupByTrimmedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    trim_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .trimmed_mean, frame, key_names, value_name, output_name, trim_fraction);
+}
+
+pub fn groupByWinsorizedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    winsor_fraction: f64,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .winsorized_mean, frame, key_names, value_name, output_name, winsor_fraction);
 }
 
 pub fn groupByInterdecileRangeOn(
@@ -1292,7 +1355,7 @@ pub fn groupByInterdecileRangeOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .interdecile_range, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .interdecile_range, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByMidhingeOn(
@@ -1302,7 +1365,7 @@ pub fn groupByMidhingeOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .midhinge, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .midhinge, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByTrimeanOn(
@@ -1312,7 +1375,7 @@ pub fn groupByTrimeanOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .trimean, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .trimean, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByBowleySkewnessOn(
@@ -1322,7 +1385,7 @@ pub fn groupByBowleySkewnessOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .bowley_skewness, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .bowley_skewness, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByQuartileCoeffDispersionOn(
@@ -1332,7 +1395,7 @@ pub fn groupByQuartileCoeffDispersionOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .quartile_coeff_dispersion, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .quartile_coeff_dispersion, frame, key_names, value_name, output_name, 0.0);
 }
 
 pub fn groupByKelleySkewnessOn(
@@ -1342,7 +1405,7 @@ pub fn groupByKelleySkewnessOn(
     value_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return groupByRobustOn(DeviceDataFrame, .kelley_skewness, frame, key_names, value_name, output_name);
+    return groupByRobustOn(DeviceDataFrame, .kelley_skewness, frame, key_names, value_name, output_name, 0.0);
 }
 
 fn groupByBoolOn(

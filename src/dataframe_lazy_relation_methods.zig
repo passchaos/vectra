@@ -195,6 +195,22 @@ pub const groupByMADOn = groupByMadOn;
 pub const groupByMedianAbsDev = groupByMad;
 pub const groupByMedianAbsDevOn = groupByMadOn;
 
+pub fn groupByTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueQuantile(self, key_name, value_name, output_name, .trimmed_mean, trim_fraction);
+}
+
+pub fn groupByTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOnQuantile(self, key_names, value_name, output_name, .trimmed_mean, trim_fraction);
+}
+
+pub fn groupByWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueQuantile(self, key_name, value_name, output_name, .winsorized_mean, winsor_fraction);
+}
+
+pub fn groupByWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOnQuantile(self, key_names, value_name, output_name, .winsorized_mean, winsor_fraction);
+}
+
 pub fn groupByInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .interdecile_range);
 }

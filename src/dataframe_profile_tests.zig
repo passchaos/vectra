@@ -392,6 +392,72 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(q1_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 4.75, 5.0 }, q1_sales_values);
 
+    var tail_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 1, 2, 2, 2, 2, 2 }, .cpu);
+    defer tail_key.deinit();
+    var tail_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 100.0, 200.0, 10.0, 20.0, 30.0, 40.0, 1000.0 }, .cpu);
+    defer tail_value.deinit();
+    var tail_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = tail_key },
+        .{ .name = "value", .data = tail_value },
+    });
+    defer tail_table.deinit();
+
+    var trimmed_tail = try tail_table.groupByTrimmedMean("bucket", "value", "value_trimmed", 0.2);
+    defer trimmed_tail.deinit();
+    const trimmed_tail_keys = try (try trimmed_tail.column("bucket")).i32.toOwnedSlice(gpa);
+    defer gpa.free(trimmed_tail_keys);
+    const trimmed_tail_values = try (try trimmed_tail.column("value_trimmed")).f64.toOwnedSlice(gpa);
+    defer gpa.free(trimmed_tail_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, trimmed_tail_keys);
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0), trimmed_tail_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), trimmed_tail_values[1], 1e-12);
+
+    var winsorized_tail = try tail_table.groupByWinsorizedMeanOn(&.{"bucket"}, "value", "value_winsorized", 0.2);
+    defer winsorized_tail.deinit();
+    const winsorized_tail_values = try (try winsorized_tail.column("value_winsorized")).f64.toOwnedSlice(gpa);
+    defer gpa.free(winsorized_tail_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 41.4), winsorized_tail_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), winsorized_tail_values[1], 1e-12);
+
+    try std.testing.expectError(error.InvalidShape, tail_table.groupByTrimmedMean("bucket", "value", "bad_trimmed", 0.5));
+    try std.testing.expectError(error.InvalidShape, tail_table.groupByWinsorizedMean("bucket", "value", "bad_winsorized", -0.01));
+
+    var trimmed_tail_plan = try DeviceLazyFrame.init(gpa, tail_table);
+    defer trimmed_tail_plan.deinit();
+    try trimmed_tail_plan.groupByTrimmedMeanOn(&.{"bucket"}, "value", "value_trimmed_lazy", 0.2);
+    const trimmed_tail_explained = try trimmed_tail_plan.explain(gpa);
+    defer gpa.free(trimmed_tail_explained);
+    try std.testing.expect(std.mem.indexOf(u8, trimmed_tail_explained, "group_by_trimmed_mean_on([bucket], value=value, trim_fraction=0.2 -> value_trimmed_lazy)") != null);
+    var lazy_trimmed_tail = try trimmed_tail_plan.collect();
+    defer lazy_trimmed_tail.deinit();
+    const lazy_trimmed_tail_values = try (try lazy_trimmed_tail.column("value_trimmed_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_trimmed_tail_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0), lazy_trimmed_tail_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), lazy_trimmed_tail_values[1], 1e-12);
+
+    var winsorized_tail_plan = try DeviceLazyFrame.init(gpa, tail_table);
+    defer winsorized_tail_plan.deinit();
+    try winsorized_tail_plan.groupByWinsorizedMeanOn(&.{"bucket"}, "value", "value_winsorized_lazy", 0.2);
+    const winsorized_tail_explained = try winsorized_tail_plan.explain(gpa);
+    defer gpa.free(winsorized_tail_explained);
+    try std.testing.expect(std.mem.indexOf(u8, winsorized_tail_explained, "group_by_winsorized_mean_on([bucket], value=value, winsor_fraction=0.2 -> value_winsorized_lazy)") != null);
+    var lazy_winsorized_tail = try winsorized_tail_plan.collect();
+    defer lazy_winsorized_tail.deinit();
+    const lazy_winsorized_tail_values = try (try lazy_winsorized_tail.column("value_winsorized_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_winsorized_tail_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 41.4), lazy_winsorized_tail_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), lazy_winsorized_tail_values[1], 1e-12);
+
+    var invalid_trimmed_tail_plan = try DeviceLazyFrame.init(gpa, tail_table);
+    defer invalid_trimmed_tail_plan.deinit();
+    try invalid_trimmed_tail_plan.groupByTrimmedMean("bucket", "value", "bad_trimmed_lazy", 0.5);
+    try std.testing.expectError(error.InvalidShape, invalid_trimmed_tail_plan.collect());
+
+    var invalid_winsorized_tail_plan = try DeviceLazyFrame.init(gpa, tail_table);
+    defer invalid_winsorized_tail_plan.deinit();
+    try invalid_winsorized_tail_plan.groupByWinsorizedMean("bucket", "value", "bad_winsorized_lazy", -0.01);
+    try std.testing.expectError(error.InvalidShape, invalid_winsorized_tail_plan.collect());
+
     var variance_sales = try table.groupByVariance("store", "sales", "sales_variance_simple");
     defer variance_sales.deinit();
     const variance_sales_values = try (try variance_sales.column("sales_variance_simple")).f64.toOwnedSlice(gpa);

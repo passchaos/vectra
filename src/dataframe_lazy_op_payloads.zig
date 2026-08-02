@@ -31,6 +31,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     quantile,
     iqr,
     mad,
+    trimmed_mean,
+    winsorized_mean,
     interdecile_range,
     midhinge,
     trimean,
