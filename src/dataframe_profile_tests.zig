@@ -1742,6 +1742,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_gini_mean_diff_lazy", &group_cum_gini_mean_diff_expected, &group_cum_mode_validity_expected);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_inequality, gpa, "label_cum_gini_coeff_lazy", &group_cum_gini_coeff_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_median_expected = [_]f64{ 5.0, 5.0, 5.0, 0.0, 1.0, 1.5, 1.0, 0.0 };
+
+    var group_cum_median_label = try distinct_table.withGroupCumulativeMedian("bucket", "label", "label_cum_median");
+    defer group_cum_median_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_median_label, gpa, "label_cum_median", &group_cum_median_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_median_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_median_plan.deinit();
+    try cumulative_median_plan.withGroupCumulativeMedian("bucket", "label", "label_cum_median_lazy");
+    const cumulative_median_explained = try cumulative_median_plan.explain(gpa);
+    defer gpa.free(cumulative_median_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_median_explained, "group_cumulative_median([bucket], value=label->label_cum_median_lazy)") != null);
+    var lazy_cumulative_median = try cumulative_median_plan.collect();
+    defer lazy_cumulative_median.deinit();
+    try expectF64ColumnWithValidity(lazy_cumulative_median, gpa, "label_cum_median_lazy", &group_cum_median_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

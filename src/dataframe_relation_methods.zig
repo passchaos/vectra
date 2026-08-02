@@ -1386,6 +1386,18 @@ pub const withGroupCumMeanAbsoluteDeviationOn = withGroupCumulativeMeanAbsDevOn;
 pub const withGroupCumGiniCoeff = withGroupCumulativeGiniCoefficient;
 pub const withGroupCumGiniCoeffOn = withGroupCumulativeGiniCoefficientOn;
 
+pub fn withGroupCumulativeMedian(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMedianOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMedianOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeMedianOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumMedian = withGroupCumulativeMedian;
+pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

@@ -3185,6 +3185,89 @@ pub const withGroupCumGiniMeanDiffOn = withGroupCumulativeGiniMeanDiffOn;
 pub const withGroupCumGiniCoefficientOn = withGroupCumulativeGiniCoefficientOn;
 pub const withGroupCumGiniCoeffOn = withGroupCumulativeGiniCoefficientOn;
 
+fn withGroupCumulativeMedianOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_values: std.ArrayList(std.ArrayList(f64)) = .empty;
+    defer {
+        for (group_values.items) |*rows| rows.deinit(frame.allocator);
+        group_values.deinit(frame.allocator);
+    }
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_values.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_values.items[group_index].append(frame.allocator, castToF64(V, value_item));
+        std.sort.insertion(f64, group_values.items[group_index].items, {}, groupByQuantileLess);
+        outputs[row] = quantileFromSorted(group_values.items[group_index].items, 0.5);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeMedianCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .i8 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed),
+        .i16 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed),
+        .i32 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed),
+        .i64 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed),
+        .u8 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed),
+        .u16 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed),
+        .u32 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed),
+        .u64 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed),
+        .usize => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed),
+        .isize => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed),
+        .f16 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed),
+        .f32 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed),
+        .f64 => |typed| withGroupCumulativeMedianOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeMedianOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeMedianCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name);
+}
+
+pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(

@@ -1350,6 +1350,21 @@ pub fn withGroupCumulativeGiniCoefficient(frame: anytype, key_names: []const []c
     return withGroupCumulativeInequality(frame, key_names, value_name, output_name, .gini_coefficient);
 }
 
+pub fn withGroupCumulativeMedian(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_cumulative_median = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = 0,
+    } });
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
