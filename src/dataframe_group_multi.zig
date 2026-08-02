@@ -2440,6 +2440,246 @@ pub const withGroupCumNegativeCountOn = withGroupCumulativeNegativeCountOn;
 
 pub const withGroupCumNegativeRatioOn = withGroupCumulativeNegativeRatioOn;
 
+fn withGroupCumulativeNumericQualityIndexOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    comptime aggregation: GroupByNumericQualityIndexAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const indices = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(indices);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(indices, 0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var best_indices: std.ArrayList(i64) = .empty;
+    defer best_indices.deinit(frame.allocator);
+    var best_validity: std.ArrayList(bool) = .empty;
+    defer best_validity.deinit(frame.allocator);
+
+    const predicate = groupNumericQualityIndexPredicate(aggregation);
+    const keep_last = groupNumericQualityIndexKeepsLast(aggregation);
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try best_indices.append(frame.allocator, 0);
+            try best_validity.append(frame.allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (groupNumericQualityMatchesTyped(V, value_item, predicate) and (keep_last or !best_validity.items[group_index])) {
+            best_indices.items[group_index] = @intCast(row);
+            best_validity.items[group_index] = true;
+        }
+        if (best_validity.items[group_index]) {
+            indices[row] = best_indices.items[group_index];
+            row_validity[row] = true;
+        }
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, indices, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeNumericQualityIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime aggregation: GroupByNumericQualityIndexAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .i8 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation),
+        .i16 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation),
+        .i32 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation),
+        .i64 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation),
+        .u8 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation),
+        .u16 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation),
+        .u32 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation),
+        .u64 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation),
+        .usize => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation),
+        .isize => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation),
+        .f16 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation),
+        .f32 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation),
+        .f64 => |typed| withGroupCumulativeNumericQualityIndexOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeFirstNaNIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_nan_index);
+}
+
+pub fn withGroupCumulativeLastNaNIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_nan_index);
+}
+
+pub fn withGroupCumulativeFirstInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_inf_index);
+}
+
+pub fn withGroupCumulativeLastInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_inf_index);
+}
+
+pub fn withGroupCumulativeFirstPositiveInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_positive_inf_index);
+}
+
+pub fn withGroupCumulativeLastPositiveInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_positive_inf_index);
+}
+
+pub fn withGroupCumulativeFirstNegativeInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_negative_inf_index);
+}
+
+pub fn withGroupCumulativeLastNegativeInfIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_negative_inf_index);
+}
+
+pub fn withGroupCumulativeFirstFiniteIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_finite_index);
+}
+
+pub fn withGroupCumulativeLastFiniteIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_finite_index);
+}
+
+pub fn withGroupCumulativeFirstNormalIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_normal_index);
+}
+
+pub fn withGroupCumulativeLastNormalIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_normal_index);
+}
+
+pub fn withGroupCumulativeFirstSubnormalIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_subnormal_index);
+}
+
+pub fn withGroupCumulativeLastSubnormalIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_subnormal_index);
+}
+
+pub fn withGroupCumulativeFirstNonFiniteIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_non_finite_index);
+}
+
+pub fn withGroupCumulativeLastNonFiniteIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_non_finite_index);
+}
+
+pub fn withGroupCumulativeFirstZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_zero_index);
+}
+
+pub fn withGroupCumulativeLastZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_zero_index);
+}
+
+pub fn withGroupCumulativeFirstPositiveZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_positive_zero_index);
+}
+
+pub fn withGroupCumulativeLastPositiveZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_positive_zero_index);
+}
+
+pub fn withGroupCumulativeFirstNegativeZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_negative_zero_index);
+}
+
+pub fn withGroupCumulativeLastNegativeZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_negative_zero_index);
+}
+
+pub fn withGroupCumulativeFirstNonZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_non_zero_index);
+}
+
+pub fn withGroupCumulativeLastNonZeroIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_non_zero_index);
+}
+
+pub fn withGroupCumulativeFirstPositiveIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_positive_index);
+}
+
+pub fn withGroupCumulativeLastPositiveIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_positive_index);
+}
+
+pub fn withGroupCumulativeFirstSignBitIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_signbit_index);
+}
+
+pub fn withGroupCumulativeLastSignBitIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_signbit_index);
+}
+
+pub fn withGroupCumulativeFirstNegativeIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_negative_index);
+}
+
+pub fn withGroupCumulativeLastNegativeIndexOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_negative_index);
+}
+
+pub const withGroupCumFirstNaNIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumLastNaNIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumulativeFirstNanIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumulativeLastNanIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumFirstNanIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumLastNanIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumFirstInfIndexOn = withGroupCumulativeFirstInfIndexOn;
+pub const withGroupCumLastInfIndexOn = withGroupCumulativeLastInfIndexOn;
+pub const withGroupCumFirstPositiveInfIndexOn = withGroupCumulativeFirstPositiveInfIndexOn;
+pub const withGroupCumLastPositiveInfIndexOn = withGroupCumulativeLastPositiveInfIndexOn;
+pub const withGroupCumFirstNegativeInfIndexOn = withGroupCumulativeFirstNegativeInfIndexOn;
+pub const withGroupCumLastNegativeInfIndexOn = withGroupCumulativeLastNegativeInfIndexOn;
+pub const withGroupCumFirstFiniteIndexOn = withGroupCumulativeFirstFiniteIndexOn;
+pub const withGroupCumLastFiniteIndexOn = withGroupCumulativeLastFiniteIndexOn;
+pub const withGroupCumFirstNormalIndexOn = withGroupCumulativeFirstNormalIndexOn;
+pub const withGroupCumLastNormalIndexOn = withGroupCumulativeLastNormalIndexOn;
+pub const withGroupCumFirstSubnormalIndexOn = withGroupCumulativeFirstSubnormalIndexOn;
+pub const withGroupCumLastSubnormalIndexOn = withGroupCumulativeLastSubnormalIndexOn;
+pub const withGroupCumFirstNonFiniteIndexOn = withGroupCumulativeFirstNonFiniteIndexOn;
+pub const withGroupCumLastNonFiniteIndexOn = withGroupCumulativeLastNonFiniteIndexOn;
+pub const withGroupCumFirstZeroIndexOn = withGroupCumulativeFirstZeroIndexOn;
+pub const withGroupCumLastZeroIndexOn = withGroupCumulativeLastZeroIndexOn;
+pub const withGroupCumFirstPositiveZeroIndexOn = withGroupCumulativeFirstPositiveZeroIndexOn;
+pub const withGroupCumLastPositiveZeroIndexOn = withGroupCumulativeLastPositiveZeroIndexOn;
+pub const withGroupCumFirstNegativeZeroIndexOn = withGroupCumulativeFirstNegativeZeroIndexOn;
+pub const withGroupCumLastNegativeZeroIndexOn = withGroupCumulativeLastNegativeZeroIndexOn;
+pub const withGroupCumFirstNonZeroIndexOn = withGroupCumulativeFirstNonZeroIndexOn;
+pub const withGroupCumLastNonZeroIndexOn = withGroupCumulativeLastNonZeroIndexOn;
+pub const withGroupCumFirstPositiveIndexOn = withGroupCumulativeFirstPositiveIndexOn;
+pub const withGroupCumLastPositiveIndexOn = withGroupCumulativeLastPositiveIndexOn;
+pub const withGroupCumFirstSignBitIndexOn = withGroupCumulativeFirstSignBitIndexOn;
+pub const withGroupCumLastSignBitIndexOn = withGroupCumulativeLastSignBitIndexOn;
+pub const withGroupCumFirstNegativeIndexOn = withGroupCumulativeFirstNegativeIndexOn;
+pub const withGroupCumLastNegativeIndexOn = withGroupCumulativeLastNegativeIndexOn;
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(

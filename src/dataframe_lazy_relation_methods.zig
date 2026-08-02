@@ -807,6 +807,345 @@ pub const withGroupCumNegativeRatio = withGroupCumulativeNegativeRatio;
 
 pub const withGroupCumNegativeRatioOn = withGroupCumulativeNegativeRatioOn;
 
+pub fn withGroupCumulativeFirstNaNIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNaNIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNaNIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNaNIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNaNIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNaNIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNaNIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNaNIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstPositiveInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstPositiveInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastPositiveInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastPositiveInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNegativeInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNegativeInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeInfIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNegativeInfIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeInfIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNegativeInfIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstFiniteIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstFiniteIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastFiniteIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastFiniteIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNormalIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNormalIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNormalIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNormalIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstSubnormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstSubnormalIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstSubnormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstSubnormalIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastSubnormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastSubnormalIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastSubnormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastSubnormalIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNonFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNonFiniteIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNonFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNonFiniteIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNonFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNonFiniteIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNonFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNonFiniteIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstPositiveZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstPositiveZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastPositiveZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastPositiveZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNegativeZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNegativeZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNegativeZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNegativeZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNonZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNonZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNonZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNonZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNonZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNonZeroIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNonZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNonZeroIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstPositiveIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstPositiveIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstPositiveIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastPositiveIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastPositiveIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastPositiveIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstSignBitIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstSignBitIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstSignBitIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstSignBitIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastSignBitIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastSignBitIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastSignBitIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastSignBitIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstNegativeIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstNegativeIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstNegativeIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastNegativeIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastNegativeIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastNegativeIndex(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumFirstNaNIndex = withGroupCumulativeFirstNaNIndex;
+pub const withGroupCumFirstNaNIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumLastNaNIndex = withGroupCumulativeLastNaNIndex;
+pub const withGroupCumLastNaNIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumulativeFirstNanIndex = withGroupCumulativeFirstNaNIndex;
+pub const withGroupCumulativeFirstNanIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumulativeLastNanIndex = withGroupCumulativeLastNaNIndex;
+pub const withGroupCumulativeLastNanIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumFirstNanIndex = withGroupCumulativeFirstNaNIndex;
+pub const withGroupCumFirstNanIndexOn = withGroupCumulativeFirstNaNIndexOn;
+pub const withGroupCumLastNanIndex = withGroupCumulativeLastNaNIndex;
+pub const withGroupCumLastNanIndexOn = withGroupCumulativeLastNaNIndexOn;
+pub const withGroupCumFirstInfIndex = withGroupCumulativeFirstInfIndex;
+pub const withGroupCumFirstInfIndexOn = withGroupCumulativeFirstInfIndexOn;
+pub const withGroupCumLastInfIndex = withGroupCumulativeLastInfIndex;
+pub const withGroupCumLastInfIndexOn = withGroupCumulativeLastInfIndexOn;
+pub const withGroupCumFirstPositiveInfIndex = withGroupCumulativeFirstPositiveInfIndex;
+pub const withGroupCumFirstPositiveInfIndexOn = withGroupCumulativeFirstPositiveInfIndexOn;
+pub const withGroupCumLastPositiveInfIndex = withGroupCumulativeLastPositiveInfIndex;
+pub const withGroupCumLastPositiveInfIndexOn = withGroupCumulativeLastPositiveInfIndexOn;
+pub const withGroupCumFirstNegativeInfIndex = withGroupCumulativeFirstNegativeInfIndex;
+pub const withGroupCumFirstNegativeInfIndexOn = withGroupCumulativeFirstNegativeInfIndexOn;
+pub const withGroupCumLastNegativeInfIndex = withGroupCumulativeLastNegativeInfIndex;
+pub const withGroupCumLastNegativeInfIndexOn = withGroupCumulativeLastNegativeInfIndexOn;
+pub const withGroupCumFirstFiniteIndex = withGroupCumulativeFirstFiniteIndex;
+pub const withGroupCumFirstFiniteIndexOn = withGroupCumulativeFirstFiniteIndexOn;
+pub const withGroupCumLastFiniteIndex = withGroupCumulativeLastFiniteIndex;
+pub const withGroupCumLastFiniteIndexOn = withGroupCumulativeLastFiniteIndexOn;
+pub const withGroupCumFirstNormalIndex = withGroupCumulativeFirstNormalIndex;
+pub const withGroupCumFirstNormalIndexOn = withGroupCumulativeFirstNormalIndexOn;
+pub const withGroupCumLastNormalIndex = withGroupCumulativeLastNormalIndex;
+pub const withGroupCumLastNormalIndexOn = withGroupCumulativeLastNormalIndexOn;
+pub const withGroupCumFirstSubnormalIndex = withGroupCumulativeFirstSubnormalIndex;
+pub const withGroupCumFirstSubnormalIndexOn = withGroupCumulativeFirstSubnormalIndexOn;
+pub const withGroupCumLastSubnormalIndex = withGroupCumulativeLastSubnormalIndex;
+pub const withGroupCumLastSubnormalIndexOn = withGroupCumulativeLastSubnormalIndexOn;
+pub const withGroupCumFirstNonFiniteIndex = withGroupCumulativeFirstNonFiniteIndex;
+pub const withGroupCumFirstNonFiniteIndexOn = withGroupCumulativeFirstNonFiniteIndexOn;
+pub const withGroupCumLastNonFiniteIndex = withGroupCumulativeLastNonFiniteIndex;
+pub const withGroupCumLastNonFiniteIndexOn = withGroupCumulativeLastNonFiniteIndexOn;
+pub const withGroupCumFirstZeroIndex = withGroupCumulativeFirstZeroIndex;
+pub const withGroupCumFirstZeroIndexOn = withGroupCumulativeFirstZeroIndexOn;
+pub const withGroupCumLastZeroIndex = withGroupCumulativeLastZeroIndex;
+pub const withGroupCumLastZeroIndexOn = withGroupCumulativeLastZeroIndexOn;
+pub const withGroupCumFirstPositiveZeroIndex = withGroupCumulativeFirstPositiveZeroIndex;
+pub const withGroupCumFirstPositiveZeroIndexOn = withGroupCumulativeFirstPositiveZeroIndexOn;
+pub const withGroupCumLastPositiveZeroIndex = withGroupCumulativeLastPositiveZeroIndex;
+pub const withGroupCumLastPositiveZeroIndexOn = withGroupCumulativeLastPositiveZeroIndexOn;
+pub const withGroupCumFirstNegativeZeroIndex = withGroupCumulativeFirstNegativeZeroIndex;
+pub const withGroupCumFirstNegativeZeroIndexOn = withGroupCumulativeFirstNegativeZeroIndexOn;
+pub const withGroupCumLastNegativeZeroIndex = withGroupCumulativeLastNegativeZeroIndex;
+pub const withGroupCumLastNegativeZeroIndexOn = withGroupCumulativeLastNegativeZeroIndexOn;
+pub const withGroupCumFirstNonZeroIndex = withGroupCumulativeFirstNonZeroIndex;
+pub const withGroupCumFirstNonZeroIndexOn = withGroupCumulativeFirstNonZeroIndexOn;
+pub const withGroupCumLastNonZeroIndex = withGroupCumulativeLastNonZeroIndex;
+pub const withGroupCumLastNonZeroIndexOn = withGroupCumulativeLastNonZeroIndexOn;
+pub const withGroupCumFirstPositiveIndex = withGroupCumulativeFirstPositiveIndex;
+pub const withGroupCumFirstPositiveIndexOn = withGroupCumulativeFirstPositiveIndexOn;
+pub const withGroupCumLastPositiveIndex = withGroupCumulativeLastPositiveIndex;
+pub const withGroupCumLastPositiveIndexOn = withGroupCumulativeLastPositiveIndexOn;
+pub const withGroupCumFirstSignBitIndex = withGroupCumulativeFirstSignBitIndex;
+pub const withGroupCumFirstSignBitIndexOn = withGroupCumulativeFirstSignBitIndexOn;
+pub const withGroupCumLastSignBitIndex = withGroupCumulativeLastSignBitIndex;
+pub const withGroupCumLastSignBitIndexOn = withGroupCumulativeLastSignBitIndexOn;
+pub const withGroupCumFirstNegativeIndex = withGroupCumulativeFirstNegativeIndex;
+pub const withGroupCumFirstNegativeIndexOn = withGroupCumulativeFirstNegativeIndexOn;
+pub const withGroupCumLastNegativeIndex = withGroupCumulativeLastNegativeIndex;
+pub const withGroupCumLastNegativeIndexOn = withGroupCumulativeLastNegativeIndexOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

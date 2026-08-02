@@ -878,6 +878,317 @@ pub fn withGroupCumulativeNegativeRatio(frame: anytype, key_names: []const []con
     return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .negative_ratio);
 }
 
+fn withGroupCumulativeQualityIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { first_nan, last_nan, first_inf, last_inf, first_positive_inf, last_positive_inf, first_negative_inf, last_negative_inf, first_finite, last_finite, first_normal, last_normal, first_subnormal, last_subnormal, first_non_finite, last_non_finite, first_zero, last_zero, first_positive_zero, last_positive_zero, first_negative_zero, last_negative_zero, first_non_zero, last_non_zero, first_positive, last_positive, first_signbit, last_signbit, first_negative, last_negative }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .first_nan => .{ .group_cumulative_first_nan_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_nan => .{ .group_cumulative_last_nan_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_inf => .{ .group_cumulative_first_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_inf => .{ .group_cumulative_last_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_positive_inf => .{ .group_cumulative_first_positive_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_positive_inf => .{ .group_cumulative_last_positive_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_negative_inf => .{ .group_cumulative_first_negative_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_negative_inf => .{ .group_cumulative_last_negative_inf_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_finite => .{ .group_cumulative_first_finite_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_finite => .{ .group_cumulative_last_finite_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_normal => .{ .group_cumulative_first_normal_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_normal => .{ .group_cumulative_last_normal_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_subnormal => .{ .group_cumulative_first_subnormal_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_subnormal => .{ .group_cumulative_last_subnormal_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_non_finite => .{ .group_cumulative_first_non_finite_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_non_finite => .{ .group_cumulative_last_non_finite_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_zero => .{ .group_cumulative_first_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_zero => .{ .group_cumulative_last_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_positive_zero => .{ .group_cumulative_first_positive_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_positive_zero => .{ .group_cumulative_last_positive_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_negative_zero => .{ .group_cumulative_first_negative_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_negative_zero => .{ .group_cumulative_last_negative_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_non_zero => .{ .group_cumulative_first_non_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_non_zero => .{ .group_cumulative_last_non_zero_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_positive => .{ .group_cumulative_first_positive_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_positive => .{ .group_cumulative_last_positive_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_signbit => .{ .group_cumulative_first_signbit_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_signbit => .{ .group_cumulative_last_signbit_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .first_negative => .{ .group_cumulative_first_negative_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .last_negative => .{ .group_cumulative_last_negative_index = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+    });
+}
+
+pub fn withGroupCumulativeFirstNaNIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_nan);
+}
+
+pub fn withGroupCumulativeLastNaNIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_nan);
+}
+
+pub fn withGroupCumulativeFirstInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_inf);
+}
+
+pub fn withGroupCumulativeLastInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_inf);
+}
+
+pub fn withGroupCumulativeFirstPositiveInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_positive_inf);
+}
+
+pub fn withGroupCumulativeLastPositiveInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_positive_inf);
+}
+
+pub fn withGroupCumulativeFirstNegativeInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_negative_inf);
+}
+
+pub fn withGroupCumulativeLastNegativeInfIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_negative_inf);
+}
+
+pub fn withGroupCumulativeFirstFiniteIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_finite);
+}
+
+pub fn withGroupCumulativeLastFiniteIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_finite);
+}
+
+pub fn withGroupCumulativeFirstNormalIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_normal);
+}
+
+pub fn withGroupCumulativeLastNormalIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_normal);
+}
+
+pub fn withGroupCumulativeFirstSubnormalIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_subnormal);
+}
+
+pub fn withGroupCumulativeLastSubnormalIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_subnormal);
+}
+
+pub fn withGroupCumulativeFirstNonFiniteIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_non_finite);
+}
+
+pub fn withGroupCumulativeLastNonFiniteIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_non_finite);
+}
+
+pub fn withGroupCumulativeFirstZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_zero);
+}
+
+pub fn withGroupCumulativeLastZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_zero);
+}
+
+pub fn withGroupCumulativeFirstPositiveZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_positive_zero);
+}
+
+pub fn withGroupCumulativeLastPositiveZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_positive_zero);
+}
+
+pub fn withGroupCumulativeFirstNegativeZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_negative_zero);
+}
+
+pub fn withGroupCumulativeLastNegativeZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_negative_zero);
+}
+
+pub fn withGroupCumulativeFirstNonZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_non_zero);
+}
+
+pub fn withGroupCumulativeLastNonZeroIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_non_zero);
+}
+
+pub fn withGroupCumulativeFirstPositiveIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_positive);
+}
+
+pub fn withGroupCumulativeLastPositiveIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_positive);
+}
+
+pub fn withGroupCumulativeFirstSignBitIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_signbit);
+}
+
+pub fn withGroupCumulativeLastSignBitIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_signbit);
+}
+
+pub fn withGroupCumulativeFirstNegativeIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .first_negative);
+}
+
+pub fn withGroupCumulativeLastNegativeIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQualityIndex(frame, key_names, value_name, output_name, .last_negative);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

@@ -904,6 +904,128 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer last_negative_indices.deinit();
     try expectNullableI64Column(last_negative_indices, gpa, "last_negative_index", &.{ 3, 0, 0 }, &.{ true, false, false });
 
+    // Cumulative quality-index transforms preserve the prefix state per group while
+    // keeping null value rows nullable, matching the grouped cumulative count/ratio semantics.
+    var metric_cum_first_nan_index = try quality_index_table.withGroupCumulativeFirstNaNIndex("bucket", "metric", "metric_cum_first_nan_index");
+    defer metric_cum_first_nan_index.deinit();
+    try expectNullableI64Column(metric_cum_first_nan_index, gpa, "metric_cum_first_nan_index", &.{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, true, false, false, false, false });
+
+    var metric_cum_last_nan_index = try quality_index_table.withGroupCumulativeLastNaNIndex("bucket", "metric", "metric_cum_last_nan_index");
+    defer metric_cum_last_nan_index.deinit();
+    try expectNullableI64Column(metric_cum_last_nan_index, gpa, "metric_cum_last_nan_index", &.{ 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, true, false, false, false, false });
+
+    var metric_cum_first_inf_index = try quality_index_table.withGroupCumulativeFirstInfIndex("bucket", "metric", "metric_cum_first_inf_index");
+    defer metric_cum_first_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_first_inf_index, gpa, "metric_cum_first_inf_index", &.{ 0, 1, 1, 1, 1, 1, 1, 0, 8, 8, 0 }, &.{ false, true, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_inf_index = try quality_index_table.withGroupCumulativeLastInfIndex("bucket", "metric", "metric_cum_last_inf_index");
+    defer metric_cum_last_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_last_inf_index, gpa, "metric_cum_last_inf_index", &.{ 0, 1, 2, 2, 4, 4, 4, 0, 8, 9, 0 }, &.{ false, true, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_positive_inf_index = try quality_index_table.withGroupCumulativeFirstPositiveInfIndex("bucket", "metric", "metric_cum_first_positive_inf_index");
+    defer metric_cum_first_positive_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_first_positive_inf_index, gpa, "metric_cum_first_positive_inf_index", &.{ 0, 1, 1, 1, 1, 1, 1, 0, 0, 9, 0 }, &.{ false, true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_last_positive_inf_index = try quality_index_table.withGroupCumulativeLastPositiveInfIndex("bucket", "metric", "metric_cum_last_positive_inf_index");
+    defer metric_cum_last_positive_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_last_positive_inf_index, gpa, "metric_cum_last_positive_inf_index", &.{ 0, 1, 1, 1, 4, 4, 4, 0, 0, 9, 0 }, &.{ false, true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_first_negative_inf_index = try quality_index_table.withGroupCumulativeFirstNegativeInfIndex("bucket", "metric", "metric_cum_first_negative_inf_index");
+    defer metric_cum_first_negative_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_first_negative_inf_index, gpa, "metric_cum_first_negative_inf_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_negative_inf_index = try quality_index_table.withGroupCumulativeLastNegativeInfIndex("bucket", "metric", "metric_cum_last_negative_inf_index");
+    defer metric_cum_last_negative_inf_index.deinit();
+    try expectNullableI64Column(metric_cum_last_negative_inf_index, gpa, "metric_cum_last_negative_inf_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_finite_index = try quality_index_table.withGroupCumulativeFirstFiniteIndex("bucket", "metric", "metric_cum_first_finite_index");
+    defer metric_cum_first_finite_index.deinit();
+    try expectNullableI64Column(metric_cum_first_finite_index, gpa, "metric_cum_first_finite_index", &.{ 0, 0, 0, 0, 0, 5, 5, 7, 7, 7, 0 }, &.{ false, false, false, false, false, true, true, true, true, true, false });
+
+    var metric_cum_last_finite_index = try quality_index_table.withGroupCumulativeLastFiniteIndex("bucket", "metric", "metric_cum_last_finite_index");
+    defer metric_cum_last_finite_index.deinit();
+    try expectNullableI64Column(metric_cum_last_finite_index, gpa, "metric_cum_last_finite_index", &.{ 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 0 }, &.{ false, false, false, false, false, true, true, true, true, true, false });
+
+    var metric_cum_first_normal_index = try quality_index_table.withGroupCumulativeFirstNormalIndex("bucket", "metric", "metric_cum_first_normal_index");
+    defer metric_cum_first_normal_index.deinit();
+    try expectNullableI64Column(metric_cum_first_normal_index, gpa, "metric_cum_first_normal_index", &.{ 0, 0, 0, 0, 0, 5, 5, 7, 7, 7, 0 }, &.{ false, false, false, false, false, true, true, true, true, true, false });
+
+    var metric_cum_last_normal_index = try quality_index_table.withGroupCumulativeLastNormalIndex("bucket", "metric", "metric_cum_last_normal_index");
+    defer metric_cum_last_normal_index.deinit();
+    try expectNullableI64Column(metric_cum_last_normal_index, gpa, "metric_cum_last_normal_index", &.{ 0, 0, 0, 0, 0, 5, 5, 7, 7, 7, 0 }, &.{ false, false, false, false, false, true, true, true, true, true, false });
+
+    var metric_cum_first_subnormal_index = try quality_index_table.withGroupCumulativeFirstSubnormalIndex("bucket", "metric", "metric_cum_first_subnormal_index");
+    defer metric_cum_first_subnormal_index.deinit();
+    try expectNullableI64Column(metric_cum_first_subnormal_index, gpa, "metric_cum_first_subnormal_index", &.{ 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0 }, &.{ false, false, false, false, false, false, true, false, false, false, false });
+
+    var metric_cum_last_subnormal_index = try quality_index_table.withGroupCumulativeLastSubnormalIndex("bucket", "metric", "metric_cum_last_subnormal_index");
+    defer metric_cum_last_subnormal_index.deinit();
+    try expectNullableI64Column(metric_cum_last_subnormal_index, gpa, "metric_cum_last_subnormal_index", &.{ 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0 }, &.{ false, false, false, false, false, false, true, false, false, false, false });
+
+    var metric_cum_first_non_finite_index = try quality_index_table.withGroupCumulativeFirstNonFiniteIndex("bucket", "metric", "metric_cum_first_non_finite_index");
+    defer metric_cum_first_non_finite_index.deinit();
+    try expectNullableI64Column(metric_cum_first_non_finite_index, gpa, "metric_cum_first_non_finite_index", &.{ 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 0 }, &.{ true, true, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_non_finite_index = try quality_index_table.withGroupCumulativeLastNonFiniteIndex("bucket", "metric", "metric_cum_last_non_finite_index");
+    defer metric_cum_last_non_finite_index.deinit();
+    try expectNullableI64Column(metric_cum_last_non_finite_index, gpa, "metric_cum_last_non_finite_index", &.{ 0, 1, 2, 3, 4, 4, 4, 0, 8, 9, 0 }, &.{ true, true, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_non_zero_index = try quality_index_table.withGroupCumulativeFirstNonZeroIndex("bucket", "metric", "metric_cum_first_non_zero_index");
+    defer metric_cum_first_non_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_first_non_zero_index, gpa, "metric_cum_first_non_zero_index", &.{ 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 0 }, &.{ true, true, true, true, true, true, true, true, true, true, false });
+
+    var metric_cum_last_non_zero_index = try quality_index_table.withGroupCumulativeLastNonZeroIndex("bucket", "metric", "metric_cum_last_non_zero_index");
+    defer metric_cum_last_non_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_last_non_zero_index, gpa, "metric_cum_last_non_zero_index", &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0 }, &.{ true, true, true, true, true, true, true, true, true, true, false });
+
+    var metric_cum_first_positive_index = try quality_index_table.withGroupCumulativeFirstPositiveIndex("bucket", "metric", "metric_cum_first_positive_index");
+    defer metric_cum_first_positive_index.deinit();
+    try expectNullableI64Column(metric_cum_first_positive_index, gpa, "metric_cum_first_positive_index", &.{ 0, 1, 1, 1, 1, 1, 1, 7, 7, 7, 0 }, &.{ false, true, true, true, true, true, true, true, true, true, false });
+
+    var metric_cum_last_positive_index = try quality_index_table.withGroupCumulativeLastPositiveIndex("bucket", "metric", "metric_cum_last_positive_index");
+    defer metric_cum_last_positive_index.deinit();
+    try expectNullableI64Column(metric_cum_last_positive_index, gpa, "metric_cum_last_positive_index", &.{ 0, 1, 1, 1, 4, 5, 6, 7, 7, 9, 0 }, &.{ false, true, true, true, true, true, true, true, true, true, false });
+
+    var metric_cum_first_signbit_index = try quality_index_table.withGroupCumulativeFirstSignBitIndex("bucket", "metric", "metric_cum_first_signbit_index");
+    defer metric_cum_first_signbit_index.deinit();
+    try expectNullableI64Column(metric_cum_first_signbit_index, gpa, "metric_cum_first_signbit_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_signbit_index = try quality_index_table.withGroupCumulativeLastSignBitIndex("bucket", "metric", "metric_cum_last_signbit_index");
+    defer metric_cum_last_signbit_index.deinit();
+    try expectNullableI64Column(metric_cum_last_signbit_index, gpa, "metric_cum_last_signbit_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_negative_index = try quality_index_table.withGroupCumulativeFirstNegativeIndex("bucket", "metric", "metric_cum_first_negative_index");
+    defer metric_cum_first_negative_index.deinit();
+    try expectNullableI64Column(metric_cum_first_negative_index, gpa, "metric_cum_first_negative_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_negative_index = try quality_index_table.withGroupCumulativeLastNegativeIndex("bucket", "metric", "metric_cum_last_negative_index");
+    defer metric_cum_last_negative_index.deinit();
+    try expectNullableI64Column(metric_cum_last_negative_index, gpa, "metric_cum_last_negative_index", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_zero_index = try signed_zero_table.withGroupCumulativeFirstZeroIndex("bucket", "metric", "metric_cum_first_zero_index");
+    defer metric_cum_first_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_first_zero_index, gpa, "metric_cum_first_zero_index", &.{ 0, 0, 0, 0, 4, 4, 4, 0 }, &.{ true, true, true, true, true, true, true, false });
+
+    var metric_cum_last_zero_index = try signed_zero_table.withGroupCumulativeLastZeroIndex("bucket", "metric", "metric_cum_last_zero_index");
+    defer metric_cum_last_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_last_zero_index, gpa, "metric_cum_last_zero_index", &.{ 0, 1, 1, 3, 4, 5, 6, 0 }, &.{ true, true, true, true, true, true, true, false });
+
+    var metric_cum_first_positive_zero_index = try signed_zero_table.withGroupCumulativeFirstPositiveZeroIndex("bucket", "metric", "metric_cum_first_positive_zero_index");
+    defer metric_cum_first_positive_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_first_positive_zero_index, gpa, "metric_cum_first_positive_zero_index", &.{ 0, 0, 0, 0, 0, 5, 5, 0 }, &.{ true, true, true, true, false, true, true, false });
+
+    var metric_cum_last_positive_zero_index = try signed_zero_table.withGroupCumulativeLastPositiveZeroIndex("bucket", "metric", "metric_cum_last_positive_zero_index");
+    defer metric_cum_last_positive_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_last_positive_zero_index, gpa, "metric_cum_last_positive_zero_index", &.{ 0, 0, 0, 3, 0, 5, 5, 0 }, &.{ true, true, true, true, false, true, true, false });
+
+    var metric_cum_first_negative_zero_index = try signed_zero_table.withGroupCumulativeFirstNegativeZeroIndex("bucket", "metric", "metric_cum_first_negative_zero_index");
+    defer metric_cum_first_negative_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_first_negative_zero_index, gpa, "metric_cum_first_negative_zero_index", &.{ 0, 1, 1, 1, 4, 4, 4, 0 }, &.{ false, true, true, true, true, true, true, false });
+
+    var metric_cum_last_negative_zero_index = try signed_zero_table.withGroupCumulativeLastNegativeZeroIndex("bucket", "metric", "metric_cum_last_negative_zero_index");
+    defer metric_cum_last_negative_zero_index.deinit();
+    try expectNullableI64Column(metric_cum_last_negative_zero_index, gpa, "metric_cum_last_negative_zero_index", &.{ 0, 1, 1, 1, 4, 4, 6, 0 }, &.{ false, true, true, true, true, true, true, false });
+
     var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
     defer metric_nan_counts_on.deinit();
     const metric_nan_count_on_values = try (try metric_nan_counts_on.column("metric_nan_count_on")).i64.toOwnedSlice(gpa);
@@ -1023,6 +1145,59 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_signbit_ratio_lazy", &metric_cum_signbit_ratio_expected, &quality_cum_validity);
     try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_negative_count_lazy", &metric_cum_negative_count_expected, &quality_cum_validity);
     try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_negative_ratio_lazy", &metric_cum_negative_ratio_expected, &quality_cum_validity);
+
+    var cumulative_quality_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
+    defer cumulative_quality_index_plan.deinit();
+    try cumulative_quality_index_plan.withGroupCumulativeFirstNaNIndex("bucket", "metric", "metric_cum_first_nan_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeLastInfIndex("bucket", "metric", "metric_cum_last_inf_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeFirstPositiveInfIndex("bucket", "metric", "metric_cum_first_positive_inf_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeLastFiniteIndex("bucket", "metric", "metric_cum_last_finite_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeFirstSubnormalIndex("bucket", "metric", "metric_cum_first_subnormal_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeLastNonFiniteIndex("bucket", "metric", "metric_cum_last_non_finite_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeFirstNonZeroIndex("bucket", "metric", "metric_cum_first_non_zero_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeLastPositiveIndex("bucket", "metric", "metric_cum_last_positive_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeFirstSignBitIndex("bucket", "metric", "metric_cum_first_signbit_index_lazy");
+    try cumulative_quality_index_plan.withGroupCumulativeLastNegativeIndex("bucket", "metric", "metric_cum_last_negative_index_lazy");
+    const cumulative_quality_index_explained = try cumulative_quality_index_plan.explain(gpa);
+    defer gpa.free(cumulative_quality_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_first_nan_index([bucket], value=metric->metric_cum_first_nan_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_last_inf_index([bucket], value=metric->metric_cum_last_inf_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_first_positive_inf_index([bucket], value=metric->metric_cum_first_positive_inf_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_last_finite_index([bucket], value=metric->metric_cum_last_finite_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_first_subnormal_index([bucket], value=metric->metric_cum_first_subnormal_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_last_non_finite_index([bucket], value=metric->metric_cum_last_non_finite_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_first_non_zero_index([bucket], value=metric->metric_cum_first_non_zero_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_last_positive_index([bucket], value=metric->metric_cum_last_positive_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_first_signbit_index([bucket], value=metric->metric_cum_first_signbit_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_index_explained, "group_cumulative_last_negative_index([bucket], value=metric->metric_cum_last_negative_index_lazy)") != null);
+    var lazy_cumulative_quality_index = try cumulative_quality_index_plan.collect();
+    defer lazy_cumulative_quality_index.deinit();
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_first_nan_index_lazy", &.{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, true, false, false, false, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_last_inf_index_lazy", &.{ 0, 1, 2, 2, 4, 4, 4, 0, 8, 9, 0 }, &.{ false, true, true, true, true, true, true, false, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_first_positive_inf_index_lazy", &.{ 0, 1, 1, 1, 1, 1, 1, 0, 0, 9, 0 }, &.{ false, true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_last_finite_index_lazy", &.{ 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 0 }, &.{ false, false, false, false, false, true, true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_first_subnormal_index_lazy", &.{ 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0 }, &.{ false, false, false, false, false, false, true, false, false, false, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_last_non_finite_index_lazy", &.{ 0, 1, 2, 3, 4, 4, 4, 0, 8, 9, 0 }, &.{ true, true, true, true, true, true, true, false, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_first_non_zero_index_lazy", &.{ 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 0 }, &.{ true, true, true, true, true, true, true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_last_positive_index_lazy", &.{ 0, 1, 1, 1, 4, 5, 6, 7, 7, 9, 0 }, &.{ false, true, true, true, true, true, true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_first_signbit_index_lazy", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality_index, gpa, "metric_cum_last_negative_index_lazy", &.{ 0, 0, 2, 2, 2, 2, 2, 0, 8, 8, 0 }, &.{ false, false, true, true, true, true, true, false, true, true, false });
+
+    var cumulative_zero_index_plan = try DeviceLazyFrame.init(gpa, signed_zero_table);
+    defer cumulative_zero_index_plan.deinit();
+    try cumulative_zero_index_plan.withGroupCumulativeFirstZeroIndex("bucket", "metric", "metric_cum_first_zero_index_lazy");
+    try cumulative_zero_index_plan.withGroupCumulativeLastPositiveZeroIndex("bucket", "metric", "metric_cum_last_positive_zero_index_lazy");
+    try cumulative_zero_index_plan.withGroupCumulativeFirstNegativeZeroIndex("bucket", "metric", "metric_cum_first_negative_zero_index_lazy");
+    const cumulative_zero_index_explained = try cumulative_zero_index_plan.explain(gpa);
+    defer gpa.free(cumulative_zero_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_zero_index_explained, "group_cumulative_first_zero_index([bucket], value=metric->metric_cum_first_zero_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_zero_index_explained, "group_cumulative_last_positive_zero_index([bucket], value=metric->metric_cum_last_positive_zero_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_zero_index_explained, "group_cumulative_first_negative_zero_index([bucket], value=metric->metric_cum_first_negative_zero_index_lazy)") != null);
+    var lazy_cumulative_zero_index = try cumulative_zero_index_plan.collect();
+    defer lazy_cumulative_zero_index.deinit();
+    try expectNullableI64Column(lazy_cumulative_zero_index, gpa, "metric_cum_first_zero_index_lazy", &.{ 0, 0, 0, 0, 4, 4, 4, 0 }, &.{ true, true, true, true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_zero_index, gpa, "metric_cum_last_positive_zero_index_lazy", &.{ 0, 0, 0, 3, 0, 5, 5, 0 }, &.{ true, true, true, true, false, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_zero_index, gpa, "metric_cum_first_negative_zero_index_lazy", &.{ 0, 1, 1, 1, 4, 4, 4, 0 }, &.{ false, true, true, true, true, true, true, false });
 
     var last_inf_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
     defer last_inf_index_plan.deinit();

@@ -3095,6 +3095,246 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_first_nan_index => |shift| {
+            try writer.print("group_cumulative_first_nan_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_nan_index => |shift| {
+            try writer.print("group_cumulative_last_nan_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_inf_index => |shift| {
+            try writer.print("group_cumulative_first_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_inf_index => |shift| {
+            try writer.print("group_cumulative_last_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_positive_inf_index => |shift| {
+            try writer.print("group_cumulative_first_positive_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_positive_inf_index => |shift| {
+            try writer.print("group_cumulative_last_positive_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_negative_inf_index => |shift| {
+            try writer.print("group_cumulative_first_negative_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_negative_inf_index => |shift| {
+            try writer.print("group_cumulative_last_negative_inf_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_finite_index => |shift| {
+            try writer.print("group_cumulative_first_finite_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_finite_index => |shift| {
+            try writer.print("group_cumulative_last_finite_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_normal_index => |shift| {
+            try writer.print("group_cumulative_first_normal_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_normal_index => |shift| {
+            try writer.print("group_cumulative_last_normal_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_subnormal_index => |shift| {
+            try writer.print("group_cumulative_first_subnormal_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_subnormal_index => |shift| {
+            try writer.print("group_cumulative_last_subnormal_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_non_finite_index => |shift| {
+            try writer.print("group_cumulative_first_non_finite_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_non_finite_index => |shift| {
+            try writer.print("group_cumulative_last_non_finite_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_zero_index => |shift| {
+            try writer.print("group_cumulative_first_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_zero_index => |shift| {
+            try writer.print("group_cumulative_last_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_positive_zero_index => |shift| {
+            try writer.print("group_cumulative_first_positive_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_positive_zero_index => |shift| {
+            try writer.print("group_cumulative_last_positive_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_negative_zero_index => |shift| {
+            try writer.print("group_cumulative_first_negative_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_negative_zero_index => |shift| {
+            try writer.print("group_cumulative_last_negative_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_non_zero_index => |shift| {
+            try writer.print("group_cumulative_first_non_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_non_zero_index => |shift| {
+            try writer.print("group_cumulative_last_non_zero_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_positive_index => |shift| {
+            try writer.print("group_cumulative_first_positive_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_positive_index => |shift| {
+            try writer.print("group_cumulative_last_positive_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_signbit_index => |shift| {
+            try writer.print("group_cumulative_first_signbit_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_signbit_index => |shift| {
+            try writer.print("group_cumulative_last_signbit_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_first_negative_index => |shift| {
+            try writer.print("group_cumulative_first_negative_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_last_negative_index => |shift| {
+            try writer.print("group_cumulative_last_negative_index([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_cumulative_any => |shift| {
             try writer.print("group_cumulative_any([", .{});
             for (shift.names, 0..) |name, i| {
