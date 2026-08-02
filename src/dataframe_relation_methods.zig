@@ -482,6 +482,24 @@ pub fn withGroupCumulativeFanoOn(self: anytype, key_names: []const []const u8, v
     return group_multi_mod.withGroupCumulativeFanoOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeSkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSkewnessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeSkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeKurtosisOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeKurtosisOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -512,6 +530,18 @@ pub const withGroupCumulativeIndexOfDispersion = withGroupCumulativeFano;
 pub const withGroupCumulativeIndexOfDispersionOn = withGroupCumulativeFanoOn;
 pub const withGroupCumIndexOfDispersion = withGroupCumulativeFano;
 pub const withGroupCumIndexOfDispersionOn = withGroupCumulativeFanoOn;
+pub const withGroupCumulativeSkew = withGroupCumulativeSkewness;
+pub const withGroupCumulativeSkewOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumSkewness = withGroupCumulativeSkewness;
+pub const withGroupCumSkewnessOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumSkew = withGroupCumulativeSkewness;
+pub const withGroupCumSkewOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumulativeKurt = withGroupCumulativeKurtosis;
+pub const withGroupCumulativeKurtOn = withGroupCumulativeKurtosisOn;
+pub const withGroupCumKurtosis = withGroupCumulativeKurtosis;
+pub const withGroupCumKurtosisOn = withGroupCumulativeKurtosisOn;
+pub const withGroupCumKurt = withGroupCumulativeKurtosis;
+pub const withGroupCumKurtOn = withGroupCumulativeKurtosisOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};

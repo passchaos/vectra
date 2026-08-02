@@ -2044,11 +2044,11 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {
     return switch (op) {
-        .variance, .stddev, .sem, .cv, .fano => true,
+        .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => true,
         else => false,
     };
 }
@@ -2102,7 +2102,7 @@ fn withGroupCumulativeNumericOnTyped(
             .product => group_accumulators.items[group_index] *= value_f64,
             .min => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @min(group_accumulators.items[group_index], value_f64),
             .max => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @max(group_accumulators.items[group_index], value_f64),
-            .variance, .stddev, .sem, .cv, .fano => group_profiles.items[group_index].update(value_f64),
+            .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => group_profiles.items[group_index].update(value_f64),
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
@@ -2116,6 +2116,8 @@ fn withGroupCumulativeNumericOnTyped(
                 const profile = group_profiles.items[group_index];
                 break :blk if (profile.mean == 0.0) std.math.nan(f64) else profile.variance() / profile.mean;
             },
+            .skewness => group_profiles.items[group_index].skewness(),
+            .kurtosis => group_profiles.items[group_index].kurtosis(),
         };
         row_validity[row] = true;
     }
@@ -2254,6 +2256,26 @@ pub fn withGroupCumulativeFanoOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .fano);
 }
 
+pub fn withGroupCumulativeSkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .skewness);
+}
+
+pub fn withGroupCumulativeKurtosisOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .kurtosis);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
@@ -2273,6 +2295,12 @@ pub const withGroupCumCvOn = withGroupCumulativeCvOn;
 pub const withGroupCumFanoOn = withGroupCumulativeFanoOn;
 pub const withGroupCumulativeIndexOfDispersionOn = withGroupCumulativeFanoOn;
 pub const withGroupCumIndexOfDispersionOn = withGroupCumulativeFanoOn;
+pub const withGroupCumulativeSkewOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumSkewnessOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumSkewOn = withGroupCumulativeSkewnessOn;
+pub const withGroupCumulativeKurtOn = withGroupCumulativeKurtosisOn;
+pub const withGroupCumKurtosisOn = withGroupCumulativeKurtosisOn;
+pub const withGroupCumKurtOn = withGroupCumulativeKurtosisOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,

@@ -1092,6 +1092,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_fano_sales.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_fano_sales, gpa, "store_sales_cum_fano", &.{ 0.0, 0.0, 0.0, 0.0, 16.0 / 7.0, 121.0 / 30.0 }, &.{ true, true, false, false, true, true });
 
+    var group_cum_skew_sales = try table.withGroupCumulativeSkewness("store", "sales", "store_sales_cum_skewness");
+    defer group_cum_skew_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_skew_sales, gpa, "store_sales_cum_skewness", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, false, false, true, true });
+
+    var group_cum_kurt_sales = try table.withGroupCumulativeKurtosis("store", "sales", "store_sales_cum_kurtosis");
+    defer group_cum_kurt_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_kurt_sales, gpa, "store_sales_cum_kurtosis", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, 0.0, -2.0, -2.0 }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1319,6 +1327,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeSem("store", "sales", "store_sales_cum_sem_lazy");
     try group_cume_dist_plan.withGroupCumulativeCv("store", "sales", "store_sales_cum_cv_lazy");
     try group_cume_dist_plan.withGroupCumulativeFano("store", "sales", "store_sales_cum_fano_lazy");
+    try group_cume_dist_plan.withGroupCumulativeSkewness("store", "sales", "store_sales_cum_skewness_lazy");
+    try group_cume_dist_plan.withGroupCumulativeKurtosis("store", "sales", "store_sales_cum_kurtosis_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1349,6 +1359,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_sem([store], value=sales->store_sales_cum_sem_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_cv([store], value=sales->store_sales_cum_cv_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_fano([store], value=sales->store_sales_cum_fano_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_skewness([store], value=sales->store_sales_cum_skewness_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_kurtosis([store], value=sales->store_sales_cum_kurtosis_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1379,6 +1391,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_sem_lazy", &.{ 0.0, 0.0, 0.0, 0.0, 4.0 / std.math.sqrt(@as(f64, 2.0)), 5.5 / std.math.sqrt(@as(f64, 2.0)) }, &.{ true, true, false, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_cv_lazy", &.{ 0.0, 0.0, 0.0, 0.0, 4.0 / 7.0, 11.0 / 15.0 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_fano_lazy", &.{ 0.0, 0.0, 0.0, 0.0, 16.0 / 7.0, 121.0 / 30.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_skewness_lazy", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_kurtosis_lazy", &.{ std.math.nan(f64), std.math.nan(f64), 0.0, 0.0, -2.0, -2.0 }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
