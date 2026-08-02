@@ -3862,6 +3862,46 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             if (shift.correction != 0.0) try writer.print(", correction={d}", .{shift.correction});
             try writer.print("->{s})", .{shift.output_name});
         },
+        .group_cumulative_weighted_mean_abs => |shift| {
+            try writer.print("group_cumulative_weighted_mean_abs([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_l1_norm => |shift| {
+            try writer.print("group_cumulative_weighted_l1_norm([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_l2_norm => |shift| {
+            try writer.print("group_cumulative_weighted_l2_norm([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_max_abs => |shift| {
+            try writer.print("group_cumulative_weighted_max_abs([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_min_abs => |shift| {
+            try writer.print("group_cumulative_weighted_min_abs([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
         .group_cumulative_weighted_variance => |shift| {
             try writer.print("group_cumulative_weighted_variance([", .{});
             for (shift.names, 0..) |name, i| {

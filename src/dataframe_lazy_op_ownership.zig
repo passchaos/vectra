@@ -5082,6 +5082,11 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_covariance => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_covariance"),
         .group_cumulative_weighted_correlation => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_correlation"),
         .group_cumulative_weighted_beta => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_beta"),
+        .group_cumulative_weighted_mean_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_mean_abs"),
+        .group_cumulative_weighted_l1_norm => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_l1_norm"),
+        .group_cumulative_weighted_l2_norm => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_l2_norm"),
+        .group_cumulative_weighted_max_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_max_abs"),
+        .group_cumulative_weighted_min_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_min_abs"),
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);

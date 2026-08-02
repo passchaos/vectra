@@ -2158,6 +2158,74 @@ pub const withGroupCumWeightedRmsOn = withGroupCumulativeWeightedRmsOn;
 pub const withGroupCumWeightedRMS = withGroupCumulativeWeightedRms;
 pub const withGroupCumWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
 
+pub fn withGroupCumulativeWeightedMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanAbsOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMeanAbs(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedL1Norm(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedL1NormOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedL1NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedL1Norm(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedL2Norm(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedL2NormOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedL2NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedL2Norm(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMaxAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMaxAbsOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMaxAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMaxAbs(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMinAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMinAbsOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMinAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMinAbs(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedL1 = withGroupCumulativeWeightedL1Norm;
+pub const withGroupCumulativeWeightedL1On = withGroupCumulativeWeightedL1NormOn;
+pub const withGroupCumulativeWeightedL2 = withGroupCumulativeWeightedL2Norm;
+pub const withGroupCumulativeWeightedL2On = withGroupCumulativeWeightedL2NormOn;
+pub const withGroupCumulativeWeightedMaxAbsolute = withGroupCumulativeWeightedMaxAbs;
+pub const withGroupCumulativeWeightedMaxAbsoluteOn = withGroupCumulativeWeightedMaxAbsOn;
+pub const withGroupCumulativeWeightedMinAbsolute = withGroupCumulativeWeightedMinAbs;
+pub const withGroupCumulativeWeightedMinAbsoluteOn = withGroupCumulativeWeightedMinAbsOn;
+pub const withGroupCumWeightedMeanAbs = withGroupCumulativeWeightedMeanAbs;
+pub const withGroupCumWeightedMeanAbsOn = withGroupCumulativeWeightedMeanAbsOn;
+pub const withGroupCumWeightedL1Norm = withGroupCumulativeWeightedL1Norm;
+pub const withGroupCumWeightedL1NormOn = withGroupCumulativeWeightedL1NormOn;
+pub const withGroupCumWeightedL1 = withGroupCumulativeWeightedL1Norm;
+pub const withGroupCumWeightedL1On = withGroupCumulativeWeightedL1NormOn;
+pub const withGroupCumWeightedL2Norm = withGroupCumulativeWeightedL2Norm;
+pub const withGroupCumWeightedL2NormOn = withGroupCumulativeWeightedL2NormOn;
+pub const withGroupCumWeightedL2 = withGroupCumulativeWeightedL2Norm;
+pub const withGroupCumWeightedL2On = withGroupCumulativeWeightedL2NormOn;
+pub const withGroupCumWeightedMaxAbs = withGroupCumulativeWeightedMaxAbs;
+pub const withGroupCumWeightedMaxAbsOn = withGroupCumulativeWeightedMaxAbsOn;
+pub const withGroupCumWeightedMinAbs = withGroupCumulativeWeightedMinAbs;
+pub const withGroupCumWeightedMinAbsOn = withGroupCumulativeWeightedMinAbsOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
@@ -2935,6 +3003,55 @@ pub const groupByWeightedMeanSq = groupByWeightedMeanSquare;
 pub const groupByWeightedMeanSqOn = groupByWeightedMeanSquareOn;
 pub const groupByWeightedRMS = groupByWeightedRms;
 pub const groupByWeightedRMSOn = groupByWeightedRmsOn;
+
+pub fn groupByWeightedMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_mean_abs);
+}
+
+pub fn groupByWeightedMeanAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_mean_abs);
+}
+
+pub fn groupByWeightedL1Norm(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_l1_norm);
+}
+
+pub fn groupByWeightedL1NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_l1_norm);
+}
+
+pub fn groupByWeightedL2Norm(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_l2_norm);
+}
+
+pub fn groupByWeightedL2NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_l2_norm);
+}
+
+pub fn groupByWeightedMaxAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_max_abs);
+}
+
+pub fn groupByWeightedMaxAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_max_abs);
+}
+
+pub fn groupByWeightedMinAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_min_abs);
+}
+
+pub fn groupByWeightedMinAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_min_abs);
+}
+
+pub const groupByWeightedL1 = groupByWeightedL1Norm;
+pub const groupByWeightedL1On = groupByWeightedL1NormOn;
+pub const groupByWeightedL2 = groupByWeightedL2Norm;
+pub const groupByWeightedL2On = groupByWeightedL2NormOn;
+pub const groupByWeightedMaxAbsolute = groupByWeightedMaxAbs;
+pub const groupByWeightedMaxAbsoluteOn = groupByWeightedMaxAbsOn;
+pub const groupByWeightedMinAbsolute = groupByWeightedMinAbs;
+pub const groupByWeightedMinAbsoluteOn = groupByWeightedMinAbsOn;
 
 pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);
