@@ -1503,6 +1503,26 @@ pub const withGroupCumBowleySkewnessOn = withGroupCumulativeBowleySkewnessOn;
 pub const withGroupCumBowleySkew = withGroupCumulativeBowleySkewness;
 pub const withGroupCumBowleySkewOn = withGroupCumulativeBowleySkewnessOn;
 
+pub fn withGroupCumulativeQuartileCoeffDispersion(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeQuartileCoeffDispersionOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeQuartileCoeffDispersionOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeQuartileCoeffDispersionOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeQcd = withGroupCumulativeQuartileCoeffDispersion;
+pub const withGroupCumulativeQcdOn = withGroupCumulativeQuartileCoeffDispersionOn;
+pub const withGroupCumulativeQCD = withGroupCumulativeQuartileCoeffDispersion;
+pub const withGroupCumulativeQCDOn = withGroupCumulativeQuartileCoeffDispersionOn;
+pub const withGroupCumQuartileCoeffDispersion = withGroupCumulativeQuartileCoeffDispersion;
+pub const withGroupCumQuartileCoeffDispersionOn = withGroupCumulativeQuartileCoeffDispersionOn;
+pub const withGroupCumQcd = withGroupCumulativeQuartileCoeffDispersion;
+pub const withGroupCumQcdOn = withGroupCumulativeQuartileCoeffDispersionOn;
+pub const withGroupCumQCD = withGroupCumulativeQuartileCoeffDispersion;
+pub const withGroupCumQCDOn = withGroupCumulativeQuartileCoeffDispersionOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

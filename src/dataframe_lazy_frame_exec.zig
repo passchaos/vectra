@@ -1268,6 +1268,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_midhinge => |shift| try current.withGroupCumulativeMidhingeOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_trimean => |shift| try current.withGroupCumulativeTrimeanOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_bowley_skewness => |shift| try current.withGroupCumulativeBowleySkewnessOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_quartile_coeff_dispersion => |shift| try current.withGroupCumulativeQuartileCoeffDispersionOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_any => |shift| try current.withGroupCumulativeAnyOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_all => |shift| try current.withGroupCumulativeAllOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_true_count => |shift| try current.withGroupCumulativeTrueCountOn(shift.names, shift.value_name, shift.output_name),

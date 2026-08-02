@@ -1872,6 +1872,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_bowley.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_bowley, gpa, "label_cum_bowley_lazy", &group_cum_bowley_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_qcd_expected = [_]f64{ 0.0, 0.0, 1.0 / 11.0, 0.0, 0.0, 1.0 / 6.0, 1.0 / 5.0, 0.0 };
+
+    var group_cum_qcd_label = try distinct_table.withGroupCumulativeQuartileCoeffDispersion("bucket", "label", "label_cum_qcd");
+    defer group_cum_qcd_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_qcd_label, gpa, "label_cum_qcd", &group_cum_qcd_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_qcd_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_qcd_plan.deinit();
+    try cumulative_qcd_plan.withGroupCumulativeQCD("bucket", "label", "label_cum_qcd_lazy");
+    const cumulative_qcd_explained = try cumulative_qcd_plan.explain(gpa);
+    defer gpa.free(cumulative_qcd_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_qcd_explained, "group_cumulative_quartile_coeff_dispersion([bucket], value=label->label_cum_qcd_lazy)") != null);
+    var lazy_cumulative_qcd = try cumulative_qcd_plan.collect();
+    defer lazy_cumulative_qcd.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_qcd, gpa, "label_cum_qcd_lazy", &group_cum_qcd_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
