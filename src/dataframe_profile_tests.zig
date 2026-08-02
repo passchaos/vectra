@@ -400,6 +400,39 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer metric_negative_ratios.deinit();
     try expectF64ColumnApproxOrNan(metric_negative_ratios, gpa, "metric_negative_ratio", &metric_negative_ratio_expected);
 
+    var signed_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 3 }, .cpu);
+    defer signed_zero_key.deinit();
+    var signed_zero_values_buffer = [_]f64{ 0.0, -0.0, 1.0, -0.0, 0.0, 5.0 };
+    var signed_zero_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &signed_zero_values_buffer, &.{ true, true, true, true, true, false }, .cpu);
+    defer signed_zero_value.deinit();
+    var signed_zero_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = signed_zero_key },
+        .{ .name = "metric", .data = signed_zero_value },
+    });
+    defer signed_zero_table.deinit();
+
+    var positive_zero_counts = try signed_zero_table.groupByPositiveZeroCount("bucket", "metric", "positive_zero_count");
+    defer positive_zero_counts.deinit();
+    const positive_zero_count_values = try (try positive_zero_counts.column("positive_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(positive_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0 }, positive_zero_count_values);
+
+    var negative_zero_counts = try signed_zero_table.groupByNegativeZeroCount("bucket", "metric", "negative_zero_count");
+    defer negative_zero_counts.deinit();
+    const negative_zero_count_values = try (try negative_zero_counts.column("negative_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(negative_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0 }, negative_zero_count_values);
+
+    const positive_zero_ratio_expected = [_]f64{ 1.0 / 3.0, 0.5, ratio_nan };
+    var positive_zero_ratios = try signed_zero_table.groupByPositiveZeroRatio("bucket", "metric", "positive_zero_ratio");
+    defer positive_zero_ratios.deinit();
+    try expectF64ColumnApproxOrNan(positive_zero_ratios, gpa, "positive_zero_ratio", &positive_zero_ratio_expected);
+
+    const negative_zero_ratio_expected = [_]f64{ 1.0 / 3.0, 0.5, ratio_nan };
+    var negative_zero_ratios = try signed_zero_table.groupByNegativeZeroRatio("bucket", "metric", "negative_zero_ratio");
+    defer negative_zero_ratios.deinit();
+    try expectF64ColumnApproxOrNan(negative_zero_ratios, gpa, "negative_zero_ratio", &negative_zero_ratio_expected);
+
     var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
     defer metric_nan_counts_on.deinit();
     const metric_nan_count_on_values = try (try metric_nan_counts_on.column("metric_nan_count_on")).i64.toOwnedSlice(gpa);
@@ -464,6 +497,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_positive_ratio = try positive_ratio_plan.collect();
     defer lazy_positive_ratio.deinit();
     try expectF64ColumnApproxOrNan(lazy_positive_ratio, gpa, "metric_positive_ratio_lazy", &metric_positive_ratio_expected);
+
+    var positive_zero_ratio_plan = try DeviceLazyFrame.init(gpa, signed_zero_table);
+    defer positive_zero_ratio_plan.deinit();
+    try positive_zero_ratio_plan.groupByPositiveZeroRatio("bucket", "metric", "positive_zero_ratio_lazy");
+    const positive_zero_ratio_explained = try positive_zero_ratio_plan.explain(gpa);
+    defer gpa.free(positive_zero_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, positive_zero_ratio_explained, "group_by_positive_zero_ratio(bucket, value=metric -> positive_zero_ratio_lazy)") != null);
+    var lazy_positive_zero_ratio = try positive_zero_ratio_plan.collect();
+    defer lazy_positive_zero_ratio.deinit();
+    try expectF64ColumnApproxOrNan(lazy_positive_zero_ratio, gpa, "positive_zero_ratio_lazy", &positive_zero_ratio_expected);
 
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();

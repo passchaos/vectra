@@ -152,6 +152,10 @@ const GroupByNumericQualityAggregation = enum {
     non_finite_ratio,
     zero_count,
     zero_ratio,
+    positive_zero_count,
+    positive_zero_ratio,
+    negative_zero_count,
+    negative_zero_ratio,
     non_zero_count,
     non_zero_ratio,
     positive_count,
@@ -265,24 +269,6 @@ fn groupColumnValidityValues(allocator: std.mem.Allocator, column: DeviceColumn)
     };
 }
 
-fn groupNumericQualityMatches(value: f64, aggregation: GroupByNumericQualityAggregation) bool {
-    return switch (aggregation) {
-        .nan_count, .nan_ratio => std.math.isNan(value),
-        .inf_count, .inf_ratio => std.math.isInf(value),
-        .positive_inf_count, .positive_inf_ratio => std.math.isPositiveInf(value),
-        .negative_inf_count, .negative_inf_ratio => std.math.isNegativeInf(value),
-        .finite_count, .finite_ratio => std.math.isFinite(value),
-        .normal_count, .normal_ratio => std.math.isNormal(value),
-        .subnormal_count, .subnormal_ratio => std.math.isFinite(value) and value != 0.0 and !std.math.isNormal(value),
-        .non_finite_count, .non_finite_ratio => !std.math.isFinite(value),
-        .zero_count, .zero_ratio => value == 0.0,
-        .non_zero_count, .non_zero_ratio => value != 0.0,
-        .positive_count, .positive_ratio => value > 0.0,
-        .signbit_count, .signbit_ratio => std.math.signbit(value),
-        .negative_count, .negative_ratio => value < 0.0,
-    };
-}
-
 fn groupNumericQualityIsRatio(aggregation: GroupByNumericQualityAggregation) bool {
     return switch (aggregation) {
         .nan_ratio,
@@ -294,11 +280,54 @@ fn groupNumericQualityIsRatio(aggregation: GroupByNumericQualityAggregation) boo
         .subnormal_ratio,
         .non_finite_ratio,
         .zero_ratio,
+        .positive_zero_ratio,
+        .negative_zero_ratio,
         .non_zero_ratio,
         .positive_ratio,
         .signbit_ratio,
         .negative_ratio,
         => true,
+        else => false,
+    };
+}
+
+fn groupNumericQualityMatchesTyped(comptime T: type, value: T, aggregation: GroupByNumericQualityAggregation) bool {
+    return switch (@typeInfo(T)) {
+        .float, .comptime_float => switch (aggregation) {
+            .nan_count, .nan_ratio => std.math.isNan(value),
+            .inf_count, .inf_ratio => std.math.isInf(value),
+            .positive_inf_count, .positive_inf_ratio => std.math.isPositiveInf(value),
+            .negative_inf_count, .negative_inf_ratio => std.math.isNegativeInf(value),
+            .finite_count, .finite_ratio => std.math.isFinite(value),
+            .normal_count, .normal_ratio => std.math.isNormal(value),
+            .subnormal_count, .subnormal_ratio => std.math.isFinite(value) and value != 0.0 and !std.math.isNormal(value),
+            .non_finite_count, .non_finite_ratio => !std.math.isFinite(value),
+            .zero_count, .zero_ratio => value == 0.0,
+            .positive_zero_count, .positive_zero_ratio => value == 0.0 and !std.math.signbit(value),
+            .negative_zero_count, .negative_zero_ratio => value == 0.0 and std.math.signbit(value),
+            .non_zero_count, .non_zero_ratio => value != 0.0,
+            .positive_count, .positive_ratio => value > 0.0,
+            .signbit_count, .signbit_ratio => std.math.signbit(value),
+            .negative_count, .negative_ratio => value < 0.0,
+        },
+        .int => |info| switch (aggregation) {
+            .finite_count, .finite_ratio => true,
+            .zero_count, .zero_ratio => value == 0,
+            .non_zero_count, .non_zero_ratio => value != 0,
+            .positive_count, .positive_ratio => value > 0,
+            .signbit_count, .signbit_ratio => info.signedness == .signed and value < 0,
+            .negative_count, .negative_ratio => info.signedness == .signed and value < 0,
+            else => false,
+        },
+        .comptime_int => switch (aggregation) {
+            .finite_count, .finite_ratio => true,
+            .zero_count, .zero_ratio => value == 0,
+            .non_zero_count, .non_zero_ratio => value != 0,
+            .positive_count, .positive_ratio => value > 0,
+            .signbit_count, .signbit_ratio => value < 0,
+            .negative_count, .negative_ratio => value < 0,
+            else => false,
+        },
         else => false,
     };
 }
@@ -3871,6 +3900,84 @@ pub fn groupByNullRatioOn(
     return groupByValidityCountOn(DeviceDataFrame, .null_ratio, frame, key_names, value_name, output_name);
 }
 
+pub fn groupByNumericQualityOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByNumericQualityAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByNumericQualityOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByNumericQualityOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByNumericQualityAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var match_counts: std.ArrayList(i64) = .empty;
+    defer match_counts.deinit(allocator);
+    var valid_counts: std.ArrayList(i64) = .empty;
+    defer valid_counts.deinit(allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try match_counts.append(allocator, 0);
+            try valid_counts.append(allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        valid_counts.items[group_index] += 1;
+        if (groupNumericQualityMatchesTyped(V, value_item, aggregation)) match_counts.items[group_index] += 1;
+    }
+
+    const output_column: DeviceColumn = if (groupNumericQualityIsRatio(aggregation)) blk: {
+        const ratios = try allocator.alloc(f64, representative_rows.items.len);
+        defer allocator.free(ratios);
+        for (match_counts.items, valid_counts.items, ratios) |match_count, valid_count, *slot| {
+            slot.* = if (valid_count == 0) std.math.nan(f64) else @as(f64, @floatFromInt(match_count)) / @as(f64, @floatFromInt(valid_count));
+        }
+        break :blk try DeviceColumn.fromSlice(f64, allocator, ratios, device_value);
+    } else try DeviceColumn.fromSlice(i64, allocator, match_counts.items, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
 fn groupByNumericQualityOn(
     comptime DeviceDataFrame: type,
     aggregation: GroupByNumericQualityAggregation,
@@ -3881,42 +3988,8 @@ fn groupByNumericQualityOn(
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
-    const value_column = try frame.column(value_name);
-    var values = try ownedGroupRealColumn(frame.allocator, value_column.*);
-    defer values.deinit();
-    if (frame.rows != values.values.len) return error.LengthMismatch;
-
-    var representative_rows: std.ArrayList(usize) = .empty;
-    defer representative_rows.deinit(frame.allocator);
-    var match_counts: std.ArrayList(i64) = .empty;
-    defer match_counts.deinit(frame.allocator);
-    var valid_counts: std.ArrayList(i64) = .empty;
-    defer valid_counts.deinit(frame.allocator);
-
-    for (values.values, 0..) |value_item, row| {
-        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
-        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
-            try representative_rows.append(frame.allocator, row);
-            try match_counts.append(frame.allocator, 0);
-            try valid_counts.append(frame.allocator, 0);
-            break :blk representative_rows.items.len - 1;
-        };
-        if (values.validity) |validity| {
-            if (!validity[row]) continue;
-        }
-        valid_counts.items[group_index] += 1;
-        if (groupNumericQualityMatches(value_item, aggregation)) match_counts.items[group_index] += 1;
-    }
-
-    const output_column: DeviceColumn = if (groupNumericQualityIsRatio(aggregation)) blk: {
-        const ratios = try frame.allocator.alloc(f64, representative_rows.items.len);
-        defer frame.allocator.free(ratios);
-        for (match_counts.items, valid_counts.items, ratios) |match_count, valid_count, *slot| {
-            slot.* = if (valid_count == 0) std.math.nan(f64) else @as(f64, @floatFromInt(match_count)) / @as(f64, @floatFromInt(valid_count));
-        }
-        break :blk try DeviceColumn.fromSlice(f64, frame.allocator, ratios, frame.device);
-    } else try DeviceColumn.fromSlice(i64, frame.allocator, match_counts.items, frame.device);
-    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+    const value = try frame.column(value_name);
+    return groupByNumericQualityOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
 pub fn groupByNaNCountOn(
@@ -4097,6 +4170,46 @@ pub fn groupByZeroRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByNumericQualityOn(DeviceDataFrame, .zero_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveZeroCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .positive_zero_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveZeroRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .positive_zero_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeZeroCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .negative_zero_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeZeroRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .negative_zero_ratio, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByNonZeroCountOn(
