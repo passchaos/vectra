@@ -84,6 +84,15 @@ const GroupByModeDiagnostic = enum {
     margin_ratio,
 };
 
+const GroupByDistributionAggregation = enum {
+    entropy,
+    gini_impurity,
+    perplexity,
+    inverse_simpson,
+    simpson_concentration,
+    evenness,
+};
+
 const GroupByBoolAggregation = enum {
     any,
     all,
@@ -708,6 +717,197 @@ pub fn groupByModeMarginRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByModeDiagnosticOn(DeviceDataFrame, .margin_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByDistributionOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByDistributionAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .bool => |typed| groupByDistributionOnTyped(DeviceDataFrame, bool, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i8 => |typed| groupByDistributionOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByDistributionOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByDistributionOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByDistributionOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByDistributionOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByDistributionOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByDistributionOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByDistributionOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByDistributionOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByDistributionOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByDistributionOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByDistributionOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByDistributionOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn distributionMetric(
+    comptime V: type,
+    aggregation: GroupByDistributionAggregation,
+    values: []const V,
+    rows: []const usize,
+) f64 {
+    var entropy: f64 = 0.0;
+    var sum_probability_sq: f64 = 0.0;
+    var distinct_count: usize = 0;
+    const total = @as(f64, @floatFromInt(rows.len));
+    for (rows, 0..) |candidate_row, candidate_index| {
+        var seen = false;
+        for (rows[0..candidate_index]) |previous_row| {
+            if (groupKeyEqual(V, values[previous_row], values[candidate_row])) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) continue;
+
+        var count: usize = 0;
+        for (rows[candidate_index..]) |match_row| {
+            if (groupKeyEqual(V, values[candidate_row], values[match_row])) count += 1;
+        }
+        distinct_count += 1;
+        const probability = @as(f64, @floatFromInt(count)) / total;
+        sum_probability_sq += probability * probability;
+        entropy -= probability * std.math.log(f64, std.math.e, probability);
+    }
+
+    return switch (aggregation) {
+        .entropy => entropy,
+        .gini_impurity => 1.0 - sum_probability_sq,
+        .perplexity => std.math.exp(entropy),
+        .inverse_simpson => 1.0 / sum_probability_sq,
+        .simpson_concentration => sum_probability_sq,
+        .evenness => if (distinct_count <= 1) 1.0 else entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(distinct_count))),
+    };
+}
+
+fn groupByDistributionOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByDistributionAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var group_value_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_value_rows.items) |*rows| rows.deinit(allocator);
+        group_value_rows.deinit(allocator);
+    }
+
+    for (values, 0..) |_, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try group_value_rows.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_value_rows.items[group_index].append(allocator, row);
+    }
+
+    const out = try allocator.alloc(f64, group_value_rows.items.len);
+    defer allocator.free(out);
+    for (group_value_rows.items, out) |rows, *slot| {
+        slot.* = distributionMetric(V, aggregation, values, rows.items);
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, allocator, out, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByDistributionOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByDistributionAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByDistributionOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+pub fn groupByEntropyOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .entropy, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByGiniImpurityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .gini_impurity, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPerplexityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .perplexity, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByInverseSimpsonOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .inverse_simpson, frame, key_names, value_name, output_name);
+}
+
+pub fn groupBySimpsonConcentrationOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .simpson_concentration, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByEvennessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByDistributionOn(DeviceDataFrame, .evenness, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByMomentOnDispatchValue(

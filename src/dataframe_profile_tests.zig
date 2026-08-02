@@ -422,6 +422,54 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), mode_margin_ratio_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), mode_margin_ratio_values[1], 1e-12);
 
+    const group_entropy_1 = -(@as(f64, 0.5) * std.math.log(f64, std.math.e, @as(f64, 0.5)) + 2.0 * @as(f64, 0.25) * std.math.log(f64, std.math.e, @as(f64, 0.25)));
+    const group_entropy_2 = -(2.0 * @as(f64, 0.4) * std.math.log(f64, std.math.e, @as(f64, 0.4)) + @as(f64, 0.2) * std.math.log(f64, std.math.e, @as(f64, 0.2)));
+    const group_concentration_1 = @as(f64, 0.5) * @as(f64, 0.5) + 2.0 * @as(f64, 0.25) * @as(f64, 0.25);
+    const group_concentration_2 = 2.0 * @as(f64, 0.4) * @as(f64, 0.4) + @as(f64, 0.2) * @as(f64, 0.2);
+    const group_distinct_log = std.math.log(f64, std.math.e, @as(f64, 3.0));
+
+    var entropy_group = try mode_diag_table.groupByEntropy("bucket", "label", "label_entropy");
+    defer entropy_group.deinit();
+    const entropy_group_values = try (try entropy_group.column("label_entropy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(entropy_group_values);
+    try std.testing.expectApproxEqAbs(group_entropy_1, entropy_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_entropy_2, entropy_group_values[1], 1e-12);
+
+    var gini_group = try mode_diag_table.groupByGiniOn(&.{"bucket"}, "label", "label_gini");
+    defer gini_group.deinit();
+    const gini_group_values = try (try gini_group.column("label_gini")).f64.toOwnedSlice(gpa);
+    defer gpa.free(gini_group_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - group_concentration_1, gini_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - group_concentration_2, gini_group_values[1], 1e-12);
+
+    var perplexity_group = try mode_diag_table.groupByPerplexity("bucket", "label", "label_perplexity");
+    defer perplexity_group.deinit();
+    const perplexity_group_values = try (try perplexity_group.column("label_perplexity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(perplexity_group_values);
+    try std.testing.expectApproxEqAbs(std.math.exp(group_entropy_1), perplexity_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(group_entropy_2), perplexity_group_values[1], 1e-12);
+
+    var inverse_group = try mode_diag_table.groupByInverseSimpsonOn(&.{"bucket"}, "label", "label_inverse");
+    defer inverse_group.deinit();
+    const inverse_group_values = try (try inverse_group.column("label_inverse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inverse_group_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / group_concentration_1, inverse_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / group_concentration_2, inverse_group_values[1], 1e-12);
+
+    var concentration_group = try mode_diag_table.groupByConcentration("bucket", "label", "label_concentration");
+    defer concentration_group.deinit();
+    const concentration_group_values = try (try concentration_group.column("label_concentration")).f64.toOwnedSlice(gpa);
+    defer gpa.free(concentration_group_values);
+    try std.testing.expectApproxEqAbs(group_concentration_1, concentration_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_concentration_2, concentration_group_values[1], 1e-12);
+
+    var evenness_group = try mode_diag_table.groupByEvennessOn(&.{"bucket"}, "label", "label_evenness");
+    defer evenness_group.deinit();
+    const evenness_group_values = try (try evenness_group.column("label_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(evenness_group_values);
+    try std.testing.expectApproxEqAbs(group_entropy_1 / group_distinct_log, evenness_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_entropy_2 / group_distinct_log, evenness_group_values[1], 1e-12);
+
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();
     try mode_count_plan.groupByModeCount("bucket", "label", "label_mode_count_lazy");
@@ -471,6 +519,84 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_mode_margin_ratio_values);
     try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_mode_margin_ratio_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_mode_margin_ratio_values[1], 1e-12);
+
+    var entropy_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer entropy_group_plan.deinit();
+    try entropy_group_plan.groupByEntropyOn(&.{"bucket"}, "label", "label_entropy_lazy");
+    const entropy_group_explained = try entropy_group_plan.explain(gpa);
+    defer gpa.free(entropy_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, entropy_group_explained, "group_by_entropy_on([bucket], value=label -> label_entropy_lazy)") != null);
+    var lazy_entropy_group = try entropy_group_plan.collect();
+    defer lazy_entropy_group.deinit();
+    const lazy_entropy_group_values = try (try lazy_entropy_group.column("label_entropy_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_entropy_group_values);
+    try std.testing.expectApproxEqAbs(group_entropy_1, lazy_entropy_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_entropy_2, lazy_entropy_group_values[1], 1e-12);
+
+    var gini_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer gini_group_plan.deinit();
+    try gini_group_plan.groupByGiniOn(&.{"bucket"}, "label", "label_gini_lazy");
+    const gini_group_explained = try gini_group_plan.explain(gpa);
+    defer gpa.free(gini_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, gini_group_explained, "group_by_gini_impurity_on([bucket], value=label -> label_gini_lazy)") != null);
+    var lazy_gini_group = try gini_group_plan.collect();
+    defer lazy_gini_group.deinit();
+    const lazy_gini_group_values = try (try lazy_gini_group.column("label_gini_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_gini_group_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - group_concentration_1, lazy_gini_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) - group_concentration_2, lazy_gini_group_values[1], 1e-12);
+
+    var perplexity_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer perplexity_group_plan.deinit();
+    try perplexity_group_plan.groupByPerplexity("bucket", "label", "label_perplexity_lazy");
+    const perplexity_group_explained = try perplexity_group_plan.explain(gpa);
+    defer gpa.free(perplexity_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, perplexity_group_explained, "group_by_perplexity(bucket, value=label -> label_perplexity_lazy)") != null);
+    var lazy_perplexity_group = try perplexity_group_plan.collect();
+    defer lazy_perplexity_group.deinit();
+    const lazy_perplexity_group_values = try (try lazy_perplexity_group.column("label_perplexity_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_perplexity_group_values);
+    try std.testing.expectApproxEqAbs(std.math.exp(group_entropy_1), lazy_perplexity_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(group_entropy_2), lazy_perplexity_group_values[1], 1e-12);
+
+    var inverse_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer inverse_group_plan.deinit();
+    try inverse_group_plan.groupByInverseSimpsonOn(&.{"bucket"}, "label", "label_inverse_lazy");
+    const inverse_group_explained = try inverse_group_plan.explain(gpa);
+    defer gpa.free(inverse_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, inverse_group_explained, "group_by_inverse_simpson_on([bucket], value=label -> label_inverse_lazy)") != null);
+    var lazy_inverse_group = try inverse_group_plan.collect();
+    defer lazy_inverse_group.deinit();
+    const lazy_inverse_group_values = try (try lazy_inverse_group.column("label_inverse_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_inverse_group_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / group_concentration_1, lazy_inverse_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0) / group_concentration_2, lazy_inverse_group_values[1], 1e-12);
+
+    var concentration_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer concentration_group_plan.deinit();
+    try concentration_group_plan.groupByConcentration("bucket", "label", "label_concentration_lazy");
+    const concentration_group_explained = try concentration_group_plan.explain(gpa);
+    defer gpa.free(concentration_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, concentration_group_explained, "group_by_simpson_concentration(bucket, value=label -> label_concentration_lazy)") != null);
+    var lazy_concentration_group = try concentration_group_plan.collect();
+    defer lazy_concentration_group.deinit();
+    const lazy_concentration_group_values = try (try lazy_concentration_group.column("label_concentration_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_concentration_group_values);
+    try std.testing.expectApproxEqAbs(group_concentration_1, lazy_concentration_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_concentration_2, lazy_concentration_group_values[1], 1e-12);
+
+    var evenness_group_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer evenness_group_plan.deinit();
+    try evenness_group_plan.groupByEvennessOn(&.{"bucket"}, "label", "label_evenness_lazy");
+    const evenness_group_explained = try evenness_group_plan.explain(gpa);
+    defer gpa.free(evenness_group_explained);
+    try std.testing.expect(std.mem.indexOf(u8, evenness_group_explained, "group_by_evenness_on([bucket], value=label -> label_evenness_lazy)") != null);
+    var lazy_evenness_group = try evenness_group_plan.collect();
+    defer lazy_evenness_group.deinit();
+    const lazy_evenness_group_values = try (try lazy_evenness_group.column("label_evenness_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_evenness_group_values);
+    try std.testing.expectApproxEqAbs(group_entropy_1 / group_distinct_log, lazy_evenness_group_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(group_entropy_2 / group_distinct_log, lazy_evenness_group_values[1], 1e-12);
 
     var median_sales = try table.groupByMedian("store", "sales", "sales_median");
     defer median_sales.deinit();
