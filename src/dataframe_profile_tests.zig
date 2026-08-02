@@ -1791,6 +1791,23 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_iqr.deinit();
     try expectF64ColumnWithValidity(lazy_cumulative_iqr, gpa, "label_cum_iqr_lazy", &group_cum_iqr_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_median_abs_dev_expected = [_]f64{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0 };
+
+    var group_cum_median_abs_dev_label = try distinct_table.withGroupCumulativeMad("bucket", "label", "label_cum_median_abs_dev");
+    defer group_cum_median_abs_dev_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_median_abs_dev_label, gpa, "label_cum_median_abs_dev", &group_cum_median_abs_dev_expected, &group_cum_mode_validity_expected);
+    try std.testing.expectError(error.TypeUnsupported, bool_table.withGroupCumulativeMad("store", "active", "bad_mad"));
+
+    var cumulative_mad_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_mad_plan.deinit();
+    try cumulative_mad_plan.withGroupCumulativeMAD("bucket", "label", "label_cum_median_abs_dev_lazy");
+    const cumulative_mad_explained = try cumulative_mad_plan.explain(gpa);
+    defer gpa.free(cumulative_mad_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_mad_explained, "group_cumulative_mad([bucket], value=label->label_cum_median_abs_dev_lazy)") != null);
+    var lazy_cumulative_mad = try cumulative_mad_plan.collect();
+    defer lazy_cumulative_mad.deinit();
+    try expectF64ColumnWithValidity(lazy_cumulative_mad, gpa, "label_cum_median_abs_dev_lazy", &group_cum_median_abs_dev_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

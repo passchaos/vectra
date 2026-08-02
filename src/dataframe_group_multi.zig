@@ -3276,13 +3276,16 @@ pub fn withGroupCumulativeQuantileOn(comptime DeviceDataFrame: type, frame: Devi
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 
-fn withGroupCumulativeIqrOnTyped(
+const GroupCumulativeRobustAggregation = enum { iqr, mad };
+
+fn withGroupCumulativeRobustOnTyped(
     comptime DeviceDataFrame: type,
     comptime V: type,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
     output_name: []const u8,
     value: DeviceTypedColumn(V),
+    comptime aggregation: GroupCumulativeRobustAggregation,
 ) GroupByOnError!DeviceDataFrame {
     if (frame.rows != value.len()) return error.LengthMismatch;
     const values = try value.values.toOwnedSlice(frame.allocator);
@@ -3317,7 +3320,10 @@ fn withGroupCumulativeIqrOnTyped(
         try group_values.items[group_index].append(frame.allocator, castToF64(V, value_item));
         std.sort.insertion(f64, group_values.items[group_index].items, {}, groupByQuantileLess);
         const sorted = group_values.items[group_index].items;
-        outputs[row] = quantileFromSorted(sorted, 0.75) - quantileFromSorted(sorted, 0.25);
+        outputs[row] = switch (aggregation) {
+            .iqr => quantileFromSorted(sorted, 0.75) - quantileFromSorted(sorted, 0.25),
+            .mad => try medianAbsDevFromSorted(frame.allocator, sorted),
+        };
         row_validity[row] = true;
     }
 
@@ -3326,41 +3332,51 @@ fn withGroupCumulativeIqrOnTyped(
     return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
 }
 
-fn withGroupCumulativeIqrCoreOn(
+fn withGroupCumulativeRobustCoreOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
     value_name: []const u8,
     output_name: []const u8,
+    comptime aggregation: GroupCumulativeRobustAggregation,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value = try frame.column(value_name);
     return switch (value.*) {
-        .i8 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed),
-        .i16 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed),
-        .i32 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed),
-        .i64 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed),
-        .u8 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed),
-        .u16 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed),
-        .u32 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed),
-        .u64 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed),
-        .usize => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed),
-        .isize => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed),
-        .f16 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed),
-        .f32 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed),
-        .f64 => |typed| withGroupCumulativeIqrOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed),
+        .i8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation),
+        .i16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation),
+        .i32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation),
+        .i64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation),
+        .u8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation),
+        .u16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation),
+        .u32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation),
+        .u64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation),
+        .usize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation),
+        .isize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation),
+        .f16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation),
+        .f32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation),
+        .f64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation),
         .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
     };
 }
 
 pub fn withGroupCumulativeIqrOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeIqrCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .iqr);
+}
+
+pub fn withGroupCumulativeMadOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mad);
 }
 
 pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
+pub const withGroupCumulativeMADOn = withGroupCumulativeMadOn;
+pub const withGroupCumulativeMedianAbsDevOn = withGroupCumulativeMadOn;
 pub const withGroupCumIqrOn = withGroupCumulativeIqrOn;
 pub const withGroupCumIQROn = withGroupCumulativeIqrOn;
+pub const withGroupCumMadOn = withGroupCumulativeMadOn;
+pub const withGroupCumMADOn = withGroupCumulativeMadOn;
+pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
 
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
@@ -7284,6 +7300,16 @@ fn quantileFromSorted(sorted_values: []const f64, q: f64) f64 {
     return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight;
 }
 
+fn medianAbsDevFromSorted(allocator: std.mem.Allocator, sorted_values: []const f64) std.mem.Allocator.Error!f64 {
+    const center = quantileFromSorted(sorted_values, 0.5);
+    const deviations = try allocator.alloc(f64, sorted_values.len);
+    defer allocator.free(deviations);
+
+    for (sorted_values, deviations) |value, *deviation| deviation.* = @abs(value - center);
+    std.sort.insertion(f64, deviations, {}, groupByQuantileLess);
+    return quantileFromSorted(deviations, 0.5);
+}
+
 fn validateTailFraction(fraction: f64) GroupByOnError!void {
     if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
 }
@@ -7493,12 +7519,7 @@ fn groupByRobustOnTyped(
         std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
         slot.* = switch (aggregation) {
             .iqr => quantileFromSorted(values_for_group.items, 0.75) - quantileFromSorted(values_for_group.items, 0.25),
-            .mad => blk: {
-                const center = quantileFromSorted(values_for_group.items, 0.5);
-                for (values_for_group.items) |*item| item.* = @abs(item.* - center);
-                std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
-                break :blk quantileFromSorted(values_for_group.items, 0.5);
-            },
+            .mad => try medianAbsDevFromSorted(allocator, values_for_group.items),
             .trimmed_mean => trimmedMeanFromSorted(values_for_group.items, fraction),
             .winsorized_mean => winsorizedMeanFromSorted(values_for_group.items, fraction),
             .interdecile_range => quantileFromSorted(values_for_group.items, 0.9) - quantileFromSorted(values_for_group.items, 0.1),
