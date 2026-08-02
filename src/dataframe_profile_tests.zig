@@ -960,6 +960,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, tail_row_keys);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, tail_row_sales);
 
+    var top_sales_rows = try table.groupByTopRows("store", "sales", 2, .{ .descending = true, .nulls = .last });
+    defer top_sales_rows.deinit();
+    const top_sales_keys = try (try top_sales_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(top_sales_keys);
+    const top_sales_values = try (try top_sales_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(top_sales_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, top_sales_keys);
+    try std.testing.expectEqualSlices(f64, &.{ 13.0, 2.0, 11.0, 3.0 }, top_sales_values);
+
+    var bottom_sales_rows = try table.groupByBottomRows("store", "sales", 1, .{ .descending = true, .nulls = .last });
+    defer bottom_sales_rows.deinit();
+    const bottom_sales_keys = try (try bottom_sales_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(bottom_sales_keys);
+    const bottom_sales_values = try (try bottom_sales_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(bottom_sales_values);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, bottom_sales_keys);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, bottom_sales_values);
+
     var value_counts_plan = try DeviceLazyFrame.init(gpa, table);
     defer value_counts_plan.deinit();
     try value_counts_plan.valueCountsSortedAs("store", "rows_lazy");
@@ -990,6 +1008,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_tail_sales);
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, lazy_tail_keys);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, lazy_tail_sales);
+
+    var top_rows_plan = try DeviceLazyFrame.init(gpa, table);
+    defer top_rows_plan.deinit();
+    try top_rows_plan.groupByTopRows("store", "sales", 2, .{ .descending = true, .nulls = .last });
+    const top_rows_explained = try top_rows_plan.explain(gpa);
+    defer gpa.free(top_rows_explained);
+    try std.testing.expect(std.mem.indexOf(u8, top_rows_explained, "group_by_top_rows(store, sort=sales, n=2, desc=true)") != null);
+    var lazy_top_rows = try top_rows_plan.collect();
+    defer lazy_top_rows.deinit();
+    const lazy_top_keys = try (try lazy_top_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_top_keys);
+    const lazy_top_sales = try (try lazy_top_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_top_sales);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, lazy_top_keys);
+    try std.testing.expectEqualSlices(f64, &.{ 13.0, 2.0, 11.0, 3.0 }, lazy_top_sales);
 
     var summed = try table.groupBySum("store", "sales", "sales_sum");
     defer summed.deinit();

@@ -801,6 +801,112 @@ fn groupByLimitRowsOn(
     return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
 }
 
+fn RowSortContext(comptime T: type) type {
+    return struct {
+        values: []const T,
+        validity: ?[]const bool,
+        options: options_mod.DeviceSortOptions,
+    };
+}
+
+fn rowLessByTyped(comptime T: type, context: RowSortContext(T), lhs: usize, rhs: usize) bool {
+    const lhs_valid = if (context.validity) |validity| validity[lhs] else true;
+    const rhs_valid = if (context.validity) |validity| validity[rhs] else true;
+    if (!lhs_valid or !rhs_valid) {
+        if (lhs_valid == rhs_valid) return lhs < rhs;
+        const null_first = context.options.nulls == .first;
+        return if (!lhs_valid and rhs_valid) null_first else !null_first;
+    }
+    const cmp = compareSortValues(T, context.values[lhs], context.values[rhs]);
+    if (cmp == 0) return lhs < rhs;
+    return if (context.options.descending) cmp > 0 else cmp < 0;
+}
+
+fn groupByTopRowsOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime T: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    n: usize,
+    options: options_mod.DeviceSortOptions,
+    sort_column: DeviceTypedColumn(T),
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    if (frame.rows != sort_column.len()) return error.LengthMismatch;
+    if (n == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
+
+    const sort_values = try sort_column.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(sort_values);
+    const maybe_validity = try validityValues(sort_column, frame.allocator);
+    defer if (maybe_validity) |validity| frame.allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var groups: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (groups.items) |*group| group.deinit(frame.allocator);
+        groups.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            var rows: std.ArrayList(usize) = .empty;
+            errdefer rows.deinit(frame.allocator);
+            try groups.append(frame.allocator, rows);
+            break :blk groups.items.len - 1;
+        };
+        try groups.items[group_index].append(frame.allocator, row);
+    }
+
+    const context: RowSortContext(T) = .{
+        .values = sort_values,
+        .validity = maybe_validity,
+        .options = options,
+    };
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(frame.allocator);
+    for (groups.items) |*group| {
+        std.mem.sort(usize, group.items, context, struct {
+            fn less(ctx: RowSortContext(T), lhs: usize, rhs: usize) bool {
+                return rowLessByTyped(T, ctx, lhs, rhs);
+            }
+        }.less);
+        try row_indices.appendSlice(frame.allocator, group.items[0..@min(n, group.items.len)]);
+    }
+    return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
+}
+
+fn groupByTopRowsDispatchSortColumn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_name: []const u8,
+    n: usize,
+    options: options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    const sort_column = try frame.column(sort_name);
+    return switch (sort_column.*) {
+        .bool => |typed| groupByTopRowsOnTyped(DeviceDataFrame, bool, frame, key_names, n, options, typed),
+        .i8 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, i8, frame, key_names, n, options, typed),
+        .i16 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, i16, frame, key_names, n, options, typed),
+        .i32 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, i32, frame, key_names, n, options, typed),
+        .i64 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, i64, frame, key_names, n, options, typed),
+        .u8 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, u8, frame, key_names, n, options, typed),
+        .u16 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, u16, frame, key_names, n, options, typed),
+        .u32 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, u32, frame, key_names, n, options, typed),
+        .u64 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, u64, frame, key_names, n, options, typed),
+        .usize => |typed| groupByTopRowsOnTyped(DeviceDataFrame, usize, frame, key_names, n, options, typed),
+        .isize => |typed| groupByTopRowsOnTyped(DeviceDataFrame, isize, frame, key_names, n, options, typed),
+        .f16 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, f16, frame, key_names, n, options, typed),
+        .f32 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, f32, frame, key_names, n, options, typed),
+        .f64 => |typed| groupByTopRowsOnTyped(DeviceDataFrame, f64, frame, key_names, n, options, typed),
+        .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
 pub fn groupByHeadRowsOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -817,6 +923,30 @@ pub fn groupByTailRowsOn(
     n: usize,
 ) GroupByOnError!DeviceDataFrame {
     return groupByLimitRowsOn(DeviceDataFrame, frame, key_names, n, true);
+}
+
+pub fn groupByTopRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_name: []const u8,
+    n: usize,
+    options: options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    return groupByTopRowsDispatchSortColumn(DeviceDataFrame, frame, key_names, sort_name, n, options);
+}
+
+pub fn groupByBottomRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_name: []const u8,
+    n: usize,
+    options: options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    var bottom_options = options;
+    bottom_options.descending = !bottom_options.descending;
+    return groupByTopRowsDispatchSortColumn(DeviceDataFrame, frame, key_names, sort_name, n, bottom_options);
 }
 
 pub fn groupByNumericOn(

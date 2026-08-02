@@ -4,6 +4,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const lazy_op_mod = @import("dataframe_lazy_op.zig");
 const names_mod = @import("dataframe_names.zig");
+const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
 
 const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
@@ -53,6 +54,34 @@ pub fn groupByRowsOn(frame: anytype, key_names: []const []const u8, n: usize, ke
         .key_names = owned_keys,
         .n = n,
         .keep_tail = keep_tail,
+    } });
+}
+
+pub fn groupBySortedRows(frame: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options: options_mod.DeviceSortOptions, keep_bottom: bool) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    const owned_sort = try frame.allocator.dupe(u8, sort_name);
+    errdefer frame.allocator.free(owned_sort);
+    try frame.ops.append(frame.allocator, .{ .group_by_sorted_rows = .{
+        .key_name = owned_key,
+        .sort_name = owned_sort,
+        .n = n,
+        .options = options,
+        .keep_bottom = keep_bottom,
+    } });
+}
+
+pub fn groupBySortedRowsOn(frame: anytype, key_names: []const []const u8, sort_name: []const u8, n: usize, options: options_mod.DeviceSortOptions, keep_bottom: bool) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_sort = try frame.allocator.dupe(u8, sort_name);
+    errdefer frame.allocator.free(owned_sort);
+    try frame.ops.append(frame.allocator, .{ .group_by_sorted_rows_on = .{
+        .key_names = owned_keys,
+        .sort_name = owned_sort,
+        .n = n,
+        .options = options,
+        .keep_bottom = keep_bottom,
     } });
 }
 

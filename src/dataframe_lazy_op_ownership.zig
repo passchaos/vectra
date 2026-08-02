@@ -3945,6 +3945,32 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .keep_tail = group.keep_tail,
             } };
         },
+        .group_by_sorted_rows => |group| blk: {
+            const key_name = try allocator.dupe(u8, group.key_name);
+            errdefer allocator.free(key_name);
+            const sort_name = try allocator.dupe(u8, group.sort_name);
+            errdefer allocator.free(sort_name);
+            break :blk .{ .group_by_sorted_rows = .{
+                .key_name = key_name,
+                .sort_name = sort_name,
+                .n = group.n,
+                .options = group.options,
+                .keep_bottom = group.keep_bottom,
+            } };
+        },
+        .group_by_sorted_rows_on => |group| blk: {
+            const key_names = try cloneNameList(allocator, group.key_names);
+            errdefer freeNameList(allocator, key_names);
+            const sort_name = try allocator.dupe(u8, group.sort_name);
+            errdefer allocator.free(sort_name);
+            break :blk .{ .group_by_sorted_rows_on = .{
+                .key_names = key_names,
+                .sort_name = sort_name,
+                .n = group.n,
+                .options = group.options,
+                .keep_bottom = group.keep_bottom,
+            } };
+        },
         .group_by_value => |group| blk: {
             const key_name = try allocator.dupe(u8, group.key_name);
             errdefer allocator.free(key_name);

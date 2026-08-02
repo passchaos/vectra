@@ -1164,6 +1164,14 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 try current.groupByTailRowsOn(group.key_names, group.n)
             else
                 try current.groupByHeadRowsOn(group.key_names, group.n),
+            .group_by_sorted_rows => |group| if (group.keep_bottom)
+                try current.groupByBottomRows(group.key_name, group.sort_name, group.n, group.options)
+            else
+                try current.groupByTopRows(group.key_name, group.sort_name, group.n, group.options),
+            .group_by_sorted_rows_on => |group| if (group.keep_bottom)
+                try current.groupByBottomRowsOn(group.key_names, group.sort_name, group.n, group.options)
+            else
+                try current.groupByTopRowsOn(group.key_names, group.sort_name, group.n, group.options),
             .group_by_value => |group| switch (group.aggregation) {
                 .sum => try current.groupBySum(group.key_name, group.value_name, group.output_name),
                 .prod => try current.groupByProd(group.key_name, group.value_name, group.output_name),

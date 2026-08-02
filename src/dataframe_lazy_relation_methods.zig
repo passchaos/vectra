@@ -39,6 +39,22 @@ pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize)
     return lazy_group_mod.groupByRowsOn(self, key_names, n, true);
 }
 
+pub fn groupByTopRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRows(self, key_name, sort_name, n, options_value, false);
+}
+
+pub fn groupByTopRowsOn(self: anytype, key_names: []const []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsOn(self, key_names, sort_name, n, options_value, false);
+}
+
+pub fn groupByBottomRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRows(self, key_name, sort_name, n, options_value, true);
+}
+
+pub fn groupByBottomRowsOn(self: anytype, key_names: []const []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsOn(self, key_names, sort_name, n, options_value, true);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }

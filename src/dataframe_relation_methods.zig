@@ -56,6 +56,24 @@ pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize)
     return group_multi_mod.groupByTailRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, n);
 }
 
+pub fn groupByTopRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByTopRowsOn(self, key_names[0..], sort_name, n, options_value);
+}
+
+pub fn groupByTopRowsOn(self: anytype, key_names: []const []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByTopRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_name, n, options_value);
+}
+
+pub fn groupByBottomRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByBottomRowsOn(self, key_names[0..], sort_name, n, options_value);
+}
+
+pub fn groupByBottomRowsOn(self: anytype, key_names: []const []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByBottomRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_name, n, options_value);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return valueCountsAs(self, key_name, "count");
 }

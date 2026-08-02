@@ -675,6 +675,14 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
         },
         .group_by_rows => |group| allocator.free(group.key_name),
         .group_by_rows_on => |group| freeNameList(allocator, group.key_names),
+        .group_by_sorted_rows => |group| {
+            allocator.free(group.key_name);
+            allocator.free(group.sort_name);
+        },
+        .group_by_sorted_rows_on => |group| {
+            freeNameList(allocator, group.key_names);
+            allocator.free(group.sort_name);
+        },
         .group_by_value => |group| {
             allocator.free(group.key_name);
             allocator.free(group.value_name);
