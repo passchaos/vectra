@@ -1287,6 +1287,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_weighted_mean => |shift| try current.withGroupCumulativeWeightedMeanOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_median => |shift| try current.withGroupCumulativeWeightedMedianOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_quantile => |shift| try current.withGroupCumulativeWeightedQuantileOn(shift.names, shift.value_name, shift.weight_name, shift.output_name, shift.quantile),
+            .group_cumulative_weighted_iqr => |shift| try current.withGroupCumulativeWeightedIqrOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
+            .group_cumulative_weighted_mad => |shift| try current.withGroupCumulativeWeightedMadOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_variance => |shift| try current.withGroupCumulativeWeightedVarianceOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_stddev => |shift| try current.withGroupCumulativeWeightedStddevOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_product => |shift| try current.withGroupCumulativeProductOn(shift.names, shift.value_name, shift.output_name),

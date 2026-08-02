@@ -1704,10 +1704,44 @@ pub fn withGroupCumulativeWeightedQuantileOn(self: anytype, key_names: []const [
     return lazy_group_mod.withGroupCumulativeWeightedQuantile(self, key_names, value_name, weight_name, output_name, q);
 }
 
+pub fn withGroupCumulativeWeightedIqr(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedIqrOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedIqrOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedIqr(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMad(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMadOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMadOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMad(self, key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumWeightedMedian = withGroupCumulativeWeightedMedian;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
 pub const withGroupCumWeightedQuantile = withGroupCumulativeWeightedQuantile;
 pub const withGroupCumWeightedQuantileOn = withGroupCumulativeWeightedQuantileOn;
+pub const withGroupCumulativeWeightedIQR = withGroupCumulativeWeightedIqr;
+pub const withGroupCumulativeWeightedIQROn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumulativeWeightedMAD = withGroupCumulativeWeightedMad;
+pub const withGroupCumulativeWeightedMADOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumulativeWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
+pub const withGroupCumulativeWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedIqr = withGroupCumulativeWeightedIqr;
+pub const withGroupCumWeightedIqrOn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumWeightedIQR = withGroupCumulativeWeightedIqr;
+pub const withGroupCumWeightedIQROn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumWeightedMad = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMadOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedMAD = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMADOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
 
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};

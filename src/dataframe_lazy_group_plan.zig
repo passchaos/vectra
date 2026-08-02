@@ -1807,7 +1807,7 @@ pub fn withGroupCumulativeWeightedMean(frame: anytype, key_names: []const []cons
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile }) DeviceDataError!void {
+fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile, iqr, mad }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1819,6 +1819,8 @@ fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []
     try frame.ops.append(frame.allocator, switch (op) {
         .median => .{ .group_cumulative_weighted_median = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .quantile => .{ .group_cumulative_weighted_quantile = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output, .quantile = q } },
+        .iqr => .{ .group_cumulative_weighted_iqr = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .mad => .{ .group_cumulative_weighted_mad = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
     });
 }
 
@@ -1828,6 +1830,14 @@ pub fn withGroupCumulativeWeightedMedian(frame: anytype, key_names: []const []co
 
 pub fn withGroupCumulativeWeightedQuantile(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, q, .quantile);
+}
+
+pub fn withGroupCumulativeWeightedIqr(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .iqr);
+}
+
+pub fn withGroupCumulativeWeightedMad(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .mad);
 }
 
 pub fn withGroupCumulativeWeightedVariance(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -1842,6 +1852,14 @@ pub const withGroupCumulativeWeightedVar = withGroupCumulativeWeightedVariance;
 pub const withGroupCumulativeWeightedStd = withGroupCumulativeWeightedStddev;
 pub const withGroupCumWeightedMedian = withGroupCumulativeWeightedMedian;
 pub const withGroupCumWeightedQuantile = withGroupCumulativeWeightedQuantile;
+pub const withGroupCumulativeWeightedIQR = withGroupCumulativeWeightedIqr;
+pub const withGroupCumulativeWeightedMAD = withGroupCumulativeWeightedMad;
+pub const withGroupCumulativeWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedIqr = withGroupCumulativeWeightedIqr;
+pub const withGroupCumWeightedIQR = withGroupCumulativeWeightedIqr;
+pub const withGroupCumWeightedMad = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMAD = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
 
 pub fn withGroupCumulativeProduct(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .product);

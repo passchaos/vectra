@@ -541,6 +541,30 @@ fn groupWeightedMadFromRows(
     return groupWeightedQuantileFromSorted(scratch, 0.5, total_weight);
 }
 
+fn groupWeightedMadFromSorted(
+    allocator: std.mem.Allocator,
+    sorted: []const GroupWeightedValue,
+    total_weight: f64,
+) std.mem.Allocator.Error!f64 {
+    if (sorted.len == 0 or !(total_weight > 0.0)) return std.math.nan(f64);
+
+    const center = groupWeightedQuantileFromSorted(sorted, 0.5, total_weight);
+    const deviations = try allocator.alloc(GroupWeightedValue, sorted.len);
+    defer allocator.free(deviations);
+
+    // Preserve the caller's value-sorted prefix state. Cumulative grouped
+    // weighted quantiles reuse that ordering for later rows, while MAD needs a
+    // transient ordering by absolute deviation around the weighted median.
+    for (sorted, deviations) |item, *deviation| {
+        deviation.* = .{
+            .value = @abs(item.value - center),
+            .weight = item.weight,
+        };
+    }
+    std.sort.insertion(GroupWeightedValue, deviations, {}, groupWeightedValueLess);
+    return groupWeightedQuantileFromSorted(deviations, 0.5, total_weight);
+}
+
 fn groupWeightedModeStats(rows: []const usize, values: []const f64, weights: []const f64) GroupWeightedModeStats {
     var total_weight: f64 = 0.0;
     for (rows) |row| total_weight += weights[row];
@@ -3459,6 +3483,8 @@ pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
 const GroupCumulativeWeightedMoment = enum { mean, variance, stddev };
 
+const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
+
 fn withGroupCumulativeWeightedMomentOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -3579,9 +3605,10 @@ fn withGroupCumulativeWeightedQuantileCoreOn(
     weight_name: []const u8,
     output_name: []const u8,
     q: f64,
+    comptime op: GroupCumulativeWeightedQuantileOp,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
-    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+    if (op == .quantile and (std.math.isNan(q) or q < 0.0 or q > 1.0)) return error.InvalidShape;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value_column = try frame.column(value_name);
     const weight_column = try frame.column(weight_name);
@@ -3634,7 +3661,12 @@ fn withGroupCumulativeWeightedQuantileCoreOn(
         std.sort.insertion(GroupWeightedValue, group_values.items[group_index].items, {}, groupWeightedValueLess);
 
         const weight_sum = weight_sums.items[group_index];
-        outputs[row] = if (weight_sum > 0.0) groupWeightedQuantileFromSorted(group_values.items[group_index].items, q, weight_sum) else std.math.nan(f64);
+        outputs[row] = if (weight_sum > 0.0) switch (op) {
+            .median => groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.5, weight_sum),
+            .quantile => groupWeightedQuantileFromSorted(group_values.items[group_index].items, q, weight_sum),
+            .iqr => groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.75, weight_sum) - groupWeightedQuantileFromSorted(group_values.items[group_index].items, 0.25, weight_sum),
+            .mad => try groupWeightedMadFromSorted(frame.allocator, group_values.items[group_index].items, weight_sum),
+        } else std.math.nan(f64);
         row_validity[row] = true;
     }
 
@@ -3651,7 +3683,7 @@ pub fn withGroupCumulativeWeightedMedianOn(
     weight_name: []const u8,
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5);
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .median);
 }
 
 pub fn withGroupCumulativeWeightedQuantileOn(
@@ -3663,13 +3695,43 @@ pub fn withGroupCumulativeWeightedQuantileOn(
     output_name: []const u8,
     q: f64,
 ) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, q);
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, q, .quantile);
+}
+
+pub fn withGroupCumulativeWeightedIqrOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .iqr);
+}
+
+pub fn withGroupCumulativeWeightedMadOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .mad);
 }
 
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
 pub const withGroupCumWeightedQuantileOn = withGroupCumulativeWeightedQuantileOn;
+pub const withGroupCumulativeWeightedIQROn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumulativeWeightedMADOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumulativeWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedIqrOn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumWeightedIQROn = withGroupCumulativeWeightedIqrOn;
+pub const withGroupCumWeightedMadOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedMADOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
 pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;

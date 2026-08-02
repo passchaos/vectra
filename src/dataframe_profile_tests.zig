@@ -3263,6 +3263,43 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_median_lazy", &group_cum_weighted_median_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_q75_lazy", &group_cum_weighted_q75_expected, &.{ true, true, true, true, true, false, true, true });
 
+    var weighted_robust_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2 }, .cpu);
+    defer weighted_robust_key.deinit();
+    var weighted_robust_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 10.0, 20.0, 100.0, 5.0, 9.0 }, .cpu);
+    defer weighted_robust_value.deinit();
+    var weighted_robust_weight = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 1.0, 1.0, 1.0, 0.0, 0.0 }, .cpu);
+    defer weighted_robust_weight.deinit();
+    var weighted_robust_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = weighted_robust_key },
+        .{ .name = "value", .data = weighted_robust_value },
+        .{ .name = "weight", .data = weighted_robust_weight },
+    });
+    defer weighted_robust_table.deinit();
+
+    const group_cum_weighted_iqr_expected = [_]f64{ 0.0, 9.0, 19.0, 19.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mad_expected = [_]f64{ 0.0, 0.0, 9.0, 9.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_iqr = try weighted_robust_table.withGroupCumulativeWeightedIQR("bucket", "value", "weight", "value_weighted_cum_iqr");
+    defer group_cum_weighted_iqr.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_iqr, gpa, "value_weighted_cum_iqr", &group_cum_weighted_iqr_expected, &.{ true, true, true, true, true, true });
+
+    var group_cum_weighted_mad = try weighted_robust_table.withGroupCumulativeWeightedMad("bucket", "value", "weight", "value_weighted_cum_mad");
+    defer group_cum_weighted_mad.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mad, gpa, "value_weighted_cum_mad", &group_cum_weighted_mad_expected, &.{ true, true, true, true, true, true });
+
+    var cumulative_weighted_robust_plan = try DeviceLazyFrame.init(gpa, weighted_robust_table);
+    defer cumulative_weighted_robust_plan.deinit();
+    try cumulative_weighted_robust_plan.withGroupCumulativeWeightedIqr("bucket", "value", "weight", "value_weighted_cum_iqr_lazy");
+    try cumulative_weighted_robust_plan.withGroupCumulativeWeightedMAD("bucket", "value", "weight", "value_weighted_cum_mad_lazy");
+    const cumulative_weighted_robust_explained = try cumulative_weighted_robust_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_robust_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_robust_explained, "group_cumulative_weighted_iqr([bucket], value=value, weight=weight->value_weighted_cum_iqr_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_robust_explained, "group_cumulative_weighted_mad([bucket], value=value, weight=weight->value_weighted_cum_mad_lazy)") != null);
+    var lazy_cumulative_weighted_robust = try cumulative_weighted_robust_plan.collect();
+    defer lazy_cumulative_weighted_robust.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust, gpa, "value_weighted_cum_iqr_lazy", &group_cum_weighted_iqr_expected, &.{ true, true, true, true, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust, gpa, "value_weighted_cum_mad_lazy", &group_cum_weighted_mad_expected, &.{ true, true, true, true, true, true });
+
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
 
