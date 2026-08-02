@@ -1484,6 +1484,85 @@ pub fn withGroupReversePercentRankOn(
     return withGroupPositionRatioOn(DeviceDataFrame, frame, key_names, output_name, false, true);
 }
 
+fn withGroupShiftOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    offset: usize,
+    comptime lead: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    const take_indices = try frame.allocator.alloc(?usize, frame.rows);
+    defer frame.allocator.free(take_indices);
+    @memset(take_indices, null);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_rows.items) |*rows| rows.deinit(frame.allocator);
+        group_rows.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_rows.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_rows.items[group_index].append(frame.allocator, row);
+    }
+
+    if (offset == 0) {
+        for (group_rows.items) |rows| {
+            for (rows.items) |row| take_indices[row] = row;
+        }
+    } else {
+        for (group_rows.items) |rows| {
+            for (rows.items, 0..) |row, position| {
+                if (lead) {
+                    const source_position = position + offset;
+                    if (source_position < rows.items.len) take_indices[row] = rows.items[source_position];
+                } else if (position >= offset) {
+                    take_indices[row] = rows.items[position - offset];
+                }
+            }
+        }
+    }
+
+    var shifted = try value.takeOptional(take_indices);
+    defer shifted.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, shifted);
+}
+
+pub fn withGroupLagOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    offset: usize,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupShiftOn(DeviceDataFrame, frame, key_names, value_name, output_name, offset, false);
+}
+
+pub fn withGroupLeadOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    offset: usize,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupShiftOn(DeviceDataFrame, frame, key_names, value_name, output_name, offset, true);
+}
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

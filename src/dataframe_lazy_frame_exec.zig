@@ -1165,6 +1165,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_percent_rank => |row_count| try current.withGroupPercentRankOn(row_count.names, row_count.output_name),
             .group_reverse_cume_dist => |row_count| try current.withGroupReverseCumeDistOn(row_count.names, row_count.output_name),
             .group_reverse_percent_rank => |row_count| try current.withGroupReversePercentRankOn(row_count.names, row_count.output_name),
+            .group_lag => |shift| try current.withGroupLagOn(shift.names, shift.value_name, shift.output_name, shift.offset),
+            .group_lead => |shift| try current.withGroupLeadOn(shift.names, shift.value_name, shift.output_name, shift.offset),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),

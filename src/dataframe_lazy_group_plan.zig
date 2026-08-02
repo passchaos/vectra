@@ -318,6 +318,34 @@ pub fn withGroupReversePercentRank(frame: anytype, key_names: []const []const u8
     } });
 }
 
+fn withGroupShift(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, offset: usize, comptime lead: bool) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, if (lead) .{ .group_lead = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = offset,
+    } } else .{ .group_lag = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = offset,
+    } });
+}
+
+pub fn withGroupLag(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!void {
+    return withGroupShift(frame, key_names, value_name, output_name, offset, false);
+}
+
+pub fn withGroupLead(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!void {
+    return withGroupShift(frame, key_names, value_name, output_name, offset, true);
+}
+
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

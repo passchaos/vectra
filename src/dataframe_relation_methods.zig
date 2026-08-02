@@ -242,6 +242,24 @@ pub fn withGroupReversePercentRankOn(self: anytype, key_names: []const []const u
 pub const withGroupReversePercentileRank = withGroupReversePercentRank;
 pub const withGroupReversePercentileRankOn = withGroupReversePercentRankOn;
 
+pub fn withGroupLag(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupLagOn(self, key_names[0..], value_name, output_name, offset);
+}
+
+pub fn withGroupLagOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupLagOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, offset);
+}
+
+pub fn withGroupLead(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupLeadOn(self, key_names[0..], value_name, output_name, offset);
+}
+
+pub fn withGroupLeadOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, offset: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupLeadOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, offset);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

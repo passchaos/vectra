@@ -2711,6 +2711,22 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .group_lag => |shift| {
+            try writer.print("group_lag([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, offset={d}->{s})", .{ shift.value_name, shift.offset, shift.output_name });
+        },
+        .group_lead => |shift| {
+            try writer.print("group_lead([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, offset={d}->{s})", .{ shift.value_name, shift.offset, shift.output_name });
+        },
         .group_row_number => |row_count| {
             try writer.print("group_row_number([", .{});
             for (row_count.names, 0..) |name, i| {

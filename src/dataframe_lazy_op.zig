@@ -750,6 +750,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_percent_rank: Payloads.RowValidityCount,
         group_reverse_cume_dist: Payloads.RowValidityCount,
         group_reverse_percent_rank: Payloads.RowValidityCount,
+        group_lag: Payloads.GroupShift,
+        group_lead: Payloads.GroupShift,
         group_row_number: Payloads.RowValidityCount,
         group_size: Payloads.RowValidityCount,
         group_reverse_row_number: Payloads.RowValidityCount,
