@@ -431,6 +431,44 @@ pub fn groupByWeightedEvennessOn(self: anytype, key_names: []const []const u8, v
     return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_evenness);
 }
 
+pub fn groupByPairCount(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .pair_count);
+}
+
+pub fn groupByPairCountOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .pair_count);
+}
+
+pub fn groupByCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .covariance);
+}
+
+pub fn groupByCovarianceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .covariance);
+}
+
+pub const groupByCov = groupByCovariance;
+pub const groupByCovOn = groupByCovarianceOn;
+
+pub fn groupByCorrelation(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .correlation);
+}
+
+pub fn groupByCorrelationOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .correlation);
+}
+
+pub const groupByCorr = groupByCorrelation;
+pub const groupByCorrOn = groupByCorrelationOn;
+
+pub fn groupByBeta(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .beta);
+}
+
+pub fn groupByBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .beta);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_covariance, correction);
 }

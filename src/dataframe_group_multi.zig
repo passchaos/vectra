@@ -159,6 +159,12 @@ const GroupByWeightedAggregation = enum {
     weighted_evenness,
 };
 
+const GroupByPairAggregation = enum {
+    covariance,
+    correlation,
+    beta,
+};
+
 const GroupByWeightedPairAggregation = enum {
     weighted_covariance,
     weighted_correlation,
@@ -193,6 +199,12 @@ fn ownedGroupRealColumn(allocator: std.mem.Allocator, column: DeviceColumn) Grou
         .f32 => |typed| ownedGroupRealColumnTyped(f32, allocator, typed),
         .f64 => |typed| ownedGroupRealColumnTyped(f64, allocator, typed),
         .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupColumnValidityValues(allocator: std.mem.Allocator, column: DeviceColumn) GroupByOnError!?[]bool {
+    return switch (column) {
+        inline else => |typed| try validityValues(typed, allocator),
     };
 }
 
@@ -1663,6 +1675,170 @@ pub fn groupByWeightedEvennessOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_evenness, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByPairCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const lhs_column = try frame.column(lhs_name);
+    const rhs_column = try frame.column(rhs_name);
+    if (frame.rows != lhs_column.*.len() or frame.rows != rhs_column.*.len()) return error.LengthMismatch;
+    const lhs_validity = try groupColumnValidityValues(frame.allocator, lhs_column.*);
+    defer if (lhs_validity) |validity| frame.allocator.free(validity);
+    const rhs_validity = try groupColumnValidityValues(frame.allocator, rhs_column.*);
+    defer if (rhs_validity) |validity| frame.allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var pair_counts: std.ArrayList(i64) = .empty;
+    defer pair_counts.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try pair_counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        const lhs_valid = if (lhs_validity) |validity| validity[row] else true;
+        const rhs_valid = if (rhs_validity) |validity| validity[row] else true;
+        if (lhs_valid and rhs_valid) {
+            pair_counts.items[group_index] += 1;
+        }
+    }
+
+    const output_column = try DeviceColumn.fromSlice(i64, frame.allocator, pair_counts.items, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByPairOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByPairAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const lhs_column = try frame.column(lhs_name);
+    const rhs_column = try frame.column(rhs_name);
+
+    var lhs = try ownedGroupRealColumn(frame.allocator, lhs_column.*);
+    defer lhs.deinit();
+    var rhs = try ownedGroupRealColumn(frame.allocator, rhs_column.*);
+    defer rhs.deinit();
+    if (frame.rows != lhs.values.len or frame.rows != rhs.values.len) return error.LengthMismatch;
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var pair_counts: std.ArrayList(i64) = .empty;
+    defer pair_counts.deinit(frame.allocator);
+    var lhs_sums: std.ArrayList(f64) = .empty;
+    defer lhs_sums.deinit(frame.allocator);
+    var rhs_sums: std.ArrayList(f64) = .empty;
+    defer rhs_sums.deinit(frame.allocator);
+    var lhs_square_sums: std.ArrayList(f64) = .empty;
+    defer lhs_square_sums.deinit(frame.allocator);
+    var rhs_square_sums: std.ArrayList(f64) = .empty;
+    defer rhs_square_sums.deinit(frame.allocator);
+    var cross_sums: std.ArrayList(f64) = .empty;
+    defer cross_sums.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try pair_counts.append(frame.allocator, 0);
+            try lhs_sums.append(frame.allocator, 0.0);
+            try rhs_sums.append(frame.allocator, 0.0);
+            try lhs_square_sums.append(frame.allocator, 0.0);
+            try rhs_square_sums.append(frame.allocator, 0.0);
+            try cross_sums.append(frame.allocator, 0.0);
+            break :blk representative_rows.items.len - 1;
+        };
+
+        if (lhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (rhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const lhs_value = lhs.values[row];
+        const rhs_value = rhs.values[row];
+        pair_counts.items[group_index] += 1;
+        lhs_sums.items[group_index] += lhs_value;
+        rhs_sums.items[group_index] += rhs_value;
+        lhs_square_sums.items[group_index] += lhs_value * lhs_value;
+        rhs_square_sums.items[group_index] += rhs_value * rhs_value;
+        cross_sums.items[group_index] += lhs_value * rhs_value;
+    }
+
+    const out = try frame.allocator.alloc(f64, representative_rows.items.len);
+    defer frame.allocator.free(out);
+    for (pair_counts.items, lhs_sums.items, rhs_sums.items, lhs_square_sums.items, rhs_square_sums.items, cross_sums.items, out) |pair_count, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, *slot| {
+        if (pair_count == 0) {
+            slot.* = std.math.nan(f64);
+            continue;
+        }
+        const count_f64: f64 = @floatFromInt(pair_count);
+        const mean_lhs = lhs_sum / count_f64;
+        const mean_rhs = rhs_sum / count_f64;
+        const covariance = cross_sum / count_f64 - mean_lhs * mean_rhs;
+        var lhs_variance = lhs_square_sum / count_f64 - mean_lhs * mean_lhs;
+        var rhs_variance = rhs_square_sum / count_f64 - mean_rhs * mean_rhs;
+        if (lhs_variance < 0.0 and lhs_variance > -1e-12) lhs_variance = 0.0;
+        if (rhs_variance < 0.0 and rhs_variance > -1e-12) rhs_variance = 0.0;
+        slot.* = switch (aggregation) {
+            .covariance => covariance,
+            .correlation => if (lhs_variance == 0.0 or rhs_variance == 0.0) std.math.nan(f64) else covariance / std.math.sqrt(lhs_variance * rhs_variance),
+            .beta => if (lhs_variance == 0.0) std.math.nan(f64) else covariance / lhs_variance,
+        };
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, frame.allocator, out, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByCovarianceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .covariance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCorrelationOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .correlation, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByBetaOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .beta, frame, key_names, lhs_name, rhs_name, output_name);
 }
 
 pub fn groupByWeightedPairOn(

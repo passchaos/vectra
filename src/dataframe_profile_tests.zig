@@ -10,6 +10,7 @@ const DeviceDType = vectra.DeviceDType;
 const DeviceValidityEncoding = vectra.DeviceValidityEncoding;
 const DeviceParquetScan = vectra.DeviceParquetScan;
 const DeviceLazyWeightedGroupByAggregation = vectra.DeviceLazyWeightedGroupByAggregation;
+const DeviceLazyPairGroupByAggregation = vectra.DeviceLazyPairGroupByAggregation;
 const DeviceLazyWeightedPairGroupByAggregation = vectra.DeviceLazyWeightedPairGroupByAggregation;
 
 fn expectApproxOrNan(expected: f64, actual: f64) !void {
@@ -690,6 +691,28 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_evenness.deinit();
     try expectF64ColumnApproxOrNan(weighted_evenness, gpa, "value_weighted_evenness", &weighted_evenness_expected);
 
+    var pair_count = try weighted_table.groupByPairCount("bucket", "lhs", "rhs", "lhs_rhs_pair_count");
+    defer pair_count.deinit();
+    const pair_count_values = try (try pair_count.column("lhs_rhs_pair_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(pair_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2 }, pair_count_values);
+
+    const pair_cov_expected = [_]f64{ 31.0 / 9.0, -1.0, -0.5 };
+    const pair_corr_expected = [_]f64{ 31.0 / std.math.sqrt(@as(f64, 1204.0)), -1.0, -1.0 };
+    const pair_beta_expected = [_]f64{ 31.0 / 14.0, -1.0, -0.5 };
+
+    var covariance = try weighted_table.groupByCov("bucket", "lhs", "rhs", "lhs_rhs_cov");
+    defer covariance.deinit();
+    try expectF64ColumnApproxOrNan(covariance, gpa, "lhs_rhs_cov", &pair_cov_expected);
+
+    var correlation = try weighted_table.groupByCorr("bucket", "lhs", "rhs", "lhs_rhs_corr");
+    defer correlation.deinit();
+    try expectF64ColumnApproxOrNan(correlation, gpa, "lhs_rhs_corr", &pair_corr_expected);
+
+    var beta = try weighted_table.groupByBeta("bucket", "lhs", "rhs", "lhs_rhs_beta");
+    defer beta.deinit();
+    try expectF64ColumnApproxOrNan(beta, gpa, "lhs_rhs_beta", &pair_beta_expected);
+
     const weighted_pair_cov_expected = [_]f64{ 13.0 / 4.0, -1.0, weighted_nan };
     const weighted_pair_corr_expected = [_]f64{ 39.0 / std.math.sqrt(@as(f64, 1845.0)), -1.0, weighted_nan };
     const weighted_pair_beta_expected = [_]f64{ 13.0 / 5.0, -1.0, weighted_nan };
@@ -719,6 +742,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var weighted_mode_on = try weighted_table.groupByWeightedModeOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_mode_on");
     defer weighted_mode_on.deinit();
     try expectF64ColumnApproxOrNan(weighted_mode_on, gpa, "value_weighted_mode_on", &weighted_mode_on_expected);
+
+    const pair_count_on_expected = [_]i64{ 2, 1, 2, 0, 2 };
+    var pair_count_on = try weighted_table.groupByPairCountOn(&.{ "bucket", "day" }, "lhs", "rhs", "lhs_rhs_pair_count_on");
+    defer pair_count_on.deinit();
+    const pair_count_on_values = try (try pair_count_on.column("lhs_rhs_pair_count_on")).i64.toOwnedSlice(gpa);
+    defer gpa.free(pair_count_on_values);
+    try std.testing.expectEqualSlices(i64, &pair_count_on_expected, pair_count_on_values);
+
+    const pair_cov_on_expected = [_]f64{ -0.25, 0.0, -1.0, weighted_nan, -0.5 };
+    var covariance_on = try weighted_table.groupByCovarianceOn(&.{ "bucket", "day" }, "lhs", "rhs", "lhs_rhs_cov_on");
+    defer covariance_on.deinit();
+    try expectF64ColumnApproxOrNan(covariance_on, gpa, "lhs_rhs_cov_on", &pair_cov_on_expected);
 
     const weighted_cov_on_expected = [_]f64{ -3.0 / 16.0, 0.0, -1.0, weighted_nan };
     var weighted_covariance_on = try weighted_table.groupByWeightedCovarianceOn(&.{ "bucket", "day" }, "lhs", "rhs", "weight", "lhs_rhs_weighted_cov_on", 0.0);
@@ -879,6 +914,57 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_weighted_mode_on = try weighted_mode_on_plan.collect();
     defer lazy_weighted_mode_on.deinit();
     try expectF64ColumnApproxOrNan(lazy_weighted_mode_on, gpa, "value_weighted_mode_on_lazy", &weighted_mode_expected);
+
+    var pair_count_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer pair_count_plan.deinit();
+    try pair_count_plan.groupByPairCountOn(&.{"bucket"}, "lhs", "rhs", "lhs_rhs_pair_count_lazy");
+    const pair_count_explained = try pair_count_plan.explain(gpa);
+    defer gpa.free(pair_count_explained);
+    try std.testing.expect(std.mem.indexOf(u8, pair_count_explained, "group_by_pair_count_on([bucket], lhs=lhs, rhs=rhs -> lhs_rhs_pair_count_lazy)") != null);
+    var lazy_pair_count = try pair_count_plan.collect();
+    defer lazy_pair_count.deinit();
+    const lazy_pair_count_values = try (try lazy_pair_count.column("lhs_rhs_pair_count_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_pair_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2 }, lazy_pair_count_values);
+
+    const pair_lazy_cases = [_]struct {
+        method: DeviceLazyPairGroupByAggregation,
+        output_name: []const u8,
+        explain: []const u8,
+        expected: []const f64,
+    }{
+        .{ .method = .covariance, .output_name = "lhs_rhs_cov_lazy", .explain = "group_by_covariance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_cov_lazy)", .expected = &pair_cov_expected },
+        .{ .method = .correlation, .output_name = "lhs_rhs_corr_lazy", .explain = "group_by_correlation(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_corr_lazy)", .expected = &pair_corr_expected },
+        .{ .method = .beta, .output_name = "lhs_rhs_beta_lazy", .explain = "group_by_beta(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_beta_lazy)", .expected = &pair_beta_expected },
+        .{ .method = .pair_count, .output_name = "", .explain = "", .expected = &.{} },
+    };
+    for (pair_lazy_cases) |case| {
+        if (case.method == .pair_count) continue;
+        var plan = try DeviceLazyFrame.init(gpa, weighted_table);
+        defer plan.deinit();
+        try switch (case.method) {
+            .covariance => plan.groupByCov("bucket", "lhs", "rhs", case.output_name),
+            .correlation => plan.groupByCorr("bucket", "lhs", "rhs", case.output_name),
+            .beta => plan.groupByBeta("bucket", "lhs", "rhs", case.output_name),
+            .pair_count => unreachable,
+        };
+        const explained = try plan.explain(gpa);
+        defer gpa.free(explained);
+        try std.testing.expect(std.mem.indexOf(u8, explained, case.explain) != null);
+        var collected = try plan.collect();
+        defer collected.deinit();
+        try expectF64ColumnApproxOrNan(collected, gpa, case.output_name, case.expected);
+    }
+
+    var covariance_on_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer covariance_on_plan.deinit();
+    try covariance_on_plan.groupByCovarianceOn(&.{"bucket"}, "lhs", "rhs", "lhs_rhs_cov_on_lazy");
+    const covariance_on_explained = try covariance_on_plan.explain(gpa);
+    defer gpa.free(covariance_on_explained);
+    try std.testing.expect(std.mem.indexOf(u8, covariance_on_explained, "group_by_covariance_on([bucket], lhs=lhs, rhs=rhs -> lhs_rhs_cov_on_lazy)") != null);
+    var lazy_covariance_on = try covariance_on_plan.collect();
+    defer lazy_covariance_on.deinit();
+    try expectF64ColumnApproxOrNan(lazy_covariance_on, gpa, "lhs_rhs_cov_on_lazy", &pair_cov_expected);
 
     const weighted_pair_lazy_cases = [_]struct {
         method: DeviceLazyWeightedPairGroupByAggregation,

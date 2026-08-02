@@ -466,6 +466,48 @@ pub fn groupByWeightedEvennessOn(self: anytype, key_names: []const []const u8, v
     return group_multi_mod.groupByWeightedEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
 }
 
+pub fn groupByPairCount(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByPairCountOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByPairCountOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByPairCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByCovarianceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCovarianceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByCovarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub const groupByCov = groupByCovariance;
+pub const groupByCovOn = groupByCovarianceOn;
+
+pub fn groupByCorrelation(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByCorrelationOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCorrelationOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByCorrelationOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub const groupByCorr = groupByCorrelation;
+pub const groupByCorrOn = groupByCorrelationOn;
+
+pub fn groupByBeta(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByBetaOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByBetaOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);

@@ -74,6 +74,7 @@ pub const DeviceLazyOp = dataframe_mod.DeviceLazyOp;
 pub const DeviceLazySource = dataframe_mod.DeviceLazySource;
 pub const DeviceLazyGroupByAggregation = dataframe_mod.DeviceLazyGroupByAggregation;
 pub const DeviceLazyWeightedGroupByAggregation = dataframe_mod.DeviceLazyWeightedGroupByAggregation;
+pub const DeviceLazyPairGroupByAggregation = dataframe_mod.DeviceLazyPairGroupByAggregation;
 pub const DeviceLazyWeightedPairGroupByAggregation = dataframe_mod.DeviceLazyWeightedPairGroupByAggregation;
 pub const DeviceLazyJoinKind = dataframe_mod.DeviceLazyJoinKind;
 pub const DeviceParquetScan = dataframe_mod.DeviceParquetScan;

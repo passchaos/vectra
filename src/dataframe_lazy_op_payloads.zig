@@ -126,6 +126,13 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_evenness,
 };
 
+pub const DeviceLazyPairGroupByAggregation = enum {
+    pair_count,
+    covariance,
+    correlation,
+    beta,
+};
+
 pub const DeviceLazyWeightedPairGroupByAggregation = enum {
     weighted_covariance,
     weighted_correlation,
@@ -494,6 +501,20 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             aggregation: DeviceLazyWeightedGroupByAggregation,
             quantile: f64 = 0.5,
+        };
+        pub const GroupByPair = struct {
+            key_name: []const u8,
+            lhs_name: []const u8,
+            rhs_name: []const u8,
+            output_name: []const u8,
+            aggregation: DeviceLazyPairGroupByAggregation,
+        };
+        pub const GroupByPairOn = struct {
+            key_names: [][]const u8,
+            lhs_name: []const u8,
+            rhs_name: []const u8,
+            output_name: []const u8,
+            aggregation: DeviceLazyPairGroupByAggregation,
         };
         pub const GroupByWeightedPair = struct {
             key_name: []const u8,

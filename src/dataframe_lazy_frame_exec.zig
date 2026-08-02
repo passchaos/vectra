@@ -1330,6 +1330,18 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .argmin => try current.groupByArgMinOn(group.key_names, group.value_name, group.output_name),
                 .argmax => try current.groupByArgMaxOn(group.key_names, group.value_name, group.output_name),
             },
+            .group_by_pair => |group| switch (group.aggregation) {
+                .pair_count => try current.groupByPairCount(group.key_name, group.lhs_name, group.rhs_name, group.output_name),
+                .covariance => try current.groupByCovariance(group.key_name, group.lhs_name, group.rhs_name, group.output_name),
+                .correlation => try current.groupByCorrelation(group.key_name, group.lhs_name, group.rhs_name, group.output_name),
+                .beta => try current.groupByBeta(group.key_name, group.lhs_name, group.rhs_name, group.output_name),
+            },
+            .group_by_pair_on => |group| switch (group.aggregation) {
+                .pair_count => try current.groupByPairCountOn(group.key_names, group.lhs_name, group.rhs_name, group.output_name),
+                .covariance => try current.groupByCovarianceOn(group.key_names, group.lhs_name, group.rhs_name, group.output_name),
+                .correlation => try current.groupByCorrelationOn(group.key_names, group.lhs_name, group.rhs_name, group.output_name),
+                .beta => try current.groupByBetaOn(group.key_names, group.lhs_name, group.rhs_name, group.output_name),
+            },
             .group_by_weighted => |group| switch (group.aggregation) {
                 .weighted_mean => try current.groupByWeightedMean(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_variance => try current.groupByWeightedVariance(group.key_name, group.value_name, group.weight_name, group.output_name),

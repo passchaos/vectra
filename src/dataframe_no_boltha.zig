@@ -258,6 +258,13 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_evenness,
 };
 
+pub const DeviceLazyPairGroupByAggregation = enum {
+    pair_count,
+    covariance,
+    correlation,
+    beta,
+};
+
 pub const DeviceLazyWeightedPairGroupByAggregation = enum {
     weighted_covariance,
     weighted_correlation,
