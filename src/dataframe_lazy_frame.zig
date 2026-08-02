@@ -5649,6 +5649,8 @@ pub fn DeviceLazyTypes(
             pub const withGroupIsFirstRowOn = lazy_relation_methods_mod.withGroupIsFirstRowOn;
             pub const withGroupIsLastRow = lazy_relation_methods_mod.withGroupIsLastRow;
             pub const withGroupIsLastRowOn = lazy_relation_methods_mod.withGroupIsLastRowOn;
+            pub const withGroupIsSingleton = lazy_relation_methods_mod.withGroupIsSingleton;
+            pub const withGroupIsSingletonOn = lazy_relation_methods_mod.withGroupIsSingletonOn;
             pub const withGroupRowNumber = lazy_relation_methods_mod.withGroupRowNumber;
             pub const withGroupRowNumberOn = lazy_relation_methods_mod.withGroupRowNumberOn;
             pub const withGroupCumCount = lazy_relation_methods_mod.withGroupCumCount;

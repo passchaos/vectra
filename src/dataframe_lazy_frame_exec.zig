@@ -1159,6 +1159,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_last_row_index => |row_count| try current.withGroupLastRowIndexOn(row_count.names, row_count.output_name),
             .group_is_first_row => |row_count| try current.withGroupIsFirstRowOn(row_count.names, row_count.output_name),
             .group_is_last_row => |row_count| try current.withGroupIsLastRowOn(row_count.names, row_count.output_name),
+            .group_is_singleton => |row_count| try current.withGroupIsSingletonOn(row_count.names, row_count.output_name),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),

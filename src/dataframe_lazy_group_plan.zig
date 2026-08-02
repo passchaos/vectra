@@ -252,6 +252,17 @@ pub fn withGroupIsLastRow(frame: anytype, key_names: []const []const u8, output_
     } });
 }
 
+pub fn withGroupIsSingleton(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_is_singleton = .{
+        .names = owned_keys,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

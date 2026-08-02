@@ -945,6 +945,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_is_last_rows.deinit();
     try expectNullableBoolColumn(group_is_last_rows, gpa, "store_is_last_row", &.{ false, false, false, false, true, true }, &.{ true, true, true, false, true, true });
 
+    var store_singletons = try table.withGroupIsSingleton("store", "store_is_singleton");
+    defer store_singletons.deinit();
+    try expectNullableBoolColumn(store_singletons, gpa, "store_is_singleton", &.{ false, false, false, false, false, false }, &.{ true, true, true, false, true, true });
+
+    var store_sales_singletons = try table.withGroupIsSingletonOn(&.{ "store", "sales" }, "store_sales_is_singleton");
+    defer store_sales_singletons.deinit();
+    try expectNullableBoolColumn(store_sales_singletons, gpa, "store_sales_is_singleton", &.{ true, true, false, false, true, true }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1128,6 +1136,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_group_boundary_flags.deinit();
     try expectNullableBoolColumn(lazy_group_boundary_flags, gpa, "store_is_first_row_lazy", &.{ true, true, false, false, false, false }, &.{ true, true, true, false, true, true });
     try expectNullableBoolColumn(lazy_group_boundary_flags, gpa, "store_is_last_row_lazy", &.{ false, false, false, false, true, true }, &.{ true, true, true, false, true, true });
+
+    var group_singleton_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_singleton_plan.deinit();
+    try group_singleton_plan.withGroupIsSingletonOn(&.{ "store", "sales" }, "store_sales_is_singleton_lazy");
+    const group_singleton_explained = try group_singleton_plan.explain(gpa);
+    defer gpa.free(group_singleton_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_singleton_explained, "group_is_singleton([store,sales]->store_sales_is_singleton_lazy)") != null);
+    var lazy_group_singletons = try group_singleton_plan.collect();
+    defer lazy_group_singletons.deinit();
+    try expectNullableBoolColumn(lazy_group_singletons, gpa, "store_sales_is_singleton_lazy", &.{ true, true, false, false, true, true }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
