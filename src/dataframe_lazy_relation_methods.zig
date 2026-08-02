@@ -1544,6 +1544,38 @@ pub fn groupByNegativeZeroRatioOn(self: anytype, key_names: []const []const u8, 
     return self.groupByValueOn(key_names, value_name, output_name, .negative_zero_ratio);
 }
 
+pub fn groupByFirstPositiveZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_positive_zero_index);
+}
+
+pub fn groupByFirstPositiveZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_positive_zero_index);
+}
+
+pub fn groupByLastPositiveZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_positive_zero_index);
+}
+
+pub fn groupByLastPositiveZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_positive_zero_index);
+}
+
+pub fn groupByFirstNegativeZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_negative_zero_index);
+}
+
+pub fn groupByFirstNegativeZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_negative_zero_index);
+}
+
+pub fn groupByLastNegativeZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_negative_zero_index);
+}
+
+pub fn groupByLastNegativeZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_negative_zero_index);
+}
+
 pub fn groupByNonZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .non_zero_count);
 }

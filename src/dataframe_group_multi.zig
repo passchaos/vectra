@@ -166,6 +166,13 @@ const GroupByNumericQualityAggregation = enum {
     negative_ratio,
 };
 
+const GroupByNumericQualityIndexAggregation = enum {
+    first_positive_zero_index,
+    last_positive_zero_index,
+    first_negative_zero_index,
+    last_negative_zero_index,
+};
+
 const GroupByArgAggregation = enum {
     argmin,
     argmax,
@@ -329,6 +336,20 @@ fn groupNumericQualityMatchesTyped(comptime T: type, value: T, aggregation: Grou
             else => false,
         },
         else => false,
+    };
+}
+
+fn groupNumericQualityIndexPredicate(aggregation: GroupByNumericQualityIndexAggregation) GroupByNumericQualityAggregation {
+    return switch (aggregation) {
+        .first_positive_zero_index, .last_positive_zero_index => .positive_zero_count,
+        .first_negative_zero_index, .last_negative_zero_index => .negative_zero_count,
+    };
+}
+
+fn groupNumericQualityIndexKeepsLast(aggregation: GroupByNumericQualityIndexAggregation) bool {
+    return switch (aggregation) {
+        .first_positive_zero_index, .first_negative_zero_index => false,
+        .last_positive_zero_index, .last_negative_zero_index => true,
     };
 }
 
@@ -3992,6 +4013,96 @@ fn groupByNumericQualityOn(
     return groupByNumericQualityOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
 }
 
+pub fn groupByNumericQualityIndexOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByNumericQualityIndexAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByNumericQualityIndexOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByNumericQualityIndexOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByNumericQualityIndexAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    const predicate = groupNumericQualityIndexPredicate(aggregation);
+    const keep_last = groupNumericQualityIndexKeepsLast(aggregation);
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var index_values: std.ArrayList(i64) = .empty;
+    defer index_values.deinit(allocator);
+    var output_validity: std.ArrayList(bool) = .empty;
+    defer output_validity.deinit(allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try index_values.append(allocator, 0);
+            try output_validity.append(allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!groupNumericQualityMatchesTyped(V, value_item, predicate)) continue;
+        if (keep_last or !output_validity.items[group_index]) {
+            index_values.items[group_index] = @intCast(row);
+            output_validity.items[group_index] = true;
+        }
+    }
+
+    const output_column = try DeviceColumn.fromSliceWithValidity(i64, allocator, index_values.items, output_validity.items, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByNumericQualityIndexOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByNumericQualityIndexAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByNumericQualityIndexOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
 pub fn groupByNaNCountOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -4210,6 +4321,46 @@ pub fn groupByNegativeZeroRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByNumericQualityOn(DeviceDataFrame, .negative_zero_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstPositiveZeroIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_positive_zero_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastPositiveZeroIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_positive_zero_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstNegativeZeroIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_negative_zero_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastNegativeZeroIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_negative_zero_index, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByNonZeroCountOn(

@@ -400,10 +400,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer metric_negative_ratios.deinit();
     try expectF64ColumnApproxOrNan(metric_negative_ratios, gpa, "metric_negative_ratio", &metric_negative_ratio_expected);
 
-    var signed_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 3 }, .cpu);
+    var signed_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
     defer signed_zero_key.deinit();
-    var signed_zero_values_buffer = [_]f64{ 0.0, -0.0, 1.0, -0.0, 0.0, 5.0 };
-    var signed_zero_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &signed_zero_values_buffer, &.{ true, true, true, true, true, false }, .cpu);
+    var signed_zero_values_buffer = [_]f64{ 0.0, -0.0, 1.0, 0.0, -0.0, 0.0, -0.0, 5.0 };
+    var signed_zero_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &signed_zero_values_buffer, &.{ true, true, true, true, true, true, true, false }, .cpu);
     defer signed_zero_value.deinit();
     var signed_zero_table = try DeviceDataFrame.init(gpa, &.{
         .{ .name = "bucket", .data = signed_zero_key },
@@ -415,23 +415,59 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer positive_zero_counts.deinit();
     const positive_zero_count_values = try (try positive_zero_counts.column("positive_zero_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(positive_zero_count_values);
-    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0 }, positive_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 0 }, positive_zero_count_values);
 
     var negative_zero_counts = try signed_zero_table.groupByNegativeZeroCount("bucket", "metric", "negative_zero_count");
     defer negative_zero_counts.deinit();
     const negative_zero_count_values = try (try negative_zero_counts.column("negative_zero_count")).i64.toOwnedSlice(gpa);
     defer gpa.free(negative_zero_count_values);
-    try std.testing.expectEqualSlices(i64, &.{ 1, 1, 0 }, negative_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 2, 0 }, negative_zero_count_values);
 
-    const positive_zero_ratio_expected = [_]f64{ 1.0 / 3.0, 0.5, ratio_nan };
+    const positive_zero_ratio_expected = [_]f64{ 0.5, 1.0 / 3.0, ratio_nan };
     var positive_zero_ratios = try signed_zero_table.groupByPositiveZeroRatio("bucket", "metric", "positive_zero_ratio");
     defer positive_zero_ratios.deinit();
     try expectF64ColumnApproxOrNan(positive_zero_ratios, gpa, "positive_zero_ratio", &positive_zero_ratio_expected);
 
-    const negative_zero_ratio_expected = [_]f64{ 1.0 / 3.0, 0.5, ratio_nan };
+    const negative_zero_ratio_expected = [_]f64{ 0.25, 2.0 / 3.0, ratio_nan };
     var negative_zero_ratios = try signed_zero_table.groupByNegativeZeroRatio("bucket", "metric", "negative_zero_ratio");
     defer negative_zero_ratios.deinit();
     try expectF64ColumnApproxOrNan(negative_zero_ratios, gpa, "negative_zero_ratio", &negative_zero_ratio_expected);
+
+    var first_positive_zero_indices = try signed_zero_table.groupByFirstPositiveZeroIndex("bucket", "metric", "first_positive_zero_index");
+    defer first_positive_zero_indices.deinit();
+    const first_positive_zero_index_values = try (try first_positive_zero_indices.column("first_positive_zero_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(first_positive_zero_index_values);
+    const first_positive_zero_index_validity = try (try first_positive_zero_indices.column("first_positive_zero_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(first_positive_zero_index_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 5, 0 }, first_positive_zero_index_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, first_positive_zero_index_validity);
+
+    var last_positive_zero_indices = try signed_zero_table.groupByLastPositiveZeroIndex("bucket", "metric", "last_positive_zero_index");
+    defer last_positive_zero_indices.deinit();
+    const last_positive_zero_index_values = try (try last_positive_zero_indices.column("last_positive_zero_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(last_positive_zero_index_values);
+    const last_positive_zero_index_validity = try (try last_positive_zero_indices.column("last_positive_zero_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(last_positive_zero_index_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 3, 5, 0 }, last_positive_zero_index_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, last_positive_zero_index_validity);
+
+    var first_negative_zero_indices = try signed_zero_table.groupByFirstNegativeZeroIndex("bucket", "metric", "first_negative_zero_index");
+    defer first_negative_zero_indices.deinit();
+    const first_negative_zero_index_values = try (try first_negative_zero_indices.column("first_negative_zero_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(first_negative_zero_index_values);
+    const first_negative_zero_index_validity = try (try first_negative_zero_indices.column("first_negative_zero_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(first_negative_zero_index_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 4, 0 }, first_negative_zero_index_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, first_negative_zero_index_validity);
+
+    var last_negative_zero_indices = try signed_zero_table.groupByLastNegativeZeroIndex("bucket", "metric", "last_negative_zero_index");
+    defer last_negative_zero_indices.deinit();
+    const last_negative_zero_index_values = try (try last_negative_zero_indices.column("last_negative_zero_index")).i64.toOwnedSlice(gpa);
+    defer gpa.free(last_negative_zero_index_values);
+    const last_negative_zero_index_validity = try (try last_negative_zero_indices.column("last_negative_zero_index")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(last_negative_zero_index_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 6, 0 }, last_negative_zero_index_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, last_negative_zero_index_validity);
 
     var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
     defer metric_nan_counts_on.deinit();
@@ -507,6 +543,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_positive_zero_ratio = try positive_zero_ratio_plan.collect();
     defer lazy_positive_zero_ratio.deinit();
     try expectF64ColumnApproxOrNan(lazy_positive_zero_ratio, gpa, "positive_zero_ratio_lazy", &positive_zero_ratio_expected);
+
+    var last_negative_zero_index_plan = try DeviceLazyFrame.init(gpa, signed_zero_table);
+    defer last_negative_zero_index_plan.deinit();
+    try last_negative_zero_index_plan.groupByLastNegativeZeroIndex("bucket", "metric", "last_negative_zero_index_lazy");
+    const last_negative_zero_index_explained = try last_negative_zero_index_plan.explain(gpa);
+    defer gpa.free(last_negative_zero_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, last_negative_zero_index_explained, "group_by_last_negative_zero_index(bucket, value=metric -> last_negative_zero_index_lazy)") != null);
+    var lazy_last_negative_zero_index = try last_negative_zero_index_plan.collect();
+    defer lazy_last_negative_zero_index.deinit();
+    const lazy_last_negative_zero_index_values = try (try lazy_last_negative_zero_index.column("last_negative_zero_index_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_last_negative_zero_index_values);
+    const lazy_last_negative_zero_index_validity = try (try lazy_last_negative_zero_index.column("last_negative_zero_index_lazy")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_last_negative_zero_index_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 6, 0 }, lazy_last_negative_zero_index_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, lazy_last_negative_zero_index_validity);
 
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();
