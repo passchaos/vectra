@@ -115,6 +115,18 @@ pub fn withGroupRowNumberOn(self: anytype, key_names: []const []const u8, output
 pub const withGroupCumCount = withGroupRowNumber;
 pub const withGroupCumCountOn = withGroupRowNumberOn;
 
+pub fn withGroupSize(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupSizeOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupSizeOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupSize(self, key_names, output_name);
+}
+
+pub const withGroupCount = withGroupSize;
+pub const withGroupCountOn = withGroupSizeOn;
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }

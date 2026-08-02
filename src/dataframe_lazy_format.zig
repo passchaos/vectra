@@ -2631,6 +2631,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_count.output_name});
         },
+        .group_size => |row_count| {
+            try writer.print("group_size([", .{});
+            for (row_count.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s})", .{row_count.output_name});
+        },
         .group_by_rows => |group| if (!group.keep_tail and group.use_signed_start)
             try writer.print("group_by_slice_rows_signed_step({s}, start={d}, length={d}, step={d})", .{ group.key_name, group.signed_start, group.n, group.step })
         else if (!group.keep_tail and group.step != 1)

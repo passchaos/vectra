@@ -1204,6 +1204,51 @@ pub fn withGroupRowNumberOn(
     return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
 }
 
+pub fn withGroupSizeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+
+    const group_sizes = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(group_sizes);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(group_sizes, 0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_counts: std.ArrayList(i64) = .empty;
+    defer group_counts.deinit(frame.allocator);
+    var row_group_indices = try frame.allocator.alloc(usize, frame.rows);
+    defer frame.allocator.free(row_group_indices);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        row_group_indices[row] = group_index;
+        row_validity[row] = true;
+        group_counts.items[group_index] += 1;
+    }
+
+    for (0..frame.rows) |row| {
+        if (!row_validity[row]) continue;
+        group_sizes[row] = group_counts.items[row_group_indices[row]];
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, group_sizes, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
 pub fn groupByNumericOn(
     comptime DeviceDataFrame: type,
     op: DeviceGroupByAggregation,

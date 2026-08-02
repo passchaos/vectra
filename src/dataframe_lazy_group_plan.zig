@@ -208,6 +208,17 @@ pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_
     } });
 }
 
+pub fn withGroupSize(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_size = .{
+        .names = owned_keys,
+        .output_name = owned_output,
+    } });
+}
+
 pub fn groupByValue(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return groupByValueQuantile(frame, key_name, value_name, output_name, aggregation, defaultAggregationParameter(aggregation));
 }

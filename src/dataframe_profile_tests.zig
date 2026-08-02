@@ -919,6 +919,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
 
+    var group_sizes = try table.withGroupSize("store", "store_group_size");
+    defer group_sizes.deinit();
+    try expectNullableI64Column(group_sizes, gpa, "store_group_size", &.{ 3, 2, 3, 0, 2, 3 }, &.{ true, true, true, false, true, true });
+
     var value_counts = try table.valueCounts("store");
     defer value_counts.deinit();
     const value_count_keys = try (try value_counts.column("store")).i32.toOwnedSlice(gpa);
@@ -1064,6 +1068,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_group_row_numbers = try group_row_number_plan.collect();
     defer lazy_group_row_numbers.deinit();
     try expectNullableI64Column(lazy_group_row_numbers, gpa, "store_row_number_lazy", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
+
+    var group_size_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_size_plan.deinit();
+    try group_size_plan.withGroupSize("store", "store_group_size_lazy");
+    const group_size_explained = try group_size_plan.explain(gpa);
+    defer gpa.free(group_size_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_size_explained, "group_size([store]->store_group_size_lazy)") != null);
+    var lazy_group_sizes = try group_size_plan.collect();
+    defer lazy_group_sizes.deinit();
+    try expectNullableI64Column(lazy_group_sizes, gpa, "store_group_size_lazy", &.{ 3, 2, 3, 0, 2, 3 }, &.{ true, true, true, false, true, true });
 
     var tail_rows_plan = try DeviceLazyFrame.init(gpa, table);
     defer tail_rows_plan.deinit();
