@@ -42,6 +42,7 @@ const GroupByMomentAggregation = enum {
     stddev,
     sem,
     cv,
+    fano,
     skewness,
     kurtosis,
 };
@@ -589,6 +590,7 @@ fn groupByMomentOnTyped(
             .stddev => profile.stddev(),
             .sem => profile.sem(),
             .cv => profile.cv(),
+            .fano => if (profile.mean == 0.0) std.math.nan(f64) else profile.variance() / profile.mean,
             .skewness => profile.skewness(),
             .kurtosis => profile.kurtosis(),
         };
@@ -650,6 +652,16 @@ pub fn groupByCvOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByMomentOn(DeviceDataFrame, .cv, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFanoOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .fano, frame, key_names, value_name, output_name);
 }
 
 pub fn groupBySkewnessOn(

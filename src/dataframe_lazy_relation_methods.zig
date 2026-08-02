@@ -212,6 +212,17 @@ pub fn groupByCvOn(self: anytype, key_names: []const []const u8, value_name: []c
 pub const groupByCV = groupByCv;
 pub const groupByCVOn = groupByCvOn;
 
+pub fn groupByFano(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .fano);
+}
+
+pub fn groupByFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .fano);
+}
+
+pub const groupByIndexOfDispersion = groupByFano;
+pub const groupByIndexOfDispersionOn = groupByFanoOn;
+
 pub fn groupBySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .skewness);
 }

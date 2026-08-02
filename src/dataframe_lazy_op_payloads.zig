@@ -33,6 +33,7 @@ pub const DeviceLazyGroupByAggregation = enum {
     stddev,
     sem,
     cv,
+    fano,
     skewness,
     kurtosis,
     mean_abs,

@@ -420,6 +420,28 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.5 / 7.5), cv_sales_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 7.0), cv_sales_values[1], 1e-12);
 
+    var fano_sales = try table.groupByIndexOfDispersion("store", "sales", "sales_fano_simple");
+    defer fano_sales.deinit();
+    const fano_sales_values = try (try fano_sales.column("sales_fano_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(fano_sales_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.25 / 7.5), fano_sales_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 7.0), fano_sales_values[1], 1e-12);
+
+    var zero_mean_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1 }, .cpu);
+    defer zero_mean_key.deinit();
+    var zero_mean_value = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 1.0 }, .cpu);
+    defer zero_mean_value.deinit();
+    var zero_mean_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = zero_mean_key },
+        .{ .name = "value", .data = zero_mean_value },
+    });
+    defer zero_mean_table.deinit();
+    var zero_mean_fano = try zero_mean_table.groupByFano("bucket", "value", "value_fano");
+    defer zero_mean_fano.deinit();
+    const zero_mean_fano_values = try (try zero_mean_fano.column("value_fano")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_mean_fano_values);
+    try std.testing.expect(std.math.isNan(zero_mean_fano_values[0]));
+
     var magnitude_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2 }, .cpu);
     defer magnitude_key.deinit();
     var signed_delta = try DeviceColumn.fromSlice(f64, gpa, &.{ -3.0, 4.0, -5.0, 12.0 }, .cpu);
@@ -764,6 +786,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_cv[3], 1e-12);
 
+    var multi_fano = try multi.groupByFanoOn(&.{ "store", "day" }, "amount", "amount_fano_simple");
+    defer multi_fano.deinit();
+    const ms_simple_fano = try (try multi_fano.column("amount_fano_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_fano);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25 / 1.5), ms_simple_fano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_fano[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_fano[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_fano[3], 1e-12);
+
     var multi_mean_abs = try multi.groupByMeanAbsOn(&.{ "store", "day" }, "amount", "amount_mean_abs_simple");
     defer multi_mean_abs.deinit();
     const ms_simple_mean_abs = try (try multi_mean_abs.column("amount_mean_abs_simple")).f64.toOwnedSlice(gpa);
@@ -1036,6 +1067,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_cv[3], 1e-12);
+
+    var multi_fano_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_fano_plan.deinit();
+    try multi_fano_plan.groupByIndexOfDispersionOn(&.{ "store", "day" }, "amount", "amount_fano_lazy");
+    const multi_fano_explained = try multi_fano_plan.explain(gpa);
+    defer gpa.free(multi_fano_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_fano_explained, "group_by_fano_on([store,day], value=amount -> amount_fano_lazy)") != null);
+    var lazy_multi_fano = try multi_fano_plan.collect();
+    defer lazy_multi_fano.deinit();
+    const lazy_ms_fano = try (try lazy_multi_fano.column("amount_fano_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_fano);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25 / 1.5), lazy_ms_fano[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_fano[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_fano[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_fano[3], 1e-12);
 
     var multi_mean_abs_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_mean_abs_plan.deinit();
