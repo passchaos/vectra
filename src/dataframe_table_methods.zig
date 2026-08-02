@@ -3555,6 +3555,14 @@ pub fn withRowWeightedMad(self: anytype, value_names: []const []const u8, weight
     return dataframe_array_mod.withRowWeightedMad(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowWeightedTrimmedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedTrimmedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, trim_fraction);
+}
+
+pub fn withRowWeightedWinsorizedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedWinsorizedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, winsor_fraction);
+}
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

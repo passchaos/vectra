@@ -347,6 +347,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_weighted_median: Payloads.RowWeightedMean,
         row_weighted_iqr: Payloads.RowWeightedMean,
         row_weighted_mad: Payloads.RowWeightedMean,
+        row_weighted_trimmed_mean: Payloads.RowWeightedQuantile,
+        row_weighted_winsorized_mean: Payloads.RowWeightedQuantile,
         row_weighted_mode: Payloads.RowWeightedMean,
         row_weighted_mode_weight: Payloads.RowWeightedMean,
         row_weighted_mode_ratio: Payloads.RowWeightedMean,

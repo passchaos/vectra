@@ -1509,6 +1509,28 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, row_weighted_mad);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mad_validity);
 
+    var row_weighted_trimmed_table = try validity_table.withRowWeightedTrimmedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_trimmed", 0.25);
+    defer row_weighted_trimmed_table.deinit();
+    const row_weighted_trimmed_column = try row_weighted_trimmed_table.column("row_weighted_trimmed");
+    try std.testing.expect(row_weighted_trimmed_column.f64.nullable());
+    const row_weighted_trimmed = try row_weighted_trimmed_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_trimmed);
+    const row_weighted_trimmed_validity = try row_weighted_trimmed_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_trimmed_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_weighted_trimmed);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_trimmed_validity);
+
+    var row_weighted_winsorized_table = try validity_table.withRowWeightedWinsorizedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_winsorized", 0.25);
+    defer row_weighted_winsorized_table.deinit();
+    const row_weighted_winsorized_column = try row_weighted_winsorized_table.column("row_weighted_winsorized");
+    try std.testing.expect(row_weighted_winsorized_column.f64.nullable());
+    const row_weighted_winsorized = try row_weighted_winsorized_column.f64.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_winsorized);
+    const row_weighted_winsorized_validity = try row_weighted_winsorized_column.f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(row_weighted_winsorized_validity);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0, 20.0, 0.0, 4.0 }, row_weighted_winsorized);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_winsorized_validity);
+
     var row_weighted_mode_table = try validity_table.withRowWeightedMode(&.{ "a", "b", "wa" }, &.{ "wb", "wa", "wb" }, "row_weighted_mode");
     defer row_weighted_mode_table.deinit();
     const row_weighted_mode_column = try row_weighted_mode_table.column("row_weighted_mode");
@@ -1861,6 +1883,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedQuantile(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 0.5));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedMode(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_mode"));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_quantile", 1.5));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedTrimmedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_trimmed", 0.5));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedWinsorizedMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_winsorized", -0.01));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedVariance(&.{"a"}, &.{ "wa", "wb" }, "bad_row_weighted_variance", 0.0));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowWeightedVariance(&.{ "a", "b" }, &.{ "wa", "wb" }, "bad_row_weighted_variance", -1.0));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowWeightedCovariance(&.{"a"}, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "bad_row_weighted_covariance", 0.0));

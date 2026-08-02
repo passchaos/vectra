@@ -4175,6 +4175,116 @@ pub fn withRowWeightedMad(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+fn rowWeightedTrimmedMeanFromSorted(sorted: []const RowWeightedValue, total_weight: f64, trim_fraction: f64) f64 {
+    if (!(total_weight > 0.0)) return quietNanF64();
+    const lower_cut = trim_fraction * total_weight;
+    const upper_cut = (1.0 - trim_fraction) * total_weight;
+    if (!(upper_cut > lower_cut)) return quietNanF64();
+
+    var cumulative: f64 = 0.0;
+    var kept_sum: f64 = 0.0;
+    var kept_weight: f64 = 0.0;
+    for (sorted) |item| {
+        if (!(item.weight > 0.0)) continue;
+        const start = cumulative;
+        const end = cumulative + item.weight;
+        const kept = @max(@as(f64, 0.0), @min(end, upper_cut) - @max(start, lower_cut));
+        if (kept > 0.0) {
+            kept_sum += kept * item.value;
+            kept_weight += kept;
+        }
+        cumulative = end;
+    }
+    return if (kept_weight > 0.0) kept_sum / kept_weight else quietNanF64();
+}
+
+fn rowWeightedWinsorizedMeanFromSorted(sorted: []const RowWeightedValue, total_weight: f64, winsor_fraction: f64) f64 {
+    if (!(total_weight > 0.0)) return quietNanF64();
+    const lower = rowWeightedQuantileFromSorted(sorted, winsor_fraction, total_weight);
+    const upper = rowWeightedQuantileFromSorted(sorted, 1.0 - winsor_fraction, total_weight);
+
+    var total: f64 = 0.0;
+    for (sorted) |item| {
+        if (!(item.weight > 0.0)) continue;
+        total += item.weight * @min(@max(item.value, lower), upper);
+    }
+    return total / total_weight;
+}
+
+fn withRowWeightedRobustMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    fraction: f64,
+    comptime op: enum { trimmed_mean, winsorized_mean },
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
+
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+            total_weight += weight;
+            count += 1;
+        }
+        if (count == 0 or !(total_weight > 0.0)) continue;
+
+        const active = scratch[0..count];
+        std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+        values[row] = switch (op) {
+            .trimmed_mean => rowWeightedTrimmedMeanFromSorted(active, total_weight, fraction),
+            .winsorized_mean => rowWeightedWinsorizedMeanFromSorted(active, total_weight, fraction),
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedTrimmedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    trim_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_name, trim_fraction, .trimmed_mean);
+}
+
+pub fn withRowWeightedWinsorizedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    winsor_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
+}
+
 pub fn withRowWeightedMode(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

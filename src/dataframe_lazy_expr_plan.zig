@@ -3837,6 +3837,44 @@ pub fn withRowWeightedMad(frame: anytype, value_names: []const []const u8, weigh
     } });
 }
 
+fn withRowWeightedRobustMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, fraction: f64, comptime op: enum { trimmed_mean, winsorized_mean }) DeviceDataError!void {
+    if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer {
+        for (owned_values) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_values);
+    }
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer {
+        for (owned_weights) |name| frame.allocator.free(name);
+        frame.allocator.free(owned_weights);
+    }
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    switch (op) {
+        .trimmed_mean => try frame.ops.append(frame.allocator, .{ .row_weighted_trimmed_mean = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .q = fraction,
+        } }),
+        .winsorized_mean => try frame.ops.append(frame.allocator, .{ .row_weighted_winsorized_mean = .{
+            .value_names = owned_values,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .q = fraction,
+        } }),
+    }
+}
+
+pub fn withRowWeightedTrimmedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return withRowWeightedRobustMean(frame, value_names, weight_names, output_name, trim_fraction, .trimmed_mean);
+}
+
+pub fn withRowWeightedWinsorizedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return withRowWeightedRobustMean(frame, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
+}
+
 pub fn withRowWeightedMode(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer {

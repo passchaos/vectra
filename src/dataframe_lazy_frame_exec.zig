@@ -742,6 +742,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_weighted_median => |row_weighted| try current.withRowWeightedMedian(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_iqr => |row_weighted| try current.withRowWeightedIqr(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_mad => |row_weighted| try current.withRowWeightedMad(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
+            .row_weighted_trimmed_mean => |row_weighted| try current.withRowWeightedTrimmedMean(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.q),
+            .row_weighted_winsorized_mean => |row_weighted| try current.withRowWeightedWinsorizedMean(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name, row_weighted.q),
             .row_weighted_mode => |row_weighted| try current.withRowWeightedMode(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_mode_weight => |row_weighted| try current.withRowWeightedModeWeight(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_mode_ratio => |row_weighted| try current.withRowWeightedModeRatio(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),

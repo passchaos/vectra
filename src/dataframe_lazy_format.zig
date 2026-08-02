@@ -783,6 +783,32 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
+        .row_weighted_trimmed_mean => |row_weighted| {
+            try writer.print("row_weighted_trimmed_mean(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, trim_fraction={d})", .{ row_weighted.output_name, row_weighted.q });
+        },
+        .row_weighted_winsorized_mean => |row_weighted| {
+            try writer.print("row_weighted_winsorized_mean(values=[", .{});
+            for (row_weighted.value_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], weights=[", .{});
+            for (row_weighted.weight_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("]->{s}, winsor_fraction={d})", .{ row_weighted.output_name, row_weighted.q });
+        },
         .row_weighted_mode => |row_weighted| {
             try writer.print("row_weighted_mode(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

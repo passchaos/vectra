@@ -3496,6 +3496,34 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .q = row_weighted.q,
             } };
         },
+        .row_weighted_trimmed_mean => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_trimmed_mean = .{
+                .value_names = value_names,
+                .weight_names = weight_names,
+                .output_name = output_name,
+                .q = row_weighted.q,
+            } };
+        },
+        .row_weighted_winsorized_mean => |row_weighted| blk: {
+            const value_names = try cloneNameList(allocator, row_weighted.value_names);
+            errdefer freeNameList(allocator, value_names);
+            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+            errdefer freeNameList(allocator, weight_names);
+            const output_name = try allocator.dupe(u8, row_weighted.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .row_weighted_winsorized_mean = .{
+                .value_names = value_names,
+                .weight_names = weight_names,
+                .output_name = output_name,
+                .q = row_weighted.q,
+            } };
+        },
         .row_weighted_covariance => |row_weighted| blk: {
             const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
             errdefer freeNameList(allocator, lhs_names);

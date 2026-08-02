@@ -2459,6 +2459,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMad(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedTrimmedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedTrimmedMean(self, value_names, weight_names, output_name, trim_fraction);
+            }
+
+            pub fn withRowWeightedWinsorizedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedWinsorizedMean(self, value_names, weight_names, output_name, winsor_fraction);
+            }
+
             pub fn withRowWeightedMode(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMode(self, value_names, weight_names, output_name);
             }
