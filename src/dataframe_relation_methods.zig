@@ -335,6 +335,29 @@ pub fn withGroupFillNullBackwardOn(self: anytype, key_names: []const []const u8,
     return group_multi_mod.withGroupFillNullBackwardOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeValidCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeValidCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeValidCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeValidCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNullCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNullCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNullCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeNullCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumValidCount = withGroupCumulativeValidCount;
+pub const withGroupCumValidCountOn = withGroupCumulativeValidCountOn;
+pub const withGroupCumNullCount = withGroupCumulativeNullCount;
+pub const withGroupCumNullCountOn = withGroupCumulativeNullCountOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

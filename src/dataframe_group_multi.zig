@@ -1906,6 +1906,73 @@ pub fn withGroupFillNullBackwardOn(
     return withGroupFillNullOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
 }
 
+fn withGroupCumulativeValidityCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime count_nulls: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    const counts = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(counts);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(counts, 0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_counts: std.ArrayList(i64) = .empty;
+    defer group_counts.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        const value_valid = try columnRowValid(frame.allocator, value.*, row);
+        if ((count_nulls and !value_valid) or (!count_nulls and value_valid)) {
+            group_counts.items[group_index] += 1;
+        }
+        counts[row] = group_counts.items[group_index];
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, counts, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeValidCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeValidityCountOn(DeviceDataFrame, frame, key_names, value_name, output_name, false);
+}
+
+pub fn withGroupCumulativeNullCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeValidityCountOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
+}
+
+pub const withGroupCumValidCountOn = withGroupCumulativeValidCountOn;
+pub const withGroupCumNullCountOn = withGroupCumulativeNullCountOn;
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

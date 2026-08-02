@@ -4018,7 +4018,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
-        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward => |shift, tag| blk: {
+        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count => |shift, tag| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);
             const value_name = try allocator.dupe(u8, shift.value_name);
@@ -4081,6 +4081,18 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .offset = shift.offset,
                 } },
                 .group_fill_null_backward => .{ .group_fill_null_backward = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_valid_count => .{ .group_cumulative_valid_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_null_count => .{ .group_cumulative_null_count = .{
                     .names = names,
                     .value_name = value_name,
                     .output_name = output_name,

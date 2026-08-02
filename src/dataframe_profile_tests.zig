@@ -1021,6 +1021,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_backward_filled_sales.deinit();
     try expectF64ColumnWithValidity(group_backward_filled_sales, gpa, "store_sales_bfill", &.{ 2.0, 3.0, 13.0, 0.0, 11.0, 13.0 }, &.{ true, true, true, false, true, true });
 
+    var group_cum_valid_sales = try table.withGroupCumulativeValidCount("store", "sales", "store_sales_cum_valid");
+    defer group_cum_valid_sales.deinit();
+    try expectNullableI64Column(group_cum_valid_sales, gpa, "store_sales_cum_valid", &.{ 1, 1, 1, 0, 2, 2 }, &.{ true, true, true, false, true, true });
+
+    var group_cum_null_sales = try table.withGroupCumulativeNullCount("store", "sales", "store_sales_cum_null");
+    defer group_cum_null_sales.deinit();
+    try expectNullableI64Column(group_cum_null_sales, gpa, "store_sales_cum_null", &.{ 0, 0, 1, 0, 0, 1 }, &.{ true, true, true, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1234,6 +1242,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupNthValidValue("store", "sales", "store_sales_nth_valid_lazy", 1);
     try group_cume_dist_plan.withGroupFillNullForward("store", "sales", "store_sales_ffill_lazy");
     try group_cume_dist_plan.withGroupFillNullBackward("store", "sales", "store_sales_bfill_lazy");
+    try group_cume_dist_plan.withGroupCumulativeValidCount("store", "sales", "store_sales_cum_valid_lazy");
+    try group_cume_dist_plan.withGroupCumulativeNullCount("store", "sales", "store_sales_cum_null_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1250,6 +1260,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_nth_valid_value([store], value=sales, n=1->store_sales_nth_valid_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_fill_null_forward([store], value=sales->store_sales_ffill_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_fill_null_backward([store], value=sales->store_sales_bfill_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_valid_count([store], value=sales->store_sales_cum_valid_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_null_count([store], value=sales->store_sales_cum_null_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1266,6 +1278,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_nth_valid_lazy", &.{ 13.0, 11.0, 13.0, 0.0, 11.0, 13.0 }, &.{ true, true, true, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_ffill_lazy", &.{ 2.0, 3.0, 2.0, 0.0, 11.0, 13.0 }, &.{ true, true, true, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_bfill_lazy", &.{ 2.0, 3.0, 13.0, 0.0, 11.0, 13.0 }, &.{ true, true, true, false, true, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_valid_lazy", &.{ 1, 1, 1, 0, 2, 2 }, &.{ true, true, true, false, true, true });
+    try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_null_lazy", &.{ 0, 0, 1, 0, 0, 1 }, &.{ true, true, true, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
@@ -3899,10 +3913,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, mp_store);
     try std.testing.expectEqualSlices(i32, &.{ 10, 11, 10, 11 }, mp_day);
     try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 1 }, mp_count);
-    try std.testing.expectApproxEqAbs(@as(f64, 0.25), mp_variance[0], 1e-12);
-    try std.testing.expectApproxEqAbs(@as(f64, 0.5), mp_stddev[0], 1e-12);
-    try std.testing.expectApproxEqAbs(@as(f64, 0.0), mp_skewness[0], 1e-12);
-    try std.testing.expectApproxEqAbs(@as(f64, -2.0), mp_kurtosis[0], 1e-12);
+    const expected_mp_variance: f64 = 0.25;
+    const expected_mp_stddev: f64 = 0.5;
+    const expected_mp_skewness: f64 = 0.0;
+    const expected_mp_kurtosis: f64 = -2.0;
+    try std.testing.expect(@abs(mp_variance[0] - expected_mp_variance) <= 1e-12);
+    try std.testing.expect(@abs(mp_stddev[0] - expected_mp_stddev) <= 1e-12);
+    try std.testing.expect(@abs(mp_skewness[0] - expected_mp_skewness) <= 1e-12);
+    try std.testing.expect(@abs(mp_kurtosis[0] - expected_mp_kurtosis) <= 1e-12);
     try std.testing.expect(std.math.isNan(mp_skewness[1]));
     try std.testing.expect(std.math.isNan(mp_kurtosis[1]));
 }
