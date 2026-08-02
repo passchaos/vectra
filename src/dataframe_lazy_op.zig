@@ -764,6 +764,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_null_count: Payloads.GroupShift,
         group_cumulative_valid_ratio: Payloads.GroupShift,
         group_cumulative_null_ratio: Payloads.GroupShift,
+        group_cumulative_sum: Payloads.GroupShift,
         group_row_number: Payloads.RowValidityCount,
         group_size: Payloads.RowValidityCount,
         group_reverse_row_number: Payloads.RowValidityCount,

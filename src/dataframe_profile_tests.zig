@@ -1037,6 +1037,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_null_ratio_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_null_ratio_sales, gpa, "store_sales_cum_null_ratio", &.{ 0.0, 0.0, 0.5, 0.0, 0.0, 1.0 / 3.0 }, &.{ true, true, true, false, true, true });
 
+    var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
+    defer group_cum_sum_sales.deinit();
+    try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1254,6 +1258,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeNullCount("store", "sales", "store_sales_cum_null_lazy");
     try group_cume_dist_plan.withGroupCumulativeValidRatio("store", "sales", "store_sales_cum_valid_ratio_lazy");
     try group_cume_dist_plan.withGroupCumulativeNullRatio("store", "sales", "store_sales_cum_null_ratio_lazy");
+    try group_cume_dist_plan.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1274,6 +1279,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_null_count([store], value=sales->store_sales_cum_null_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_valid_ratio([store], value=sales->store_sales_cum_valid_ratio_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_null_ratio([store], value=sales->store_sales_cum_null_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_sum([store], value=sales->store_sales_cum_sum_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1294,6 +1300,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectNullableI64Column(lazy_group_cume_dist, gpa, "store_sales_cum_null_lazy", &.{ 0, 0, 1, 0, 0, 1 }, &.{ true, true, true, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_valid_ratio_lazy", &.{ 1.0, 1.0, 0.5, 0.0, 1.0, 2.0 / 3.0 }, &.{ true, true, true, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_null_ratio_lazy", &.{ 0.0, 0.0, 0.5, 0.0, 0.0, 1.0 / 3.0 }, &.{ true, true, true, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_sum_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
@@ -3908,8 +3915,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
 
     var multi_profile = try multi.groupByProfileOn(&.{ "store", "day" }, "amount", "amount");
     defer multi_profile.deinit();
-    try std.testing.expectEqual(@as(usize, 9), multi_profile.width());
-    try std.testing.expectEqual(@as(usize, 4), multi_profile.height());
+    try std.testing.expect(multi_profile.width() == 9);
+    try std.testing.expect(multi_profile.height() == 4);
     const mp_store = try (try multi_profile.column("store")).i32.toOwnedSlice(gpa);
     defer gpa.free(mp_store);
     const mp_day = try (try multi_profile.column("day")).i32.toOwnedSlice(gpa);

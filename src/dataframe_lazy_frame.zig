@@ -5707,6 +5707,10 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumValidRatioOn = lazy_relation_methods_mod.withGroupCumValidRatioOn;
             pub const withGroupCumNullRatio = lazy_relation_methods_mod.withGroupCumNullRatio;
             pub const withGroupCumNullRatioOn = lazy_relation_methods_mod.withGroupCumNullRatioOn;
+            pub const withGroupCumulativeSum = lazy_relation_methods_mod.withGroupCumulativeSum;
+            pub const withGroupCumulativeSumOn = lazy_relation_methods_mod.withGroupCumulativeSumOn;
+            pub const withGroupCumSum = lazy_relation_methods_mod.withGroupCumSum;
+            pub const withGroupCumSumOn = lazy_relation_methods_mod.withGroupCumSumOn;
             pub const withGroupRowNumber = lazy_relation_methods_mod.withGroupRowNumber;
             pub const withGroupRowNumberOn = lazy_relation_methods_mod.withGroupRowNumberOn;
             pub const withGroupCumCount = lazy_relation_methods_mod.withGroupCumCount;

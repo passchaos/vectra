@@ -2044,6 +2044,81 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
+fn withGroupCumulativeSumOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const sums = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(sums);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(sums, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_sums: std.ArrayList(f64) = .empty;
+    defer group_sums.deinit(frame.allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_sums.append(frame.allocator, 0.0);
+            break :blk representative_rows.items.len - 1;
+        };
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        group_sums.items[group_index] += castToF64(V, value_item);
+        sums[row] = group_sums.items[group_index];
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, sums, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeSumOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .i8 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed),
+        .i16 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed),
+        .i32 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed),
+        .i64 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed),
+        .u8 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed),
+        .u16 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed),
+        .u32 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed),
+        .u64 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed),
+        .usize => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed),
+        .isize => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed),
+        .f16 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed),
+        .f32 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed),
+        .f64 => |typed| withGroupCumulativeSumOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub const withGroupCumSumOn = withGroupCumulativeSumOn;
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
