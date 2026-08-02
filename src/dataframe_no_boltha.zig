@@ -237,6 +237,12 @@ pub const DeviceLazyGroupByAggregation = enum {
     argmax,
 };
 
+pub const DeviceLazyWeightedGroupByAggregation = enum {
+    weighted_mean,
+    weighted_variance,
+    weighted_stddev,
+};
+
 pub const DeviceLazyJoinKind = enum {
     inner,
     left,

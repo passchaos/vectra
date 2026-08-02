@@ -3957,6 +3957,40 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .quantile = group.quantile,
             } };
         },
+        .group_by_weighted => |group| blk: {
+            const key_name = try allocator.dupe(u8, group.key_name);
+            errdefer allocator.free(key_name);
+            const value_name = try allocator.dupe(u8, group.value_name);
+            errdefer allocator.free(value_name);
+            const weight_name = try allocator.dupe(u8, group.weight_name);
+            errdefer allocator.free(weight_name);
+            const output_name = try allocator.dupe(u8, group.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_by_weighted = .{
+                .key_name = key_name,
+                .value_name = value_name,
+                .weight_name = weight_name,
+                .output_name = output_name,
+                .aggregation = group.aggregation,
+            } };
+        },
+        .group_by_weighted_on => |group| blk: {
+            const key_names = try cloneNameList(allocator, group.key_names);
+            errdefer freeNameList(allocator, key_names);
+            const value_name = try allocator.dupe(u8, group.value_name);
+            errdefer allocator.free(value_name);
+            const weight_name = try allocator.dupe(u8, group.weight_name);
+            errdefer allocator.free(weight_name);
+            const output_name = try allocator.dupe(u8, group.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_by_weighted_on = .{
+                .key_names = key_names,
+                .value_name = value_name,
+                .weight_name = weight_name,
+                .output_name = output_name,
+                .aggregation = group.aggregation,
+            } };
+        },
         .group_by_stats => |group| blk: {
             const key_name = try allocator.dupe(u8, group.key_name);
             errdefer allocator.free(key_name);

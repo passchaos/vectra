@@ -286,6 +286,39 @@ pub fn groupByGiniCoefficientOn(self: anytype, key_names: []const []const u8, va
 pub const groupByGiniCoeff = groupByGiniCoefficient;
 pub const groupByGiniCoeffOn = groupByGiniCoefficientOn;
 
+pub fn groupByWeightedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedVarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedVar = groupByWeightedVariance;
+pub const groupByWeightedVarOn = groupByWeightedVarianceOn;
+
+pub fn groupByWeightedStddev(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedStddevOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedStddevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedStd = groupByWeightedStddev;
+pub const groupByWeightedStdOn = groupByWeightedStddevOn;
+
 pub fn groupByMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByMeanAbsDevOn(self, key_names[0..], value_name, output_name);

@@ -9,6 +9,7 @@ const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
 
 const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
+const DeviceLazyWeightedGroupByAggregation = lazy_op_mod.DeviceLazyWeightedGroupByAggregation;
 const DeviceLazyJoinKind = lazy_op_mod.DeviceLazyJoinKind;
 const DeviceJoinOptions = options_mod.DeviceJoinOptions;
 const DeviceAsofOptions = options_mod.DeviceAsofOptions;
@@ -70,6 +71,14 @@ pub fn groupByValue(self: anytype, key_name: []const u8, value_name: []const u8,
 
 pub fn groupByValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return lazy_group_mod.groupByValueOn(self, key_names, value_name, output_name, aggregation);
+}
+
+pub fn groupByWeighted(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    return lazy_group_mod.groupByWeighted(self, key_name, value_name, weight_name, output_name, aggregation);
+}
+
+pub fn groupByWeightedOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedOn(self, key_names, value_name, weight_name, output_name, aggregation);
 }
 
 pub fn groupBySum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -259,6 +268,36 @@ pub fn groupByGiniCoefficientOn(self: anytype, key_names: []const []const u8, va
 
 pub const groupByGiniCoeff = groupByGiniCoefficient;
 pub const groupByGiniCoeffOn = groupByGiniCoefficientOn;
+
+pub fn groupByWeightedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_mean);
+}
+
+pub fn groupByWeightedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_mean);
+}
+
+pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);
+}
+
+pub fn groupByWeightedVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_variance);
+}
+
+pub const groupByWeightedVar = groupByWeightedVariance;
+pub const groupByWeightedVarOn = groupByWeightedVarianceOn;
+
+pub fn groupByWeightedStddev(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_stddev);
+}
+
+pub fn groupByWeightedStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_stddev);
+}
+
+pub const groupByWeightedStd = groupByWeightedStddev;
+pub const groupByWeightedStdOn = groupByWeightedStddevOn;
 
 pub fn groupByMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .mean_abs_dev);

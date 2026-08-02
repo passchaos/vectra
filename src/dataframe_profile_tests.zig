@@ -519,6 +519,97 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(zero_mean_abs_dev_ratio_values);
     try std.testing.expect(std.math.isNan(zero_mean_abs_dev_ratio_values[0]));
 
+    var weighted_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 2, 3, 3 }, .cpu);
+    defer weighted_key.deinit();
+    var weighted_day = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 11, 10, 10, 11, 10, 10 }, .cpu);
+    defer weighted_day.deinit();
+    var weighted_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 10.0, 20.0, 30.0, 5.0, 15.0, 100.0, 7.0, 9.0 }, &.{ true, true, true, true, true, false, true, true }, .cpu);
+    defer weighted_value.deinit();
+    var weighted_weight = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 3.0, 2.0, 1.0, 1.0, 10.0, 0.0, 0.0 }, .cpu);
+    defer weighted_weight.deinit();
+    var weighted_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = weighted_key },
+        .{ .name = "day", .data = weighted_day },
+        .{ .name = "value", .data = weighted_value },
+        .{ .name = "weight", .data = weighted_weight },
+    });
+    defer weighted_table.deinit();
+
+    var weighted_mean = try weighted_table.groupByWeightedMean("bucket", "value", "weight", "value_weighted_mean");
+    defer weighted_mean.deinit();
+    const weighted_mean_values = try (try weighted_mean.column("value_weighted_mean")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_mean_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 65.0 / 3.0), weighted_mean_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_mean_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_mean_values[2]));
+
+    var weighted_variance = try weighted_table.groupByWeightedVarOn(&.{"bucket"}, "value", "weight", "value_weighted_variance");
+    defer weighted_variance.deinit();
+    const weighted_variance_values = try (try weighted_variance.column("value_weighted_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_variance_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 425.0 / 9.0), weighted_variance_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 25.0), weighted_variance_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_variance_values[2]));
+
+    var weighted_stddev = try weighted_table.groupByWeightedStddev("bucket", "value", "weight", "value_weighted_stddev");
+    defer weighted_stddev.deinit();
+    const weighted_stddev_values = try (try weighted_stddev.column("value_weighted_stddev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_stddev_values);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 425.0 / 9.0)), weighted_stddev_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), weighted_stddev_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_stddev_values[2]));
+
+    var weighted_mean_on = try weighted_table.groupByWeightedMeanOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_mean_on");
+    defer weighted_mean_on.deinit();
+    const weighted_mean_on_values = try (try weighted_mean_on.column("value_weighted_mean_on")).f64.toOwnedSlice(gpa);
+    defer gpa.free(weighted_mean_on_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 17.5), weighted_mean_on_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30.0), weighted_mean_on_values[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_mean_on_values[2], 1e-12);
+    try std.testing.expect(std.math.isNan(weighted_mean_on_values[3]));
+
+    var negative_weight_key = try DeviceColumn.fromSlice(i32, gpa, &.{1}, .cpu);
+    defer negative_weight_key.deinit();
+    var negative_weight_value = try DeviceColumn.fromSlice(f64, gpa, &.{1.0}, .cpu);
+    defer negative_weight_value.deinit();
+    var negative_weight = try DeviceColumn.fromSlice(f64, gpa, &.{-1.0}, .cpu);
+    defer negative_weight.deinit();
+    var negative_weight_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = negative_weight_key },
+        .{ .name = "value", .data = negative_weight_value },
+        .{ .name = "weight", .data = negative_weight },
+    });
+    defer negative_weight_table.deinit();
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedMean("bucket", "value", "weight", "bad_weighted_mean"));
+
+    var weighted_mean_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_mean_plan.deinit();
+    try weighted_mean_plan.groupByWeightedMeanOn(&.{"bucket"}, "value", "weight", "value_weighted_mean_lazy");
+    const weighted_mean_explained = try weighted_mean_plan.explain(gpa);
+    defer gpa.free(weighted_mean_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_mean_explained, "group_by_weighted_mean_on([bucket], value=value, weight=weight -> value_weighted_mean_lazy)") != null);
+    var lazy_weighted_mean = try weighted_mean_plan.collect();
+    defer lazy_weighted_mean.deinit();
+    const lazy_weighted_mean_values = try (try lazy_weighted_mean.column("value_weighted_mean_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_mean_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 65.0 / 3.0), lazy_weighted_mean_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 10.0), lazy_weighted_mean_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_mean_values[2]));
+
+    var weighted_std_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_std_plan.deinit();
+    try weighted_std_plan.groupByWeightedStddev("bucket", "value", "weight", "value_weighted_stddev_lazy");
+    const weighted_std_explained = try weighted_std_plan.explain(gpa);
+    defer gpa.free(weighted_std_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_std_explained, "group_by_weighted_stddev(bucket, value=value, weight=weight -> value_weighted_stddev_lazy)") != null);
+    var lazy_weighted_std = try weighted_std_plan.collect();
+    defer lazy_weighted_std.deinit();
+    const lazy_weighted_std_values = try (try lazy_weighted_std.column("value_weighted_stddev_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_weighted_std_values);
+    try std.testing.expectApproxEqAbs(std.math.sqrt(@as(f64, 425.0 / 9.0)), lazy_weighted_std_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_weighted_std_values[1], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_weighted_std_values[2]));
+
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();
     try mode_count_plan.groupByModeCount("bucket", "label", "label_mode_count_lazy");

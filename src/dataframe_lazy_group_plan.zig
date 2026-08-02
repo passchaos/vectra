@@ -7,6 +7,7 @@ const names_mod = @import("dataframe_names.zig");
 const series_mod = @import("series.zig");
 
 const DeviceLazyGroupByAggregation = lazy_op_mod.DeviceLazyGroupByAggregation;
+const DeviceLazyWeightedGroupByAggregation = lazy_op_mod.DeviceLazyWeightedGroupByAggregation;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const cloneNameList = names_mod.cloneNameList;
 const freeNameList = names_mod.freeNameList;
@@ -77,6 +78,42 @@ pub fn groupByValueOnQuantile(frame: anytype, key_names: []const []const u8, val
         .output_name = owned_output,
         .aggregation = aggregation,
         .quantile = quantile,
+    } });
+}
+
+pub fn groupByWeighted(frame: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_by_weighted = .{
+        .key_name = owned_key,
+        .value_name = owned_value,
+        .weight_name = owned_weight,
+        .output_name = owned_output,
+        .aggregation = aggregation,
+    } });
+}
+
+pub fn groupByWeightedOn(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, aggregation: DeviceLazyWeightedGroupByAggregation) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_by_weighted_on = .{
+        .key_names = owned_keys,
+        .value_name = owned_value,
+        .weight_name = owned_weight,
+        .output_name = owned_output,
+        .aggregation = aggregation,
     } });
 }
 

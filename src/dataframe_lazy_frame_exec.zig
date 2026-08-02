@@ -1330,6 +1330,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                 .argmin => try current.groupByArgMinOn(group.key_names, group.value_name, group.output_name),
                 .argmax => try current.groupByArgMaxOn(group.key_names, group.value_name, group.output_name),
             },
+            .group_by_weighted => |group| switch (group.aggregation) {
+                .weighted_mean => try current.groupByWeightedMean(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_variance => try current.groupByWeightedVariance(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_stddev => try current.groupByWeightedStddev(group.key_name, group.value_name, group.weight_name, group.output_name),
+            },
+            .group_by_weighted_on => |group| switch (group.aggregation) {
+                .weighted_mean => try current.groupByWeightedMeanOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_variance => try current.groupByWeightedVarianceOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_stddev => try current.groupByWeightedStddevOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+            },
             .group_by_stats => |group| try current.groupByStats(group.key_name, group.value_name, group.output_prefix),
             .group_by_stats_on => |group| try current.groupByStatsOn(group.key_names, group.value_name, group.output_prefix),
             .group_by_profile => |group| try current.groupByProfile(group.key_name, group.value_name, group.output_prefix),

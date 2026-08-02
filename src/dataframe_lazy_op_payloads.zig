@@ -105,6 +105,12 @@ pub const DeviceLazyGroupByAggregation = enum {
     argmax,
 };
 
+pub const DeviceLazyWeightedGroupByAggregation = enum {
+    weighted_mean,
+    weighted_variance,
+    weighted_stddev,
+};
+
 pub const DeviceLazyJoinKind = enum {
     inner,
     left,
@@ -451,6 +457,20 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             aggregation: DeviceLazyGroupByAggregation,
             quantile: f64 = 0.5,
+        };
+        pub const GroupByWeighted = struct {
+            key_name: []const u8,
+            value_name: []const u8,
+            weight_name: []const u8,
+            output_name: []const u8,
+            aggregation: DeviceLazyWeightedGroupByAggregation,
+        };
+        pub const GroupByWeightedOn = struct {
+            key_names: [][]const u8,
+            value_name: []const u8,
+            weight_name: []const u8,
+            output_name: []const u8,
+            aggregation: DeviceLazyWeightedGroupByAggregation,
         };
         pub const GroupByOutput = struct {
             key_name: []const u8,

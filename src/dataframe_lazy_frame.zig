@@ -5629,6 +5629,8 @@ pub fn DeviceLazyTypes(
             pub const valueCountsSortedOnAs = lazy_relation_methods_mod.valueCountsSortedOnAs;
             pub const groupByValue = lazy_relation_methods_mod.groupByValue;
             pub const groupByValueOn = lazy_relation_methods_mod.groupByValueOn;
+            pub const groupByWeighted = lazy_relation_methods_mod.groupByWeighted;
+            pub const groupByWeightedOn = lazy_relation_methods_mod.groupByWeightedOn;
             pub const groupBySum = lazy_relation_methods_mod.groupBySum;
             pub const groupBySumOn = lazy_relation_methods_mod.groupBySumOn;
             pub const groupByProd = lazy_relation_methods_mod.groupByProd;
@@ -5681,6 +5683,16 @@ pub fn DeviceLazyTypes(
             pub const groupByGiniCoefficientOn = lazy_relation_methods_mod.groupByGiniCoefficientOn;
             pub const groupByGiniCoeff = lazy_relation_methods_mod.groupByGiniCoeff;
             pub const groupByGiniCoeffOn = lazy_relation_methods_mod.groupByGiniCoeffOn;
+            pub const groupByWeightedMean = lazy_relation_methods_mod.groupByWeightedMean;
+            pub const groupByWeightedMeanOn = lazy_relation_methods_mod.groupByWeightedMeanOn;
+            pub const groupByWeightedVariance = lazy_relation_methods_mod.groupByWeightedVariance;
+            pub const groupByWeightedVarianceOn = lazy_relation_methods_mod.groupByWeightedVarianceOn;
+            pub const groupByWeightedVar = lazy_relation_methods_mod.groupByWeightedVar;
+            pub const groupByWeightedVarOn = lazy_relation_methods_mod.groupByWeightedVarOn;
+            pub const groupByWeightedStddev = lazy_relation_methods_mod.groupByWeightedStddev;
+            pub const groupByWeightedStddevOn = lazy_relation_methods_mod.groupByWeightedStddevOn;
+            pub const groupByWeightedStd = lazy_relation_methods_mod.groupByWeightedStd;
+            pub const groupByWeightedStdOn = lazy_relation_methods_mod.groupByWeightedStdOn;
             pub const groupByMeanAbsDev = lazy_relation_methods_mod.groupByMeanAbsDev;
             pub const groupByMeanAbsDevOn = lazy_relation_methods_mod.groupByMeanAbsDevOn;
             pub const groupByMeanAbsDevRatio = lazy_relation_methods_mod.groupByMeanAbsDevRatio;

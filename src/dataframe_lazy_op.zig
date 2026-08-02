@@ -14,6 +14,7 @@ const series_mod = @import("series.zig");
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 
 pub const DeviceLazyGroupByAggregation = payloads_mod.DeviceLazyGroupByAggregation;
+pub const DeviceLazyWeightedGroupByAggregation = payloads_mod.DeviceLazyWeightedGroupByAggregation;
 pub const DeviceLazyJoinKind = payloads_mod.DeviceLazyJoinKind;
 
 pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type) type {
@@ -740,6 +741,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_by_count_on: Payloads.GroupByCountOn,
         group_by_value: Payloads.GroupByValue,
         group_by_value_on: Payloads.GroupByValueOn,
+        group_by_weighted: Payloads.GroupByWeighted,
+        group_by_weighted_on: Payloads.GroupByWeightedOn,
         group_by_stats: Payloads.GroupByOutput,
         group_by_stats_on: Payloads.GroupByOutputOn,
         group_by_profile: Payloads.GroupByOutput,
