@@ -1172,6 +1172,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_nth_row_value => |shift| try current.withGroupNthRowValueOn(shift.names, shift.value_name, shift.output_name, shift.offset),
             .group_first_valid_value => |shift| try current.withGroupFirstValidValueOn(shift.names, shift.value_name, shift.output_name),
             .group_last_valid_value => |shift| try current.withGroupLastValidValueOn(shift.names, shift.value_name, shift.output_name),
+            .group_nth_valid_value => |shift| try current.withGroupNthValidValueOn(shift.names, shift.value_name, shift.output_name, shift.offset),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),

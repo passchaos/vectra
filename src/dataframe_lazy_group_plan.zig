@@ -417,6 +417,21 @@ pub fn withGroupLastValidValue(frame: anytype, key_names: []const []const u8, va
     return withGroupValidValue(frame, key_names, value_name, output_name, true);
 }
 
+pub fn withGroupNthValidValue(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, .{ .group_nth_valid_value = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = n,
+    } });
+}
+
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

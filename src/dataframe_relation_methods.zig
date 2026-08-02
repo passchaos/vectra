@@ -308,6 +308,15 @@ pub fn withGroupLastValidValueOn(self: anytype, key_names: []const []const u8, v
     return group_multi_mod.withGroupLastValidValueOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupNthValidValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupNthValidValueOn(self, key_names[0..], value_name, output_name, n);
+}
+
+pub fn withGroupNthValidValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupNthValidValueOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, n);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);
