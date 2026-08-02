@@ -231,6 +231,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(active_null_on_values);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, active_null_on_values);
 
+    var active_first_valid_indices = try bool_table.groupByFirstValidIndex("store", "active", "active_first_valid_index");
+    defer active_first_valid_indices.deinit();
+    try expectNullableI64Column(active_first_valid_indices, gpa, "active_first_valid_index", &.{ 0, 2, 0 }, &.{ true, true, false });
+
+    var active_last_valid_indices = try bool_table.groupByLastValidIndex("store", "active", "active_last_valid_index");
+    defer active_last_valid_indices.deinit();
+    try expectNullableI64Column(active_last_valid_indices, gpa, "active_last_valid_index", &.{ 1, 3, 0 }, &.{ true, true, false });
+
+    var active_first_null_indices = try bool_table.groupByFirstNullIndex("store", "active", "active_first_null_index");
+    defer active_first_null_indices.deinit();
+    try expectNullableI64Column(active_first_null_indices, gpa, "active_first_null_index", &.{ 0, 0, 4 }, &.{ false, false, true });
+
+    var active_last_null_indices = try bool_table.groupByLastNullIndex("store", "active", "active_last_null_index");
+    defer active_last_null_indices.deinit();
+    try expectNullableI64Column(active_last_null_indices, gpa, "active_last_null_index", &.{ 0, 0, 4 }, &.{ false, false, true });
+
     var active_valid_ratios = try bool_table.groupByValidRatio("store", "active", "active_valid_ratio");
     defer active_valid_ratios.deinit();
     const active_valid_ratio_values = try (try active_valid_ratios.column("active_valid_ratio")).f64.toOwnedSlice(gpa);
@@ -791,6 +807,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_null_ratio_values[3], 1e-12);
+
+    var last_valid_index_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer last_valid_index_plan.deinit();
+    try last_valid_index_plan.groupByLastValidIndex("store", "active", "active_last_valid_index_lazy");
+    const last_valid_index_explained = try last_valid_index_plan.explain(gpa);
+    defer gpa.free(last_valid_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, last_valid_index_explained, "group_by_last_valid_index(store, value=active -> active_last_valid_index_lazy)") != null);
+    var lazy_last_valid_index = try last_valid_index_plan.collect();
+    defer lazy_last_valid_index.deinit();
+    try expectNullableI64Column(lazy_last_valid_index, gpa, "active_last_valid_index_lazy", &.{ 1, 3, 0 }, &.{ true, true, false });
 
     var true_ratio_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer true_ratio_plan.deinit();
