@@ -2044,6 +2044,200 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
+const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
+
+fn withGroupCumulativeBoolOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime op: GroupCumulativeBoolOp,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    if (value.* != .bool) return error.TypeUnsupported;
+
+    const values = try value.bool.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value.bool, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var true_counts: std.ArrayList(i64) = .empty;
+    defer true_counts.deinit(frame.allocator);
+    var false_counts: std.ArrayList(i64) = .empty;
+    defer false_counts.deinit(frame.allocator);
+
+    switch (op) {
+        .any, .all => {
+            const outputs = try frame.allocator.alloc(bool, frame.rows);
+            defer frame.allocator.free(outputs);
+            @memset(outputs, false);
+            for (values, 0..) |value_item, row| {
+                if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+                const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+                if (!value_valid) continue;
+                const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                    try representative_rows.append(frame.allocator, row);
+                    try true_counts.append(frame.allocator, 0);
+                    try false_counts.append(frame.allocator, 0);
+                    break :blk representative_rows.items.len - 1;
+                };
+                if (value_item) {
+                    true_counts.items[group_index] += 1;
+                } else {
+                    false_counts.items[group_index] += 1;
+                }
+                outputs[row] = switch (op) {
+                    .any => true_counts.items[group_index] != 0,
+                    .all => false_counts.items[group_index] == 0,
+                    else => unreachable,
+                };
+                row_validity[row] = true;
+            }
+            var column = try DeviceColumn.fromSliceWithValidity(bool, frame.allocator, outputs, row_validity, frame.device);
+            defer column.deinit();
+            return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+        },
+        .true_count, .false_count => {
+            const outputs = try frame.allocator.alloc(i64, frame.rows);
+            defer frame.allocator.free(outputs);
+            @memset(outputs, 0);
+            for (values, 0..) |value_item, row| {
+                if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+                const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+                if (!value_valid) continue;
+                const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                    try representative_rows.append(frame.allocator, row);
+                    try true_counts.append(frame.allocator, 0);
+                    try false_counts.append(frame.allocator, 0);
+                    break :blk representative_rows.items.len - 1;
+                };
+                if (value_item) {
+                    true_counts.items[group_index] += 1;
+                } else {
+                    false_counts.items[group_index] += 1;
+                }
+                outputs[row] = switch (op) {
+                    .true_count => true_counts.items[group_index],
+                    .false_count => false_counts.items[group_index],
+                    else => unreachable,
+                };
+                row_validity[row] = true;
+            }
+            var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, outputs, row_validity, frame.device);
+            defer column.deinit();
+            return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+        },
+        .true_ratio, .false_ratio => {
+            const outputs = try frame.allocator.alloc(f64, frame.rows);
+            defer frame.allocator.free(outputs);
+            @memset(outputs, 0.0);
+            for (values, 0..) |value_item, row| {
+                if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+                const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+                if (!value_valid) continue;
+                const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                    try representative_rows.append(frame.allocator, row);
+                    try true_counts.append(frame.allocator, 0);
+                    try false_counts.append(frame.allocator, 0);
+                    break :blk representative_rows.items.len - 1;
+                };
+                if (value_item) {
+                    true_counts.items[group_index] += 1;
+                } else {
+                    false_counts.items[group_index] += 1;
+                }
+                const valid_count = true_counts.items[group_index] + false_counts.items[group_index];
+                const numerator = switch (op) {
+                    .true_ratio => true_counts.items[group_index],
+                    .false_ratio => false_counts.items[group_index],
+                    else => unreachable,
+                };
+                outputs[row] = @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(valid_count));
+                row_validity[row] = true;
+            }
+            var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+            defer column.deinit();
+            return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+        },
+    }
+}
+
+pub fn withGroupCumulativeAnyOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .any);
+}
+
+pub fn withGroupCumulativeAllOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .all);
+}
+
+pub fn withGroupCumulativeTrueCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .true_count);
+}
+
+pub fn withGroupCumulativeFalseCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .false_count);
+}
+
+pub fn withGroupCumulativeTrueRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .true_ratio);
+}
+
+pub fn withGroupCumulativeFalseRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolOn(DeviceDataFrame, frame, key_names, value_name, output_name, .false_ratio);
+}
+
+pub const withGroupCumAnyOn = withGroupCumulativeAnyOn;
+pub const withGroupCumAllOn = withGroupCumulativeAllOn;
+pub const withGroupCumTrueCountOn = withGroupCumulativeTrueCountOn;
+pub const withGroupCumFalseCountOn = withGroupCumulativeFalseCountOn;
+pub const withGroupCumTrueRatioOn = withGroupCumulativeTrueRatioOn;
+pub const withGroupCumFalseRatioOn = withGroupCumulativeFalseRatioOn;
+
 const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff, logsumexp, logmeanexp, geometric_mean, harmonic_mean };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {

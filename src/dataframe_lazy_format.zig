@@ -2823,6 +2823,54 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_any => |shift| {
+            try writer.print("group_cumulative_any([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_all => |shift| {
+            try writer.print("group_cumulative_all([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_true_count => |shift| {
+            try writer.print("group_cumulative_true_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_false_count => |shift| {
+            try writer.print("group_cumulative_false_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_true_ratio => |shift| {
+            try writer.print("group_cumulative_true_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_false_ratio => |shift| {
+            try writer.print("group_cumulative_false_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_cumulative_sum => |shift| {
             try writer.print("group_cumulative_sum([", .{});
             for (shift.names, 0..) |name, i| {

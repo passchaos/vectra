@@ -230,6 +230,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), active_false_ratio_on_values[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), active_false_ratio_on_values[2], 1e-12);
 
+    var active_cum_any = try bool_table.withGroupCumulativeAny("store", "active", "active_cum_any");
+    defer active_cum_any.deinit();
+    try expectNullableBoolColumn(active_cum_any, gpa, "active_cum_any", &.{ false, true, false, true, false }, &.{ true, true, true, true, false });
+
+    var active_cum_all = try bool_table.withGroupCumulativeAll("store", "active", "active_cum_all");
+    defer active_cum_all.deinit();
+    try expectNullableBoolColumn(active_cum_all, gpa, "active_cum_all", &.{ false, false, false, false, false }, &.{ true, true, true, true, false });
+
+    var active_cum_true_count = try bool_table.withGroupCumulativeTrueCount("store", "active", "active_cum_true_count");
+    defer active_cum_true_count.deinit();
+    try expectNullableI64Column(active_cum_true_count, gpa, "active_cum_true_count", &.{ 0, 1, 0, 1, 0 }, &.{ true, true, true, true, false });
+
+    var active_cum_false_count = try bool_table.withGroupCumulativeFalseCount("store", "active", "active_cum_false_count");
+    defer active_cum_false_count.deinit();
+    try expectNullableI64Column(active_cum_false_count, gpa, "active_cum_false_count", &.{ 1, 1, 1, 1, 0 }, &.{ true, true, true, true, false });
+
+    var active_cum_true_ratio = try bool_table.withGroupCumulativeTrueRatio("store", "active", "active_cum_true_ratio");
+    defer active_cum_true_ratio.deinit();
+    try expectF64ColumnWithValidity(active_cum_true_ratio, gpa, "active_cum_true_ratio", &.{ 0.0, 0.5, 0.0, 0.5, 0.0 }, &.{ true, true, true, true, false });
+
+    var active_cum_false_ratio = try bool_table.withGroupCumulativeFalseRatio("store", "active", "active_cum_false_ratio");
+    defer active_cum_false_ratio.deinit();
+    try expectF64ColumnWithValidity(active_cum_false_ratio, gpa, "active_cum_false_ratio", &.{ 1.0, 0.5, 1.0, 0.5, 0.0 }, &.{ true, true, true, true, false });
+
     var active_first_true_indices = try bool_table.groupByFirstTrueIndex("store", "active", "active_first_true_index");
     defer active_first_true_indices.deinit();
     try expectNullableI64Column(active_first_true_indices, gpa, "active_first_true_index", &.{ 1, 3, 0 }, &.{ true, true, false });
@@ -843,6 +867,31 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_any_active_values = try (try lazy_any_active.column("any_active_lazy")).bool.toOwnedSlice(gpa);
     defer gpa.free(lazy_any_active_values);
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, lazy_any_active_values);
+
+    var cumulative_bool_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer cumulative_bool_plan.deinit();
+    try cumulative_bool_plan.withGroupCumulativeAny("store", "active", "active_cum_any_lazy");
+    try cumulative_bool_plan.withGroupCumulativeAll("store", "active", "active_cum_all_lazy");
+    try cumulative_bool_plan.withGroupCumulativeTrueCount("store", "active", "active_cum_true_count_lazy");
+    try cumulative_bool_plan.withGroupCumulativeFalseCount("store", "active", "active_cum_false_count_lazy");
+    try cumulative_bool_plan.withGroupCumulativeTrueRatio("store", "active", "active_cum_true_ratio_lazy");
+    try cumulative_bool_plan.withGroupCumulativeFalseRatio("store", "active", "active_cum_false_ratio_lazy");
+    const cumulative_bool_explained = try cumulative_bool_plan.explain(gpa);
+    defer gpa.free(cumulative_bool_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_any([store], value=active->active_cum_any_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_all([store], value=active->active_cum_all_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_true_count([store], value=active->active_cum_true_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_false_count([store], value=active->active_cum_false_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_true_ratio([store], value=active->active_cum_true_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bool_explained, "group_cumulative_false_ratio([store], value=active->active_cum_false_ratio_lazy)") != null);
+    var lazy_cumulative_bool = try cumulative_bool_plan.collect();
+    defer lazy_cumulative_bool.deinit();
+    try expectNullableBoolColumn(lazy_cumulative_bool, gpa, "active_cum_any_lazy", &.{ false, true, false, true, false }, &.{ true, true, true, true, false });
+    try expectNullableBoolColumn(lazy_cumulative_bool, gpa, "active_cum_all_lazy", &.{ false, false, false, false, false }, &.{ true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_bool, gpa, "active_cum_true_count_lazy", &.{ 0, 1, 0, 1, 0 }, &.{ true, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_bool, gpa, "active_cum_false_count_lazy", &.{ 1, 1, 1, 1, 0 }, &.{ true, true, true, true, false });
+    try expectF64ColumnWithValidity(lazy_cumulative_bool, gpa, "active_cum_true_ratio_lazy", &.{ 0.0, 0.5, 0.0, 0.5, 0.0 }, &.{ true, true, true, true, false });
+    try expectF64ColumnWithValidity(lazy_cumulative_bool, gpa, "active_cum_false_ratio_lazy", &.{ 1.0, 0.5, 1.0, 0.5, 0.0 }, &.{ true, true, true, true, false });
 
     var null_count_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer null_count_plan.deinit();

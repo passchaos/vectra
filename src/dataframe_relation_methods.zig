@@ -381,6 +381,73 @@ pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatio = withGroupCumulativeNullRatio;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
+pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeAnyOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeAnyOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeAll(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeAllOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeAllOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeAllOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeTrueCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeTrueCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeTrueCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeTrueCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFalseCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFalseCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFalseCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeFalseCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeTrueRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeTrueRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeTrueRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeTrueRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFalseRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFalseRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFalseRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeFalseRatioOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumAny = withGroupCumulativeAny;
+pub const withGroupCumAnyOn = withGroupCumulativeAnyOn;
+pub const withGroupCumAll = withGroupCumulativeAll;
+pub const withGroupCumAllOn = withGroupCumulativeAllOn;
+pub const withGroupCumTrueCount = withGroupCumulativeTrueCount;
+pub const withGroupCumTrueCountOn = withGroupCumulativeTrueCountOn;
+pub const withGroupCumFalseCount = withGroupCumulativeFalseCount;
+pub const withGroupCumFalseCountOn = withGroupCumulativeFalseCountOn;
+pub const withGroupCumTrueRatio = withGroupCumulativeTrueRatio;
+pub const withGroupCumTrueRatioOn = withGroupCumulativeTrueRatioOn;
+pub const withGroupCumFalseRatio = withGroupCumulativeFalseRatio;
+pub const withGroupCumFalseRatioOn = withGroupCumulativeFalseRatioOn;
+
 pub fn withGroupCumulativeSum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeSumOn(self, key_names[0..], value_name, output_name);
