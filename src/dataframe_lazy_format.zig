@@ -665,6 +665,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
+        .row_weighted_sum => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_sum", row_weighted),
         .row_weighted_weight_sum => |row_weighted| {
             try writer.print("row_weighted_weight_sum(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

@@ -2415,6 +2415,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedSum(self, value_names, weight_names, output_name);
+            }
+
             pub fn withRowWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedWeightSum(self, value_names, weight_names, output_name);
             }

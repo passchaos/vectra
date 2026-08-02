@@ -1494,6 +1494,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
 
+    var row_weighted_sum_table = try validity_table.withRowWeightedSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_sum");
+    defer row_weighted_sum_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_sum_table, gpa, "row_weighted_sum", &.{ 1.0, 20.0, 0.0, 56.0 }, &.{ true, true, false, true });
+
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");
     defer row_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_weight_sum_table, gpa, "row_weighted_weight_sum", &.{ 1.0, 1.0, 0.0, 5.0 }, &.{ true, true, false, true });

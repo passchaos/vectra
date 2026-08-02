@@ -3511,6 +3511,10 @@ pub fn withRowWeightedMean(self: anytype, value_names: []const []const u8, weigh
     return dataframe_array_mod.withRowWeightedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }
 
+pub fn withRowWeightedSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
 pub fn withRowWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

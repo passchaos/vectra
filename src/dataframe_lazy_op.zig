@@ -338,6 +338,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_last_null_index: Payloads.RowColumnOutputs,
         row_pair_count: Payloads.RowWeightedMean,
         row_weighted_mean: Payloads.RowWeightedMean,
+        row_weighted_sum: Payloads.RowWeightedMean,
         row_weighted_weight_sum: Payloads.RowWeightedMean,
         row_weighted_positive_count: Payloads.RowWeightedMean,
         row_weighted_effective_n: Payloads.RowWeightedMean,

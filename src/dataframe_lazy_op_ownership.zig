@@ -3299,6 +3299,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             } };
         },
         .row_weighted_mean => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean"),
+        .row_weighted_sum => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_sum"),
         .row_weighted_weight_sum => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_weight_sum"),
         .row_weighted_positive_count => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_positive_count"),
         .row_weighted_effective_n => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_effective_n"),

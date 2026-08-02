@@ -3651,6 +3651,45 @@ pub fn withRowWeightedMean(
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
 
+pub fn withRowWeightedSum(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var weighted_sum: f64 = 0.0;
+        var weight_sum: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            weighted_sum += flat.values[offset] * weight;
+            weight_sum += weight;
+        }
+        if (!(weight_sum > 0.0)) continue;
+        values[row] = weighted_sum;
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
 const RowWeightedSupportReduction = enum { weight_sum, positive_count, effective_n };
 
 fn rowWeightedEffectiveN(weight_sum: f64, weight_square_sum: f64) f64 {
