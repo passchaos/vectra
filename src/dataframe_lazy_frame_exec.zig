@@ -1265,6 +1265,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_iqr => |shift| try current.withGroupCumulativeIqrOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_mad => |shift| try current.withGroupCumulativeMadOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_interdecile_range => |shift| try current.withGroupCumulativeInterdecileRangeOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_midhinge => |shift| try current.withGroupCumulativeMidhingeOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_any => |shift| try current.withGroupCumulativeAnyOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_all => |shift| try current.withGroupCumulativeAllOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_true_count => |shift| try current.withGroupCumulativeTrueCountOn(shift.names, shift.value_name, shift.output_name),

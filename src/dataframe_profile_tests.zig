@@ -1824,6 +1824,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_idr.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_idr, gpa, "label_cum_idr_lazy", &group_cum_idr_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_midhinge_expected = [_]f64{ 5.0, 5.0, 5.5, 0.0, 1.0, 1.5, 1.25, 0.0 };
+
+    var group_cum_midhinge_label = try distinct_table.withGroupCumulativeMidhinge("bucket", "label", "label_cum_midhinge");
+    defer group_cum_midhinge_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_midhinge_label, gpa, "label_cum_midhinge", &group_cum_midhinge_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_midhinge_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_midhinge_plan.deinit();
+    try cumulative_midhinge_plan.withGroupCumMidhinge("bucket", "label", "label_cum_midhinge_lazy");
+    const cumulative_midhinge_explained = try cumulative_midhinge_plan.explain(gpa);
+    defer gpa.free(cumulative_midhinge_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_midhinge_explained, "group_cumulative_midhinge([bucket], value=label->label_cum_midhinge_lazy)") != null);
+    var lazy_cumulative_midhinge = try cumulative_midhinge_plan.collect();
+    defer lazy_cumulative_midhinge.deinit();
+    try expectF64ColumnWithValidity(lazy_cumulative_midhinge, gpa, "label_cum_midhinge_lazy", &group_cum_midhinge_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
