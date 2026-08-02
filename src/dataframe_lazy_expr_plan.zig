@@ -3721,6 +3721,42 @@ pub fn withRowCumulativeWeightedSum(frame: anytype, value_names: []const []const
 pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
 pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
 
+fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .weight_sum => .{ .row_cumulative_weighted_weight_sum = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .positive_count => .{ .row_cumulative_weighted_positive_count = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .effective_n => .{ .row_cumulative_weighted_effective_n = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedWeightSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedSupport(frame, value_names, weight_names, output_names, .weight_sum);
+}
+
+pub fn withRowCumulativeWeightedPositiveCount(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedSupport(frame, value_names, weight_names, output_names, .positive_count);
+}
+
+pub fn withRowCumulativeWeightedEffectiveN(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedSupport(frame, value_names, weight_names, output_names, .effective_n);
+}
+
+pub const withRowCumWeightedWeightSum = withRowCumulativeWeightedWeightSum;
+pub const withRowPrefixWeightedWeightSum = withRowCumulativeWeightedWeightSum;
+pub const withRowCumWeightedPositiveCount = withRowCumulativeWeightedPositiveCount;
+pub const withRowPrefixWeightedPositiveCount = withRowCumulativeWeightedPositiveCount;
+pub const withRowCumWeightedEffectiveN = withRowCumulativeWeightedEffectiveN;
+pub const withRowPrefixWeightedEffectiveN = withRowCumulativeWeightedEffectiveN;
+pub const withRowCumulativeWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+pub const withRowCumWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+pub const withRowPrefixWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+
 pub fn withRowWeightedWeightSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowWeightedSupport(frame, value_names, weight_names, output_name, .weight_sum);
 }

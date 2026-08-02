@@ -775,6 +775,12 @@ lists, skipping null pairs and rejecting negative weights.
 `withRowPrefixWeightedSum` append left-to-right prefix weighted sums across
 aligned value/weight row lists, preserving nullable output at invalid pair
 positions.
+`withRowCumulativeWeightedWeightSum`,
+`withRowCumulativeWeightedPositiveCount`, and
+`withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`
+plus their `withRowCum...` and `withRowPrefix...` aliases append the same
+left-to-right prefix weighted support diagnostics for each aligned
+value/weight pair.
 `withRowWeightedWeightSum`, `withRowWeightedPositiveCount`, and
 `withRowWeightedEffectiveN`/`withRowWeightedEffectiveCount` expose per-row
 weighted support diagnostics for aligned value/weight lists, including the

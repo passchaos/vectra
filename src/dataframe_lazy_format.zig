@@ -46,6 +46,25 @@ fn formatRowWeightedMeanPayload(writer: *std.Io.Writer, comptime op_name: []cons
     try writer.print("]->{s})", .{row_weighted.output_name});
 }
 
+fn formatRowWeightedColumnOutputsPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}(values=[", .{op_name});
+    for (row_weighted.value_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], weights=[", .{});
+    for (row_weighted.weight_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("]->[", .{});
+    for (row_weighted.output_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("])", .{});
+}
+
 fn formatRowWeightedPairPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
     try writer.print("{s}(lhs=[", .{op_name});
     for (row_weighted.lhs_names, 0..) |name, i| {
@@ -688,24 +707,10 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
         .row_weighted_sum => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_sum", row_weighted),
-        .row_cumulative_weighted_sum => |row_weighted| {
-            try writer.print("row_cumulative_weighted_sum(values=[", .{});
-            for (row_weighted.value_names, 0..) |name, i| {
-                if (i != 0) try writer.print(",", .{});
-                try writer.print("{s}", .{name});
-            }
-            try writer.print("], weights=[", .{});
-            for (row_weighted.weight_names, 0..) |name, i| {
-                if (i != 0) try writer.print(",", .{});
-                try writer.print("{s}", .{name});
-            }
-            try writer.print("]->[", .{});
-            for (row_weighted.output_names, 0..) |name, i| {
-                if (i != 0) try writer.print(",", .{});
-                try writer.print("{s}", .{name});
-            }
-            try writer.print("])", .{});
-        },
+        .row_cumulative_weighted_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_sum", row_weighted),
+        .row_cumulative_weighted_weight_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_weight_sum", row_weighted),
+        .row_cumulative_weighted_positive_count => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_positive_count", row_weighted),
+        .row_cumulative_weighted_effective_n => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_effective_n", row_weighted),
         .row_weighted_weight_sum => |row_weighted| {
             try writer.print("row_weighted_weight_sum(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

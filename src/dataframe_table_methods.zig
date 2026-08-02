@@ -3536,6 +3536,28 @@ pub fn withRowCumulativeWeightedSum(self: anytype, value_names: []const []const 
 pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
 pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
 
+pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedPositiveCount(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedPositiveCount(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedEffectiveN(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedEffectiveN(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedWeightSum = withRowCumulativeWeightedWeightSum;
+pub const withRowPrefixWeightedWeightSum = withRowCumulativeWeightedWeightSum;
+pub const withRowCumWeightedPositiveCount = withRowCumulativeWeightedPositiveCount;
+pub const withRowPrefixWeightedPositiveCount = withRowCumulativeWeightedPositiveCount;
+pub const withRowCumWeightedEffectiveN = withRowCumulativeWeightedEffectiveN;
+pub const withRowPrefixWeightedEffectiveN = withRowCumulativeWeightedEffectiveN;
+pub const withRowCumulativeWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+pub const withRowCumWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+pub const withRowPrefixWeightedEffectiveCount = withRowCumulativeWeightedEffectiveN;
+
 pub fn withRowWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

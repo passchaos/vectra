@@ -1047,7 +1047,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_cumulative_weighted_sum => |row_weighted_outputs| {
+            .row_cumulative_weighted_sum, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
                 for (row_weighted_outputs.output_names) |output_name| {
                     try appendBorrowedNameUnique(allocator, &derived_names, output_name);
                 }
