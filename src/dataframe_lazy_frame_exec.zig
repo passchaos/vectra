@@ -1284,6 +1284,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_last_false_index => |shift| try current.withGroupCumulativeLastFalseIndexOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_sum => |shift| try current.withGroupCumulativeSumOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_mean => |shift| try current.withGroupCumulativeMeanOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_weighted_mean => |shift| try current.withGroupCumulativeWeightedMeanOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_product => |shift| try current.withGroupCumulativeProductOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_min => |shift| try current.withGroupCumulativeMinOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_max => |shift| try current.withGroupCumulativeMaxOn(shift.names, shift.value_name, shift.output_name),

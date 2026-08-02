@@ -1674,6 +1674,18 @@ pub fn withGroupCumulativeMeanOn(self: anytype, key_names: []const []const u8, v
 pub const withGroupCumMean = withGroupCumulativeMean;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 
+pub fn withGroupCumulativeWeightedMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMean(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumWeightedMean = withGroupCumulativeWeightedMean;
+pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
+
 pub fn withGroupCumulativeProduct(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeProductOn(self, key_names[0..], value_name, output_name);

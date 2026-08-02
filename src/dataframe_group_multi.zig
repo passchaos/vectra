@@ -3457,6 +3457,67 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
+pub fn withGroupCumulativeWeightedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value_column = try frame.column(value_name);
+    const weight_column = try frame.column(weight_name);
+
+    var values = try ownedGroupRealColumn(frame.allocator, value_column.*);
+    defer values.deinit();
+    var weights = try ownedGroupRealColumn(frame.allocator, weight_column.*);
+    defer weights.deinit();
+    if (frame.rows != values.values.len or frame.rows != weights.values.len) return error.LengthMismatch;
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var weight_sums: std.ArrayList(f64) = .empty;
+    defer weight_sums.deinit(frame.allocator);
+    var weighted_sums: std.ArrayList(f64) = .empty;
+    defer weighted_sums.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (values.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (weights.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const weight = weights.values[row];
+        if (weight < 0.0) return error.InvalidShape;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try weight_sums.append(frame.allocator, 0.0);
+            try weighted_sums.append(frame.allocator, 0.0);
+            break :blk representative_rows.items.len - 1;
+        };
+        weight_sums.items[group_index] += weight;
+        weighted_sums.items[group_index] += values.values[row] * weight;
+        const weight_sum = weight_sums.items[group_index];
+        outputs[row] = if (weight_sum > 0.0) weighted_sums.items[group_index] / weight_sum else std.math.nan(f64);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(
