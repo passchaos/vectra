@@ -1004,6 +1004,82 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, magnitude_alias_explained, "group_by_magnitude_sparsity(bucket, value=delta -> delta_sparsity_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, magnitude_alias_explained, "group_by_magnitude_evenness(bucket, value=delta -> delta_magnitude_evenness_lazy)") != null);
 
+    var magnitude_variance_delta = try magnitude_table.groupByAbsVariance("bucket", "delta", "delta_magnitude_variance");
+    defer magnitude_variance_delta.deinit();
+    const magnitude_variance_delta_values = try (try magnitude_variance_delta.column("delta_magnitude_variance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_variance_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), magnitude_variance_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.25), magnitude_variance_delta_values[1], 1e-12);
+
+    var magnitude_std_delta = try magnitude_table.groupByMagnitudeStddev("bucket", "delta", "delta_magnitude_stddev");
+    defer magnitude_std_delta.deinit();
+    const magnitude_std_delta_values = try (try magnitude_std_delta.column("delta_magnitude_stddev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_std_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), magnitude_std_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5), magnitude_std_delta_values[1], 1e-12);
+
+    var magnitude_sem_delta = try magnitude_table.groupByAbsSem("bucket", "delta", "delta_magnitude_sem");
+    defer magnitude_sem_delta.deinit();
+    const magnitude_sem_delta_values = try (try magnitude_sem_delta.column("delta_magnitude_sem")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_sem_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5 / std.math.sqrt(2.0)), magnitude_sem_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.5 / std.math.sqrt(2.0)), magnitude_sem_delta_values[1], 1e-12);
+
+    var magnitude_cv_delta = try magnitude_table.groupByAbsCv("bucket", "delta", "delta_magnitude_cv");
+    defer magnitude_cv_delta.deinit();
+    const magnitude_cv_delta_values = try (try magnitude_cv_delta.column("delta_magnitude_cv")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_cv_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 7.0), magnitude_cv_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 17.0), magnitude_cv_delta_values[1], 1e-12);
+
+    var magnitude_fano_delta = try magnitude_table.groupByMagnitudeIndexOfDispersion("bucket", "delta", "delta_magnitude_fano");
+    defer magnitude_fano_delta.deinit();
+    const magnitude_fano_delta_values = try (try magnitude_fano_delta.column("delta_magnitude_fano")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_fano_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 14.0), magnitude_fano_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 49.0 / 34.0), magnitude_fano_delta_values[1], 1e-12);
+
+    var magnitude_skew_delta = try magnitude_table.groupByAbsSkewness("bucket", "delta", "delta_magnitude_skew");
+    defer magnitude_skew_delta.deinit();
+    const magnitude_skew_delta_values = try (try magnitude_skew_delta.column("delta_magnitude_skew")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_skew_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), magnitude_skew_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), magnitude_skew_delta_values[1], 1e-12);
+
+    var magnitude_kurt_delta = try magnitude_table.groupByMagnitudeKurtosis("bucket", "delta", "delta_magnitude_kurt");
+    defer magnitude_kurt_delta.deinit();
+    const magnitude_kurt_delta_values = try (try magnitude_kurt_delta.column("delta_magnitude_kurt")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_kurt_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), magnitude_kurt_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, -2.0), magnitude_kurt_delta_values[1], 1e-12);
+
+    var magnitude_variance_plan = try DeviceLazyFrame.init(gpa, magnitude_table);
+    defer magnitude_variance_plan.deinit();
+    try magnitude_variance_plan.groupByMagnitudeVarianceOn(&.{"bucket"}, "delta", "delta_magnitude_variance_lazy");
+    const magnitude_variance_explained = try magnitude_variance_plan.explain(gpa);
+    defer gpa.free(magnitude_variance_explained);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_variance_explained, "group_by_magnitude_variance_on([bucket], value=delta -> delta_magnitude_variance_lazy)") != null);
+    var lazy_magnitude_variance = try magnitude_variance_plan.collect();
+    defer lazy_magnitude_variance.deinit();
+    const lazy_magnitude_variance_values = try (try lazy_magnitude_variance.column("delta_magnitude_variance_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_magnitude_variance_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_magnitude_variance_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.25), lazy_magnitude_variance_values[1], 1e-12);
+
+    var magnitude_moment_alias_plan = try DeviceLazyFrame.init(gpa, magnitude_table);
+    defer magnitude_moment_alias_plan.deinit();
+    try magnitude_moment_alias_plan.groupByAbsStddev("bucket", "delta", "delta_magnitude_stddev_lazy");
+    try magnitude_moment_alias_plan.groupByMagnitudeSem("bucket", "delta", "delta_magnitude_sem_lazy");
+    try magnitude_moment_alias_plan.groupByAbsCv("bucket", "delta", "delta_magnitude_cv_lazy");
+    try magnitude_moment_alias_plan.groupByAbsFano("bucket", "delta", "delta_magnitude_fano_lazy");
+    try magnitude_moment_alias_plan.groupByMagnitudeSkewness("bucket", "delta", "delta_magnitude_skew_lazy");
+    try magnitude_moment_alias_plan.groupByAbsKurtosis("bucket", "delta", "delta_magnitude_kurt_lazy");
+    const magnitude_moment_alias_explained = try magnitude_moment_alias_plan.explain(gpa);
+    defer gpa.free(magnitude_moment_alias_explained);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_moment_alias_explained, "group_by_magnitude_stddev(bucket, value=delta -> delta_magnitude_stddev_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_moment_alias_explained, "group_by_magnitude_cv(bucket, value=delta -> delta_magnitude_cv_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_moment_alias_explained, "group_by_magnitude_kurtosis(bucket, value=delta -> delta_magnitude_kurt_lazy)") != null);
+
     var range_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3 }, .cpu);
     defer range_key.deinit();
     var range_delta = try DeviceColumn.fromSlice(f64, gpa, &.{ -3.0, 4.0, -5.0, 12.0, -2.0, 2.0 }, .cpu);

@@ -467,6 +467,105 @@ pub const groupBySkewOn = groupBySkewnessOn;
 pub const groupByKurt = groupByKurtosis;
 pub const groupByKurtOn = groupByKurtosisOn;
 
+pub fn groupByMagnitudeVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_variance);
+}
+
+pub fn groupByMagnitudeVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_variance);
+}
+
+pub const groupByAbsVariance = groupByMagnitudeVariance;
+pub const groupByAbsVarianceOn = groupByMagnitudeVarianceOn;
+pub const groupByMagnitudeVar = groupByMagnitudeVariance;
+pub const groupByMagnitudeVarOn = groupByMagnitudeVarianceOn;
+pub const groupByAbsVar = groupByMagnitudeVariance;
+pub const groupByAbsVarOn = groupByMagnitudeVarianceOn;
+
+pub fn groupByMagnitudeStddev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_stddev);
+}
+
+pub fn groupByMagnitudeStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_stddev);
+}
+
+pub const groupByAbsStddev = groupByMagnitudeStddev;
+pub const groupByAbsStddevOn = groupByMagnitudeStddevOn;
+pub const groupByMagnitudeStd = groupByMagnitudeStddev;
+pub const groupByMagnitudeStdOn = groupByMagnitudeStddevOn;
+pub const groupByAbsStd = groupByMagnitudeStddev;
+pub const groupByAbsStdOn = groupByMagnitudeStddevOn;
+
+pub fn groupByMagnitudeSem(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_sem);
+}
+
+pub fn groupByMagnitudeSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_sem);
+}
+
+pub const groupByAbsSem = groupByMagnitudeSem;
+pub const groupByAbsSemOn = groupByMagnitudeSemOn;
+
+pub fn groupByMagnitudeCv(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_cv);
+}
+
+pub fn groupByMagnitudeCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_cv);
+}
+
+pub const groupByAbsCv = groupByMagnitudeCv;
+pub const groupByAbsCvOn = groupByMagnitudeCvOn;
+pub const groupByAbsCV = groupByMagnitudeCv;
+pub const groupByAbsCVOn = groupByMagnitudeCvOn;
+
+pub fn groupByMagnitudeFano(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_fano);
+}
+
+pub fn groupByMagnitudeFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_fano);
+}
+
+pub const groupByAbsFano = groupByMagnitudeFano;
+pub const groupByAbsFanoOn = groupByMagnitudeFanoOn;
+pub const groupByMagnitudeIndexOfDispersion = groupByMagnitudeFano;
+pub const groupByMagnitudeIndexOfDispersionOn = groupByMagnitudeFanoOn;
+pub const groupByAbsIndexOfDispersion = groupByMagnitudeFano;
+pub const groupByAbsIndexOfDispersionOn = groupByMagnitudeFanoOn;
+
+pub fn groupByMagnitudeSkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_skewness);
+}
+
+pub fn groupByMagnitudeSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_skewness);
+}
+
+pub const groupByAbsSkewness = groupByMagnitudeSkewness;
+pub const groupByAbsSkewnessOn = groupByMagnitudeSkewnessOn;
+pub const groupByMagnitudeSkew = groupByMagnitudeSkewness;
+pub const groupByMagnitudeSkewOn = groupByMagnitudeSkewnessOn;
+pub const groupByAbsSkew = groupByMagnitudeSkewness;
+pub const groupByAbsSkewOn = groupByMagnitudeSkewnessOn;
+
+pub fn groupByMagnitudeKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .magnitude_kurtosis);
+}
+
+pub fn groupByMagnitudeKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .magnitude_kurtosis);
+}
+
+pub const groupByAbsKurtosis = groupByMagnitudeKurtosis;
+pub const groupByAbsKurtosisOn = groupByMagnitudeKurtosisOn;
+pub const groupByMagnitudeKurt = groupByMagnitudeKurtosis;
+pub const groupByMagnitudeKurtOn = groupByMagnitudeKurtosisOn;
+pub const groupByAbsKurt = groupByMagnitudeKurtosis;
+pub const groupByAbsKurtOn = groupByMagnitudeKurtosisOn;
+
 pub fn groupByMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .mean_abs);
 }

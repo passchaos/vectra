@@ -39,12 +39,19 @@ const GroupByOnError = std.mem.Allocator.Error || std.Io.Writer.Error || array_m
 
 const GroupByMomentAggregation = enum {
     variance,
+    magnitude_variance,
     stddev,
+    magnitude_stddev,
     sem,
+    magnitude_sem,
     cv,
+    magnitude_cv,
     fano,
+    magnitude_fano,
     skewness,
+    magnitude_skewness,
     kurtosis,
+    magnitude_kurtosis,
 };
 
 const GroupByRealAggregation = enum {
@@ -1178,20 +1185,32 @@ fn groupByMomentOnTyped(
             try profiles.append(allocator, .{});
             break :blk representative_rows.items.len - 1;
         };
-        profiles.items[group_index].update(castToF64(V, value_item));
+        const value_f64 = castToF64(V, value_item);
+        const profile_value = switch (aggregation) {
+            .magnitude_variance,
+            .magnitude_stddev,
+            .magnitude_sem,
+            .magnitude_cv,
+            .magnitude_fano,
+            .magnitude_skewness,
+            .magnitude_kurtosis,
+            => @abs(value_f64),
+            else => value_f64,
+        };
+        profiles.items[group_index].update(profile_value);
     }
 
     const values_out = try allocator.alloc(f64, profiles.items.len);
     defer allocator.free(values_out);
     for (profiles.items, values_out) |profile, *slot| {
         slot.* = switch (aggregation) {
-            .variance => profile.variance(),
-            .stddev => profile.stddev(),
-            .sem => profile.sem(),
-            .cv => profile.cv(),
-            .fano => if (profile.mean == 0.0) std.math.nan(f64) else profile.variance() / profile.mean,
-            .skewness => profile.skewness(),
-            .kurtosis => profile.kurtosis(),
+            .variance, .magnitude_variance => profile.variance(),
+            .stddev, .magnitude_stddev => profile.stddev(),
+            .sem, .magnitude_sem => profile.sem(),
+            .cv, .magnitude_cv => profile.cv(),
+            .fano, .magnitude_fano => if (profile.mean == 0.0) std.math.nan(f64) else profile.variance() / profile.mean,
+            .skewness, .magnitude_skewness => profile.skewness(),
+            .kurtosis, .magnitude_kurtosis => profile.kurtosis(),
         };
     }
 
@@ -1281,6 +1300,76 @@ pub fn groupByKurtosisOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByMomentOn(DeviceDataFrame, .kurtosis, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeVarianceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_variance, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeStddevOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_stddev, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeSemOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_sem, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeCvOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_cv, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeFanoOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_fano, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeSkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_skewness, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeKurtosisOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByMomentOn(DeviceDataFrame, .magnitude_kurtosis, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByRealOnDispatchValue(

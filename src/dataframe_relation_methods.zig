@@ -514,6 +514,112 @@ pub const groupBySkewOn = groupBySkewnessOn;
 pub const groupByKurt = groupByKurtosis;
 pub const groupByKurtOn = groupByKurtosisOn;
 
+pub fn groupByMagnitudeVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeVarianceOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeVarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsVariance = groupByMagnitudeVariance;
+pub const groupByAbsVarianceOn = groupByMagnitudeVarianceOn;
+pub const groupByMagnitudeVar = groupByMagnitudeVariance;
+pub const groupByMagnitudeVarOn = groupByMagnitudeVarianceOn;
+pub const groupByAbsVar = groupByMagnitudeVariance;
+pub const groupByAbsVarOn = groupByMagnitudeVarianceOn;
+
+pub fn groupByMagnitudeStddev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeStddevOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeStddevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsStddev = groupByMagnitudeStddev;
+pub const groupByAbsStddevOn = groupByMagnitudeStddevOn;
+pub const groupByMagnitudeStd = groupByMagnitudeStddev;
+pub const groupByMagnitudeStdOn = groupByMagnitudeStddevOn;
+pub const groupByAbsStd = groupByMagnitudeStddev;
+pub const groupByAbsStdOn = groupByMagnitudeStddevOn;
+
+pub fn groupByMagnitudeSem(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeSemOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeSemOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsSem = groupByMagnitudeSem;
+pub const groupByAbsSemOn = groupByMagnitudeSemOn;
+
+pub fn groupByMagnitudeCv(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeCvOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeCvOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsCv = groupByMagnitudeCv;
+pub const groupByAbsCvOn = groupByMagnitudeCvOn;
+pub const groupByAbsCV = groupByMagnitudeCv;
+pub const groupByAbsCVOn = groupByMagnitudeCvOn;
+
+pub fn groupByMagnitudeFano(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeFanoOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeFanoOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsFano = groupByMagnitudeFano;
+pub const groupByAbsFanoOn = groupByMagnitudeFanoOn;
+pub const groupByMagnitudeIndexOfDispersion = groupByMagnitudeFano;
+pub const groupByMagnitudeIndexOfDispersionOn = groupByMagnitudeFanoOn;
+pub const groupByAbsIndexOfDispersion = groupByMagnitudeFano;
+pub const groupByAbsIndexOfDispersionOn = groupByMagnitudeFanoOn;
+
+pub fn groupByMagnitudeSkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeSkewnessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeSkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsSkewness = groupByMagnitudeSkewness;
+pub const groupByAbsSkewnessOn = groupByMagnitudeSkewnessOn;
+pub const groupByMagnitudeSkew = groupByMagnitudeSkewness;
+pub const groupByMagnitudeSkewOn = groupByMagnitudeSkewnessOn;
+pub const groupByAbsSkew = groupByMagnitudeSkewness;
+pub const groupByAbsSkewOn = groupByMagnitudeSkewnessOn;
+
+pub fn groupByMagnitudeKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeKurtosisOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeKurtosisOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsKurtosis = groupByMagnitudeKurtosis;
+pub const groupByAbsKurtosisOn = groupByMagnitudeKurtosisOn;
+pub const groupByMagnitudeKurt = groupByMagnitudeKurtosis;
+pub const groupByMagnitudeKurtOn = groupByMagnitudeKurtosisOn;
+pub const groupByAbsKurt = groupByMagnitudeKurtosis;
+pub const groupByAbsKurtOn = groupByMagnitudeKurtosisOn;
+
 pub fn groupByMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByMeanAbsOn(self, key_names[0..], value_name, output_name);
