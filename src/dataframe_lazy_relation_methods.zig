@@ -1432,6 +1432,18 @@ pub fn withGroupCumulativeTrimmedMeanOn(self: anytype, key_names: []const []cons
 pub const withGroupCumTrimmedMean = withGroupCumulativeTrimmedMean;
 pub const withGroupCumTrimmedMeanOn = withGroupCumulativeTrimmedMeanOn;
 
+pub fn withGroupCumulativeWinsorizedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWinsorizedMeanOn(self, key_names[0..], value_name, output_name, winsor_fraction);
+}
+
+pub fn withGroupCumulativeWinsorizedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWinsorizedMean(self, key_names, value_name, output_name, winsor_fraction);
+}
+
+pub const withGroupCumWinsorizedMean = withGroupCumulativeWinsorizedMean;
+pub const withGroupCumWinsorizedMeanOn = withGroupCumulativeWinsorizedMeanOn;
+
 pub fn withGroupCumulativeInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeInterdecileRangeOn(self, key_names[0..], value_name, output_name);

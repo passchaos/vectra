@@ -4909,6 +4909,20 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .quantile = shift.quantile,
             } };
         },
+        .group_cumulative_winsorized_mean => |shift| blk: {
+            const names = try cloneNameList(allocator, shift.names);
+            errdefer freeNameList(allocator, names);
+            const value_name = try allocator.dupe(u8, shift.value_name);
+            errdefer allocator.free(value_name);
+            const output_name = try allocator.dupe(u8, shift.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_cumulative_winsorized_mean = .{
+                .names = names,
+                .value_name = value_name,
+                .output_name = output_name,
+                .quantile = shift.quantile,
+            } };
+        },
         .group_row_number => |row_count| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);

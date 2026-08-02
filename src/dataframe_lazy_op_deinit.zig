@@ -714,7 +714,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(shift.value_name);
             allocator.free(shift.output_name);
         },
-        .group_cumulative_quantile, .group_cumulative_trimmed_mean => |shift| {
+        .group_cumulative_quantile, .group_cumulative_trimmed_mean, .group_cumulative_winsorized_mean => |shift| {
             freeNameList(allocator, shift.names);
             allocator.free(shift.value_name);
             allocator.free(shift.output_name);

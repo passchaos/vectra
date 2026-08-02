@@ -1931,6 +1931,23 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_trimmed.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_trimmed, gpa, "trim_value_cum_trimmed_lazy", &group_cum_trimmed_expected, &group_cum_trimmed_validity);
 
+    const group_cum_winsorized_expected = [_]f64{ 1.0, 1.5, 103.0 / 3.0, 3.0, 0.0, 10.0, 0.0 };
+
+    var group_cum_winsorized = try trim_table.withGroupCumulativeWinsorizedMean("trim_bucket", "trim_value", "trim_value_cum_winsorized", 0.25);
+    defer group_cum_winsorized.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_winsorized, gpa, "trim_value_cum_winsorized", &group_cum_winsorized_expected, &group_cum_trimmed_validity);
+    try std.testing.expectError(error.InvalidShape, trim_table.withGroupCumulativeWinsorizedMean("trim_bucket", "trim_value", "bad_winsorized", 0.5));
+
+    var cumulative_winsorized_plan = try DeviceLazyFrame.init(gpa, trim_table);
+    defer cumulative_winsorized_plan.deinit();
+    try cumulative_winsorized_plan.withGroupCumWinsorizedMean("trim_bucket", "trim_value", "trim_value_cum_winsorized_lazy", 0.25);
+    const cumulative_winsorized_explained = try cumulative_winsorized_plan.explain(gpa);
+    defer gpa.free(cumulative_winsorized_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_winsorized_explained, "group_cumulative_winsorized_mean([trim_bucket], value=trim_value, winsor_fraction=0.25->trim_value_cum_winsorized_lazy)") != null);
+    var lazy_cumulative_winsorized = try cumulative_winsorized_plan.collect();
+    defer lazy_cumulative_winsorized.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_winsorized, gpa, "trim_value_cum_winsorized_lazy", &group_cum_winsorized_expected, &group_cum_trimmed_validity);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
