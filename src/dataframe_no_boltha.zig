@@ -280,6 +280,20 @@ pub const DeviceLazyPairGroupByAggregation = enum {
 };
 
 pub const DeviceLazyWeightedPairGroupByAggregation = enum {
+    weighted_dot,
+    weighted_cosine_similarity,
+    weighted_squared_euclidean_distance,
+    weighted_euclidean_distance,
+    weighted_manhattan_distance,
+    weighted_chebyshev_distance,
+    weighted_canberra_distance,
+    weighted_bray_curtis_distance,
+    weighted_mean_error,
+    weighted_mae,
+    weighted_mse,
+    weighted_rmse,
+    weighted_mape,
+    weighted_smape,
     weighted_covariance,
     weighted_correlation,
     weighted_beta,

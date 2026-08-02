@@ -587,6 +587,124 @@ pub fn groupBySmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []
     return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .smape);
 }
 
+pub fn groupByWeightedDot(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_dot, 0.0);
+}
+
+pub fn groupByWeightedDotOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_dot, 0.0);
+}
+
+pub fn groupByWeightedCosineSimilarity(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_cosine_similarity, 0.0);
+}
+
+pub fn groupByWeightedCosineSimilarityOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_cosine_similarity, 0.0);
+}
+
+pub const groupByWeightedCosine = groupByWeightedCosineSimilarity;
+pub const groupByWeightedCosineOn = groupByWeightedCosineSimilarityOn;
+
+pub fn groupByWeightedSquaredEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_squared_euclidean_distance, 0.0);
+}
+
+pub fn groupByWeightedSquaredEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_squared_euclidean_distance, 0.0);
+}
+
+pub fn groupByWeightedEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_euclidean_distance, 0.0);
+}
+
+pub fn groupByWeightedEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_euclidean_distance, 0.0);
+}
+
+pub fn groupByWeightedManhattanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_manhattan_distance, 0.0);
+}
+
+pub fn groupByWeightedManhattanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_manhattan_distance, 0.0);
+}
+
+pub fn groupByWeightedChebyshevDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_chebyshev_distance, 0.0);
+}
+
+pub fn groupByWeightedChebyshevDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_chebyshev_distance, 0.0);
+}
+
+pub fn groupByWeightedCanberraDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_canberra_distance, 0.0);
+}
+
+pub fn groupByWeightedCanberraDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_canberra_distance, 0.0);
+}
+
+pub fn groupByWeightedBrayCurtisDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_bray_curtis_distance, 0.0);
+}
+
+pub fn groupByWeightedBrayCurtisDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_bray_curtis_distance, 0.0);
+}
+
+pub fn groupByWeightedMeanError(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_mean_error, 0.0);
+}
+
+pub fn groupByWeightedMeanErrorOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_mean_error, 0.0);
+}
+
+pub const groupByWeightedBias = groupByWeightedMeanError;
+pub const groupByWeightedBiasOn = groupByWeightedMeanErrorOn;
+
+pub fn groupByWeightedMae(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_mae, 0.0);
+}
+
+pub fn groupByWeightedMaeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_mae, 0.0);
+}
+
+pub fn groupByWeightedMse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_mse, 0.0);
+}
+
+pub fn groupByWeightedMseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_mse, 0.0);
+}
+
+pub fn groupByWeightedRmse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_rmse, 0.0);
+}
+
+pub fn groupByWeightedRmseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_rmse, 0.0);
+}
+
+pub fn groupByWeightedMape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_mape, 0.0);
+}
+
+pub fn groupByWeightedMapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_mape, 0.0);
+}
+
+pub fn groupByWeightedSmape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_smape, 0.0);
+}
+
+pub fn groupByWeightedSmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByWeightedPairOn(self, key_names, lhs_name, rhs_name, weight_name, output_name, .weighted_smape, 0.0);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_covariance, correction);
 }

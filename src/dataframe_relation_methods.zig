@@ -640,6 +640,138 @@ pub fn groupBySmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []
     return group_multi_mod.groupBySmapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
 }
 
+pub fn groupByWeightedDot(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedDotOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedDotOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedDotOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCosineSimilarity(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedCosineSimilarityOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCosineSimilarityOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedCosineSimilarityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub const groupByWeightedCosine = groupByWeightedCosineSimilarity;
+pub const groupByWeightedCosineOn = groupByWeightedCosineSimilarityOn;
+
+pub fn groupByWeightedSquaredEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedSquaredEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSquaredEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedSquaredEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedManhattanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedManhattanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedManhattanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedManhattanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedChebyshevDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedChebyshevDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedChebyshevDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedChebyshevDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCanberraDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedCanberraDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCanberraDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedCanberraDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedBrayCurtisDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedBrayCurtisDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedBrayCurtisDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedBrayCurtisDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanError(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMeanErrorOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMeanErrorOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMeanErrorOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub const groupByWeightedBias = groupByWeightedMeanError;
+pub const groupByWeightedBiasOn = groupByWeightedMeanErrorOn;
+
+pub fn groupByWeightedMae(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMaeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMaeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMaeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMseOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedRmse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedRmseOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedRmseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedRmseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMapeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSmape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedSmapeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedSmapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
