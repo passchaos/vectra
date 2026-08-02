@@ -437,10 +437,40 @@ pub fn withGroupCumulativeMaxOn(self: anytype, key_names: []const []const u8, va
     return group_multi_mod.withGroupCumulativeMaxOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeVarianceOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeVarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeStddev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeStddevOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeStddevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
 pub const withGroupCumMaxOn = withGroupCumulativeMaxOn;
+pub const withGroupCumulativeVar = withGroupCumulativeVariance;
+pub const withGroupCumulativeVarOn = withGroupCumulativeVarianceOn;
+pub const withGroupCumVariance = withGroupCumulativeVariance;
+pub const withGroupCumVarianceOn = withGroupCumulativeVarianceOn;
+pub const withGroupCumVar = withGroupCumulativeVariance;
+pub const withGroupCumVarOn = withGroupCumulativeVarianceOn;
+pub const withGroupCumulativeStd = withGroupCumulativeStddev;
+pub const withGroupCumulativeStdOn = withGroupCumulativeStddevOn;
+pub const withGroupCumStddev = withGroupCumulativeStddev;
+pub const withGroupCumStddevOn = withGroupCumulativeStddevOn;
+pub const withGroupCumStd = withGroupCumulativeStddev;
+pub const withGroupCumStdOn = withGroupCumulativeStddevOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
