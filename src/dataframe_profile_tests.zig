@@ -266,7 +266,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     });
     defer quality_table.deinit();
 
-    var quality_index_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
+    var quality_index_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
     defer quality_index_key.deinit();
     var quality_index_values_buffer = [_]f64{
         std.math.nan(f64),
@@ -274,12 +274,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         -std.math.inf(f64),
         std.math.nan(f64),
         std.math.inf(f64),
+        1.0,
+        smallest_subnormal,
         5.0,
         -std.math.inf(f64),
         std.math.inf(f64),
         7.0,
     };
-    var quality_index_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &quality_index_values_buffer, &.{ true, true, true, true, true, true, true, true, false }, .cpu);
+    var quality_index_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &quality_index_values_buffer, &.{ true, true, true, true, true, true, true, true, true, true, false }, .cpu);
     defer quality_index_value.deinit();
     var quality_index_table = try DeviceDataFrame.init(gpa, &.{
         .{ .name = "bucket", .data = quality_index_key },
@@ -441,27 +443,59 @@ test "device dataframe groupby aggregations on fixed-width columns" {
 
     var first_inf_indices = try quality_index_table.groupByFirstInfIndex("bucket", "metric", "first_inf_index");
     defer first_inf_indices.deinit();
-    try expectNullableI64Column(first_inf_indices, gpa, "first_inf_index", &.{ 1, 6, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(first_inf_indices, gpa, "first_inf_index", &.{ 1, 8, 0 }, &.{ true, true, false });
 
     var last_inf_indices = try quality_index_table.groupByLastInfIndex("bucket", "metric", "last_inf_index");
     defer last_inf_indices.deinit();
-    try expectNullableI64Column(last_inf_indices, gpa, "last_inf_index", &.{ 4, 7, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(last_inf_indices, gpa, "last_inf_index", &.{ 4, 9, 0 }, &.{ true, true, false });
 
     var first_positive_inf_indices = try quality_index_table.groupByFirstPositiveInfIndex("bucket", "metric", "first_positive_inf_index");
     defer first_positive_inf_indices.deinit();
-    try expectNullableI64Column(first_positive_inf_indices, gpa, "first_positive_inf_index", &.{ 1, 7, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(first_positive_inf_indices, gpa, "first_positive_inf_index", &.{ 1, 9, 0 }, &.{ true, true, false });
 
     var last_positive_inf_indices = try quality_index_table.groupByLastPositiveInfIndex("bucket", "metric", "last_positive_inf_index");
     defer last_positive_inf_indices.deinit();
-    try expectNullableI64Column(last_positive_inf_indices, gpa, "last_positive_inf_index", &.{ 4, 7, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(last_positive_inf_indices, gpa, "last_positive_inf_index", &.{ 4, 9, 0 }, &.{ true, true, false });
 
     var first_negative_inf_indices = try quality_index_table.groupByFirstNegativeInfIndex("bucket", "metric", "first_negative_inf_index");
     defer first_negative_inf_indices.deinit();
-    try expectNullableI64Column(first_negative_inf_indices, gpa, "first_negative_inf_index", &.{ 2, 6, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(first_negative_inf_indices, gpa, "first_negative_inf_index", &.{ 2, 8, 0 }, &.{ true, true, false });
 
     var last_negative_inf_indices = try quality_index_table.groupByLastNegativeInfIndex("bucket", "metric", "last_negative_inf_index");
     defer last_negative_inf_indices.deinit();
-    try expectNullableI64Column(last_negative_inf_indices, gpa, "last_negative_inf_index", &.{ 2, 6, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(last_negative_inf_indices, gpa, "last_negative_inf_index", &.{ 2, 8, 0 }, &.{ true, true, false });
+
+    var first_finite_indices = try quality_index_table.groupByFirstFiniteIndex("bucket", "metric", "first_finite_index");
+    defer first_finite_indices.deinit();
+    try expectNullableI64Column(first_finite_indices, gpa, "first_finite_index", &.{ 5, 7, 0 }, &.{ true, true, false });
+
+    var last_finite_indices = try quality_index_table.groupByLastFiniteIndex("bucket", "metric", "last_finite_index");
+    defer last_finite_indices.deinit();
+    try expectNullableI64Column(last_finite_indices, gpa, "last_finite_index", &.{ 6, 7, 0 }, &.{ true, true, false });
+
+    var first_normal_indices = try quality_index_table.groupByFirstNormalIndex("bucket", "metric", "first_normal_index");
+    defer first_normal_indices.deinit();
+    try expectNullableI64Column(first_normal_indices, gpa, "first_normal_index", &.{ 5, 7, 0 }, &.{ true, true, false });
+
+    var last_normal_indices = try quality_index_table.groupByLastNormalIndex("bucket", "metric", "last_normal_index");
+    defer last_normal_indices.deinit();
+    try expectNullableI64Column(last_normal_indices, gpa, "last_normal_index", &.{ 5, 7, 0 }, &.{ true, true, false });
+
+    var first_subnormal_indices = try quality_index_table.groupByFirstSubnormalIndex("bucket", "metric", "first_subnormal_index");
+    defer first_subnormal_indices.deinit();
+    try expectNullableI64Column(first_subnormal_indices, gpa, "first_subnormal_index", &.{ 6, 0, 0 }, &.{ true, false, false });
+
+    var last_subnormal_indices = try quality_index_table.groupByLastSubnormalIndex("bucket", "metric", "last_subnormal_index");
+    defer last_subnormal_indices.deinit();
+    try expectNullableI64Column(last_subnormal_indices, gpa, "last_subnormal_index", &.{ 6, 0, 0 }, &.{ true, false, false });
+
+    var first_non_finite_indices = try quality_index_table.groupByFirstNonFiniteIndex("bucket", "metric", "first_non_finite_index");
+    defer first_non_finite_indices.deinit();
+    try expectNullableI64Column(first_non_finite_indices, gpa, "first_non_finite_index", &.{ 0, 8, 0 }, &.{ true, true, false });
+
+    var last_non_finite_indices = try quality_index_table.groupByLastNonFiniteIndex("bucket", "metric", "last_non_finite_index");
+    defer last_non_finite_indices.deinit();
+    try expectNullableI64Column(last_non_finite_indices, gpa, "last_non_finite_index", &.{ 4, 9, 0 }, &.{ true, true, false });
 
     var signed_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
     defer signed_zero_key.deinit();
@@ -563,7 +597,17 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, last_inf_index_explained, "group_by_last_inf_index(bucket, value=metric -> last_inf_index_lazy)") != null);
     var lazy_last_inf_index = try last_inf_index_plan.collect();
     defer lazy_last_inf_index.deinit();
-    try expectNullableI64Column(lazy_last_inf_index, gpa, "last_inf_index_lazy", &.{ 4, 7, 0 }, &.{ true, true, false });
+    try expectNullableI64Column(lazy_last_inf_index, gpa, "last_inf_index_lazy", &.{ 4, 9, 0 }, &.{ true, true, false });
+
+    var first_finite_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
+    defer first_finite_index_plan.deinit();
+    try first_finite_index_plan.groupByFirstFiniteIndex("bucket", "metric", "first_finite_index_lazy");
+    const first_finite_index_explained = try first_finite_index_plan.explain(gpa);
+    defer gpa.free(first_finite_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, first_finite_index_explained, "group_by_first_finite_index(bucket, value=metric -> first_finite_index_lazy)") != null);
+    var lazy_first_finite_index = try first_finite_index_plan.collect();
+    defer lazy_first_finite_index.deinit();
+    try expectNullableI64Column(lazy_first_finite_index, gpa, "first_finite_index_lazy", &.{ 5, 7, 0 }, &.{ true, true, false });
 
     var finite_ratio_plan = try DeviceLazyFrame.init(gpa, quality_table);
     defer finite_ratio_plan.deinit();

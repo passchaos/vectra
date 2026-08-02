@@ -1512,6 +1512,22 @@ pub fn groupByFiniteRatioOn(self: anytype, key_names: []const []const u8, value_
     return self.groupByValueOn(key_names, value_name, output_name, .finite_ratio);
 }
 
+pub fn groupByFirstFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_finite_index);
+}
+
+pub fn groupByFirstFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_finite_index);
+}
+
+pub fn groupByLastFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_finite_index);
+}
+
+pub fn groupByLastFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_finite_index);
+}
+
 pub fn groupByNormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .normal_count);
 }
@@ -1526,6 +1542,22 @@ pub fn groupByNormalRatio(self: anytype, key_name: []const u8, value_name: []con
 
 pub fn groupByNormalRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValueOn(key_names, value_name, output_name, .normal_ratio);
+}
+
+pub fn groupByFirstNormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_normal_index);
+}
+
+pub fn groupByFirstNormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_normal_index);
+}
+
+pub fn groupByLastNormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_normal_index);
+}
+
+pub fn groupByLastNormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_normal_index);
 }
 
 pub fn groupBySubnormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -1544,6 +1576,22 @@ pub fn groupBySubnormalRatioOn(self: anytype, key_names: []const []const u8, val
     return self.groupByValueOn(key_names, value_name, output_name, .subnormal_ratio);
 }
 
+pub fn groupByFirstSubnormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_subnormal_index);
+}
+
+pub fn groupByFirstSubnormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_subnormal_index);
+}
+
+pub fn groupByLastSubnormalIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_subnormal_index);
+}
+
+pub fn groupByLastSubnormalIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_subnormal_index);
+}
+
 pub fn groupByNonFiniteCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .non_finite_count);
 }
@@ -1558,6 +1606,22 @@ pub fn groupByNonFiniteRatio(self: anytype, key_name: []const u8, value_name: []
 
 pub fn groupByNonFiniteRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValueOn(key_names, value_name, output_name, .non_finite_ratio);
+}
+
+pub fn groupByFirstNonFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_non_finite_index);
+}
+
+pub fn groupByFirstNonFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_non_finite_index);
+}
+
+pub fn groupByLastNonFiniteIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_non_finite_index);
+}
+
+pub fn groupByLastNonFiniteIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_non_finite_index);
 }
 
 pub fn groupByZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
