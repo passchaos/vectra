@@ -2044,11 +2044,18 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {
     return switch (op) {
         .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => true,
+        else => false,
+    };
+}
+
+fn groupCumulativeNumericUsesExtremaPair(comptime op: GroupCumulativeNumericOp) bool {
+    return switch (op) {
+        .range, .midrange, .range_coeff => true,
         else => false,
     };
 }
@@ -2083,6 +2090,8 @@ fn withGroupCumulativeNumericOnTyped(
     defer group_counts.deinit(frame.allocator);
     var group_profiles: std.ArrayList(MomentProfile) = .empty;
     defer group_profiles.deinit(frame.allocator);
+    var group_secondary_accumulators: std.ArrayList(f64) = .empty;
+    defer group_secondary_accumulators.deinit(frame.allocator);
 
     for (values, 0..) |value_item, row| {
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
@@ -2091,6 +2100,7 @@ fn withGroupCumulativeNumericOnTyped(
             try group_accumulators.append(frame.allocator, if (op == .product) 1.0 else 0.0);
             try group_counts.append(frame.allocator, 0);
             if (groupCumulativeNumericUsesMomentProfile(op)) try group_profiles.append(frame.allocator, .{});
+            if (groupCumulativeNumericUsesExtremaPair(op)) try group_secondary_accumulators.append(frame.allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
         const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
@@ -2115,6 +2125,15 @@ fn withGroupCumulativeNumericOnTyped(
             },
             .l1_norm => group_accumulators.items[group_index] += @abs(value_f64),
             .l2_norm => group_accumulators.items[group_index] += value_f64 * value_f64,
+            .range, .midrange, .range_coeff => {
+                if (seen_before == 0 or std.math.isNan(value_f64)) {
+                    group_accumulators.items[group_index] = value_f64;
+                    group_secondary_accumulators.items[group_index] = value_f64;
+                } else if (!std.math.isNan(group_accumulators.items[group_index])) {
+                    if (value_f64 < group_accumulators.items[group_index]) group_accumulators.items[group_index] = value_f64;
+                    if (value_f64 > group_secondary_accumulators.items[group_index]) group_secondary_accumulators.items[group_index] = value_f64;
+                }
+            },
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
@@ -2132,6 +2151,12 @@ fn withGroupCumulativeNumericOnTyped(
             },
             .skewness => group_profiles.items[group_index].skewness(),
             .kurtosis => group_profiles.items[group_index].kurtosis(),
+            .range => group_secondary_accumulators.items[group_index] - group_accumulators.items[group_index],
+            .midrange => (group_secondary_accumulators.items[group_index] + group_accumulators.items[group_index]) / 2.0,
+            .range_coeff => blk: {
+                const denominator = group_secondary_accumulators.items[group_index] + group_accumulators.items[group_index];
+                break :blk if (denominator == 0.0) std.math.nan(f64) else (group_secondary_accumulators.items[group_index] - group_accumulators.items[group_index]) / denominator;
+            },
         };
         row_validity[row] = true;
     }
@@ -2360,6 +2385,36 @@ pub fn withGroupCumulativeL2NormOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .l2_norm);
 }
 
+pub fn withGroupCumulativeRangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .range);
+}
+
+pub fn withGroupCumulativeMidrangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .midrange);
+}
+
+pub fn withGroupCumulativeRangeCoeffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .range_coeff);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
@@ -2408,6 +2463,17 @@ pub const withGroupCumMinAbsOn = withGroupCumulativeMinAbsOn;
 pub const withGroupCumMinAbsoluteOn = withGroupCumulativeMinAbsOn;
 pub const withGroupCumL1NormOn = withGroupCumulativeL1NormOn;
 pub const withGroupCumL2NormOn = withGroupCumulativeL2NormOn;
+pub const withGroupCumulativePtpOn = withGroupCumulativeRangeOn;
+pub const withGroupCumulativePTPOn = withGroupCumulativeRangeOn;
+pub const withGroupCumulativePeakToPeakOn = withGroupCumulativeRangeOn;
+pub const withGroupCumRangeOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPtpOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPTPOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPeakToPeakOn = withGroupCumulativeRangeOn;
+pub const withGroupCumMidrangeOn = withGroupCumulativeMidrangeOn;
+pub const withGroupCumulativeRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumRangeCoeffOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,

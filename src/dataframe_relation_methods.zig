@@ -563,6 +563,33 @@ pub fn withGroupCumulativeL2NormOn(self: anytype, key_names: []const []const u8,
     return group_multi_mod.withGroupCumulativeL2NormOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeRangeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeRangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeMidrange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMidrangeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMidrangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeMidrangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeRangeCoeff(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeRangeCoeffOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeRangeCoeffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeRangeCoeffOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -651,6 +678,28 @@ pub const withGroupCumL1Norm = withGroupCumulativeL1Norm;
 pub const withGroupCumL1NormOn = withGroupCumulativeL1NormOn;
 pub const withGroupCumL2Norm = withGroupCumulativeL2Norm;
 pub const withGroupCumL2NormOn = withGroupCumulativeL2NormOn;
+pub const withGroupCumulativePtp = withGroupCumulativeRange;
+pub const withGroupCumulativePtpOn = withGroupCumulativeRangeOn;
+pub const withGroupCumulativePTP = withGroupCumulativeRange;
+pub const withGroupCumulativePTPOn = withGroupCumulativeRangeOn;
+pub const withGroupCumulativePeakToPeak = withGroupCumulativeRange;
+pub const withGroupCumulativePeakToPeakOn = withGroupCumulativeRangeOn;
+pub const withGroupCumRange = withGroupCumulativeRange;
+pub const withGroupCumRangeOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPtp = withGroupCumulativeRange;
+pub const withGroupCumPtpOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPTP = withGroupCumulativeRange;
+pub const withGroupCumPTPOn = withGroupCumulativeRangeOn;
+pub const withGroupCumPeakToPeak = withGroupCumulativeRange;
+pub const withGroupCumPeakToPeakOn = withGroupCumulativeRangeOn;
+pub const withGroupCumMidrange = withGroupCumulativeMidrange;
+pub const withGroupCumMidrangeOn = withGroupCumulativeMidrangeOn;
+pub const withGroupCumulativeRangeCoefficient = withGroupCumulativeRangeCoeff;
+pub const withGroupCumulativeRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumRangeCoeff = withGroupCumulativeRangeCoeff;
+pub const withGroupCumRangeCoeffOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumRangeCoefficient = withGroupCumulativeRangeCoeff;
+pub const withGroupCumRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};

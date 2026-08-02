@@ -516,7 +516,7 @@ pub fn withGroupCumulativeNullRatio(frame: anytype, key_names: []const []const u
     return withGroupCumulativeValidityRatio(frame, key_names, value_name, output_name, true);
 }
 
-fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm }) DeviceDataError!void {
+fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -638,6 +638,24 @@ fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, val
             .output_name = owned_output,
             .offset = 0,
         } },
+        .range => .{ .group_cumulative_range = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .midrange => .{ .group_cumulative_midrange = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .range_coeff => .{ .group_cumulative_range_coeff = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
     });
 }
 
@@ -715,6 +733,18 @@ pub fn withGroupCumulativeL1Norm(frame: anytype, key_names: []const []const u8, 
 
 pub fn withGroupCumulativeL2Norm(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .l2_norm);
+}
+
+pub fn withGroupCumulativeRange(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .range);
+}
+
+pub fn withGroupCumulativeMidrange(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .midrange);
+}
+
+pub fn withGroupCumulativeRangeCoeff(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .range_coeff);
 }
 
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
