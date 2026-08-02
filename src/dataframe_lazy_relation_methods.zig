@@ -1462,6 +1462,22 @@ pub fn withGroupCumulativeTrimeanOn(self: anytype, key_names: []const []const u8
 pub const withGroupCumTrimean = withGroupCumulativeTrimean;
 pub const withGroupCumTrimeanOn = withGroupCumulativeTrimeanOn;
 
+pub fn withGroupCumulativeBowleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeBowleySkewnessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeBowleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeBowleySkewness(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeBowleySkew = withGroupCumulativeBowleySkewness;
+pub const withGroupCumulativeBowleySkewOn = withGroupCumulativeBowleySkewnessOn;
+pub const withGroupCumBowleySkewness = withGroupCumulativeBowleySkewness;
+pub const withGroupCumBowleySkewnessOn = withGroupCumulativeBowleySkewnessOn;
+pub const withGroupCumBowleySkew = withGroupCumulativeBowleySkewness;
+pub const withGroupCumBowleySkewOn = withGroupCumulativeBowleySkewnessOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

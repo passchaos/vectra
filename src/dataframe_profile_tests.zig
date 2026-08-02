@@ -1856,6 +1856,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_trimean.deinit();
     try expectF64ColumnWithValidity(lazy_cumulative_trimean, gpa, "label_cum_trimean_lazy", &group_cum_trimean_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_bowley_expected = [_]f64{ std.math.nan(f64), std.math.nan(f64), 1.0, 0.0, std.math.nan(f64), 0.0, 1.0, 0.0 };
+
+    var group_cum_bowley_label = try distinct_table.withGroupCumulativeBowleySkewness("bucket", "label", "label_cum_bowley");
+    defer group_cum_bowley_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_bowley_label, gpa, "label_cum_bowley", &group_cum_bowley_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_bowley_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_bowley_plan.deinit();
+    try cumulative_bowley_plan.withGroupCumBowleySkew("bucket", "label", "label_cum_bowley_lazy");
+    const cumulative_bowley_explained = try cumulative_bowley_plan.explain(gpa);
+    defer gpa.free(cumulative_bowley_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_bowley_explained, "group_cumulative_bowley_skewness([bucket], value=label->label_cum_bowley_lazy)") != null);
+    var lazy_cumulative_bowley = try cumulative_bowley_plan.collect();
+    defer lazy_cumulative_bowley.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_bowley, gpa, "label_cum_bowley_lazy", &group_cum_bowley_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
