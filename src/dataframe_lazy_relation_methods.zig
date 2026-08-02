@@ -3155,6 +3155,33 @@ pub fn groupByWeightedProductOn(self: anytype, key_names: []const []const u8, va
 pub const groupByWeightedProd = groupByWeightedProduct;
 pub const groupByWeightedProdOn = groupByWeightedProductOn;
 
+pub fn groupByWeightedWeightSum(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_weight_sum);
+}
+
+pub fn groupByWeightedWeightSumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_weight_sum);
+}
+
+pub fn groupByWeightedPositiveCount(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_positive_count);
+}
+
+pub fn groupByWeightedPositiveCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_positive_count);
+}
+
+pub fn groupByWeightedEffectiveN(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_effective_n);
+}
+
+pub fn groupByWeightedEffectiveNOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_effective_n);
+}
+
+pub const groupByWeightedEffectiveCount = groupByWeightedEffectiveN;
+pub const groupByWeightedEffectiveCountOn = groupByWeightedEffectiveNOn;
+
 pub fn groupByWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_mean_square);
 }

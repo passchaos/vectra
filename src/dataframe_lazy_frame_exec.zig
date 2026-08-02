@@ -1780,6 +1780,9 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_by_weighted => |group| switch (group.aggregation) {
                 .weighted_sum => try current.groupByWeightedSum(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_product => try current.groupByWeightedProduct(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_weight_sum => try current.groupByWeightedWeightSum(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_positive_count => try current.groupByWeightedPositiveCount(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_effective_n => try current.groupByWeightedEffectiveN(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean => try current.groupByWeightedMean(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean_square => try current.groupByWeightedMeanSquare(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_rms => try current.groupByWeightedRms(group.key_name, group.value_name, group.weight_name, group.output_name),
@@ -1821,6 +1824,9 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_by_weighted_on => |group| switch (group.aggregation) {
                 .weighted_sum => try current.groupByWeightedSumOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_product => try current.groupByWeightedProductOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_weight_sum => try current.groupByWeightedWeightSumOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_positive_count => try current.groupByWeightedPositiveCountOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_effective_n => try current.groupByWeightedEffectiveNOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean => try current.groupByWeightedMeanOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean_square => try current.groupByWeightedMeanSquareOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_rms => try current.groupByWeightedRmsOn(group.key_names, group.value_name, group.weight_name, group.output_name),

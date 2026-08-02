@@ -2873,6 +2873,19 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_product.deinit();
     try expectF64ColumnApproxOrNan(weighted_product, gpa, "value_weighted_product", &weighted_product_expected);
 
+    const weighted_weight_sum_expected = [_]f64{ 6.0, 2.0, 0.0 };
+    const weighted_positive_count_expected = [_]f64{ 3.0, 2.0, 0.0 };
+    const weighted_effective_n_expected = [_]f64{ 36.0 / 14.0, 2.0, std.math.nan(f64) };
+    var weighted_weight_sum = try weighted_table.groupByWeightedWeightSum("bucket", "value", "weight", "value_weight_sum");
+    defer weighted_weight_sum.deinit();
+    try expectF64ColumnApproxOrNan(weighted_weight_sum, gpa, "value_weight_sum", &weighted_weight_sum_expected);
+    var weighted_effective_n = try weighted_table.groupByWeightedEffectiveN("bucket", "value", "weight", "value_weighted_effective_n");
+    defer weighted_effective_n.deinit();
+    try expectF64ColumnApproxOrNan(weighted_effective_n, gpa, "value_weighted_effective_n", &weighted_effective_n_expected);
+    var weighted_positive_count = try weighted_table.groupByWeightedPositiveCount("bucket", "value", "weight", "value_weight_positive_count");
+    defer weighted_positive_count.deinit();
+    try expectF64ColumnApproxOrNan(weighted_positive_count, gpa, "value_weight_positive_count", &weighted_positive_count_expected);
+
     const weighted_mean_square_expected = [_]f64{ 1550.0 / 3.0, 125.0, std.math.nan(f64) };
     const weighted_rms_expected = [_]f64{ std.math.sqrt(@as(f64, 1550.0 / 3.0)), std.math.sqrt(@as(f64, 125.0)), std.math.nan(f64) };
 
@@ -3860,6 +3873,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     }{
         .{ .method = .weighted_sum, .output_name = "value_weighted_sum_lazy", .explain = "group_by_weighted_sum(bucket, value=value, weight=weight -> value_weighted_sum_lazy)", .expected = &weighted_sum_expected },
         .{ .method = .weighted_product, .output_name = "value_weighted_product_lazy", .explain = "group_by_weighted_product(bucket, value=value, weight=weight -> value_weighted_product_lazy)", .expected = &weighted_product_expected },
+        .{ .method = .weighted_weight_sum, .output_name = "value_weight_sum_lazy", .explain = "group_by_weighted_weight_sum(bucket, value=value, weight=weight -> value_weight_sum_lazy)", .expected = &weighted_weight_sum_expected },
+        .{ .method = .weighted_positive_count, .output_name = "value_weight_positive_count_lazy", .explain = "group_by_weighted_positive_count(bucket, value=value, weight=weight -> value_weight_positive_count_lazy)", .expected = &weighted_positive_count_expected },
+        .{ .method = .weighted_effective_n, .output_name = "value_weighted_effective_n_lazy", .explain = "group_by_weighted_effective_n(bucket, value=value, weight=weight -> value_weighted_effective_n_lazy)", .expected = &weighted_effective_n_expected },
         .{ .method = .weighted_mean_square, .output_name = "value_weighted_mean_square_lazy", .explain = "group_by_weighted_mean_square(bucket, value=value, weight=weight -> value_weighted_mean_square_lazy)", .expected = &weighted_mean_square_expected },
         .{ .method = .weighted_rms, .output_name = "value_weighted_rms_lazy", .explain = "group_by_weighted_rms(bucket, value=value, weight=weight -> value_weighted_rms_lazy)", .expected = &weighted_rms_expected },
         .{ .method = .weighted_min, .output_name = "value_weighted_min_lazy", .explain = "group_by_weighted_min(bucket, value=value, weight=weight -> value_weighted_min_lazy)", .expected = &weighted_min_expected },
@@ -3897,6 +3913,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         try switch (case.method) {
             .weighted_sum => plan.groupByWeightedSum("bucket", "value", "weight", case.output_name),
             .weighted_product => plan.groupByWeightedProduct("bucket", "value", "weight", case.output_name),
+            .weighted_weight_sum => plan.groupByWeightedWeightSum("bucket", "value", "weight", case.output_name),
+            .weighted_positive_count => plan.groupByWeightedPositiveCount("bucket", "value", "weight", case.output_name),
+            .weighted_effective_n => plan.groupByWeightedEffectiveN("bucket", "value", "weight", case.output_name),
             .weighted_mean_square => plan.groupByWeightedMeanSquare("bucket", "value", "weight", case.output_name),
             .weighted_rms => plan.groupByWeightedRms("bucket", "value", "weight", case.output_name),
             .weighted_min => plan.groupByWeightedMin("bucket", "value", "weight", case.output_name),

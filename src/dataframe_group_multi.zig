@@ -226,6 +226,9 @@ const GroupByArgAggregation = enum {
 const GroupByWeightedAggregation = enum {
     weighted_sum,
     weighted_product,
+    weighted_weight_sum,
+    weighted_positive_count,
+    weighted_effective_n,
     weighted_mean,
     weighted_mean_square,
     weighted_rms,
@@ -276,6 +279,11 @@ fn finishWeightedRange(min_value: f64, max_value: f64, positive_weight_count: us
             break :blk if (denominator == 0.0) std.math.nan(f64) else range / denominator;
         },
     };
+}
+
+fn finishWeightedEffectiveN(weight_sum: f64, weight_square_sum: f64) f64 {
+    if (!(weight_sum > 0.0) or !(weight_square_sum > 0.0)) return std.math.nan(f64);
+    return weight_sum * weight_sum / weight_square_sum;
 }
 
 const WeightedLogExpState = struct {
@@ -6895,6 +6903,8 @@ pub fn groupByWeightedOn(
     defer representative_rows.deinit(frame.allocator);
     var weight_sums: std.ArrayList(f64) = .empty;
     defer weight_sums.deinit(frame.allocator);
+    var weight_square_sums: std.ArrayList(f64) = .empty;
+    defer weight_square_sums.deinit(frame.allocator);
     var weighted_sums: std.ArrayList(f64) = .empty;
     defer weighted_sums.deinit(frame.allocator);
     var weighted_square_sums: std.ArrayList(f64) = .empty;
@@ -6940,6 +6950,7 @@ pub fn groupByWeightedOn(
         const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
             try representative_rows.append(frame.allocator, row);
             try weight_sums.append(frame.allocator, 0.0);
+            try weight_square_sums.append(frame.allocator, 0.0);
             try weighted_sums.append(frame.allocator, 0.0);
             try weighted_square_sums.append(frame.allocator, 0.0);
             try weighted_abs_sums.append(frame.allocator, 0.0);
@@ -6958,6 +6969,7 @@ pub fn groupByWeightedOn(
         };
         const value = values.values[row];
         weight_sums.items[group_index] += weight;
+        if (weight > 0.0) weight_square_sums.items[group_index] += weight * weight;
         weighted_sums.items[group_index] += value * weight;
         weighted_square_sums.items[group_index] += value * value * weight;
         weighted_abs_sums.items[group_index] += @abs(value) * weight;
@@ -6996,75 +7008,80 @@ pub fn groupByWeightedOn(
 
     const out = try frame.allocator.alloc(f64, representative_rows.items.len);
     defer frame.allocator.free(out);
-    for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, weighted_abs_sums.items, weighted_max_abs_values.items, weighted_min_abs_values.items, weighted_min_values.items, weighted_max_values.items, positive_weight_counts.items, weighted_log_sums.items, weighted_reciprocal_sums.items, weighted_zero_seen.items, weighted_log_exp_states.items, weighted_product_states.items, group_value_rows.items, out) |weight_sum, weighted_sum, weighted_square_sum, weighted_abs_sum, weighted_max_abs_value, weighted_min_abs_value, weighted_min_value, weighted_max_value, positive_weight_count, weighted_log_sum, weighted_reciprocal_sum, has_weighted_zero, weighted_log_exp_state, weighted_product_state, rows, *slot| {
-        if (!(weight_sum > 0.0)) {
-            slot.* = std.math.nan(f64);
-            continue;
-        }
+    for (weight_sums.items, weight_square_sums.items, weighted_sums.items, weighted_square_sums.items, weighted_abs_sums.items, weighted_max_abs_values.items, weighted_min_abs_values.items, weighted_min_values.items, weighted_max_values.items, positive_weight_counts.items, weighted_log_sums.items, weighted_reciprocal_sums.items, weighted_zero_seen.items, weighted_log_exp_states.items, weighted_product_states.items, group_value_rows.items, out) |weight_sum, weight_square_sum, weighted_sum, weighted_square_sum, weighted_abs_sum, weighted_max_abs_value, weighted_min_abs_value, weighted_min_value, weighted_max_value, positive_weight_count, weighted_log_sum, weighted_reciprocal_sum, has_weighted_zero, weighted_log_exp_state, weighted_product_state, rows, *slot| {
         slot.* = switch (aggregation) {
-            .weighted_sum => weighted_sum,
-            .weighted_product => weighted_product_state.finish(weight_sum),
-            .weighted_mean => weighted_sum / weight_sum,
-            .weighted_mean_square => weighted_square_sum / weight_sum,
-            .weighted_rms => std.math.sqrt(weighted_square_sum / weight_sum),
-            .weighted_min => if (positive_weight_count == 0) std.math.nan(f64) else weighted_min_value,
-            .weighted_max => if (positive_weight_count == 0) std.math.nan(f64) else weighted_max_value,
-            .weighted_mean_abs => weighted_abs_sum / weight_sum,
-            .weighted_l1_norm => weighted_abs_sum,
-            .weighted_l2_norm => std.math.sqrt(weighted_square_sum),
-            .weighted_max_abs => if (positive_weight_count == 0) std.math.nan(f64) else weighted_max_abs_value,
-            .weighted_min_abs => if (positive_weight_count == 0) std.math.nan(f64) else weighted_min_abs_value,
-            .weighted_geometric_mean => if (std.math.isNan(weighted_log_sum)) std.math.nan(f64) else if (has_weighted_zero) 0.0 else std.math.exp(weighted_log_sum / weight_sum),
-            .weighted_harmonic_mean => if (std.math.isInf(weighted_reciprocal_sum)) 0.0 else weight_sum / weighted_reciprocal_sum,
-            .weighted_logsumexp => weighted_log_exp_state.finish(weight_sum, false),
-            .weighted_logmeanexp => weighted_log_exp_state.finish(weight_sum, true),
-            .weighted_range => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range),
-            .weighted_midrange => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .midrange),
-            .weighted_range_coeff => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range_coeff),
-            .weighted_variance, .weighted_stddev, .weighted_sem, .weighted_cv, .weighted_fano => blk: {
-                var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
-                if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
-                const variance = centered_square_sum / weight_sum;
-                const stddev = std.math.sqrt(variance);
-                const mean = weighted_sum / weight_sum;
-                break :blk switch (aggregation) {
-                    .weighted_variance => variance,
-                    .weighted_stddev => stddev,
-                    .weighted_sem => std.math.sqrt(variance / weight_sum),
-                    .weighted_cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
-                    .weighted_fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
-                    else => unreachable,
+            .weighted_weight_sum => weight_sum,
+            .weighted_positive_count => @as(f64, @floatFromInt(positive_weight_count)),
+            .weighted_effective_n => finishWeightedEffectiveN(weight_sum, weight_square_sum),
+            else => weighted_group_blk: {
+                if (!(weight_sum > 0.0)) break :weighted_group_blk std.math.nan(f64);
+                break :weighted_group_blk switch (aggregation) {
+                    .weighted_sum => weighted_sum,
+                    .weighted_product => weighted_product_state.finish(weight_sum),
+                    .weighted_mean => weighted_sum / weight_sum,
+                    .weighted_mean_square => weighted_square_sum / weight_sum,
+                    .weighted_rms => std.math.sqrt(weighted_square_sum / weight_sum),
+                    .weighted_min => if (positive_weight_count == 0) std.math.nan(f64) else weighted_min_value,
+                    .weighted_max => if (positive_weight_count == 0) std.math.nan(f64) else weighted_max_value,
+                    .weighted_mean_abs => weighted_abs_sum / weight_sum,
+                    .weighted_l1_norm => weighted_abs_sum,
+                    .weighted_l2_norm => std.math.sqrt(weighted_square_sum),
+                    .weighted_max_abs => if (positive_weight_count == 0) std.math.nan(f64) else weighted_max_abs_value,
+                    .weighted_min_abs => if (positive_weight_count == 0) std.math.nan(f64) else weighted_min_abs_value,
+                    .weighted_geometric_mean => if (std.math.isNan(weighted_log_sum)) std.math.nan(f64) else if (has_weighted_zero) 0.0 else std.math.exp(weighted_log_sum / weight_sum),
+                    .weighted_harmonic_mean => if (std.math.isInf(weighted_reciprocal_sum)) 0.0 else weight_sum / weighted_reciprocal_sum,
+                    .weighted_logsumexp => weighted_log_exp_state.finish(weight_sum, false),
+                    .weighted_logmeanexp => weighted_log_exp_state.finish(weight_sum, true),
+                    .weighted_range => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range),
+                    .weighted_midrange => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .midrange),
+                    .weighted_range_coeff => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range_coeff),
+                    .weighted_variance, .weighted_stddev, .weighted_sem, .weighted_cv, .weighted_fano => moment_blk: {
+                        var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
+                        if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
+                        const variance = centered_square_sum / weight_sum;
+                        const stddev = std.math.sqrt(variance);
+                        const mean = weighted_sum / weight_sum;
+                        break :moment_blk switch (aggregation) {
+                            .weighted_variance => variance,
+                            .weighted_stddev => stddev,
+                            .weighted_sem => std.math.sqrt(variance / weight_sum),
+                            .weighted_cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
+                            .weighted_fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
+                            else => unreachable,
+                        };
+                    },
+                    .weighted_quantile => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, q, null),
+                    .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
+                    .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
+                    .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
+                    .weighted_mode => groupWeightedModeStats(rows.items, values.values, weights.values).mode,
+                    .weighted_mode_weight => groupWeightedModeStats(rows.items, values.values, weights.values).mode_weight,
+                    .weighted_mode_ratio => blk: {
+                        const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                        break :blk stats.mode_weight / stats.total_weight;
+                    },
+                    .weighted_mode_margin => blk: {
+                        const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                        break :blk stats.mode_weight - stats.second_weight;
+                    },
+                    .weighted_mode_margin_ratio => blk: {
+                        const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                        break :blk (stats.mode_weight - stats.second_weight) / stats.total_weight;
+                    },
+                    .weighted_entropy => groupWeightedModeStats(rows.items, values.values, weights.values).entropy,
+                    .weighted_gini_impurity => 1.0 - groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
+                    .weighted_perplexity => std.math.exp(groupWeightedModeStats(rows.items, values.values, weights.values).entropy),
+                    .weighted_inverse_simpson => blk: {
+                        const concentration = groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq;
+                        break :blk if (concentration == 0.0) std.math.nan(f64) else 1.0 / concentration;
+                    },
+                    .weighted_simpson_concentration => groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
+                    .weighted_evenness => blk2: {
+                        const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                        break :blk2 if (stats.distinct_positive_weight_count <= 1) 1.0 else stats.entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(stats.distinct_positive_weight_count)));
+                    },
+                    .weighted_weight_sum, .weighted_positive_count, .weighted_effective_n => unreachable,
                 };
-            },
-            .weighted_quantile => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, q, null),
-            .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
-            .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
-            .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
-            .weighted_mode => groupWeightedModeStats(rows.items, values.values, weights.values).mode,
-            .weighted_mode_weight => groupWeightedModeStats(rows.items, values.values, weights.values).mode_weight,
-            .weighted_mode_ratio => blk: {
-                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
-                break :blk stats.mode_weight / stats.total_weight;
-            },
-            .weighted_mode_margin => blk: {
-                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
-                break :blk stats.mode_weight - stats.second_weight;
-            },
-            .weighted_mode_margin_ratio => blk: {
-                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
-                break :blk (stats.mode_weight - stats.second_weight) / stats.total_weight;
-            },
-            .weighted_entropy => groupWeightedModeStats(rows.items, values.values, weights.values).entropy,
-            .weighted_gini_impurity => 1.0 - groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
-            .weighted_perplexity => std.math.exp(groupWeightedModeStats(rows.items, values.values, weights.values).entropy),
-            .weighted_inverse_simpson => blk: {
-                const concentration = groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq;
-                break :blk if (concentration == 0.0) std.math.nan(f64) else 1.0 / concentration;
-            },
-            .weighted_simpson_concentration => groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
-            .weighted_evenness => blk: {
-                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
-                break :blk if (stats.distinct_positive_weight_count <= 1) 1.0 else stats.entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(stats.distinct_positive_weight_count)));
             },
         };
     }
@@ -7107,6 +7124,41 @@ pub fn groupByWeightedProductOn(
 }
 
 pub const groupByWeightedProdOn = groupByWeightedProductOn;
+
+pub fn groupByWeightedWeightSumOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_weight_sum, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedPositiveCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_positive_count, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedEffectiveNOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_effective_n, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedEffectiveCountOn = groupByWeightedEffectiveNOn;
 
 pub fn groupByWeightedMeanSquareOn(
     comptime DeviceDataFrame: type,

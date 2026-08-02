@@ -3191,6 +3191,36 @@ pub fn groupByWeightedProductOn(self: anytype, key_names: []const []const u8, va
 pub const groupByWeightedProd = groupByWeightedProduct;
 pub const groupByWeightedProdOn = groupByWeightedProductOn;
 
+pub fn groupByWeightedWeightSum(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedWeightSumOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedWeightSumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedWeightSumOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedPositiveCount(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedPositiveCountOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedPositiveCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedPositiveCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedEffectiveN(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedEffectiveNOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedEffectiveNOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedEffectiveNOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedEffectiveCount = groupByWeightedEffectiveN;
+pub const groupByWeightedEffectiveCountOn = groupByWeightedEffectiveNOn;
+
 pub fn groupByWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedMeanSquareOn(self, key_names[0..], value_name, weight_name, output_name);

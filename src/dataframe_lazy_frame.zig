@@ -6831,6 +6831,14 @@ pub fn DeviceLazyTypes(
             pub const groupByWeightedSumOn = lazy_relation_methods_mod.groupByWeightedSumOn;
             pub const groupByWeightedProduct = lazy_relation_methods_mod.groupByWeightedProduct;
             pub const groupByWeightedProductOn = lazy_relation_methods_mod.groupByWeightedProductOn;
+            pub const groupByWeightedWeightSum = lazy_relation_methods_mod.groupByWeightedWeightSum;
+            pub const groupByWeightedWeightSumOn = lazy_relation_methods_mod.groupByWeightedWeightSumOn;
+            pub const groupByWeightedPositiveCount = lazy_relation_methods_mod.groupByWeightedPositiveCount;
+            pub const groupByWeightedPositiveCountOn = lazy_relation_methods_mod.groupByWeightedPositiveCountOn;
+            pub const groupByWeightedEffectiveN = lazy_relation_methods_mod.groupByWeightedEffectiveN;
+            pub const groupByWeightedEffectiveNOn = lazy_relation_methods_mod.groupByWeightedEffectiveNOn;
+            pub const groupByWeightedEffectiveCount = lazy_relation_methods_mod.groupByWeightedEffectiveCount;
+            pub const groupByWeightedEffectiveCountOn = lazy_relation_methods_mod.groupByWeightedEffectiveCountOn;
             pub const groupByWeightedProd = lazy_relation_methods_mod.groupByWeightedProd;
             pub const groupByWeightedProdOn = lazy_relation_methods_mod.groupByWeightedProdOn;
             pub const groupByWeightedMeanSquare = lazy_relation_methods_mod.groupByWeightedMeanSquare;
