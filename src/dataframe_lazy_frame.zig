@@ -5683,6 +5683,10 @@ pub fn DeviceLazyTypes(
             pub const groupByKurtOn = lazy_relation_methods_mod.groupByKurtOn;
             pub const groupByMeanAbs = lazy_relation_methods_mod.groupByMeanAbs;
             pub const groupByMeanAbsOn = lazy_relation_methods_mod.groupByMeanAbsOn;
+            pub const groupByMeanSquare = lazy_relation_methods_mod.groupByMeanSquare;
+            pub const groupByMeanSquareOn = lazy_relation_methods_mod.groupByMeanSquareOn;
+            pub const groupByMeanSq = lazy_relation_methods_mod.groupByMeanSq;
+            pub const groupByMeanSqOn = lazy_relation_methods_mod.groupByMeanSqOn;
             pub const groupByRms = lazy_relation_methods_mod.groupByRms;
             pub const groupByRmsOn = lazy_relation_methods_mod.groupByRmsOn;
             pub const groupByRMS = lazy_relation_methods_mod.groupByRMS;
@@ -5691,6 +5695,10 @@ pub fn DeviceLazyTypes(
             pub const groupByL1NormOn = lazy_relation_methods_mod.groupByL1NormOn;
             pub const groupByL2Norm = lazy_relation_methods_mod.groupByL2Norm;
             pub const groupByL2NormOn = lazy_relation_methods_mod.groupByL2NormOn;
+            pub const groupByMaxAbs = lazy_relation_methods_mod.groupByMaxAbs;
+            pub const groupByMaxAbsOn = lazy_relation_methods_mod.groupByMaxAbsOn;
+            pub const groupByMinAbs = lazy_relation_methods_mod.groupByMinAbs;
+            pub const groupByMinAbsOn = lazy_relation_methods_mod.groupByMinAbsOn;
             pub const groupByGeometricMean = lazy_relation_methods_mod.groupByGeometricMean;
             pub const groupByGeometricMeanOn = lazy_relation_methods_mod.groupByGeometricMeanOn;
             pub const groupByGeoMean = lazy_relation_methods_mod.groupByGeoMean;

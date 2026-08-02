@@ -252,6 +252,17 @@ pub fn groupByMeanAbsOn(self: anytype, key_names: []const []const u8, value_name
     return self.groupByValueOn(key_names, value_name, output_name, .mean_abs);
 }
 
+pub fn groupByMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .mean_square);
+}
+
+pub fn groupByMeanSquareOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .mean_square);
+}
+
+pub const groupByMeanSq = groupByMeanSquare;
+pub const groupByMeanSqOn = groupByMeanSquareOn;
+
 pub fn groupByRms(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .rms);
 }
@@ -277,6 +288,22 @@ pub fn groupByL2Norm(self: anytype, key_name: []const u8, value_name: []const u8
 
 pub fn groupByL2NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValueOn(key_names, value_name, output_name, .l2_norm);
+}
+
+pub fn groupByMaxAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .max_abs);
+}
+
+pub fn groupByMaxAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .max_abs);
+}
+
+pub fn groupByMinAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .min_abs);
+}
+
+pub fn groupByMinAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .min_abs);
 }
 
 pub fn groupByGeometricMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {

@@ -459,6 +459,13 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 3.5), mean_abs_delta_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 8.5), mean_abs_delta_values[1], 1e-12);
 
+    var mean_square_delta = try magnitude_table.groupByMeanSq("bucket", "delta", "delta_mean_square");
+    defer mean_square_delta.deinit();
+    const mean_square_delta_values = try (try mean_square_delta.column("delta_mean_square")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mean_square_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.5), mean_square_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 84.5), mean_square_delta_values[1], 1e-12);
+
     var rms_delta = try magnitude_table.groupByRMS("bucket", "delta", "delta_rms");
     defer rms_delta.deinit();
     const rms_delta_values = try (try rms_delta.column("delta_rms")).f64.toOwnedSlice(gpa);
@@ -479,6 +486,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(l2_delta_values);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), l2_delta_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 13.0), l2_delta_values[1], 1e-12);
+
+    var max_abs_delta = try magnitude_table.groupByMaxAbs("bucket", "delta", "delta_max_abs");
+    defer max_abs_delta.deinit();
+    const max_abs_delta_values = try (try max_abs_delta.column("delta_max_abs")).f64.toOwnedSlice(gpa);
+    defer gpa.free(max_abs_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), max_abs_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), max_abs_delta_values[1], 1e-12);
+
+    var min_abs_delta = try magnitude_table.groupByMinAbs("bucket", "delta", "delta_min_abs");
+    defer min_abs_delta.deinit();
+    const min_abs_delta_values = try (try min_abs_delta.column("delta_min_abs")).f64.toOwnedSlice(gpa);
+    defer gpa.free(min_abs_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), min_abs_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), min_abs_delta_values[1], 1e-12);
 
     var range_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3 }, .cpu);
     defer range_key.deinit();
@@ -804,6 +825,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_mean_abs[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_mean_abs[3], 1e-12);
 
+    var multi_mean_square = try multi.groupByMeanSquareOn(&.{ "store", "day" }, "amount", "amount_mean_square_simple");
+    defer multi_mean_square.deinit();
+    const ms_simple_mean_square = try (try multi_mean_square.column("amount_mean_square_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mean_square);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), ms_simple_mean_square[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 81.0), ms_simple_mean_square[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0), ms_simple_mean_square[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 144.0), ms_simple_mean_square[3], 1e-12);
+
     var multi_rms = try multi.groupByRmsOn(&.{ "store", "day" }, "amount", "amount_rms_simple");
     defer multi_rms.deinit();
     const ms_simple_rms = try (try multi_rms.column("amount_rms_simple")).f64.toOwnedSlice(gpa);
@@ -830,6 +860,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_l2[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_l2[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_l2[3], 1e-12);
+
+    var multi_max_abs = try multi.groupByMaxAbsOn(&.{ "store", "day" }, "amount", "amount_max_abs_simple");
+    defer multi_max_abs.deinit();
+    const ms_simple_max_abs = try (try multi_max_abs.column("amount_max_abs_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_max_abs);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), ms_simple_max_abs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_max_abs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_max_abs[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_max_abs[3], 1e-12);
+
+    var multi_min_abs = try multi.groupByMinAbsOn(&.{ "store", "day" }, "amount", "amount_min_abs_simple");
+    defer multi_min_abs.deinit();
+    const ms_simple_min_abs = try (try multi_min_abs.column("amount_min_abs_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_min_abs);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), ms_simple_min_abs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), ms_simple_min_abs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_min_abs[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_min_abs[3], 1e-12);
 
     var multi_geometric = try multi.groupByGeometricMeanOn(&.{ "store", "day" }, "amount", "amount_geometric_simple");
     defer multi_geometric.deinit();
@@ -1083,6 +1131,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_fano[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_fano[3], 1e-12);
 
+    var multi_mean_square_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mean_square_plan.deinit();
+    try multi_mean_square_plan.groupByMeanSqOn(&.{ "store", "day" }, "amount", "amount_mean_square_lazy");
+    const multi_mean_square_explained = try multi_mean_square_plan.explain(gpa);
+    defer gpa.free(multi_mean_square_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mean_square_explained, "group_by_mean_square_on([store,day], value=amount -> amount_mean_square_lazy)") != null);
+    var lazy_multi_mean_square = try multi_mean_square_plan.collect();
+    defer lazy_multi_mean_square.deinit();
+    const lazy_ms_mean_square = try (try lazy_multi_mean_square.column("amount_mean_square_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mean_square);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.5), lazy_ms_mean_square[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 81.0), lazy_ms_mean_square[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0), lazy_ms_mean_square[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 144.0), lazy_ms_mean_square[3], 1e-12);
+
     var multi_mean_abs_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_mean_abs_plan.deinit();
     try multi_mean_abs_plan.groupByMeanAbsOn(&.{ "store", "day" }, "amount", "amount_mean_abs_lazy");
@@ -1097,6 +1160,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_mean_abs[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_mean_abs[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_mean_abs[3], 1e-12);
+
+    var multi_max_abs_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_max_abs_plan.deinit();
+    try multi_max_abs_plan.groupByMaxAbsOn(&.{ "store", "day" }, "amount", "amount_max_abs_lazy");
+    const multi_max_abs_explained = try multi_max_abs_plan.explain(gpa);
+    defer gpa.free(multi_max_abs_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_max_abs_explained, "group_by_max_abs_on([store,day], value=amount -> amount_max_abs_lazy)") != null);
+    var lazy_multi_max_abs = try multi_max_abs_plan.collect();
+    defer lazy_multi_max_abs.deinit();
+    const lazy_ms_max_abs = try (try lazy_multi_max_abs.column("amount_max_abs_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_max_abs);
+    try std.testing.expectApproxEqAbs(@as(f64, 2.0), lazy_ms_max_abs[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_max_abs[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_max_abs[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_max_abs[3], 1e-12);
 
     var multi_l2_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_l2_plan.deinit();

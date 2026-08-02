@@ -49,9 +49,12 @@ const GroupByMomentAggregation = enum {
 
 const GroupByRealAggregation = enum {
     mean_abs,
+    mean_square,
     rms,
     l1_norm,
     l2_norm,
+    max_abs,
+    min_abs,
     geometric_mean,
     harmonic_mean,
     logsumexp,
@@ -756,7 +759,19 @@ fn groupByRealOnTyped(
         const value_f64 = castToF64(V, value_item);
         switch (aggregation) {
             .mean_abs, .l1_norm => totals.items[group_index] += @abs(value_f64),
-            .rms, .l2_norm => totals.items[group_index] += value_f64 * value_f64,
+            .mean_square, .rms, .l2_norm => totals.items[group_index] += value_f64 * value_f64,
+            .max_abs => {
+                const magnitude = @abs(value_f64);
+                if (counts.items[group_index] == 0 or std.math.isNan(magnitude) or (!std.math.isNan(totals.items[group_index]) and magnitude > totals.items[group_index])) {
+                    totals.items[group_index] = magnitude;
+                }
+            },
+            .min_abs => {
+                const magnitude = @abs(value_f64);
+                if (counts.items[group_index] == 0 or std.math.isNan(magnitude) or (!std.math.isNan(totals.items[group_index]) and magnitude < totals.items[group_index])) {
+                    totals.items[group_index] = magnitude;
+                }
+            },
             .geometric_mean => {
                 if (value_f64 < 0.0) {
                     totals.items[group_index] = std.math.nan(f64);
@@ -816,9 +831,11 @@ fn groupByRealOnTyped(
     for (totals.items, counts.items, zero_seen.items, aux_values.items, out) |total, count, has_zero, aux_value, *slot| {
         slot.* = switch (aggregation) {
             .mean_abs => total / @as(f64, @floatFromInt(count)),
+            .mean_square => total / @as(f64, @floatFromInt(count)),
             .rms => std.math.sqrt(total / @as(f64, @floatFromInt(count))),
             .l1_norm => total,
             .l2_norm => std.math.sqrt(total),
+            .max_abs, .min_abs => total,
             .geometric_mean => if (std.math.isNan(total)) std.math.nan(f64) else if (has_zero) 0.0 else std.math.exp(total / @as(f64, @floatFromInt(count))),
             .harmonic_mean => if (std.math.isInf(total)) 0.0 else @as(f64, @floatFromInt(count)) / total,
             .logsumexp, .logmeanexp => blk: {
@@ -865,6 +882,16 @@ pub fn groupByMeanAbsOn(
     return groupByRealOn(DeviceDataFrame, .mean_abs, frame, key_names, value_name, output_name);
 }
 
+pub fn groupByMeanSquareOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .mean_square, frame, key_names, value_name, output_name);
+}
+
 pub fn groupByRmsOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -893,6 +920,26 @@ pub fn groupByL2NormOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRealOn(DeviceDataFrame, .l2_norm, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMaxAbsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .max_abs, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMinAbsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .min_abs, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByGeometricMeanOn(
