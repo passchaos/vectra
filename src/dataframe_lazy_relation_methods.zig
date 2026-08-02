@@ -253,6 +253,18 @@ pub fn withGroupLastRowValueOn(self: anytype, key_names: []const []const u8, val
     return lazy_group_mod.withGroupLastRowValue(self, key_names, value_name, output_name);
 }
 
+pub fn withGroupNthRowValue(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupNthRowValueOn(self, key_names[0..], value_name, output_name, n);
+}
+
+pub fn withGroupNthRowValueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.withGroupNthRowValue(self, key_names, value_name, output_name, n);
+}
+
+pub const withGroupNthValue = withGroupNthRowValue;
+pub const withGroupNthValueOn = withGroupNthRowValueOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);
