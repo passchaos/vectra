@@ -3489,7 +3489,25 @@ const GroupCumulativeWeightedModeOp = enum { mode, mode_weight, mode_ratio, mode
 
 const GroupCumulativeWeightedDistributionOp = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
-const GroupCumulativeWeightedPairOp = enum { covariance, correlation, beta };
+const GroupCumulativeWeightedPairOp = enum {
+    dot,
+    cosine_similarity,
+    squared_euclidean_distance,
+    euclidean_distance,
+    manhattan_distance,
+    chebyshev_distance,
+    canberra_distance,
+    bray_curtis_distance,
+    mean_error,
+    mae,
+    mse,
+    rmse,
+    mape,
+    smape,
+    covariance,
+    correlation,
+    beta,
+};
 
 const GroupWeightedPrefixStats = struct {
     mode: f64,
@@ -4033,6 +4051,18 @@ fn withGroupCumulativeWeightedPairMomentOn(
     defer rhs_square_sums.deinit(frame.allocator);
     var cross_sums: std.ArrayList(f64) = .empty;
     defer cross_sums.deinit(frame.allocator);
+    var weighted_abs_error_sums: std.ArrayList(f64) = .empty;
+    defer weighted_abs_error_sums.deinit(frame.allocator);
+    var chebyshev_values: std.ArrayList(f64) = .empty;
+    defer chebyshev_values.deinit(frame.allocator);
+    var weighted_canberra_sums: std.ArrayList(f64) = .empty;
+    defer weighted_canberra_sums.deinit(frame.allocator);
+    var weighted_bray_denominators: std.ArrayList(f64) = .empty;
+    defer weighted_bray_denominators.deinit(frame.allocator);
+    var weighted_mape_sums: std.ArrayList(f64) = .empty;
+    defer weighted_mape_sums.deinit(frame.allocator);
+    var weighted_smape_sums: std.ArrayList(f64) = .empty;
+    defer weighted_smape_sums.deinit(frame.allocator);
 
     for (0..frame.rows) |row| {
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
@@ -4055,17 +4085,36 @@ fn withGroupCumulativeWeightedPairMomentOn(
             try lhs_square_sums.append(frame.allocator, 0.0);
             try rhs_square_sums.append(frame.allocator, 0.0);
             try cross_sums.append(frame.allocator, 0.0);
+            try weighted_abs_error_sums.append(frame.allocator, 0.0);
+            try chebyshev_values.append(frame.allocator, 0.0);
+            try weighted_canberra_sums.append(frame.allocator, 0.0);
+            try weighted_bray_denominators.append(frame.allocator, 0.0);
+            try weighted_mape_sums.append(frame.allocator, 0.0);
+            try weighted_smape_sums.append(frame.allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
 
         const lhs_value = lhs.values[row];
         const rhs_value = rhs.values[row];
+        const signed_error = lhs_value - rhs_value;
+        const abs_error = @abs(signed_error);
+        const abs_lhs = @abs(lhs_value);
+        const abs_rhs = @abs(rhs_value);
+        const abs_sum = abs_lhs + abs_rhs;
         weight_sums.items[group_index] += weight;
         lhs_sums.items[group_index] += weight * lhs_value;
         rhs_sums.items[group_index] += weight * rhs_value;
         lhs_square_sums.items[group_index] += weight * lhs_value * lhs_value;
         rhs_square_sums.items[group_index] += weight * rhs_value * rhs_value;
         cross_sums.items[group_index] += weight * lhs_value * rhs_value;
+        weighted_abs_error_sums.items[group_index] += weight * abs_error;
+        if (weight != 0.0) {
+            chebyshev_values.items[group_index] = @max(chebyshev_values.items[group_index], abs_error);
+            weighted_canberra_sums.items[group_index] += if (abs_sum == 0.0) 0.0 else weight * abs_error / abs_sum;
+            weighted_bray_denominators.items[group_index] += weight * abs_sum;
+            weighted_mape_sums.items[group_index] += if (lhs_value == 0.0) std.math.nan(f64) else weight * abs_error / abs_lhs;
+            weighted_smape_sums.items[group_index] += if (abs_sum == 0.0) std.math.nan(f64) else weight * 2.0 * abs_error / abs_sum;
+        }
 
         const weight_sum = weight_sums.items[group_index];
         if (!(weight_sum > 0.0)) {
@@ -4078,9 +4127,24 @@ fn withGroupCumulativeWeightedPairMomentOn(
         var lhs_centered = lhs_square_sums.items[group_index] - lhs_sums.items[group_index] * lhs_sums.items[group_index] / weight_sum;
         var rhs_centered = rhs_square_sums.items[group_index] - rhs_sums.items[group_index] * rhs_sums.items[group_index] / weight_sum;
         const cross_centered = cross_sums.items[group_index] - lhs_sums.items[group_index] * rhs_sums.items[group_index] / weight_sum;
+        const squared_distance = lhs_square_sums.items[group_index] + rhs_square_sums.items[group_index] - 2.0 * cross_sums.items[group_index];
         if (lhs_centered < 0.0 and lhs_centered > -1e-12) lhs_centered = 0.0;
         if (rhs_centered < 0.0 and rhs_centered > -1e-12) rhs_centered = 0.0;
         outputs[row] = switch (op) {
+            .dot => cross_sums.items[group_index],
+            .cosine_similarity => if (lhs_square_sums.items[group_index] == 0.0 or rhs_square_sums.items[group_index] == 0.0) std.math.nan(f64) else cross_sums.items[group_index] / (std.math.sqrt(lhs_square_sums.items[group_index]) * std.math.sqrt(rhs_square_sums.items[group_index])),
+            .squared_euclidean_distance => squared_distance,
+            .euclidean_distance => std.math.sqrt(squared_distance),
+            .manhattan_distance => weighted_abs_error_sums.items[group_index],
+            .chebyshev_distance => chebyshev_values.items[group_index],
+            .canberra_distance => weighted_canberra_sums.items[group_index],
+            .bray_curtis_distance => if (weighted_bray_denominators.items[group_index] == 0.0) std.math.nan(f64) else weighted_abs_error_sums.items[group_index] / weighted_bray_denominators.items[group_index],
+            .mean_error => (lhs_sums.items[group_index] - rhs_sums.items[group_index]) / weight_sum,
+            .mae => weighted_abs_error_sums.items[group_index] / weight_sum,
+            .mse => squared_distance / weight_sum,
+            .rmse => std.math.sqrt(squared_distance / weight_sum),
+            .mape => weighted_mape_sums.items[group_index] / weight_sum,
+            .smape => weighted_smape_sums.items[group_index] / weight_sum,
             .covariance => if (denominator <= 0.0) std.math.nan(f64) else cross_centered / denominator,
             .correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) std.math.nan(f64) else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
             .beta => if (denominator <= 0.0 or lhs_centered == 0.0) std.math.nan(f64) else cross_centered / lhs_centered,
@@ -4103,6 +4167,62 @@ pub fn withGroupCumulativeWeightedCorrelationOn(comptime DeviceDataFrame: type, 
 
 pub fn withGroupCumulativeWeightedBetaOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .beta);
+}
+
+pub fn withGroupCumulativeWeightedDotOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .dot);
+}
+
+pub fn withGroupCumulativeWeightedCosineSimilarityOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .cosine_similarity);
+}
+
+pub fn withGroupCumulativeWeightedSquaredEuclideanDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .squared_euclidean_distance);
+}
+
+pub fn withGroupCumulativeWeightedEuclideanDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .euclidean_distance);
+}
+
+pub fn withGroupCumulativeWeightedManhattanDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .manhattan_distance);
+}
+
+pub fn withGroupCumulativeWeightedChebyshevDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .chebyshev_distance);
+}
+
+pub fn withGroupCumulativeWeightedCanberraDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .canberra_distance);
+}
+
+pub fn withGroupCumulativeWeightedBrayCurtisDistanceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .bray_curtis_distance);
+}
+
+pub fn withGroupCumulativeWeightedMeanErrorOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mean_error);
+}
+
+pub fn withGroupCumulativeWeightedMaeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mae);
+}
+
+pub fn withGroupCumulativeWeightedMseOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mse);
+}
+
+pub fn withGroupCumulativeWeightedRmseOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .rmse);
+}
+
+pub fn withGroupCumulativeWeightedMapeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mape);
+}
+
+pub fn withGroupCumulativeWeightedSmapeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .smape);
 }
 
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;

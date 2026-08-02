@@ -1899,6 +1899,169 @@ pub const withGroupCumWeightedConcentrationOn = withGroupCumulativeWeightedSimps
 pub const withGroupCumWeightedEvenness = withGroupCumulativeWeightedEvenness;
 pub const withGroupCumWeightedEvennessOn = withGroupCumulativeWeightedEvennessOn;
 
+pub fn withGroupCumulativeWeightedDot(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedDotOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedDotOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedDotOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCosineSimilarity(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedCosineSimilarityOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCosineSimilarityOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedCosineSimilarityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSquaredEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSquaredEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSquaredEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedSquaredEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedManhattanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedManhattanDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedManhattanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedManhattanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedChebyshevDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedChebyshevDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedChebyshevDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedChebyshevDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCanberraDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedCanberraDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCanberraDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedCanberraDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedBrayCurtisDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedBrayCurtisDistanceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedBrayCurtisDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedBrayCurtisDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanError(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanErrorOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanErrorOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMeanErrorOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMae(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMaeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMaeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMaeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMseOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRmse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedRmseOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRmseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedRmseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMapeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSmape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSmapeOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedSmapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedCosine = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumulativeWeightedCosineOn = withGroupCumulativeWeightedCosineSimilarityOn;
+pub const withGroupCumulativeWeightedBias = withGroupCumulativeWeightedMeanError;
+pub const withGroupCumulativeWeightedBiasOn = withGroupCumulativeWeightedMeanErrorOn;
+pub const withGroupCumWeightedDot = withGroupCumulativeWeightedDot;
+pub const withGroupCumWeightedDotOn = withGroupCumulativeWeightedDotOn;
+pub const withGroupCumWeightedCosineSimilarity = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumWeightedCosineSimilarityOn = withGroupCumulativeWeightedCosineSimilarityOn;
+pub const withGroupCumWeightedSquaredEuclideanDistance = withGroupCumulativeWeightedSquaredEuclideanDistance;
+pub const withGroupCumWeightedSquaredEuclideanDistanceOn = withGroupCumulativeWeightedSquaredEuclideanDistanceOn;
+pub const withGroupCumWeightedEuclideanDistance = withGroupCumulativeWeightedEuclideanDistance;
+pub const withGroupCumWeightedEuclideanDistanceOn = withGroupCumulativeWeightedEuclideanDistanceOn;
+pub const withGroupCumWeightedManhattanDistance = withGroupCumulativeWeightedManhattanDistance;
+pub const withGroupCumWeightedManhattanDistanceOn = withGroupCumulativeWeightedManhattanDistanceOn;
+pub const withGroupCumWeightedChebyshevDistance = withGroupCumulativeWeightedChebyshevDistance;
+pub const withGroupCumWeightedChebyshevDistanceOn = withGroupCumulativeWeightedChebyshevDistanceOn;
+pub const withGroupCumWeightedCanberraDistance = withGroupCumulativeWeightedCanberraDistance;
+pub const withGroupCumWeightedCanberraDistanceOn = withGroupCumulativeWeightedCanberraDistanceOn;
+pub const withGroupCumWeightedBrayCurtisDistance = withGroupCumulativeWeightedBrayCurtisDistance;
+pub const withGroupCumWeightedBrayCurtisDistanceOn = withGroupCumulativeWeightedBrayCurtisDistanceOn;
+pub const withGroupCumWeightedMeanError = withGroupCumulativeWeightedMeanError;
+pub const withGroupCumWeightedMeanErrorOn = withGroupCumulativeWeightedMeanErrorOn;
+pub const withGroupCumWeightedMae = withGroupCumulativeWeightedMae;
+pub const withGroupCumWeightedMaeOn = withGroupCumulativeWeightedMaeOn;
+pub const withGroupCumWeightedMse = withGroupCumulativeWeightedMse;
+pub const withGroupCumWeightedMseOn = withGroupCumulativeWeightedMseOn;
+pub const withGroupCumWeightedRmse = withGroupCumulativeWeightedRmse;
+pub const withGroupCumWeightedRmseOn = withGroupCumulativeWeightedRmseOn;
+pub const withGroupCumWeightedMape = withGroupCumulativeWeightedMape;
+pub const withGroupCumWeightedMapeOn = withGroupCumulativeWeightedMapeOn;
+pub const withGroupCumWeightedSmape = withGroupCumulativeWeightedSmape;
+pub const withGroupCumWeightedSmapeOn = withGroupCumulativeWeightedSmapeOn;
+pub const withGroupCumWeightedCosine = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumWeightedCosineOn = withGroupCumulativeWeightedCosineSimilarityOn;
+pub const withGroupCumWeightedBias = withGroupCumulativeWeightedMeanError;
+pub const withGroupCumWeightedBiasOn = withGroupCumulativeWeightedMeanErrorOn;
+
 pub fn withGroupCumulativeWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);

@@ -1921,7 +1921,7 @@ pub fn withGroupCumulativeWeightedEvenness(frame: anytype, key_names: []const []
     return withGroupCumulativeWeightedDistributionCore(frame, key_names, value_name, weight_name, output_name, .evenness);
 }
 
-fn withGroupCumulativeWeightedPairMoment(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64, comptime op: enum { covariance, correlation, beta }) DeviceDataError!void {
+fn withGroupCumulativeWeightedPairMoment(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64, comptime op: enum { dot, cosine_similarity, squared_euclidean_distance, euclidean_distance, manhattan_distance, chebyshev_distance, canberra_distance, bray_curtis_distance, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
@@ -1933,6 +1933,20 @@ fn withGroupCumulativeWeightedPairMoment(frame: anytype, key_names: []const []co
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     try frame.ops.append(frame.allocator, switch (op) {
+        .dot => .{ .group_cumulative_weighted_dot = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .cosine_similarity => .{ .group_cumulative_weighted_cosine_similarity = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .squared_euclidean_distance => .{ .group_cumulative_weighted_squared_euclidean_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .euclidean_distance => .{ .group_cumulative_weighted_euclidean_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .manhattan_distance => .{ .group_cumulative_weighted_manhattan_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .chebyshev_distance => .{ .group_cumulative_weighted_chebyshev_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .canberra_distance => .{ .group_cumulative_weighted_canberra_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .bray_curtis_distance => .{ .group_cumulative_weighted_bray_curtis_distance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .mean_error => .{ .group_cumulative_weighted_mean_error = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .mae => .{ .group_cumulative_weighted_mae = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .mse => .{ .group_cumulative_weighted_mse = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .rmse => .{ .group_cumulative_weighted_rmse = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .mape => .{ .group_cumulative_weighted_mape = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .smape => .{ .group_cumulative_weighted_smape = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
         .covariance => .{ .group_cumulative_weighted_covariance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
         .correlation => .{ .group_cumulative_weighted_correlation = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
         .beta => .{ .group_cumulative_weighted_beta = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
@@ -1949,6 +1963,62 @@ pub fn withGroupCumulativeWeightedCorrelation(frame: anytype, key_names: []const
 
 pub fn withGroupCumulativeWeightedBeta(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .beta);
+}
+
+pub fn withGroupCumulativeWeightedDot(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .dot);
+}
+
+pub fn withGroupCumulativeWeightedCosineSimilarity(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .cosine_similarity);
+}
+
+pub fn withGroupCumulativeWeightedSquaredEuclideanDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .squared_euclidean_distance);
+}
+
+pub fn withGroupCumulativeWeightedEuclideanDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .euclidean_distance);
+}
+
+pub fn withGroupCumulativeWeightedManhattanDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .manhattan_distance);
+}
+
+pub fn withGroupCumulativeWeightedChebyshevDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .chebyshev_distance);
+}
+
+pub fn withGroupCumulativeWeightedCanberraDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .canberra_distance);
+}
+
+pub fn withGroupCumulativeWeightedBrayCurtisDistance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .bray_curtis_distance);
+}
+
+pub fn withGroupCumulativeWeightedMeanError(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mean_error);
+}
+
+pub fn withGroupCumulativeWeightedMae(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mae);
+}
+
+pub fn withGroupCumulativeWeightedMse(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mse);
+}
+
+pub fn withGroupCumulativeWeightedRmse(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .rmse);
+}
+
+pub fn withGroupCumulativeWeightedMape(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .mape);
+}
+
+pub fn withGroupCumulativeWeightedSmape(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, 0.0, .smape);
 }
 
 pub fn withGroupCumulativeWeightedVariance(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -1986,6 +2056,23 @@ pub const withGroupCumWeightedInverseSimpson = withGroupCumulativeWeightedInvers
 pub const withGroupCumWeightedSimpsonConcentration = withGroupCumulativeWeightedSimpsonConcentration;
 pub const withGroupCumWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
 pub const withGroupCumWeightedEvenness = withGroupCumulativeWeightedEvenness;
+pub const withGroupCumulativeWeightedCosine = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumWeightedDot = withGroupCumulativeWeightedDot;
+pub const withGroupCumWeightedCosineSimilarity = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumWeightedCosine = withGroupCumulativeWeightedCosineSimilarity;
+pub const withGroupCumWeightedSquaredEuclideanDistance = withGroupCumulativeWeightedSquaredEuclideanDistance;
+pub const withGroupCumWeightedEuclideanDistance = withGroupCumulativeWeightedEuclideanDistance;
+pub const withGroupCumWeightedManhattanDistance = withGroupCumulativeWeightedManhattanDistance;
+pub const withGroupCumWeightedChebyshevDistance = withGroupCumulativeWeightedChebyshevDistance;
+pub const withGroupCumWeightedCanberraDistance = withGroupCumulativeWeightedCanberraDistance;
+pub const withGroupCumWeightedBrayCurtisDistance = withGroupCumulativeWeightedBrayCurtisDistance;
+pub const withGroupCumWeightedMeanError = withGroupCumulativeWeightedMeanError;
+pub const withGroupCumWeightedBias = withGroupCumulativeWeightedMeanError;
+pub const withGroupCumWeightedMae = withGroupCumulativeWeightedMae;
+pub const withGroupCumWeightedMse = withGroupCumulativeWeightedMse;
+pub const withGroupCumWeightedRmse = withGroupCumulativeWeightedRmse;
+pub const withGroupCumWeightedMape = withGroupCumulativeWeightedMape;
+pub const withGroupCumWeightedSmape = withGroupCumulativeWeightedSmape;
 pub const withGroupCumulativeWeightedCov = withGroupCumulativeWeightedCovariance;
 pub const withGroupCumulativeWeightedCorr = withGroupCumulativeWeightedCorrelation;
 pub const withGroupCumWeightedCovariance = withGroupCumulativeWeightedCovariance;

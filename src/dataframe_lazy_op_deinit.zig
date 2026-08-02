@@ -731,7 +731,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(shift.weight_name);
             allocator.free(shift.output_name);
         },
-        .group_cumulative_weighted_covariance, .group_cumulative_weighted_correlation, .group_cumulative_weighted_beta => |shift| {
+        .group_cumulative_weighted_dot, .group_cumulative_weighted_cosine_similarity, .group_cumulative_weighted_squared_euclidean_distance, .group_cumulative_weighted_euclidean_distance, .group_cumulative_weighted_manhattan_distance, .group_cumulative_weighted_chebyshev_distance, .group_cumulative_weighted_canberra_distance, .group_cumulative_weighted_bray_curtis_distance, .group_cumulative_weighted_mean_error, .group_cumulative_weighted_mae, .group_cumulative_weighted_mse, .group_cumulative_weighted_rmse, .group_cumulative_weighted_mape, .group_cumulative_weighted_smape, .group_cumulative_weighted_covariance, .group_cumulative_weighted_correlation, .group_cumulative_weighted_beta => |shift| {
             freeNameList(allocator, shift.names);
             allocator.free(shift.lhs_name);
             allocator.free(shift.rhs_name);

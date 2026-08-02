@@ -21,6 +21,17 @@ pub fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: anytype) std.Io.
     if (!printed) try writer.print("none", .{});
 }
 
+fn formatGroupWeightedPairShift(writer: *std.Io.Writer, comptime op_name: []const u8, shift: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}([", .{op_name});
+    for (shift.names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], lhs={s}, rhs={s}, weight={s}", .{ shift.lhs_name, shift.rhs_name, shift.weight_name });
+    if (shift.correction != 0.0) try writer.print(", correction={d}", .{shift.correction});
+    try writer.print("->{s})", .{shift.output_name});
+}
+
 pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!void {
     switch (op) {
         .select => |names| {
@@ -3791,6 +3802,20 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
         },
+        .group_cumulative_weighted_dot => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_dot", shift),
+        .group_cumulative_weighted_cosine_similarity => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_cosine_similarity", shift),
+        .group_cumulative_weighted_squared_euclidean_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_squared_euclidean_distance", shift),
+        .group_cumulative_weighted_euclidean_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_euclidean_distance", shift),
+        .group_cumulative_weighted_manhattan_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_manhattan_distance", shift),
+        .group_cumulative_weighted_chebyshev_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_chebyshev_distance", shift),
+        .group_cumulative_weighted_canberra_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_canberra_distance", shift),
+        .group_cumulative_weighted_bray_curtis_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_bray_curtis_distance", shift),
+        .group_cumulative_weighted_mean_error => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_mean_error", shift),
+        .group_cumulative_weighted_mae => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_mae", shift),
+        .group_cumulative_weighted_mse => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_mse", shift),
+        .group_cumulative_weighted_rmse => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_rmse", shift),
+        .group_cumulative_weighted_mape => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_mape", shift),
+        .group_cumulative_weighted_smape => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_smape", shift),
         .group_cumulative_weighted_covariance => |shift| {
             try writer.print("group_cumulative_weighted_covariance([", .{});
             for (shift.names, 0..) |name, i| {
