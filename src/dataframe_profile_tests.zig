@@ -1143,6 +1143,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_range_coeff_delta.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_range_coeff_delta, gpa, "store_delta_cum_range_coeff", &.{ -0.0, -0.0, 0.0, 0.0, -8.0 / 14.0, 15.0 / 11.0 }, &.{ true, true, false, false, true, true });
 
+    var group_cum_logsumexp_sales = try table.withGroupCumulativeLogSumExp("store", "sales", "store_sales_cum_logsumexp");
+    defer group_cum_logsumexp_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_logsumexp_sales, gpa, "store_sales_cum_logsumexp", &.{ 2.0, 3.0, 0.0, 0.0, 11.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-8.0)), 13.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-11.0)) }, &.{ true, true, false, false, true, true });
+
+    var group_cum_logmeanexp_sales = try table.withGroupCumulativeLogMeanExp("store", "sales", "store_sales_cum_logmeanexp");
+    defer group_cum_logmeanexp_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_logmeanexp_sales, gpa, "store_sales_cum_logmeanexp", &.{ 2.0, 3.0, 0.0, 0.0, 11.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-8.0)) - std.math.log(f64, std.math.e, 2.0), 13.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-11.0)) - std.math.log(f64, std.math.e, 2.0) }, &.{ true, true, false, false, true, true });
+
+    var group_cum_geometric_sales = try table.withGroupCumulativeGeometricMean("store", "sales", "store_sales_cum_geometric");
+    defer group_cum_geometric_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_geometric_sales, gpa, "store_sales_cum_geometric", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 33.0)), std.math.sqrt(@as(f64, 26.0)) }, &.{ true, true, false, false, true, true });
+
+    var group_cum_harmonic_sales = try table.withGroupCumulativeHarmonicMean("store", "sales", "store_sales_cum_harmonic");
+    defer group_cum_harmonic_sales.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_harmonic_sales, gpa, "store_sales_cum_harmonic", &.{ 2.0, 3.0, 0.0, 0.0, 33.0 / 7.0, 52.0 / 15.0 }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1382,6 +1398,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeRange("store", "delta", "store_delta_cum_range_lazy");
     try group_cume_dist_plan.withGroupCumulativeMidrange("store", "delta", "store_delta_cum_midrange_lazy");
     try group_cume_dist_plan.withGroupCumulativeRangeCoeff("store", "delta", "store_delta_cum_range_coeff_lazy");
+    try group_cume_dist_plan.withGroupCumulativeLogSumExp("store", "sales", "store_sales_cum_logsumexp_lazy");
+    try group_cume_dist_plan.withGroupCumulativeLogMeanExp("store", "sales", "store_sales_cum_logmeanexp_lazy");
+    try group_cume_dist_plan.withGroupCumulativeGeometricMean("store", "sales", "store_sales_cum_geometric_lazy");
+    try group_cume_dist_plan.withGroupCumulativeHarmonicMean("store", "sales", "store_sales_cum_harmonic_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1424,6 +1444,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_range([store], value=delta->store_delta_cum_range_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_midrange([store], value=delta->store_delta_cum_midrange_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_range_coeff([store], value=delta->store_delta_cum_range_coeff_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_logsumexp([store], value=sales->store_sales_cum_logsumexp_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_logmeanexp([store], value=sales->store_sales_cum_logmeanexp_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_geometric_mean([store], value=sales->store_sales_cum_geometric_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_harmonic_mean([store], value=sales->store_sales_cum_harmonic_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1466,6 +1490,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_range_lazy", &.{ 0.0, 0.0, 0.0, 0.0, 8.0, 15.0 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_midrange_lazy", &.{ -2.0, -3.0, 0.0, 0.0, -7.0, 5.5 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_range_coeff_lazy", &.{ -0.0, -0.0, 0.0, 0.0, -8.0 / 14.0, 15.0 / 11.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_logsumexp_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 11.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-8.0)), 13.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-11.0)) }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_logmeanexp_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 11.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-8.0)) - std.math.log(f64, std.math.e, 2.0), 13.0 + std.math.log(f64, std.math.e, 1.0 + std.math.exp(-11.0)) - std.math.log(f64, std.math.e, 2.0) }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_geometric_lazy", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 33.0)), std.math.sqrt(@as(f64, 26.0)) }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_sales_cum_harmonic_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 33.0 / 7.0, 52.0 / 15.0 }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();

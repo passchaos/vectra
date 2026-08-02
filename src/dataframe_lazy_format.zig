@@ -2999,6 +2999,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_logsumexp => |shift| {
+            try writer.print("group_cumulative_logsumexp([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_logmeanexp => |shift| {
+            try writer.print("group_cumulative_logmeanexp([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_geometric_mean => |shift| {
+            try writer.print("group_cumulative_geometric_mean([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_harmonic_mean => |shift| {
+            try writer.print("group_cumulative_harmonic_mean([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_row_number => |row_count| {
             try writer.print("group_row_number([", .{});
             for (row_count.names, 0..) |name, i| {

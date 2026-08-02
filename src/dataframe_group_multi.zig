@@ -2044,7 +2044,7 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff, logsumexp, logmeanexp, geometric_mean, harmonic_mean };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {
     return switch (op) {
@@ -2055,7 +2055,14 @@ fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp
 
 fn groupCumulativeNumericUsesExtremaPair(comptime op: GroupCumulativeNumericOp) bool {
     return switch (op) {
-        .range, .midrange, .range_coeff => true,
+        .range, .midrange, .range_coeff, .logsumexp, .logmeanexp => true,
+        else => false,
+    };
+}
+
+fn groupCumulativeNumericUsesFlag(comptime op: GroupCumulativeNumericOp) bool {
+    return switch (op) {
+        .geometric_mean => true,
         else => false,
     };
 }
@@ -2092,6 +2099,8 @@ fn withGroupCumulativeNumericOnTyped(
     defer group_profiles.deinit(frame.allocator);
     var group_secondary_accumulators: std.ArrayList(f64) = .empty;
     defer group_secondary_accumulators.deinit(frame.allocator);
+    var group_flags: std.ArrayList(bool) = .empty;
+    defer group_flags.deinit(frame.allocator);
 
     for (values, 0..) |value_item, row| {
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
@@ -2101,6 +2110,7 @@ fn withGroupCumulativeNumericOnTyped(
             try group_counts.append(frame.allocator, 0);
             if (groupCumulativeNumericUsesMomentProfile(op)) try group_profiles.append(frame.allocator, .{});
             if (groupCumulativeNumericUsesExtremaPair(op)) try group_secondary_accumulators.append(frame.allocator, 0.0);
+            if (groupCumulativeNumericUsesFlag(op)) try group_flags.append(frame.allocator, false);
             break :blk representative_rows.items.len - 1;
         };
         const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
@@ -2134,6 +2144,44 @@ fn withGroupCumulativeNumericOnTyped(
                     if (value_f64 > group_secondary_accumulators.items[group_index]) group_secondary_accumulators.items[group_index] = value_f64;
                 }
             },
+            .logsumexp, .logmeanexp => {
+                if (std.math.isNan(value_f64)) {
+                    group_accumulators.items[group_index] = std.math.nan(f64);
+                    group_secondary_accumulators.items[group_index] = std.math.nan(f64);
+                } else if (seen_before == 0) {
+                    group_secondary_accumulators.items[group_index] = value_f64;
+                    group_accumulators.items[group_index] = 1.0;
+                } else if (!std.math.isNan(group_accumulators.items[group_index])) {
+                    if (std.math.isPositiveInf(group_secondary_accumulators.items[group_index])) {
+                        group_accumulators.items[group_index] = 1.0;
+                    } else if (std.math.isPositiveInf(value_f64)) {
+                        group_secondary_accumulators.items[group_index] = value_f64;
+                        group_accumulators.items[group_index] = 1.0;
+                    } else if (value_f64 > group_secondary_accumulators.items[group_index]) {
+                        group_accumulators.items[group_index] = group_accumulators.items[group_index] * std.math.exp(group_secondary_accumulators.items[group_index] - value_f64) + 1.0;
+                        group_secondary_accumulators.items[group_index] = value_f64;
+                    } else if (!(std.math.isNegativeInf(group_secondary_accumulators.items[group_index]) and std.math.isNegativeInf(value_f64))) {
+                        group_accumulators.items[group_index] += std.math.exp(value_f64 - group_secondary_accumulators.items[group_index]);
+                    }
+                }
+            },
+            .geometric_mean => {
+                if (value_f64 < 0.0) {
+                    group_accumulators.items[group_index] = std.math.nan(f64);
+                } else if (value_f64 == 0.0 and !std.math.isNan(group_accumulators.items[group_index])) {
+                    group_flags.items[group_index] = true;
+                    group_accumulators.items[group_index] = 0.0;
+                } else if (!group_flags.items[group_index] and !std.math.isNan(group_accumulators.items[group_index])) {
+                    group_accumulators.items[group_index] += std.math.log(f64, std.math.e, value_f64);
+                }
+            },
+            .harmonic_mean => {
+                if (value_f64 == 0.0 and !std.math.isNan(group_accumulators.items[group_index])) {
+                    group_accumulators.items[group_index] = std.math.inf(f64);
+                } else if (!std.math.isInf(group_accumulators.items[group_index])) {
+                    group_accumulators.items[group_index] += 1.0 / value_f64;
+                }
+            },
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
@@ -2157,6 +2205,17 @@ fn withGroupCumulativeNumericOnTyped(
                 const denominator = group_secondary_accumulators.items[group_index] + group_accumulators.items[group_index];
                 break :blk if (denominator == 0.0) std.math.nan(f64) else (group_secondary_accumulators.items[group_index] - group_accumulators.items[group_index]) / denominator;
             },
+            .logsumexp, .logmeanexp => blk: {
+                const total = group_accumulators.items[group_index];
+                const max_value = group_secondary_accumulators.items[group_index];
+                if (std.math.isNan(total) or std.math.isNan(max_value)) break :blk std.math.nan(f64);
+                if (std.math.isPositiveInf(max_value) or std.math.isNegativeInf(max_value)) break :blk max_value;
+                var result = max_value + std.math.log(f64, std.math.e, total);
+                if (op == .logmeanexp) result -= std.math.log(f64, std.math.e, @as(f64, @floatFromInt(group_counts.items[group_index])));
+                break :blk result;
+            },
+            .geometric_mean => if (std.math.isNan(group_accumulators.items[group_index])) std.math.nan(f64) else if (group_flags.items[group_index]) 0.0 else std.math.exp(group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index]))),
+            .harmonic_mean => if (std.math.isInf(group_accumulators.items[group_index])) 0.0 else @as(f64, @floatFromInt(group_counts.items[group_index])) / group_accumulators.items[group_index],
         };
         row_validity[row] = true;
     }
@@ -2415,6 +2474,46 @@ pub fn withGroupCumulativeRangeCoeffOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .range_coeff);
 }
 
+pub fn withGroupCumulativeLogSumExpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .logsumexp);
+}
+
+pub fn withGroupCumulativeLogMeanExpOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .logmeanexp);
+}
+
+pub fn withGroupCumulativeGeometricMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .geometric_mean);
+}
+
+pub fn withGroupCumulativeHarmonicMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .harmonic_mean);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
@@ -2474,6 +2573,18 @@ pub const withGroupCumMidrangeOn = withGroupCumulativeMidrangeOn;
 pub const withGroupCumulativeRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
 pub const withGroupCumRangeCoeffOn = withGroupCumulativeRangeCoeffOn;
 pub const withGroupCumRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumulativeLogsumexpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumLogSumExpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumLogsumexpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumulativeLogmeanexpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumLogMeanExpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumLogmeanexpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumulativeGeoMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumGeometricMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumGeoMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumulativeHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
+pub const withGroupCumHarmonicMeanOn = withGroupCumulativeHarmonicMeanOn;
+pub const withGroupCumHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,

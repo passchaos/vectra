@@ -516,7 +516,7 @@ pub fn withGroupCumulativeNullRatio(frame: anytype, key_names: []const []const u
     return withGroupCumulativeValidityRatio(frame, key_names, value_name, output_name, true);
 }
 
-fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff }) DeviceDataError!void {
+fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff, logsumexp, logmeanexp, geometric_mean, harmonic_mean }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -656,6 +656,30 @@ fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, val
             .output_name = owned_output,
             .offset = 0,
         } },
+        .logsumexp => .{ .group_cumulative_logsumexp = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .logmeanexp => .{ .group_cumulative_logmeanexp = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .geometric_mean => .{ .group_cumulative_geometric_mean = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .harmonic_mean => .{ .group_cumulative_harmonic_mean = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
     });
 }
 
@@ -745,6 +769,22 @@ pub fn withGroupCumulativeMidrange(frame: anytype, key_names: []const []const u8
 
 pub fn withGroupCumulativeRangeCoeff(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .range_coeff);
+}
+
+pub fn withGroupCumulativeLogSumExp(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .logsumexp);
+}
+
+pub fn withGroupCumulativeLogMeanExp(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .logmeanexp);
+}
+
+pub fn withGroupCumulativeGeometricMean(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .geometric_mean);
+}
+
+pub fn withGroupCumulativeHarmonicMean(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .harmonic_mean);
 }
 
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {

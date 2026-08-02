@@ -590,6 +590,42 @@ pub fn withGroupCumulativeRangeCoeffOn(self: anytype, key_names: []const []const
     return group_multi_mod.withGroupCumulativeRangeCoeffOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeLogSumExp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLogSumExpOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLogSumExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeLogSumExpOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLogMeanExp(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLogMeanExpOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLogMeanExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeLogMeanExpOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeGeometricMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeGeometricMeanOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeGeometricMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeGeometricMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeHarmonicMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeHarmonicMeanOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeHarmonicMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeHarmonicMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -700,6 +736,30 @@ pub const withGroupCumRangeCoeff = withGroupCumulativeRangeCoeff;
 pub const withGroupCumRangeCoeffOn = withGroupCumulativeRangeCoeffOn;
 pub const withGroupCumRangeCoefficient = withGroupCumulativeRangeCoeff;
 pub const withGroupCumRangeCoefficientOn = withGroupCumulativeRangeCoeffOn;
+pub const withGroupCumulativeLogsumexp = withGroupCumulativeLogSumExp;
+pub const withGroupCumulativeLogsumexpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumLogSumExp = withGroupCumulativeLogSumExp;
+pub const withGroupCumLogSumExpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumLogsumexp = withGroupCumulativeLogSumExp;
+pub const withGroupCumLogsumexpOn = withGroupCumulativeLogSumExpOn;
+pub const withGroupCumulativeLogmeanexp = withGroupCumulativeLogMeanExp;
+pub const withGroupCumulativeLogmeanexpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumLogMeanExp = withGroupCumulativeLogMeanExp;
+pub const withGroupCumLogMeanExpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumLogmeanexp = withGroupCumulativeLogMeanExp;
+pub const withGroupCumLogmeanexpOn = withGroupCumulativeLogMeanExpOn;
+pub const withGroupCumulativeGeoMean = withGroupCumulativeGeometricMean;
+pub const withGroupCumulativeGeoMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumGeometricMean = withGroupCumulativeGeometricMean;
+pub const withGroupCumGeometricMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumGeoMean = withGroupCumulativeGeometricMean;
+pub const withGroupCumGeoMeanOn = withGroupCumulativeGeometricMeanOn;
+pub const withGroupCumulativeHarmMean = withGroupCumulativeHarmonicMean;
+pub const withGroupCumulativeHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
+pub const withGroupCumHarmonicMean = withGroupCumulativeHarmonicMean;
+pub const withGroupCumHarmonicMeanOn = withGroupCumulativeHarmonicMeanOn;
+pub const withGroupCumHarmMean = withGroupCumulativeHarmonicMean;
+pub const withGroupCumHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
