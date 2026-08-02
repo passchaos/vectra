@@ -3481,7 +3481,7 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-const GroupCumulativeWeightedMoment = enum { mean, variance, stddev };
+const GroupCumulativeWeightedMoment = enum { mean, variance, stddev, sem, cv, fano };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
 
@@ -3617,7 +3617,7 @@ fn withGroupCumulativeWeightedMomentOn(
         const weight_sum = weight_sums.items[group_index];
         outputs[row] = if (weight_sum > 0.0) switch (moment) {
             .mean => weighted_sums.items[group_index] / weight_sum,
-            .variance, .stddev => blk: {
+            .variance, .stddev, .sem, .cv, .fano => blk: {
                 var centered_square_sum = weighted_square_sums.items[group_index] - weighted_sums.items[group_index] * weighted_sums.items[group_index] / weight_sum;
                 // The one-pass prefix formula can produce a tiny negative value
                 // through cancellation when the true weighted variance is zero.
@@ -3625,7 +3625,16 @@ fn withGroupCumulativeWeightedMomentOn(
                 // left visible so callers do not get a silently fabricated stddev.
                 if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
                 const variance = centered_square_sum / weight_sum;
-                break :blk if (moment == .stddev) std.math.sqrt(variance) else variance;
+                const stddev = std.math.sqrt(variance);
+                const mean = weighted_sums.items[group_index] / weight_sum;
+                break :blk switch (moment) {
+                    .variance => variance,
+                    .stddev => stddev,
+                    .sem => std.math.sqrt(variance / weight_sum),
+                    .cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
+                    .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
+                    .mean => unreachable,
+                };
             },
         } else std.math.nan(f64);
         row_validity[row] = true;
@@ -3667,6 +3676,39 @@ pub fn withGroupCumulativeWeightedStddevOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .stddev);
+}
+
+pub fn withGroupCumulativeWeightedSemOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .sem);
+}
+
+pub fn withGroupCumulativeWeightedCvOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .cv);
+}
+
+pub fn withGroupCumulativeWeightedFanoOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .fano);
 }
 
 fn withGroupCumulativeWeightedQuantileCoreOn(
@@ -4226,6 +4268,13 @@ pub fn withGroupCumulativeWeightedSmapeOn(comptime DeviceDataFrame: type, frame:
 }
 
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedSemOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumWeightedSEMOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumWeightedCvOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedFanoOn = withGroupCumulativeWeightedFanoOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
 pub const withGroupCumWeightedQuantileOn = withGroupCumulativeWeightedQuantileOn;

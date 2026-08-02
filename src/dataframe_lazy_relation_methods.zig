@@ -2081,6 +2081,48 @@ pub const withGroupCumWeightedCorrOn = withGroupCumulativeWeightedCorrelationOn;
 pub const withGroupCumWeightedBeta = withGroupCumulativeWeightedBeta;
 pub const withGroupCumWeightedBetaOn = withGroupCumulativeWeightedBetaOn;
 
+pub fn withGroupCumulativeWeightedSem(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSemOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedSem(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCv(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedCvOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedCv(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedFano(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedFanoOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedFano(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedSEM = withGroupCumulativeWeightedSem;
+pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumulativeWeightedCV = withGroupCumulativeWeightedCv;
+pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedSem = withGroupCumulativeWeightedSem;
+pub const withGroupCumWeightedSemOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumWeightedSEM = withGroupCumulativeWeightedSem;
+pub const withGroupCumWeightedSEMOn = withGroupCumulativeWeightedSemOn;
+pub const withGroupCumWeightedCv = withGroupCumulativeWeightedCv;
+pub const withGroupCumWeightedCvOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedCV = withGroupCumulativeWeightedCv;
+pub const withGroupCumWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumWeightedFano = withGroupCumulativeWeightedFano;
+pub const withGroupCumWeightedFanoOn = withGroupCumulativeWeightedFanoOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);

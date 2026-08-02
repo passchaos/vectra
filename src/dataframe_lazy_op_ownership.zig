@@ -5102,6 +5102,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             errdefer allocator.free(output_name);
             break :blk .{ .group_cumulative_weighted_stddev = .{ .names = names, .value_name = value_name, .weight_name = weight_name, .output_name = output_name } };
         },
+        .group_cumulative_weighted_sem => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_sem"),
+        .group_cumulative_weighted_cv => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_cv"),
+        .group_cumulative_weighted_fano => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_fano"),
         .group_row_number => |row_count| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);

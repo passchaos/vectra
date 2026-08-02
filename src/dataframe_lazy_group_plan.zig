@@ -1787,7 +1787,7 @@ pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, va
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, variance, stddev }) DeviceDataError!void {
+fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, variance, stddev, sem, cv, fano }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1800,6 +1800,9 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
         .mean => .{ .group_cumulative_weighted_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .variance => .{ .group_cumulative_weighted_variance = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .stddev => .{ .group_cumulative_weighted_stddev = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .sem => .{ .group_cumulative_weighted_sem = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .cv => .{ .group_cumulative_weighted_cv = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .fano => .{ .group_cumulative_weighted_fano = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
     });
 }
 
@@ -2029,8 +2032,27 @@ pub fn withGroupCumulativeWeightedStddev(frame: anytype, key_names: []const []co
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .stddev);
 }
 
+pub fn withGroupCumulativeWeightedSem(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .sem);
+}
+
+pub fn withGroupCumulativeWeightedCv(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .cv);
+}
+
+pub fn withGroupCumulativeWeightedFano(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .fano);
+}
+
 pub const withGroupCumulativeWeightedVar = withGroupCumulativeWeightedVariance;
 pub const withGroupCumulativeWeightedStd = withGroupCumulativeWeightedStddev;
+pub const withGroupCumulativeWeightedSEM = withGroupCumulativeWeightedSem;
+pub const withGroupCumulativeWeightedCV = withGroupCumulativeWeightedCv;
+pub const withGroupCumWeightedSem = withGroupCumulativeWeightedSem;
+pub const withGroupCumWeightedSEM = withGroupCumulativeWeightedSem;
+pub const withGroupCumWeightedCv = withGroupCumulativeWeightedCv;
+pub const withGroupCumWeightedCV = withGroupCumulativeWeightedCv;
+pub const withGroupCumWeightedFano = withGroupCumulativeWeightedFano;
 pub const withGroupCumWeightedMedian = withGroupCumulativeWeightedMedian;
 pub const withGroupCumWeightedQuantile = withGroupCumulativeWeightedQuantile;
 pub const withGroupCumulativeWeightedIQR = withGroupCumulativeWeightedIqr;
