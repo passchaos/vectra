@@ -8,6 +8,7 @@ const clone_profile_mod = @import("dataframe_lazy_op_clone_profile.zig");
 const deinit_mod = @import("dataframe_lazy_op_deinit.zig");
 const array_mod = @import("array.zig");
 const names_mod = @import("dataframe_names.zig");
+const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
 
 pub const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
@@ -3968,6 +3969,36 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .sort_name = sort_name,
                 .n = group.n,
                 .options = group.options,
+                .keep_bottom = group.keep_bottom,
+            } };
+        },
+        .group_by_sorted_rows_columns => |group| blk: {
+            const key_name = try allocator.dupe(u8, group.key_name);
+            errdefer allocator.free(key_name);
+            const sort_names = try cloneNameList(allocator, group.sort_names);
+            errdefer freeNameList(allocator, sort_names);
+            const options = try allocator.dupe(options_mod.DeviceSortOptions, group.options);
+            errdefer allocator.free(options);
+            break :blk .{ .group_by_sorted_rows_columns = .{
+                .key_name = key_name,
+                .sort_names = sort_names,
+                .n = group.n,
+                .options = options,
+                .keep_bottom = group.keep_bottom,
+            } };
+        },
+        .group_by_sorted_rows_columns_on => |group| blk: {
+            const key_names = try cloneNameList(allocator, group.key_names);
+            errdefer freeNameList(allocator, key_names);
+            const sort_names = try cloneNameList(allocator, group.sort_names);
+            errdefer freeNameList(allocator, sort_names);
+            const options = try allocator.dupe(options_mod.DeviceSortOptions, group.options);
+            errdefer allocator.free(options);
+            break :blk .{ .group_by_sorted_rows_columns_on = .{
+                .key_names = key_names,
+                .sort_names = sort_names,
+                .n = group.n,
+                .options = options,
                 .keep_bottom = group.keep_bottom,
             } };
         },

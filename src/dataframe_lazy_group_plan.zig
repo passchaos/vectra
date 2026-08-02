@@ -85,6 +85,38 @@ pub fn groupBySortedRowsOn(frame: anytype, key_names: []const []const u8, sort_n
     } });
 }
 
+pub fn groupBySortedRowsByColumns(frame: anytype, key_name: []const u8, sort_names: []const []const u8, n: usize, options: []const options_mod.DeviceSortOptions, keep_bottom: bool) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    const owned_sorts = try cloneNameList(frame.allocator, sort_names);
+    errdefer freeNameList(frame.allocator, owned_sorts);
+    const owned_options = try frame.allocator.dupe(options_mod.DeviceSortOptions, options);
+    errdefer frame.allocator.free(owned_options);
+    try frame.ops.append(frame.allocator, .{ .group_by_sorted_rows_columns = .{
+        .key_name = owned_key,
+        .sort_names = owned_sorts,
+        .n = n,
+        .options = owned_options,
+        .keep_bottom = keep_bottom,
+    } });
+}
+
+pub fn groupBySortedRowsByColumnsOn(frame: anytype, key_names: []const []const u8, sort_names: []const []const u8, n: usize, options: []const options_mod.DeviceSortOptions, keep_bottom: bool) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_sorts = try cloneNameList(frame.allocator, sort_names);
+    errdefer freeNameList(frame.allocator, owned_sorts);
+    const owned_options = try frame.allocator.dupe(options_mod.DeviceSortOptions, options);
+    errdefer frame.allocator.free(owned_options);
+    try frame.ops.append(frame.allocator, .{ .group_by_sorted_rows_columns_on = .{
+        .key_names = owned_keys,
+        .sort_names = owned_sorts,
+        .n = n,
+        .options = owned_options,
+        .keep_bottom = keep_bottom,
+    } });
+}
+
 pub fn groupByValue(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return groupByValueQuantile(frame, key_name, value_name, output_name, aggregation, defaultAggregationParameter(aggregation));
 }

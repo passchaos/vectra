@@ -74,6 +74,24 @@ pub fn groupByBottomRowsOn(self: anytype, key_names: []const []const u8, sort_na
     return group_multi_mod.groupByBottomRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_name, n, options_value);
 }
 
+pub fn groupByTopRowsByColumns(self: anytype, key_name: []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByTopRowsByColumnsOn(self, key_names[0..], sort_names, n, options_values);
+}
+
+pub fn groupByTopRowsByColumnsOn(self: anytype, key_names: []const []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByTopRowsByColumnsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_names, n, options_values);
+}
+
+pub fn groupByBottomRowsByColumns(self: anytype, key_name: []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByBottomRowsByColumnsOn(self, key_names[0..], sort_names, n, options_values);
+}
+
+pub fn groupByBottomRowsByColumnsOn(self: anytype, key_names: []const []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByBottomRowsByColumnsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_names, n, options_values);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return valueCountsAs(self, key_name, "count");
 }

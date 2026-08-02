@@ -745,6 +745,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_by_rows_on: Payloads.GroupByRowsOn,
         group_by_sorted_rows: Payloads.GroupBySortedRows,
         group_by_sorted_rows_on: Payloads.GroupBySortedRowsOn,
+        group_by_sorted_rows_columns: Payloads.GroupBySortedRowsColumns,
+        group_by_sorted_rows_columns_on: Payloads.GroupBySortedRowsColumnsOn,
         group_by_value: Payloads.GroupByValue,
         group_by_value_on: Payloads.GroupByValueOn,
         group_by_weighted: Payloads.GroupByWeighted,

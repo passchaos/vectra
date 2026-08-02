@@ -2641,6 +2641,27 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], sort={s}, n={d}, desc={any})", .{ group.sort_name, group.n, group.options.descending });
         },
+        .group_by_sorted_rows_columns => |group| {
+            try writer.print("group_by_{s}_rows_by_columns({s}, sort=[", .{ if (group.keep_bottom) "bottom" else "top", group.key_name });
+            for (group.sort_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], n={d})", .{group.n});
+        },
+        .group_by_sorted_rows_columns_on => |group| {
+            try writer.print("group_by_{s}_rows_by_columns_on([", .{if (group.keep_bottom) "bottom" else "top"});
+            for (group.key_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], sort=[", .{});
+            for (group.sort_names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], n={d})", .{group.n});
+        },
         .group_by_value => |group| {
             switch (group.aggregation) {
                 .quantile => try writer.print("group_by_quantile({s}, value={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),

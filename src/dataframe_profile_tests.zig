@@ -978,6 +978,35 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, bottom_sales_keys);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, bottom_sales_values);
 
+    var sorted_row_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 2 }, .cpu);
+    defer sorted_row_key.deinit();
+    var sorted_row_score = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 10, 7, 5, 5, 9 }, .cpu);
+    defer sorted_row_score.deinit();
+    var sorted_row_tie = try DeviceColumn.fromSlice(i32, gpa, &.{ 2, 1, 3, 3, 1, 2 }, .cpu);
+    defer sorted_row_tie.deinit();
+    var sorted_row_id = try DeviceColumn.fromSlice(i32, gpa, &.{ 10, 11, 12, 20, 21, 22 }, .cpu);
+    defer sorted_row_id.deinit();
+    var sorted_row_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = sorted_row_key },
+        .{ .name = "score", .data = sorted_row_score },
+        .{ .name = "tie", .data = sorted_row_tie },
+        .{ .name = "id", .data = sorted_row_id },
+    });
+    defer sorted_row_table.deinit();
+
+    const sorted_row_options = [_]vectra.DeviceSortOptions{ .{ .descending = true }, .{} };
+    var top_sorted_rows = try sorted_row_table.groupByTopRowsByColumns("bucket", &.{ "score", "tie" }, 2, &sorted_row_options);
+    defer top_sorted_rows.deinit();
+    const top_sorted_ids = try (try top_sorted_rows.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(top_sorted_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 11, 10, 22, 21 }, top_sorted_ids);
+
+    var bottom_sorted_rows = try sorted_row_table.groupByBottomRowsByColumns("bucket", &.{ "score", "tie" }, 1, &sorted_row_options);
+    defer bottom_sorted_rows.deinit();
+    const bottom_sorted_ids = try (try bottom_sorted_rows.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(bottom_sorted_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 12, 20 }, bottom_sorted_ids);
+
     var value_counts_plan = try DeviceLazyFrame.init(gpa, table);
     defer value_counts_plan.deinit();
     try value_counts_plan.valueCountsSortedAs("store", "rows_lazy");
@@ -1023,6 +1052,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_top_sales);
     try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2, 2 }, lazy_top_keys);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 2.0, 11.0, 3.0 }, lazy_top_sales);
+
+    var top_sorted_plan = try DeviceLazyFrame.init(gpa, sorted_row_table);
+    defer top_sorted_plan.deinit();
+    try top_sorted_plan.groupByTopRowsByColumns("bucket", &.{ "score", "tie" }, 2, &sorted_row_options);
+    const top_sorted_explained = try top_sorted_plan.explain(gpa);
+    defer gpa.free(top_sorted_explained);
+    try std.testing.expect(std.mem.indexOf(u8, top_sorted_explained, "group_by_top_rows_by_columns(bucket, sort=[score,tie], n=2)") != null);
+    var lazy_top_sorted = try top_sorted_plan.collect();
+    defer lazy_top_sorted.deinit();
+    const lazy_top_sorted_ids = try (try lazy_top_sorted.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_top_sorted_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 11, 10, 22, 21 }, lazy_top_sorted_ids);
 
     var summed = try table.groupBySum("store", "sales", "sales_sum");
     defer summed.deinit();

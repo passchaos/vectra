@@ -55,6 +55,22 @@ pub fn groupByBottomRowsOn(self: anytype, key_names: []const []const u8, sort_na
     return lazy_group_mod.groupBySortedRowsOn(self, key_names, sort_name, n, options_value, true);
 }
 
+pub fn groupByTopRowsByColumns(self: anytype, key_name: []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsByColumns(self, key_name, sort_names, n, options_values, false);
+}
+
+pub fn groupByTopRowsByColumnsOn(self: anytype, key_names: []const []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsByColumnsOn(self, key_names, sort_names, n, options_values, false);
+}
+
+pub fn groupByBottomRowsByColumns(self: anytype, key_name: []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsByColumns(self, key_name, sort_names, n, options_values, true);
+}
+
+pub fn groupByBottomRowsByColumnsOn(self: anytype, key_names: []const []const u8, sort_names: []const []const u8, n: usize, options_values: []const options_mod.DeviceSortOptions) DeviceDataError!void {
+    return lazy_group_mod.groupBySortedRowsByColumnsOn(self, key_names, sort_names, n, options_values, true);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }

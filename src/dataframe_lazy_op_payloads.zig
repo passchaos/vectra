@@ -602,6 +602,20 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             options: DeviceSortOptions,
             keep_bottom: bool,
         };
+        pub const GroupBySortedRowsColumns = struct {
+            key_name: []const u8,
+            sort_names: [][]const u8,
+            n: usize,
+            options: []DeviceSortOptions,
+            keep_bottom: bool,
+        };
+        pub const GroupBySortedRowsColumnsOn = struct {
+            key_names: [][]const u8,
+            sort_names: [][]const u8,
+            n: usize,
+            options: []DeviceSortOptions,
+            keep_bottom: bool,
+        };
         pub const GroupByValue = struct {
             key_name: []const u8,
             value_name: []const u8,

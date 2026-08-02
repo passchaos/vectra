@@ -11,6 +11,7 @@ const keys_mod = @import("dataframe_keys.zig");
 const names_mod = @import("dataframe_names.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
+const rank_mod = @import("dataframe_rank.zig");
 const validity_mod = @import("dataframe_validity.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
@@ -947,6 +948,79 @@ pub fn groupByBottomRowsOn(
     var bottom_options = options;
     bottom_options.descending = !bottom_options.descending;
     return groupByTopRowsDispatchSortColumn(DeviceDataFrame, frame, key_names, sort_name, n, bottom_options);
+}
+
+fn groupByTopRowsByColumnsCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_names: []const []const u8,
+    n: usize,
+    options_values: []const options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0 or sort_names.len == 0) return error.LengthMismatch;
+    if (sort_names.len != options_values.len) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    for (sort_names) |sort_name| _ = try frame.column(sort_name);
+    if (n == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var groups: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (groups.items) |*group| group.deinit(frame.allocator);
+        groups.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            var rows: std.ArrayList(usize) = .empty;
+            errdefer rows.deinit(frame.allocator);
+            try groups.append(frame.allocator, rows);
+            break :blk groups.items.len - 1;
+        };
+        try groups.items[group_index].append(frame.allocator, row);
+    }
+
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(frame.allocator);
+    for (groups.items) |group| {
+        var group_frame = try dataframe_array_mod.takeRows(DeviceDataFrame, frame, group.items);
+        defer group_frame.deinit();
+        const local_order = try rank_mod.argsortByColumns(group_frame, sort_names, options_values);
+        defer frame.allocator.free(local_order);
+        for (local_order[0..@min(n, local_order.len)]) |local_row| {
+            try row_indices.append(frame.allocator, group.items[local_row]);
+        }
+    }
+    return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
+}
+
+pub fn groupByTopRowsByColumnsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_names: []const []const u8,
+    n: usize,
+    options_values: []const options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    return groupByTopRowsByColumnsCoreOn(DeviceDataFrame, frame, key_names, sort_names, n, options_values);
+}
+
+pub fn groupByBottomRowsByColumnsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    sort_names: []const []const u8,
+    n: usize,
+    options_values: []const options_mod.DeviceSortOptions,
+) GroupByOnError!DeviceDataFrame {
+    const bottom_options = try frame.allocator.dupe(options_mod.DeviceSortOptions, options_values);
+    defer frame.allocator.free(bottom_options);
+    for (bottom_options) |*option| option.descending = !option.descending;
+    return groupByTopRowsByColumnsCoreOn(DeviceDataFrame, frame, key_names, sort_names, n, bottom_options);
 }
 
 pub fn groupByNumericOn(
