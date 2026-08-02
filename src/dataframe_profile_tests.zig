@@ -886,6 +886,124 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 3.0), min_abs_delta_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), min_abs_delta_values[1], 1e-12);
 
+    var hhi_delta = try magnitude_table.groupByHerfindahl("bucket", "delta", "delta_hhi");
+    defer hhi_delta.deinit();
+    const hhi_delta_values = try (try hhi_delta.column("delta_hhi")).f64.toOwnedSlice(gpa);
+    defer gpa.free(hhi_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 25.0 / 49.0), hhi_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 169.0 / 289.0), hhi_delta_values[1], 1e-12);
+
+    var normalized_hhi_delta = try magnitude_table.groupByAbsNormalizedHhi("bucket", "delta", "delta_normalized_hhi");
+    defer normalized_hhi_delta.deinit();
+    const normalized_hhi_delta_values = try (try normalized_hhi_delta.column("delta_normalized_hhi")).f64.toOwnedSlice(gpa);
+    defer gpa.free(normalized_hhi_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 49.0), normalized_hhi_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 49.0 / 289.0), normalized_hhi_delta_values[1], 1e-12);
+
+    var sparsity_delta = try magnitude_table.groupByMagnitudeSparsity("bucket", "delta", "delta_sparsity");
+    defer sparsity_delta.deinit();
+    const sparsity_delta_values = try (try sparsity_delta.column("delta_sparsity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(sparsity_delta_values);
+    try std.testing.expectApproxEqAbs((std.math.sqrt(@as(f64, 2.0)) - @as(f64, 7.0 / 5.0)) / (std.math.sqrt(@as(f64, 2.0)) - 1.0), sparsity_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs((std.math.sqrt(@as(f64, 2.0)) - @as(f64, 17.0 / 13.0)) / (std.math.sqrt(@as(f64, 2.0)) - 1.0), sparsity_delta_values[1], 1e-12);
+
+    var inverse_delta = try magnitude_table.groupByAbsInverseSimpson("bucket", "delta", "delta_inverse");
+    defer inverse_delta.deinit();
+    const inverse_delta_values = try (try inverse_delta.column("delta_inverse")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inverse_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 49.0 / 25.0), inverse_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 289.0 / 169.0), inverse_delta_values[1], 1e-12);
+
+    var simpson_evenness_delta = try magnitude_table.groupByMagnitudeSimpsonEvenness("bucket", "delta", "delta_simpson_evenness");
+    defer simpson_evenness_delta.deinit();
+    const simpson_evenness_delta_values = try (try simpson_evenness_delta.column("delta_simpson_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(simpson_evenness_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 49.0 / 50.0), simpson_evenness_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 289.0 / 338.0), simpson_evenness_delta_values[1], 1e-12);
+
+    var dominance_delta = try magnitude_table.groupByAbsDominance("bucket", "delta", "delta_dominance");
+    defer dominance_delta.deinit();
+    const dominance_delta_values = try (try dominance_delta.column("delta_dominance")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dominance_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 4.0 / 7.0), dominance_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12.0 / 17.0), dominance_delta_values[1], 1e-12);
+
+    var dominance_margin_delta = try magnitude_table.groupByMagnitudeDominanceMargin("bucket", "delta", "delta_dominance_margin");
+    defer dominance_margin_delta.deinit();
+    const dominance_margin_delta_values = try (try dominance_margin_delta.column("delta_dominance_margin")).f64.toOwnedSlice(gpa);
+    defer gpa.free(dominance_margin_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 7.0), dominance_margin_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 17.0), dominance_margin_delta_values[1], 1e-12);
+
+    const magnitude_entropy_1 = std.math.log(f64, std.math.e, @as(f64, 7.0)) - (@as(f64, 3.0) * std.math.log(f64, std.math.e, @as(f64, 3.0)) + @as(f64, 4.0) * std.math.log(f64, std.math.e, @as(f64, 4.0))) / @as(f64, 7.0);
+    const magnitude_entropy_2 = std.math.log(f64, std.math.e, @as(f64, 17.0)) - (@as(f64, 5.0) * std.math.log(f64, std.math.e, @as(f64, 5.0)) + @as(f64, 12.0) * std.math.log(f64, std.math.e, @as(f64, 12.0))) / @as(f64, 17.0);
+
+    var magnitude_entropy_delta = try magnitude_table.groupByAbsEntropy("bucket", "delta", "delta_magnitude_entropy");
+    defer magnitude_entropy_delta.deinit();
+    const magnitude_entropy_delta_values = try (try magnitude_entropy_delta.column("delta_magnitude_entropy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_entropy_delta_values);
+    try std.testing.expectApproxEqAbs(magnitude_entropy_1, magnitude_entropy_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(magnitude_entropy_2, magnitude_entropy_delta_values[1], 1e-12);
+
+    var magnitude_perplexity_delta = try magnitude_table.groupByMagnitudePerplexity("bucket", "delta", "delta_magnitude_perplexity");
+    defer magnitude_perplexity_delta.deinit();
+    const magnitude_perplexity_delta_values = try (try magnitude_perplexity_delta.column("delta_magnitude_perplexity")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_perplexity_delta_values);
+    try std.testing.expectApproxEqAbs(std.math.exp(magnitude_entropy_1), magnitude_perplexity_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(std.math.exp(magnitude_entropy_2), magnitude_perplexity_delta_values[1], 1e-12);
+
+    var magnitude_evenness_delta = try magnitude_table.groupByAbsEvenness("bucket", "delta", "delta_magnitude_evenness");
+    defer magnitude_evenness_delta.deinit();
+    const magnitude_evenness_delta_values = try (try magnitude_evenness_delta.column("delta_magnitude_evenness")).f64.toOwnedSlice(gpa);
+    defer gpa.free(magnitude_evenness_delta_values);
+    try std.testing.expectApproxEqAbs(magnitude_entropy_1 / std.math.log(f64, std.math.e, @as(f64, 2.0)), magnitude_evenness_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(magnitude_entropy_2 / std.math.log(f64, std.math.e, @as(f64, 2.0)), magnitude_evenness_delta_values[1], 1e-12);
+
+    var magnitude_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1 }, .cpu);
+    defer magnitude_zero_key.deinit();
+    var magnitude_zero_value = try DeviceColumn.fromSlice(f64, gpa, &.{ 0.0, 0.0 }, .cpu);
+    defer magnitude_zero_value.deinit();
+    var magnitude_zero_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = magnitude_zero_key },
+        .{ .name = "value", .data = magnitude_zero_value },
+    });
+    defer magnitude_zero_table.deinit();
+    var zero_hhi = try magnitude_zero_table.groupByHhi("bucket", "value", "value_hhi");
+    defer zero_hhi.deinit();
+    const zero_hhi_values = try (try zero_hhi.column("value_hhi")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_hhi_values);
+    try std.testing.expect(std.math.isNan(zero_hhi_values[0]));
+
+    var magnitude_lazy_plan = try DeviceLazyFrame.init(gpa, magnitude_table);
+    defer magnitude_lazy_plan.deinit();
+    try magnitude_lazy_plan.groupByHhiOn(&.{"bucket"}, "delta", "delta_hhi_lazy");
+    const magnitude_lazy_explained = try magnitude_lazy_plan.explain(gpa);
+    defer gpa.free(magnitude_lazy_explained);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_lazy_explained, "group_by_hhi_on([bucket], value=delta -> delta_hhi_lazy)") != null);
+    var lazy_hhi_delta = try magnitude_lazy_plan.collect();
+    defer lazy_hhi_delta.deinit();
+    const lazy_hhi_delta_values = try (try lazy_hhi_delta.column("delta_hhi_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_hhi_delta_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 25.0 / 49.0), lazy_hhi_delta_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 169.0 / 289.0), lazy_hhi_delta_values[1], 1e-12);
+
+    var magnitude_alias_plan = try DeviceLazyFrame.init(gpa, magnitude_table);
+    defer magnitude_alias_plan.deinit();
+    try magnitude_alias_plan.groupByAbsNormalizedHhi("bucket", "delta", "delta_normalized_hhi_lazy");
+    try magnitude_alias_plan.groupByMagnitudeSparsity("bucket", "delta", "delta_sparsity_lazy");
+    try magnitude_alias_plan.groupByAbsInverseSimpson("bucket", "delta", "delta_inverse_lazy");
+    try magnitude_alias_plan.groupByMagnitudeSimpsonEvenness("bucket", "delta", "delta_simpson_evenness_lazy");
+    try magnitude_alias_plan.groupByAbsDominance("bucket", "delta", "delta_dominance_lazy");
+    try magnitude_alias_plan.groupByMagnitudeDominanceMargin("bucket", "delta", "delta_dominance_margin_lazy");
+    try magnitude_alias_plan.groupByAbsEntropy("bucket", "delta", "delta_magnitude_entropy_lazy");
+    try magnitude_alias_plan.groupByMagnitudePerplexity("bucket", "delta", "delta_magnitude_perplexity_lazy");
+    try magnitude_alias_plan.groupByAbsEvenness("bucket", "delta", "delta_magnitude_evenness_lazy");
+    const magnitude_alias_explained = try magnitude_alias_plan.explain(gpa);
+    defer gpa.free(magnitude_alias_explained);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_alias_explained, "group_by_magnitude_normalized_hhi(bucket, value=delta -> delta_normalized_hhi_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_alias_explained, "group_by_magnitude_sparsity(bucket, value=delta -> delta_sparsity_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, magnitude_alias_explained, "group_by_magnitude_evenness(bucket, value=delta -> delta_magnitude_evenness_lazy)") != null);
+
     var range_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 2, 2, 3, 3 }, .cpu);
     defer range_key.deinit();
     var range_delta = try DeviceColumn.fromSlice(f64, gpa, &.{ -3.0, 4.0, -5.0, 12.0, -2.0, 2.0 }, .cpu);

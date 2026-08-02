@@ -583,6 +583,128 @@ pub fn groupByMinAbsOn(self: anytype, key_names: []const []const u8, value_name:
     return group_multi_mod.groupByMinAbsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn groupByHhi(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByHhiOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByHhiOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByHhiOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByHerfindahl = groupByHhi;
+pub const groupByHerfindahlOn = groupByHhiOn;
+pub const groupByHerfindahlHirschman = groupByHhi;
+pub const groupByHerfindahlHirschmanOn = groupByHhiOn;
+
+pub fn groupByMagnitudeNormalizedHhi(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeNormalizedHhiOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeNormalizedHhiOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeNormalizedHhiOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsNormalizedHhi = groupByMagnitudeNormalizedHhi;
+pub const groupByAbsNormalizedHhiOn = groupByMagnitudeNormalizedHhiOn;
+
+pub fn groupByMagnitudeSparsity(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeSparsityOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeSparsityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeSparsityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsSparsity = groupByMagnitudeSparsity;
+pub const groupByAbsSparsityOn = groupByMagnitudeSparsityOn;
+
+pub fn groupByMagnitudeInverseSimpson(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeInverseSimpsonOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeInverseSimpsonOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeInverseSimpsonOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsInverseSimpson = groupByMagnitudeInverseSimpson;
+pub const groupByAbsInverseSimpsonOn = groupByMagnitudeInverseSimpsonOn;
+
+pub fn groupByMagnitudeSimpsonEvenness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeSimpsonEvennessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeSimpsonEvennessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeSimpsonEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsSimpsonEvenness = groupByMagnitudeSimpsonEvenness;
+pub const groupByAbsSimpsonEvennessOn = groupByMagnitudeSimpsonEvennessOn;
+
+pub fn groupByMagnitudeDominance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeDominanceOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeDominanceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeDominanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsDominance = groupByMagnitudeDominance;
+pub const groupByAbsDominanceOn = groupByMagnitudeDominanceOn;
+
+pub fn groupByMagnitudeDominanceMargin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeDominanceMarginOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeDominanceMarginOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeDominanceMarginOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsDominanceMargin = groupByMagnitudeDominanceMargin;
+pub const groupByAbsDominanceMarginOn = groupByMagnitudeDominanceMarginOn;
+
+pub fn groupByMagnitudeEntropy(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeEntropyOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeEntropyOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeEntropyOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsEntropy = groupByMagnitudeEntropy;
+pub const groupByAbsEntropyOn = groupByMagnitudeEntropyOn;
+
+pub fn groupByMagnitudePerplexity(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudePerplexityOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudePerplexityOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudePerplexityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsPerplexity = groupByMagnitudePerplexity;
+pub const groupByAbsPerplexityOn = groupByMagnitudePerplexityOn;
+
+pub fn groupByMagnitudeEvenness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMagnitudeEvennessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMagnitudeEvennessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMagnitudeEvennessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByAbsEvenness = groupByMagnitudeEvenness;
+pub const groupByAbsEvennessOn = groupByMagnitudeEvennessOn;
+
 pub fn groupByGeometricMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByGeometricMeanOn(self, key_names[0..], value_name, output_name);

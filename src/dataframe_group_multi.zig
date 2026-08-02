@@ -62,6 +62,16 @@ const GroupByRealAggregation = enum {
     ptp,
     midrange,
     range_coeff,
+    hhi,
+    magnitude_normalized_hhi,
+    magnitude_sparsity,
+    magnitude_inverse_simpson,
+    magnitude_simpson_evenness,
+    magnitude_dominance,
+    magnitude_dominance_margin,
+    magnitude_entropy,
+    magnitude_perplexity,
+    magnitude_evenness,
 };
 
 const GroupByRobustAggregation = enum {
@@ -1328,6 +1338,8 @@ fn groupByRealOnTyped(
     defer zero_seen.deinit(allocator);
     var aux_values: std.ArrayList(f64) = .empty;
     defer aux_values.deinit(allocator);
+    var secondary_values: std.ArrayList(f64) = .empty;
+    defer secondary_values.deinit(allocator);
 
     for (values, 0..) |value_item, row| {
         if (maybe_value_validity) |validity| {
@@ -1340,12 +1352,44 @@ fn groupByRealOnTyped(
             try counts.append(allocator, 0);
             try zero_seen.append(allocator, false);
             try aux_values.append(allocator, 0.0);
+            try secondary_values.append(allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
         const value_f64 = castToF64(V, value_item);
         switch (aggregation) {
             .mean_abs, .l1_norm => totals.items[group_index] += @abs(value_f64),
             .mean_square, .rms, .l2_norm => totals.items[group_index] += value_f64 * value_f64,
+            .hhi, .magnitude_normalized_hhi, .magnitude_sparsity, .magnitude_inverse_simpson, .magnitude_simpson_evenness => {
+                const magnitude = @abs(value_f64);
+                totals.items[group_index] += magnitude;
+                aux_values.items[group_index] += magnitude * magnitude;
+            },
+            .magnitude_dominance => {
+                const magnitude = @abs(value_f64);
+                totals.items[group_index] += magnitude;
+                if (counts.items[group_index] == 0 or std.math.isNan(magnitude) or (!std.math.isNan(aux_values.items[group_index]) and magnitude > aux_values.items[group_index])) {
+                    aux_values.items[group_index] = magnitude;
+                }
+            },
+            .magnitude_dominance_margin => {
+                const magnitude = @abs(value_f64);
+                totals.items[group_index] += magnitude;
+                if (counts.items[group_index] == 0 or std.math.isNan(magnitude)) {
+                    aux_values.items[group_index] = magnitude;
+                } else if (!std.math.isNan(aux_values.items[group_index])) {
+                    if (magnitude > aux_values.items[group_index]) {
+                        secondary_values.items[group_index] = aux_values.items[group_index];
+                        aux_values.items[group_index] = magnitude;
+                    } else if (magnitude > secondary_values.items[group_index]) {
+                        secondary_values.items[group_index] = magnitude;
+                    }
+                }
+            },
+            .magnitude_entropy, .magnitude_perplexity, .magnitude_evenness => {
+                const magnitude = @abs(value_f64);
+                totals.items[group_index] += magnitude;
+                if (magnitude > 0.0) aux_values.items[group_index] += magnitude * std.math.log(f64, std.math.e, magnitude);
+            },
             .max_abs => {
                 const magnitude = @abs(value_f64);
                 if (counts.items[group_index] == 0 or std.math.isNan(magnitude) or (!std.math.isNan(totals.items[group_index]) and magnitude > totals.items[group_index])) {
@@ -1414,7 +1458,7 @@ fn groupByRealOnTyped(
 
     const out = try allocator.alloc(f64, totals.items.len);
     defer allocator.free(out);
-    for (totals.items, counts.items, zero_seen.items, aux_values.items, out) |total, count, has_zero, aux_value, *slot| {
+    for (totals.items, counts.items, zero_seen.items, aux_values.items, secondary_values.items, out) |total, count, has_zero, aux_value, secondary_value, *slot| {
         slot.* = switch (aggregation) {
             .mean_abs => total / @as(f64, @floatFromInt(count)),
             .mean_square => total / @as(f64, @floatFromInt(count)),
@@ -1437,6 +1481,28 @@ fn groupByRealOnTyped(
                 const denominator = aux_value + total;
                 break :blk if (denominator == 0.0) std.math.nan(f64) else (aux_value - total) / denominator;
             },
+            .hhi => if (total == 0.0) std.math.nan(f64) else aux_value / (total * total),
+            .magnitude_normalized_hhi => blk: {
+                if (total == 0.0) break :blk std.math.nan(f64);
+                if (count <= 1) break :blk 1.0;
+                const concentration = aux_value / (total * total);
+                const uniform_floor = 1.0 / @as(f64, @floatFromInt(count));
+                break :blk (concentration - uniform_floor) / (1.0 - uniform_floor);
+            },
+            .magnitude_sparsity => blk: {
+                if (total == 0.0 or aux_value == 0.0) break :blk std.math.nan(f64);
+                if (count <= 1) break :blk 1.0;
+                const sqrt_count = std.math.sqrt(@as(f64, @floatFromInt(count)));
+                const l1_over_l2 = total / std.math.sqrt(aux_value);
+                break :blk (sqrt_count - l1_over_l2) / (sqrt_count - 1.0);
+            },
+            .magnitude_inverse_simpson => if (total == 0.0 or aux_value == 0.0) std.math.nan(f64) else (total * total) / aux_value,
+            .magnitude_simpson_evenness => if (total == 0.0 or aux_value == 0.0) std.math.nan(f64) else (total * total) / (aux_value * @as(f64, @floatFromInt(count))),
+            .magnitude_dominance => if (total == 0.0) std.math.nan(f64) else aux_value / total,
+            .magnitude_dominance_margin => if (total == 0.0) std.math.nan(f64) else (aux_value - secondary_value) / total,
+            .magnitude_entropy => if (total == 0.0) std.math.nan(f64) else std.math.log(f64, std.math.e, total) - aux_value / total,
+            .magnitude_perplexity => if (total == 0.0) std.math.nan(f64) else std.math.exp(std.math.log(f64, std.math.e, total) - aux_value / total),
+            .magnitude_evenness => if (count <= 1) 1.0 else if (total == 0.0) std.math.nan(f64) else (std.math.log(f64, std.math.e, total) - aux_value / total) / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(count))),
         };
     }
 
@@ -1526,6 +1592,106 @@ pub fn groupByMinAbsOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRealOn(DeviceDataFrame, .min_abs, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByHhiOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .hhi, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeNormalizedHhiOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_normalized_hhi, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeSparsityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_sparsity, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeInverseSimpsonOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_inverse_simpson, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeSimpsonEvennessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_simpson_evenness, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeDominanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_dominance, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeDominanceMarginOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_dominance_margin, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeEntropyOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_entropy, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudePerplexityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_perplexity, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMagnitudeEvennessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRealOn(DeviceDataFrame, .magnitude_evenness, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByGeometricMeanOn(
