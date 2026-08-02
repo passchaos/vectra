@@ -2623,12 +2623,16 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("] -> {s})", .{group.output_name});
         },
-        .group_by_rows => |group| if (!group.keep_tail and group.start != 0)
+        .group_by_rows => |group| if (!group.keep_tail and group.step != 1)
+            try writer.print("group_by_slice_rows_step({s}, start={d}, length={d}, step={d})", .{ group.key_name, group.start, group.n, group.step })
+        else if (!group.keep_tail and group.start != 0)
             try writer.print("group_by_slice_rows({s}, start={d}, length={d})", .{ group.key_name, group.start, group.n })
         else
             try writer.print("group_by_{s}_rows({s}, n={d})", .{ if (group.keep_tail) "tail" else "head", group.key_name, group.n }),
         .group_by_rows_on => |group| {
-            if (!group.keep_tail and group.start != 0) {
+            if (!group.keep_tail and group.step != 1) {
+                try writer.print("group_by_slice_rows_step_on([", .{});
+            } else if (!group.keep_tail and group.start != 0) {
                 try writer.print("group_by_slice_rows_on([", .{});
             } else {
                 try writer.print("group_by_{s}_rows_on([", .{if (group.keep_tail) "tail" else "head"});
@@ -2637,7 +2641,9 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
             }
-            if (!group.keep_tail and group.start != 0) {
+            if (!group.keep_tail and group.step != 1) {
+                try writer.print("], start={d}, length={d}, step={d})", .{ group.start, group.n, group.step });
+            } else if (!group.keep_tail and group.start != 0) {
                 try writer.print("], start={d}, length={d})", .{ group.start, group.n });
             } else {
                 try writer.print("], n={d})", .{group.n});

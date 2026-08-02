@@ -808,9 +808,11 @@ fn groupBySliceRowsCoreOn(
     key_names: []const []const u8,
     start: usize,
     length: usize,
+    step: usize,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
+    if (step == 0) return error.InvalidShape;
     if (length == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
 
     var representative_rows: std.ArrayList(usize) = .empty;
@@ -838,7 +840,10 @@ fn groupBySliceRowsCoreOn(
     for (groups.items) |group| {
         if (start >= group.items.len) continue;
         const stop = @min(start +| length, group.items.len);
-        try row_indices.appendSlice(frame.allocator, group.items[start..stop]);
+        var index = start;
+        while (index < stop) : (index += step) {
+            try row_indices.append(frame.allocator, group.items[index]);
+        }
     }
     return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
 }
@@ -974,7 +979,18 @@ pub fn groupBySliceRowsOn(
     start: usize,
     length: usize,
 ) GroupByOnError!DeviceDataFrame {
-    return groupBySliceRowsCoreOn(DeviceDataFrame, frame, key_names, start, length);
+    return groupBySliceRowsCoreOn(DeviceDataFrame, frame, key_names, start, length, 1);
+}
+
+pub fn groupBySliceRowsStepOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: usize,
+    length: usize,
+    step: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupBySliceRowsCoreOn(DeviceDataFrame, frame, key_names, start, length, step);
 }
 
 pub fn groupByTopRowsOn(
