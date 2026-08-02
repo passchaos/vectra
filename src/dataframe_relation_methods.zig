@@ -527,6 +527,42 @@ pub fn withGroupCumulativeRmsOn(self: anytype, key_names: []const []const u8, va
     return group_multi_mod.withGroupCumulativeRmsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeMaxAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMaxAbsOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMaxAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeMaxAbsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeMinAbs(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeMinAbsOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeMinAbsOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeMinAbsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeL1Norm(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeL1NormOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeL1NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeL1NormOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeL2Norm(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeL2NormOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeL2NormOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeL2NormOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -591,6 +627,30 @@ pub const withGroupCumRms = withGroupCumulativeRms;
 pub const withGroupCumRmsOn = withGroupCumulativeRmsOn;
 pub const withGroupCumRMS = withGroupCumulativeRms;
 pub const withGroupCumRMSOn = withGroupCumulativeRmsOn;
+pub const withGroupCumulativeMaxAbsolute = withGroupCumulativeMaxAbs;
+pub const withGroupCumulativeMaxAbsoluteOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumMaxAbs = withGroupCumulativeMaxAbs;
+pub const withGroupCumMaxAbsOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumMaxAbsolute = withGroupCumulativeMaxAbs;
+pub const withGroupCumMaxAbsoluteOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumulativeLInfNorm = withGroupCumulativeMaxAbs;
+pub const withGroupCumulativeLInfNormOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumulativeLinfNorm = withGroupCumulativeMaxAbs;
+pub const withGroupCumulativeLinfNormOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumLInfNorm = withGroupCumulativeMaxAbs;
+pub const withGroupCumLInfNormOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumLinfNorm = withGroupCumulativeMaxAbs;
+pub const withGroupCumLinfNormOn = withGroupCumulativeMaxAbsOn;
+pub const withGroupCumulativeMinAbsolute = withGroupCumulativeMinAbs;
+pub const withGroupCumulativeMinAbsoluteOn = withGroupCumulativeMinAbsOn;
+pub const withGroupCumMinAbs = withGroupCumulativeMinAbs;
+pub const withGroupCumMinAbsOn = withGroupCumulativeMinAbsOn;
+pub const withGroupCumMinAbsolute = withGroupCumulativeMinAbs;
+pub const withGroupCumMinAbsoluteOn = withGroupCumulativeMinAbsOn;
+pub const withGroupCumL1Norm = withGroupCumulativeL1Norm;
+pub const withGroupCumL1NormOn = withGroupCumulativeL1NormOn;
+pub const withGroupCumL2Norm = withGroupCumulativeL2Norm;
+pub const withGroupCumL2NormOn = withGroupCumulativeL2NormOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};

@@ -516,7 +516,7 @@ pub fn withGroupCumulativeNullRatio(frame: anytype, key_names: []const []const u
     return withGroupCumulativeValidityRatio(frame, key_names, value_name, output_name, true);
 }
 
-fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms }) DeviceDataError!void {
+fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -614,6 +614,30 @@ fn withGroupCumulativeNumeric(frame: anytype, key_names: []const []const u8, val
             .output_name = owned_output,
             .offset = 0,
         } },
+        .max_abs => .{ .group_cumulative_max_abs = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .min_abs => .{ .group_cumulative_min_abs = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .l1_norm => .{ .group_cumulative_l1_norm = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .l2_norm => .{ .group_cumulative_l2_norm = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
     });
 }
 
@@ -675,6 +699,22 @@ pub fn withGroupCumulativeMeanSquare(frame: anytype, key_names: []const []const 
 
 pub fn withGroupCumulativeRms(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .rms);
+}
+
+pub fn withGroupCumulativeMaxAbs(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .max_abs);
+}
+
+pub fn withGroupCumulativeMinAbs(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .min_abs);
+}
+
+pub fn withGroupCumulativeL1Norm(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .l1_norm);
+}
+
+pub fn withGroupCumulativeL2Norm(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .l2_norm);
 }
 
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {

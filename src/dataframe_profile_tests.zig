@@ -1115,6 +1115,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_rms_delta.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_rms_delta, gpa, "store_delta_cum_rms", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 65.0)), std.math.sqrt(@as(f64, 86.5)) }, &.{ true, true, false, false, true, true });
 
+    var group_cum_max_abs_delta = try table.withGroupCumulativeMaxAbs("store", "delta", "store_delta_cum_max_abs");
+    defer group_cum_max_abs_delta.deinit();
+    try expectF64ColumnWithValidity(group_cum_max_abs_delta, gpa, "store_delta_cum_max_abs", &.{ 2.0, 3.0, 0.0, 0.0, 11.0, 13.0 }, &.{ true, true, false, false, true, true });
+
+    var group_cum_min_abs_delta = try table.withGroupCumulativeMinAbs("store", "delta", "store_delta_cum_min_abs");
+    defer group_cum_min_abs_delta.deinit();
+    try expectF64ColumnWithValidity(group_cum_min_abs_delta, gpa, "store_delta_cum_min_abs", &.{ 2.0, 3.0, 0.0, 0.0, 3.0, 2.0 }, &.{ true, true, false, false, true, true });
+
+    var group_cum_l1_delta = try table.withGroupCumulativeL1Norm("store", "delta", "store_delta_cum_l1");
+    defer group_cum_l1_delta.deinit();
+    try expectF64ColumnWithValidity(group_cum_l1_delta, gpa, "store_delta_cum_l1", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
+
+    var group_cum_l2_delta = try table.withGroupCumulativeL2Norm("store", "delta", "store_delta_cum_l2");
+    defer group_cum_l2_delta.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_l2_delta, gpa, "store_delta_cum_l2", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 130.0)), std.math.sqrt(@as(f64, 173.0)) }, &.{ true, true, false, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1347,6 +1363,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try group_cume_dist_plan.withGroupCumulativeMeanAbs("store", "delta", "store_delta_cum_mean_abs_lazy");
     try group_cume_dist_plan.withGroupCumulativeMeanSquare("store", "delta", "store_delta_cum_mean_square_lazy");
     try group_cume_dist_plan.withGroupCumulativeRms("store", "delta", "store_delta_cum_rms_lazy");
+    try group_cume_dist_plan.withGroupCumulativeMaxAbs("store", "delta", "store_delta_cum_max_abs_lazy");
+    try group_cume_dist_plan.withGroupCumulativeMinAbs("store", "delta", "store_delta_cum_min_abs_lazy");
+    try group_cume_dist_plan.withGroupCumulativeL1Norm("store", "delta", "store_delta_cum_l1_lazy");
+    try group_cume_dist_plan.withGroupCumulativeL2Norm("store", "delta", "store_delta_cum_l2_lazy");
     const group_cume_dist_explained = try group_cume_dist_plan.explain(gpa);
     defer gpa.free(group_cume_dist_explained);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cume_dist([store]->store_cume_dist_lazy)") != null);
@@ -1382,6 +1402,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_mean_abs([store], value=delta->store_delta_cum_mean_abs_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_mean_square([store], value=delta->store_delta_cum_mean_square_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_rms([store], value=delta->store_delta_cum_rms_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_max_abs([store], value=delta->store_delta_cum_max_abs_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_min_abs([store], value=delta->store_delta_cum_min_abs_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_l1_norm([store], value=delta->store_delta_cum_l1_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_cume_dist_explained, "group_cumulative_l2_norm([store], value=delta->store_delta_cum_l2_lazy)") != null);
     var lazy_group_cume_dist = try group_cume_dist_plan.collect();
     defer lazy_group_cume_dist.deinit();
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_cume_dist_lazy", &.{ 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.0, 1.0, 1.0 }, &.{ true, true, true, false, true, true });
@@ -1417,6 +1441,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_mean_abs_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 7.0, 7.5 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_mean_square_lazy", &.{ 4.0, 9.0, 0.0, 0.0, 65.0, 86.5 }, &.{ true, true, false, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_rms_lazy", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 65.0)), std.math.sqrt(@as(f64, 86.5)) }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_max_abs_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 11.0, 13.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_min_abs_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 3.0, 2.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_l1_lazy", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_group_cume_dist, gpa, "store_delta_cum_l2_lazy", &.{ 2.0, 3.0, 0.0, 0.0, std.math.sqrt(@as(f64, 130.0)), std.math.sqrt(@as(f64, 173.0)) }, &.{ true, true, false, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();
