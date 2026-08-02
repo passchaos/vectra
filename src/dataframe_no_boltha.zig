@@ -161,6 +161,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     last_row,
     nth,
     nth_row,
+    nth_index,
+    nth_row_index,
     n_unique,
     mode,
     mode_count,

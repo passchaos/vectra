@@ -1047,6 +1047,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer nth_oob_metrics.deinit();
     try expectF64ColumnWithValidity(nth_oob_metrics, gpa, "metric_nth_oob", &.{ 0.0, 0.0 }, &.{ false, false });
 
+    var nth_valid_indices = try row_table.groupByNthIndex("bucket", "metric", "metric_nth_valid_index", 1);
+    defer nth_valid_indices.deinit();
+    try expectNullableI64Column(nth_valid_indices, gpa, "metric_nth_valid_index", &.{ 2, 4 }, &.{ true, true });
+
+    var nth_row_indices = try row_table.groupByNthRowIndex("bucket", "metric", "metric_nth_row_index", 1);
+    defer nth_row_indices.deinit();
+    try expectNullableI64Column(nth_row_indices, gpa, "metric_nth_row_index", &.{ 1, 4 }, &.{ true, true });
+
+    var nth_index_oob = try row_table.groupByNthIndex("bucket", "metric", "metric_nth_index_oob", 2);
+    defer nth_index_oob.deinit();
+    try expectNullableI64Column(nth_index_oob, gpa, "metric_nth_index_oob", &.{ 0, 0 }, &.{ false, false });
+
     var last_row_plan = try DeviceLazyFrame.init(gpa, row_table);
     defer last_row_plan.deinit();
     try last_row_plan.groupByLastRow("bucket", "metric", "metric_last_row_lazy");
@@ -1066,6 +1078,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_nth_row = try nth_row_plan.collect();
     defer lazy_nth_row.deinit();
     try expectF64ColumnWithValidity(lazy_nth_row, gpa, "metric_nth_row_lazy", &.{ 11.0, 21.0 }, &.{ true, true });
+
+    var nth_row_index_plan = try DeviceLazyFrame.init(gpa, row_table);
+    defer nth_row_index_plan.deinit();
+    try nth_row_index_plan.groupByNthRowIndex("bucket", "metric", "metric_nth_row_index_lazy", 1);
+    const nth_row_index_explained = try nth_row_index_plan.explain(gpa);
+    defer gpa.free(nth_row_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, nth_row_index_explained, "group_by_nth_row_index(bucket, value=metric, n=1 -> metric_nth_row_index_lazy)") != null);
+    var lazy_nth_row_index = try nth_row_index_plan.collect();
+    defer lazy_nth_row_index.deinit();
+    try expectNullableI64Column(lazy_nth_row_index, gpa, "metric_nth_row_index_lazy", &.{ 1, 4 }, &.{ true, true });
 
     var unique_sales = try table.groupByNUnique("store", "sales", "sales_n_unique");
     defer unique_sales.deinit();

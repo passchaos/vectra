@@ -184,6 +184,24 @@ pub fn groupByNthRowOn(self: anytype, key_names: []const []const u8, value_name:
     return group_multi_mod.groupByNthRowOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, n);
 }
 
+pub fn groupByNthIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNthIndexOn(self, key_names[0..], value_name, output_name, n);
+}
+
+pub fn groupByNthIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNthIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, n);
+}
+
+pub fn groupByNthRowIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByNthRowIndexOn(self, key_names[0..], value_name, output_name, n);
+}
+
+pub fn groupByNthRowIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByNthRowIndexOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, n);
+}
+
 pub fn groupByNUnique(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByNUniqueOn(self, key_names[0..], value_name, output_name);

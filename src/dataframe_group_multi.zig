@@ -893,6 +893,53 @@ fn groupByNthValueOn(
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, value_column);
 }
 
+fn groupByNthIndexCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+    comptime skip_nulls: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var index_values: std.ArrayList(i64) = .empty;
+    defer index_values.deinit(frame.allocator);
+    var output_validity: std.ArrayList(bool) = .empty;
+    defer output_validity.deinit(frame.allocator);
+    var seen_counts: std.ArrayList(usize) = .empty;
+    defer seen_counts.deinit(frame.allocator);
+    var found_values: std.ArrayList(bool) = .empty;
+    defer found_values.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (skip_nulls and !try columnRowValid(frame.allocator, value.*, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try index_values.append(frame.allocator, 0);
+            try output_validity.append(frame.allocator, false);
+            try seen_counts.append(frame.allocator, 0);
+            try found_values.append(frame.allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (!found_values.items[group_index] and seen_counts.items[group_index] == n) {
+            index_values.items[group_index] = @intCast(row);
+            output_validity.items[group_index] = true;
+            found_values.items[group_index] = true;
+        }
+        seen_counts.items[group_index] += 1;
+    }
+
+    const output_column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, index_values.items, output_validity.items, frame.device);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
 pub fn groupByFirstOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -953,6 +1000,28 @@ pub fn groupByNthRowOn(
     n: usize,
 ) GroupByOnError!DeviceDataFrame {
     return groupByNthValueOn(DeviceDataFrame, frame, key_names, value_name, output_name, n, false);
+}
+
+pub fn groupByNthIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNthIndexCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, n, true);
+}
+
+pub fn groupByNthRowIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNthIndexCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, n, false);
 }
 
 pub fn groupByNUniqueOnDispatchValue(
