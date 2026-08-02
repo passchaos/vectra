@@ -2244,10 +2244,32 @@ pub fn withGroupCumulativeWeightedHarmonicMeanOn(self: anytype, key_names: []con
     return lazy_group_mod.withGroupCumulativeWeightedHarmonicMean(self, key_names, value_name, weight_name, output_name);
 }
 
+pub fn withGroupCumulativeWeightedLogSumExp(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedLogSumExpOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedLogSumExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedLogSumExp(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedLogMeanExp(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedLogMeanExpOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedLogMeanExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedLogMeanExp(self, key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumulativeWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
 pub const withGroupCumulativeWeightedGeoMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumulativeWeightedHarmMean = withGroupCumulativeWeightedHarmonicMean;
 pub const withGroupCumulativeWeightedHarmMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
+pub const withGroupCumulativeWeightedLogsumexp = withGroupCumulativeWeightedLogSumExp;
+pub const withGroupCumulativeWeightedLogsumexpOn = withGroupCumulativeWeightedLogSumExpOn;
+pub const withGroupCumulativeWeightedLogmeanexp = withGroupCumulativeWeightedLogMeanExp;
+pub const withGroupCumulativeWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
 pub const withGroupCumWeightedGeometricMean = withGroupCumulativeWeightedGeometricMean;
 pub const withGroupCumWeightedGeometricMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
@@ -2256,6 +2278,14 @@ pub const withGroupCumWeightedHarmonicMean = withGroupCumulativeWeightedHarmonic
 pub const withGroupCumWeightedHarmonicMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
 pub const withGroupCumWeightedHarmMean = withGroupCumulativeWeightedHarmonicMean;
 pub const withGroupCumWeightedHarmMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
+pub const withGroupCumWeightedLogSumExp = withGroupCumulativeWeightedLogSumExp;
+pub const withGroupCumWeightedLogSumExpOn = withGroupCumulativeWeightedLogSumExpOn;
+pub const withGroupCumWeightedLogsumexp = withGroupCumulativeWeightedLogSumExp;
+pub const withGroupCumWeightedLogsumexpOn = withGroupCumulativeWeightedLogSumExpOn;
+pub const withGroupCumWeightedLogMeanExp = withGroupCumulativeWeightedLogMeanExp;
+pub const withGroupCumWeightedLogMeanExpOn = withGroupCumulativeWeightedLogMeanExpOn;
+pub const withGroupCumWeightedLogmeanexp = withGroupCumulativeWeightedLogMeanExp;
+pub const withGroupCumWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
 
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
@@ -3104,6 +3134,27 @@ pub const groupByWeightedGeoMean = groupByWeightedGeometricMean;
 pub const groupByWeightedGeoMeanOn = groupByWeightedGeometricMeanOn;
 pub const groupByWeightedHarmMean = groupByWeightedHarmonicMean;
 pub const groupByWeightedHarmMeanOn = groupByWeightedHarmonicMeanOn;
+
+pub fn groupByWeightedLogSumExp(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_logsumexp);
+}
+
+pub fn groupByWeightedLogSumExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_logsumexp);
+}
+
+pub fn groupByWeightedLogMeanExp(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_logmeanexp);
+}
+
+pub fn groupByWeightedLogMeanExpOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_logmeanexp);
+}
+
+pub const groupByWeightedLogsumexp = groupByWeightedLogSumExp;
+pub const groupByWeightedLogsumexpOn = groupByWeightedLogSumExpOn;
+pub const groupByWeightedLogmeanexp = groupByWeightedLogMeanExp;
+pub const groupByWeightedLogmeanexpOn = groupByWeightedLogMeanExpOn;
 
 pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);
