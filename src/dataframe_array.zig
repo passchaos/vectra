@@ -4003,6 +4003,204 @@ pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
+const RowWeightedLogProductReduction = enum { product, geometric_mean, harmonic_mean, logsumexp, logmeanexp };
+
+const RowWeightedLogExpState = struct {
+    max_value: f64 = 0.0,
+    scaled_sum: f64 = 0.0,
+    seen_positive_weight: bool = false,
+
+    fn update(self: *RowWeightedLogExpState, value: f64, weight: f64) void {
+        if (!(weight > 0.0)) return;
+        self.seen_positive_weight = true;
+        if (std.math.isNan(value) or std.math.isNan(self.max_value)) {
+            self.max_value = quietNanF64();
+            self.scaled_sum = quietNanF64();
+            return;
+        }
+        if (self.scaled_sum == 0.0) {
+            self.max_value = value;
+            self.scaled_sum = weight;
+            return;
+        }
+        if (std.math.isPositiveInf(self.max_value)) {
+            if (std.math.isPositiveInf(value)) self.scaled_sum += weight;
+            return;
+        }
+        if (std.math.isPositiveInf(value)) {
+            self.max_value = value;
+            self.scaled_sum = weight;
+            return;
+        }
+        if (value > self.max_value) {
+            self.scaled_sum = self.scaled_sum * std.math.exp(self.max_value - value) + weight;
+            self.max_value = value;
+        } else if (std.math.isNegativeInf(self.max_value) and std.math.isNegativeInf(value)) {
+            self.scaled_sum += weight;
+        } else {
+            self.scaled_sum += weight * std.math.exp(value - self.max_value);
+        }
+    }
+
+    fn finish(self: RowWeightedLogExpState, weight_sum: f64, comptime normalize_by_weight: bool) f64 {
+        if (!(weight_sum > 0.0) or !self.seen_positive_weight) return quietNanF64();
+        if (std.math.isNan(self.max_value) or std.math.isNan(self.scaled_sum)) return quietNanF64();
+        if (std.math.isPositiveInf(self.max_value) or std.math.isNegativeInf(self.max_value)) return self.max_value;
+        if (!(self.scaled_sum > 0.0)) return -std.math.inf(f64);
+        var result = self.max_value + std.math.log(f64, std.math.e, self.scaled_sum);
+        if (normalize_by_weight) result -= std.math.log(f64, std.math.e, weight_sum);
+        return result;
+    }
+};
+
+const RowWeightedProductState = struct {
+    signed_log_abs_sum: f64 = 0.0,
+    negative_factor_count: usize = 0,
+    zero_seen: bool = false,
+
+    fn update(self: *RowWeightedProductState, value: f64, weight: f64) void {
+        if (!(weight > 0.0)) return;
+        if (std.math.isNan(value) or std.math.isNan(weight)) {
+            self.signed_log_abs_sum = quietNanF64();
+            return;
+        }
+        if (value == 0.0) {
+            self.zero_seen = true;
+            return;
+        }
+        if (value < 0.0) self.negative_factor_count += 1;
+        self.signed_log_abs_sum += weight * std.math.log(f64, std.math.e, @abs(value));
+    }
+
+    fn finish(self: RowWeightedProductState, weight_sum: f64) f64 {
+        if (!(weight_sum > 0.0)) return quietNanF64();
+        if (std.math.isNan(self.signed_log_abs_sum)) return quietNanF64();
+        if (self.zero_seen) return 0.0;
+        const magnitude = std.math.exp(self.signed_log_abs_sum);
+        return if (self.negative_factor_count % 2 == 0) magnitude else -magnitude;
+    }
+};
+
+fn withRowWeightedLogProduct(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedLogProductReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var weighted_log_sum: f64 = 0.0;
+        var weighted_reciprocal_sum: f64 = 0.0;
+        var weighted_zero_seen = false;
+        var log_exp_state: RowWeightedLogExpState = .{};
+        var product_state: RowWeightedProductState = .{};
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            const value = flat.values[offset];
+            weight_sum += weight;
+            if (value < 0.0) {
+                weighted_log_sum = quietNanF64();
+            } else if (value == 0.0 and !std.math.isNan(weighted_log_sum)) {
+                weighted_zero_seen = true;
+            } else if (!weighted_zero_seen and !std.math.isNan(weighted_log_sum)) {
+                weighted_log_sum += weight * std.math.log(f64, std.math.e, value);
+            }
+            if (value == 0.0 and !std.math.isNan(weighted_reciprocal_sum)) {
+                weighted_reciprocal_sum = std.math.inf(f64);
+            } else if (!std.math.isInf(weighted_reciprocal_sum)) {
+                weighted_reciprocal_sum += weight / value;
+            }
+            log_exp_state.update(value, weight);
+            product_state.update(value, weight);
+        }
+        if (!(weight_sum > 0.0)) continue;
+
+        values[row] = switch (reduction) {
+            .product => product_state.finish(weight_sum),
+            .geometric_mean => if (std.math.isNan(weighted_log_sum)) quietNanF64() else if (weighted_zero_seen) 0.0 else std.math.exp(weighted_log_sum / weight_sum),
+            .harmonic_mean => if (std.math.isInf(weighted_reciprocal_sum)) 0.0 else weight_sum / weighted_reciprocal_sum,
+            .logsumexp => log_exp_state.finish(weight_sum, false),
+            .logmeanexp => log_exp_state.finish(weight_sum, true),
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedProduct(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .product);
+}
+
+pub fn withRowWeightedGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .geometric_mean);
+}
+
+pub fn withRowWeightedHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .harmonic_mean);
+}
+
+pub fn withRowWeightedLogSumExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .logsumexp);
+}
+
+pub fn withRowWeightedLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_name, .logmeanexp);
+}
+
+pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
+pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
+pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
+pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
+
 const RowWeightedDispersion = enum { variance, stddev };
 
 fn withRowWeightedDispersion(

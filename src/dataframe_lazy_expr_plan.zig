@@ -3768,6 +3768,47 @@ pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
+fn withRowWeightedLogProduct(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { product, geometric_mean, harmonic_mean, logsumexp, logmeanexp }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .product => .{ .row_weighted_product = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .geometric_mean => .{ .row_weighted_geometric_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .harmonic_mean => .{ .row_weighted_harmonic_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .logsumexp => .{ .row_weighted_logsumexp = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .logmeanexp => .{ .row_weighted_logmeanexp = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedProduct(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .product);
+}
+
+pub fn withRowWeightedGeometricMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .geometric_mean);
+}
+
+pub fn withRowWeightedHarmonicMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .harmonic_mean);
+}
+
+pub fn withRowWeightedLogSumExp(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .logsumexp);
+}
+
+pub fn withRowWeightedLogMeanExp(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedLogProduct(frame, value_names, weight_names, output_name, .logmeanexp);
+}
+
+pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
+pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
+pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
+pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
+
 fn withRowWeightedDispersion(
     frame: anytype,
     value_names: []const []const u8,

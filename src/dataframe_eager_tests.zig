@@ -1554,6 +1554,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_range_coeff_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_range_coeff_table, gpa, "row_weighted_range_coeff", &.{ 0.0, 0.0, 0.0, 9.0 / 11.0 }, &.{ true, true, false, true });
 
+    var row_weighted_product_table = try validity_table.withRowWeightedProduct(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_product");
+    defer row_weighted_product_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_product_table, gpa, "row_weighted_product", &.{ 1.0, 20.0, 0.0, std.math.exp(4.0 * std.math.log(f64, std.math.e, @as(f64, 4.0)) + std.math.log(f64, std.math.e, @as(f64, 40.0))) }, &.{ true, true, false, true });
+
+    var row_weighted_geo_table = try validity_table.withRowWeightedGeoMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_geo");
+    defer row_weighted_geo_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_geo_table, gpa, "row_weighted_geo", &.{ 1.0, 20.0, 0.0, std.math.exp((4.0 * std.math.log(f64, std.math.e, @as(f64, 4.0)) + std.math.log(f64, std.math.e, @as(f64, 40.0))) / 5.0) }, &.{ true, true, false, true });
+
+    var row_weighted_harmonic_table = try validity_table.withRowWeightedHarmonicMean(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_harmonic");
+    defer row_weighted_harmonic_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_harmonic_table, gpa, "row_weighted_harmonic", &.{ 1.0, 20.0, 0.0, 5.0 / (4.0 / 4.0 + 1.0 / 40.0) }, &.{ true, true, false, true });
+
+    var row_weighted_logsumexp_table = try validity_table.withRowWeightedLogsumexp(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_logsumexp");
+    defer row_weighted_logsumexp_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_logsumexp_table, gpa, "row_weighted_logsumexp", &.{ 1.0, 20.0, 0.0, 40.0 + std.math.log1p(@as(f64, 4.0) * std.math.exp(@as(f64, -36.0))) }, &.{ true, true, false, true });
+
+    var row_weighted_logmeanexp_table = try validity_table.withRowWeightedLogmeanexp(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_logmeanexp");
+    defer row_weighted_logmeanexp_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_logmeanexp_table, gpa, "row_weighted_logmeanexp", &.{ 1.0, 20.0, 0.0, 40.0 + std.math.log1p(@as(f64, 4.0) * std.math.exp(@as(f64, -36.0))) - std.math.log(f64, std.math.e, @as(f64, 5.0)) }, &.{ true, true, false, true });
+
     var row_weighted_quantile_table = try validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
     defer row_weighted_quantile_table.deinit();
     const row_weighted_quantile_column = try row_weighted_quantile_table.column("row_weighted_quantile");

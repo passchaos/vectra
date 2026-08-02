@@ -3294,6 +3294,11 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_weighted_range => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_range"),
         .row_weighted_midrange => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_midrange"),
         .row_weighted_range_coeff => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_range_coeff"),
+        .row_weighted_product => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_product"),
+        .row_weighted_geometric_mean => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_geometric_mean"),
+        .row_weighted_harmonic_mean => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_harmonic_mean"),
+        .row_weighted_logsumexp => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_logsumexp"),
+        .row_weighted_logmeanexp => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_logmeanexp"),
         .row_weighted_median => |row_weighted| blk: {
             const value_names = try cloneNameList(allocator, row_weighted.value_names);
             errdefer freeNameList(allocator, value_names);

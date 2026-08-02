@@ -776,6 +776,11 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_weighted_range => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_range", row_weighted),
         .row_weighted_midrange => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_midrange", row_weighted),
         .row_weighted_range_coeff => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_range_coeff", row_weighted),
+        .row_weighted_product => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_product", row_weighted),
+        .row_weighted_geometric_mean => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_geometric_mean", row_weighted),
+        .row_weighted_harmonic_mean => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_harmonic_mean", row_weighted),
+        .row_weighted_logsumexp => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_logsumexp", row_weighted),
+        .row_weighted_logmeanexp => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_logmeanexp", row_weighted),
         .row_weighted_variance => |row_weighted| {
             try writer.print("row_weighted_variance(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

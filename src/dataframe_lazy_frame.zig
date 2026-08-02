@@ -2496,6 +2496,34 @@ pub fn DeviceLazyTypes(
 
             pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
+            pub fn withRowWeightedProduct(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedProduct(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedGeometricMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedGeometricMean(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
+
+            pub fn withRowWeightedHarmonicMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedHarmonicMean(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
+
+            pub fn withRowWeightedLogSumExp(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedLogSumExp(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
+
+            pub fn withRowWeightedLogMeanExp(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedLogMeanExp(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
+
             pub fn withRowWeightedVariance(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedVariance(self, value_names, weight_names, output_name, correction);
             }

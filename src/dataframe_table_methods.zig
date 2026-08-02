@@ -3585,6 +3585,31 @@ pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
 pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
 pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
 
+pub fn withRowWeightedProduct(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedProduct(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedGeometricMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedGeometricMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedHarmonicMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedHarmonicMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedLogSumExp(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedLogSumExp(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedLogMeanExp(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedLogMeanExp(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
+}
+
+pub const withRowWeightedGeoMean = withRowWeightedGeometricMean;
+pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
+pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
+pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
+
 pub fn withRowWeightedVariance(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedVariance(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name, correction);
 }

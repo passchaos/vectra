@@ -778,6 +778,11 @@ weighted mean-square, RMS, absolute-moment, and L1/L2 norm contracts.
 `withRowWeightedMinAbs`, `withRowWeightedRange`,
 `withRowWeightedMidrange`, and `withRowWeightedRangeCoeff` append weighted
 row-wise extrema and range diagnostics over positive-weight valid pairs.
+`withRowWeightedProduct`, `withRowWeightedGeometricMean`,
+`withRowWeightedHarmonicMean`, `withRowWeightedLogSumExp`, and
+`withRowWeightedLogMeanExp` append weighted product/log-domain summaries with
+the same zero, negative, and stable log-sum-exp handling as grouped weighted
+aggregations.
 `withRowWeightedVariance` and `withRowWeightedStddev` append per-row
 weighted dispersion for aligned value/weight column lists, skipping null pairs,
 rejecting negative weights, and honoring a correction parameter for denominator
