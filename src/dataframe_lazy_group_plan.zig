@@ -1807,6 +1807,29 @@ pub fn withGroupCumulativeWeightedMean(frame: anytype, key_names: []const []cons
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .mean);
 }
 
+fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .median => .{ .group_cumulative_weighted_median = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .quantile => .{ .group_cumulative_weighted_quantile = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output, .quantile = q } },
+    });
+}
+
+pub fn withGroupCumulativeWeightedMedian(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .median);
+}
+
+pub fn withGroupCumulativeWeightedQuantile(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, q, .quantile);
+}
+
 pub fn withGroupCumulativeWeightedVariance(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .variance);
 }
@@ -1817,6 +1840,8 @@ pub fn withGroupCumulativeWeightedStddev(frame: anytype, key_names: []const []co
 
 pub const withGroupCumulativeWeightedVar = withGroupCumulativeWeightedVariance;
 pub const withGroupCumulativeWeightedStd = withGroupCumulativeWeightedStddev;
+pub const withGroupCumWeightedMedian = withGroupCumulativeWeightedMedian;
+pub const withGroupCumWeightedQuantile = withGroupCumulativeWeightedQuantile;
 
 pub fn withGroupCumulativeProduct(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .product);

@@ -4939,6 +4939,39 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .group_cumulative_weighted_median => |shift| blk: {
+            const names = try cloneNameList(allocator, shift.names);
+            errdefer freeNameList(allocator, names);
+            const value_name = try allocator.dupe(u8, shift.value_name);
+            errdefer allocator.free(value_name);
+            const weight_name = try allocator.dupe(u8, shift.weight_name);
+            errdefer allocator.free(weight_name);
+            const output_name = try allocator.dupe(u8, shift.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_cumulative_weighted_median = .{
+                .names = names,
+                .value_name = value_name,
+                .weight_name = weight_name,
+                .output_name = output_name,
+            } };
+        },
+        .group_cumulative_weighted_quantile => |shift| blk: {
+            const names = try cloneNameList(allocator, shift.names);
+            errdefer freeNameList(allocator, names);
+            const value_name = try allocator.dupe(u8, shift.value_name);
+            errdefer allocator.free(value_name);
+            const weight_name = try allocator.dupe(u8, shift.weight_name);
+            errdefer allocator.free(weight_name);
+            const output_name = try allocator.dupe(u8, shift.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_cumulative_weighted_quantile = .{
+                .names = names,
+                .value_name = value_name,
+                .weight_name = weight_name,
+                .output_name = output_name,
+                .quantile = shift.quantile,
+            } };
+        },
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);

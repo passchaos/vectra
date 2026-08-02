@@ -3571,8 +3571,105 @@ pub fn withGroupCumulativeWeightedStddevOn(
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .stddev);
 }
 
+fn withGroupCumulativeWeightedQuantileCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    q: f64,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value_column = try frame.column(value_name);
+    const weight_column = try frame.column(weight_name);
+
+    var values = try ownedGroupRealColumn(frame.allocator, value_column.*);
+    defer values.deinit();
+    var weights = try ownedGroupRealColumn(frame.allocator, weight_column.*);
+    defer weights.deinit();
+    if (frame.rows != values.values.len or frame.rows != weights.values.len) return error.LengthMismatch;
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var weight_sums: std.ArrayList(f64) = .empty;
+    defer weight_sums.deinit(frame.allocator);
+    var group_values: std.ArrayList(std.ArrayList(GroupWeightedValue)) = .empty;
+    defer {
+        for (group_values.items) |*items| items.deinit(frame.allocator);
+        group_values.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (values.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (weights.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const weight = weights.values[row];
+        if (weight < 0.0) return error.InvalidShape;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try weight_sums.append(frame.allocator, 0.0);
+            try group_values.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+
+        weight_sums.items[group_index] += weight;
+        try group_values.items[group_index].append(frame.allocator, .{
+            .value = values.values[row],
+            .weight = weight,
+        });
+        std.sort.insertion(GroupWeightedValue, group_values.items[group_index].items, {}, groupWeightedValueLess);
+
+        const weight_sum = weight_sums.items[group_index];
+        outputs[row] = if (weight_sum > 0.0) groupWeightedQuantileFromSorted(group_values.items[group_index].items, q, weight_sum) else std.math.nan(f64);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeWeightedMedianOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn withGroupCumulativeWeightedQuantileOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    q: f64,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, q);
+}
+
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
+pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
+pub const withGroupCumWeightedQuantileOn = withGroupCumulativeWeightedQuantileOn;
 pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;

@@ -505,6 +505,13 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             weight_name: []const u8,
             output_name: []const u8,
         };
+        pub const GroupWeightedShiftQuantile = struct {
+            names: [][]const u8,
+            value_name: []const u8,
+            weight_name: []const u8,
+            output_name: []const u8,
+            quantile: f64,
+        };
         pub const RowColumnOutputs = struct {
             names: [][]const u8,
             output_names: [][]const u8,

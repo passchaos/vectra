@@ -6205,6 +6205,14 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumulativeWeightedMeanOn = lazy_relation_methods_mod.withGroupCumulativeWeightedMeanOn;
             pub const withGroupCumWeightedMean = lazy_relation_methods_mod.withGroupCumWeightedMean;
             pub const withGroupCumWeightedMeanOn = lazy_relation_methods_mod.withGroupCumWeightedMeanOn;
+            pub const withGroupCumulativeWeightedMedian = lazy_relation_methods_mod.withGroupCumulativeWeightedMedian;
+            pub const withGroupCumulativeWeightedMedianOn = lazy_relation_methods_mod.withGroupCumulativeWeightedMedianOn;
+            pub const withGroupCumulativeWeightedQuantile = lazy_relation_methods_mod.withGroupCumulativeWeightedQuantile;
+            pub const withGroupCumulativeWeightedQuantileOn = lazy_relation_methods_mod.withGroupCumulativeWeightedQuantileOn;
+            pub const withGroupCumWeightedMedian = lazy_relation_methods_mod.withGroupCumWeightedMedian;
+            pub const withGroupCumWeightedMedianOn = lazy_relation_methods_mod.withGroupCumWeightedMedianOn;
+            pub const withGroupCumWeightedQuantile = lazy_relation_methods_mod.withGroupCumWeightedQuantile;
+            pub const withGroupCumWeightedQuantileOn = lazy_relation_methods_mod.withGroupCumWeightedQuantileOn;
             pub const withGroupCumulativeWeightedVariance = lazy_relation_methods_mod.withGroupCumulativeWeightedVariance;
             pub const withGroupCumulativeWeightedVarianceOn = lazy_relation_methods_mod.withGroupCumulativeWeightedVarianceOn;
             pub const withGroupCumulativeWeightedVar = lazy_relation_methods_mod.withGroupCumulativeWeightedVar;

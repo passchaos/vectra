@@ -3208,6 +3208,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedMean("bucket", "value", "weight", "bad_weighted_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
+    try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
     defer group_cum_weighted_mean.deinit();
@@ -3236,6 +3238,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_cumulative_weighted_mean = try cumulative_weighted_mean_plan.collect();
     defer lazy_cumulative_weighted_mean.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_mean_lazy", &.{ 10.0, 17.5, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
+
+    const group_cum_weighted_median_expected = [_]f64{ 10.0, 20.0, 20.0, 5.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_q75_expected = [_]f64{ 10.0, 20.0, 30.0, 5.0, 15.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_median = try weighted_table.withGroupCumulativeWeightedMedian("bucket", "value", "weight", "value_weighted_cum_median");
+    defer group_cum_weighted_median.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_median, gpa, "value_weighted_cum_median", &group_cum_weighted_median_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_q75 = try weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "value_weighted_cum_q75", 0.75);
+    defer group_cum_weighted_q75.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_q75, gpa, "value_weighted_cum_q75", &group_cum_weighted_q75_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var cumulative_weighted_quantile_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_quantile_plan.deinit();
+    try cumulative_weighted_quantile_plan.withGroupCumulativeWeightedMedian("bucket", "value", "weight", "value_weighted_cum_median_lazy");
+    try cumulative_weighted_quantile_plan.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "value_weighted_cum_q75_lazy", 0.75);
+    const cumulative_weighted_quantile_explained = try cumulative_weighted_quantile_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_quantile_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_quantile_explained, "group_cumulative_weighted_median([bucket], value=value, weight=weight->value_weighted_cum_median_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_quantile_explained, "group_cumulative_weighted_quantile([bucket], value=value, weight=weight, q=0.75->value_weighted_cum_q75_lazy)") != null);
+    var lazy_cumulative_weighted_quantiles = try cumulative_weighted_quantile_plan.collect();
+    defer lazy_cumulative_weighted_quantiles.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_median_lazy", &group_cum_weighted_median_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_quantiles, gpa, "value_weighted_cum_q75_lazy", &group_cum_weighted_q75_expected, &.{ true, true, true, true, true, false, true, true });
 
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };

@@ -1291,7 +1291,25 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
                 }
             },
-            .group_cumulative_weighted_mean, .group_cumulative_weighted_variance, .group_cumulative_weighted_stddev => |shift| {
+            .group_cumulative_weighted_mean, .group_cumulative_weighted_median, .group_cumulative_weighted_variance, .group_cumulative_weighted_stddev => |shift| {
+                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
+                if (shift.names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (shift.names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
+                }
+                if (!nameInBorrowedList(shift.weight_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, shift.weight_name);
+                }
+            },
+            .group_cumulative_weighted_quantile => |shift| {
                 try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
                 if (shift.names.len == 0) {
                     projection_blocked = true;
