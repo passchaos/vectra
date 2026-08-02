@@ -739,6 +739,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         drop_rows_by_mask_column: Payloads.FilterColumn,
         where_indices_column: Payloads.NullPredicateColumn,
         filter_scalar: Payloads.FilterScalar,
+        group_row_number: Payloads.RowValidityCount,
         group_by_count: Payloads.GroupByCount,
         group_by_count_on: Payloads.GroupByCountOn,
         group_by_rows: Payloads.GroupByRows,

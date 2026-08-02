@@ -3908,6 +3908,16 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             .scalar = filter_op.scalar,
             .keep_matches = filter_op.keep_matches,
         } },
+        .group_row_number => |row_count| blk: {
+            const names = try cloneNameList(allocator, row_count.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_count.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_row_number = .{
+                .names = names,
+                .output_name = output_name,
+            } };
+        },
         .group_by_count => |group| blk: {
             const key_name = try allocator.dupe(u8, group.key_name);
             errdefer allocator.free(key_name);

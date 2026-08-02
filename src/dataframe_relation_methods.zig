@@ -128,6 +128,18 @@ pub fn groupByBottomRowsByColumnsOn(self: anytype, key_names: []const []const u8
     return group_multi_mod.groupByBottomRowsByColumnsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, sort_names, n, options_values);
 }
 
+pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupRowNumberOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupRowNumberOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupRowNumberOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
+}
+
+pub const withGroupCumCount = withGroupRowNumber;
+pub const withGroupCumCountOn = withGroupRowNumberOn;
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return valueCountsAs(self, key_name, "count");
 }
