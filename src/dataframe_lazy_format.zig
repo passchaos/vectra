@@ -46,6 +46,25 @@ fn formatRowWeightedMeanPayload(writer: *std.Io.Writer, comptime op_name: []cons
     try writer.print("]->{s})", .{row_weighted.output_name});
 }
 
+fn formatRowWeightedPairPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}(lhs=[", .{op_name});
+    for (row_weighted.lhs_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], rhs=[", .{});
+    for (row_weighted.rhs_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], weights=[", .{});
+    for (row_weighted.weight_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("]->{s})", .{row_weighted.output_name});
+}
+
 pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!void {
     switch (op) {
         .select => |names| {
@@ -849,6 +868,11 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .row_weighted_skewness => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_skewness", row_weighted),
         .row_weighted_kurtosis => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_kurtosis", row_weighted),
+        .row_weighted_dot => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_dot", row_weighted),
+        .row_weighted_cosine_similarity => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_cosine_similarity", row_weighted),
+        .row_weighted_squared_euclidean_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_squared_euclidean_distance", row_weighted),
+        .row_weighted_euclidean_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_euclidean_distance", row_weighted),
+        .row_weighted_manhattan_distance => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_manhattan_distance", row_weighted),
         .row_weighted_covariance => |row_weighted| {
             try writer.print("row_weighted_covariance(lhs=[", .{});
             for (row_weighted.lhs_names, 0..) |name, i| {

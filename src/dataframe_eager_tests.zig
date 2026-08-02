@@ -1880,6 +1880,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 12.0), row_weighted_beta[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_beta_validity);
 
+    var row_weighted_dot_table = try validity_table.withRowWeightedDot(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_dot");
+    defer row_weighted_dot_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_dot_table, gpa, "row_weighted_dot", &.{ 1.0, 20.0, 0.0, 104.0 }, &.{ true, true, false, true });
+
+    var row_weighted_cosine_table = try validity_table.withRowWeightedCosine(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_cosine");
+    defer row_weighted_cosine_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_cosine_table, gpa, "row_weighted_cosine", &.{ 1.0, 1.0, 0.0, 104.0 / (std.math.sqrt(@as(f64, 1664.0)) * std.math.sqrt(@as(f64, 65.0))) }, &.{ true, true, false, true });
+
+    var row_weighted_sqdist_table = try validity_table.withRowWeightedSquaredDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_sqdist");
+    defer row_weighted_sqdist_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_sqdist_table, gpa, "row_weighted_sqdist", &.{ 0.0, 361.0, 0.0, 1521.0 }, &.{ true, true, false, true });
+
+    var row_weighted_euclidean_table = try validity_table.withRowWeightedL2Distance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_euclidean");
+    defer row_weighted_euclidean_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_euclidean_table, gpa, "row_weighted_euclidean", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ true, true, false, true });
+
+    var row_weighted_manhattan_table = try validity_table.withRowWeightedL1Distance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, "row_weighted_manhattan");
+    defer row_weighted_manhattan_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_manhattan_table, gpa, "row_weighted_manhattan", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ true, true, false, true });
+
     var row_dot_table = try validity_table.withRowDot(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_dot");
     defer row_dot_table.deinit();
     const row_dot_column = try row_dot_table.column("row_dot");

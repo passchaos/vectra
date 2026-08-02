@@ -3656,6 +3656,32 @@ pub fn withRowWeightedKurtosis(self: anytype, value_names: []const []const u8, w
 pub const withRowWeightedSkew = withRowWeightedSkewness;
 pub const withRowWeightedKurt = withRowWeightedKurtosis;
 
+pub fn withRowWeightedDot(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedDot(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedCosineSimilarity(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedCosineSimilarity(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedSquaredEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedSquaredEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub fn withRowWeightedManhattanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowWeightedManhattanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name);
+}
+
+pub const withRowWeightedCosine = withRowWeightedCosineSimilarity;
+pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
+pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
+
 pub fn withRowWeightedCovariance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedCovariance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_name, correction);
 }

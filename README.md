@@ -799,6 +799,10 @@ normalization and returning NaN for zero weighted variance.
 `withRowWeightedBeta` append per-row weighted paired statistics for aligned
 lhs/rhs/weight column lists, sharing null-pair skipping, negative-weight
 rejection, zero-variance NaN semantics, and correction-controlled denominators.
+`withRowWeightedDot`, `withRowWeightedCosineSimilarity`,
+`withRowWeightedSquaredEuclideanDistance`, `withRowWeightedEuclideanDistance`,
+and `withRowWeightedManhattanDistance` extend those aligned weighted pair lists
+to vector similarity and distance diagnostics.
 `withRowWeightedQuantile` and `withRowWeightedMedian` append per-row
 weighted distribution statistics for aligned value/weight column lists, using
 cumulative-weight threshold semantics while skipping null pairs and rejecting

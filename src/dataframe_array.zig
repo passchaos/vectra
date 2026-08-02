@@ -4532,7 +4532,7 @@ fn ownedRealF64Column(allocator: std.mem.Allocator, source: anytype) DeviceFrame
     }
 }
 
-const RowWeightedPairReduction = enum { covariance, correlation, beta };
+const RowWeightedPairReduction = enum { dot, cosine, squared_euclidean, euclidean, manhattan, covariance, correlation, beta };
 
 fn withRowWeightedPairReduction(
     comptime DeviceDataFrame: type,
@@ -4559,6 +4559,8 @@ fn withRowWeightedPairReduction(
     defer input.allocator.free(rhs_square_sums);
     const cross_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(cross_sums);
+    const weighted_abs_error_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(weighted_abs_error_sums);
     const validity = try input.allocator.alloc(bool, input.rows);
     defer input.allocator.free(validity);
     @memset(weight_sums, 0.0);
@@ -4567,6 +4569,7 @@ fn withRowWeightedPairReduction(
     @memset(lhs_square_sums, 0.0);
     @memset(rhs_square_sums, 0.0);
     @memset(cross_sums, 0.0);
+    @memset(weighted_abs_error_sums, 0.0);
     @memset(validity, false);
 
     for (lhs_names, rhs_names, weight_names) |lhs_name, rhs_name, weight_name| {
@@ -4587,18 +4590,20 @@ fn withRowWeightedPairReduction(
             const weight_valid = if (weight_column.validity) |mask| mask[row] else true;
             if (!lhs_valid or !rhs_valid or !weight_valid) continue;
             if (weight < 0.0) return error.InvalidShape;
+            if (!(weight > 0.0)) continue;
             weight_sums[row] += weight;
             lhs_sums[row] += weight * lhs;
             rhs_sums[row] += weight * rhs;
             lhs_square_sums[row] += weight * lhs * lhs;
             rhs_square_sums[row] += weight * rhs * rhs;
             cross_sums[row] += weight * lhs * rhs;
+            weighted_abs_error_sums[row] += weight * @abs(lhs - rhs);
         }
     }
 
     const values = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(values);
-    for (values, validity, weight_sums, lhs_sums, rhs_sums, lhs_square_sums, rhs_square_sums, cross_sums) |*value, *valid, weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum| {
+    for (values, validity, weight_sums, lhs_sums, rhs_sums, lhs_square_sums, rhs_square_sums, cross_sums, weighted_abs_error_sums) |*value, *valid, weight_sum, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, weighted_abs_error_sum| {
         valid.* = weight_sum > 0.0;
         if (!valid.*) {
             value.* = 0.0;
@@ -4612,7 +4617,13 @@ fn withRowWeightedPairReduction(
         if (rhs_centered < 0.0 and rhs_centered > -1e-12) rhs_centered = 0.0;
 
         const covariance = if (denominator <= 0.0) quietNanF64() else cross_centered / denominator;
+        const squared_distance = lhs_square_sum + rhs_square_sum - 2.0 * cross_sum;
         value.* = switch (reduction) {
+            .dot => cross_sum,
+            .cosine => if (lhs_square_sum == 0.0 or rhs_square_sum == 0.0) quietNanF64() else cross_sum / (std.math.sqrt(lhs_square_sum) * std.math.sqrt(rhs_square_sum)),
+            .squared_euclidean => squared_distance,
+            .euclidean => std.math.sqrt(squared_distance),
+            .manhattan => weighted_abs_error_sum,
             .covariance => covariance,
             .correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) quietNanF64() else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
             .beta => if (denominator <= 0.0 or lhs_centered == 0.0) quietNanF64() else cross_centered / lhs_centered,
@@ -4624,6 +4635,67 @@ fn withRowWeightedPairReduction(
     defer column.deinit();
     return withColumn(DeviceDataFrame, input, output_name, column);
 }
+
+pub fn withRowWeightedDot(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .dot);
+}
+
+pub fn withRowWeightedCosineSimilarity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .cosine);
+}
+
+pub fn withRowWeightedSquaredEuclideanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .squared_euclidean);
+}
+
+pub fn withRowWeightedEuclideanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .euclidean);
+}
+
+pub fn withRowWeightedManhattanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedPairReduction(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_name, 0.0, .manhattan);
+}
+
+pub const withRowWeightedCosine = withRowWeightedCosineSimilarity;
+pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
+pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
 pub fn withRowWeightedCovariance(
     comptime DeviceDataFrame: type,

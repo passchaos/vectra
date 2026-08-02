@@ -2572,6 +2572,35 @@ pub fn DeviceLazyTypes(
 
             pub const withRowWeightedKurt = withRowWeightedKurtosis;
 
+            pub fn withRowWeightedDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedDot(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedCosineSimilarity(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedCosineSimilarity(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedCosine = withRowWeightedCosineSimilarity;
+
+            pub fn withRowWeightedSquaredEuclideanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedSquaredEuclideanDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistance;
+            pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
+
+            pub fn withRowWeightedEuclideanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedEuclideanDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
+
+            pub fn withRowWeightedManhattanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedManhattanDistance(self, lhs_names, rhs_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
+
             pub fn withRowWeightedCovariance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedCovariance(self, lhs_names, rhs_names, weight_names, output_name, correction);
             }

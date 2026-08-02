@@ -104,6 +104,29 @@ fn cloneRowWeightedDispersion(
     });
 }
 
+fn cloneRowWeightedPair(
+    comptime Self: type,
+    allocator: std.mem.Allocator,
+    row_weighted: anytype,
+    comptime tag_name: []const u8,
+) DeviceDataError!Self {
+    const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
+    errdefer freeNameList(allocator, lhs_names);
+    const rhs_names = try cloneNameList(allocator, row_weighted.rhs_names);
+    errdefer freeNameList(allocator, rhs_names);
+    const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+    errdefer freeNameList(allocator, weight_names);
+    const output_name = try allocator.dupe(u8, row_weighted.output_name);
+    errdefer allocator.free(output_name);
+    return @unionInit(Self, tag_name, .{
+        .lhs_names = lhs_names,
+        .rhs_names = rhs_names,
+        .weight_names = weight_names,
+        .output_name = output_name,
+        .correction = row_weighted.correction,
+    });
+}
+
 pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) DeviceDataError!Self {
     return switch (self) {
         .select => |names| blk: {
@@ -3537,57 +3560,14 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .q = row_weighted.q,
             } };
         },
-        .row_weighted_covariance => |row_weighted| blk: {
-            const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
-            errdefer freeNameList(allocator, lhs_names);
-            const rhs_names = try cloneNameList(allocator, row_weighted.rhs_names);
-            errdefer freeNameList(allocator, rhs_names);
-            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
-            errdefer freeNameList(allocator, weight_names);
-            const output_name = try allocator.dupe(u8, row_weighted.output_name);
-            errdefer allocator.free(output_name);
-            break :blk .{ .row_weighted_covariance = .{
-                .lhs_names = lhs_names,
-                .rhs_names = rhs_names,
-                .weight_names = weight_names,
-                .output_name = output_name,
-                .correction = row_weighted.correction,
-            } };
-        },
-        .row_weighted_correlation => |row_weighted| blk: {
-            const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
-            errdefer freeNameList(allocator, lhs_names);
-            const rhs_names = try cloneNameList(allocator, row_weighted.rhs_names);
-            errdefer freeNameList(allocator, rhs_names);
-            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
-            errdefer freeNameList(allocator, weight_names);
-            const output_name = try allocator.dupe(u8, row_weighted.output_name);
-            errdefer allocator.free(output_name);
-            break :blk .{ .row_weighted_correlation = .{
-                .lhs_names = lhs_names,
-                .rhs_names = rhs_names,
-                .weight_names = weight_names,
-                .output_name = output_name,
-                .correction = row_weighted.correction,
-            } };
-        },
-        .row_weighted_beta => |row_weighted| blk: {
-            const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
-            errdefer freeNameList(allocator, lhs_names);
-            const rhs_names = try cloneNameList(allocator, row_weighted.rhs_names);
-            errdefer freeNameList(allocator, rhs_names);
-            const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
-            errdefer freeNameList(allocator, weight_names);
-            const output_name = try allocator.dupe(u8, row_weighted.output_name);
-            errdefer allocator.free(output_name);
-            break :blk .{ .row_weighted_beta = .{
-                .lhs_names = lhs_names,
-                .rhs_names = rhs_names,
-                .weight_names = weight_names,
-                .output_name = output_name,
-                .correction = row_weighted.correction,
-            } };
-        },
+        .row_weighted_dot => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_dot"),
+        .row_weighted_cosine_similarity => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_cosine_similarity"),
+        .row_weighted_squared_euclidean_distance => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_squared_euclidean_distance"),
+        .row_weighted_euclidean_distance => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_euclidean_distance"),
+        .row_weighted_manhattan_distance => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_manhattan_distance"),
+        .row_weighted_covariance => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_covariance"),
+        .row_weighted_correlation => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_correlation"),
+        .row_weighted_beta => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_beta"),
         .row_dot => |row_paired| blk: {
             const value_names = try cloneNameList(allocator, row_paired.value_names);
             errdefer freeNameList(allocator, value_names);

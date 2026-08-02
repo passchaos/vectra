@@ -3939,7 +3939,7 @@ fn withRowWeightedPair(
     weight_names: []const []const u8,
     output_name: []const u8,
     correction: f64,
-    comptime reduction: enum { covariance, correlation, beta },
+    comptime reduction: enum { dot, cosine, squared_euclidean, euclidean, manhattan, covariance, correlation, beta },
 ) DeviceDataError!void {
     const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
     errdefer {
@@ -3959,6 +3959,41 @@ fn withRowWeightedPair(
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     switch (reduction) {
+        .dot => try frame.ops.append(frame.allocator, .{ .row_weighted_dot = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .cosine => try frame.ops.append(frame.allocator, .{ .row_weighted_cosine_similarity = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .squared_euclidean => try frame.ops.append(frame.allocator, .{ .row_weighted_squared_euclidean_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .euclidean => try frame.ops.append(frame.allocator, .{ .row_weighted_euclidean_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
+        .manhattan => try frame.ops.append(frame.allocator, .{ .row_weighted_manhattan_distance = .{
+            .lhs_names = owned_lhs,
+            .rhs_names = owned_rhs,
+            .weight_names = owned_weights,
+            .output_name = owned_output,
+            .correction = correction,
+        } }),
         .covariance => try frame.ops.append(frame.allocator, .{ .row_weighted_covariance = .{
             .lhs_names = owned_lhs,
             .rhs_names = owned_rhs,
@@ -3982,6 +4017,32 @@ fn withRowWeightedPair(
         } }),
     }
 }
+
+pub fn withRowWeightedDot(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .dot);
+}
+
+pub fn withRowWeightedCosineSimilarity(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .cosine);
+}
+
+pub fn withRowWeightedSquaredEuclideanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .squared_euclidean);
+}
+
+pub fn withRowWeightedEuclideanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .euclidean);
+}
+
+pub fn withRowWeightedManhattanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, 0.0, .manhattan);
+}
+
+pub const withRowWeightedCosine = withRowWeightedCosineSimilarity;
+pub const withRowWeightedSquaredDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedSqEuclideanDistance = withRowWeightedSquaredEuclideanDistance;
+pub const withRowWeightedL2Distance = withRowWeightedEuclideanDistance;
+pub const withRowWeightedL1Distance = withRowWeightedManhattanDistance;
 
 pub fn withRowWeightedCovariance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .covariance);
