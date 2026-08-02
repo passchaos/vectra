@@ -2226,6 +2226,37 @@ pub const withGroupCumWeightedMaxAbsOn = withGroupCumulativeWeightedMaxAbsOn;
 pub const withGroupCumWeightedMinAbs = withGroupCumulativeWeightedMinAbs;
 pub const withGroupCumWeightedMinAbsOn = withGroupCumulativeWeightedMinAbsOn;
 
+pub fn withGroupCumulativeWeightedGeometricMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedGeometricMeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGeometricMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedGeometricMean(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedHarmonicMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedHarmonicMeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedHarmonicMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedHarmonicMean(self, key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
+pub const withGroupCumulativeWeightedGeoMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
+pub const withGroupCumulativeWeightedHarmMean = withGroupCumulativeWeightedHarmonicMean;
+pub const withGroupCumulativeWeightedHarmMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
+pub const withGroupCumWeightedGeometricMean = withGroupCumulativeWeightedGeometricMean;
+pub const withGroupCumWeightedGeometricMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
+pub const withGroupCumWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
+pub const withGroupCumWeightedGeoMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
+pub const withGroupCumWeightedHarmonicMean = withGroupCumulativeWeightedHarmonicMean;
+pub const withGroupCumWeightedHarmonicMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
+pub const withGroupCumWeightedHarmMean = withGroupCumulativeWeightedHarmonicMean;
+pub const withGroupCumWeightedHarmMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
@@ -3052,6 +3083,27 @@ pub const groupByWeightedMaxAbsolute = groupByWeightedMaxAbs;
 pub const groupByWeightedMaxAbsoluteOn = groupByWeightedMaxAbsOn;
 pub const groupByWeightedMinAbsolute = groupByWeightedMinAbs;
 pub const groupByWeightedMinAbsoluteOn = groupByWeightedMinAbsOn;
+
+pub fn groupByWeightedGeometricMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_geometric_mean);
+}
+
+pub fn groupByWeightedGeometricMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_geometric_mean);
+}
+
+pub fn groupByWeightedHarmonicMean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_harmonic_mean);
+}
+
+pub fn groupByWeightedHarmonicMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_harmonic_mean);
+}
+
+pub const groupByWeightedGeoMean = groupByWeightedGeometricMean;
+pub const groupByWeightedGeoMeanOn = groupByWeightedGeometricMeanOn;
+pub const groupByWeightedHarmMean = groupByWeightedHarmonicMean;
+pub const groupByWeightedHarmMeanOn = groupByWeightedHarmonicMeanOn;
 
 pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);

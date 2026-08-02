@@ -877,6 +877,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_weighted_l2_norm: Payloads.GroupWeightedShift,
         group_cumulative_weighted_max_abs: Payloads.GroupWeightedShift,
         group_cumulative_weighted_min_abs: Payloads.GroupWeightedShift,
+        group_cumulative_weighted_geometric_mean: Payloads.GroupWeightedShift,
+        group_cumulative_weighted_harmonic_mean: Payloads.GroupWeightedShift,
         group_cumulative_weighted_median: Payloads.GroupWeightedShift,
         group_cumulative_weighted_quantile: Payloads.GroupWeightedShiftQuantile,
         group_cumulative_weighted_iqr: Payloads.GroupWeightedShift,

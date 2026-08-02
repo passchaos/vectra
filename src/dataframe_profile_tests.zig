@@ -2900,6 +2900,17 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_min_abs.deinit();
     try expectF64ColumnApproxOrNan(weighted_min_abs, gpa, "value_weighted_min_abs", &weighted_min_abs_expected);
 
+    const weighted_geometric_expected = [_]f64{ std.math.exp((std.math.log(f64, std.math.e, @as(f64, 10.0)) + 3.0 * std.math.log(f64, std.math.e, @as(f64, 20.0)) + 2.0 * std.math.log(f64, std.math.e, @as(f64, 30.0))) / 6.0), std.math.exp((std.math.log(f64, std.math.e, @as(f64, 5.0)) + std.math.log(f64, std.math.e, @as(f64, 15.0))) / 2.0), std.math.nan(f64) };
+    const weighted_harmonic_expected = [_]f64{ 6.0 / (1.0 / 10.0 + 3.0 / 20.0 + 2.0 / 30.0), 2.0 / (1.0 / 5.0 + 1.0 / 15.0), std.math.nan(f64) };
+
+    var weighted_geometric = try weighted_table.groupByWeightedGeoMean("bucket", "value", "weight", "value_weighted_geometric");
+    defer weighted_geometric.deinit();
+    try expectF64ColumnApproxOrNan(weighted_geometric, gpa, "value_weighted_geometric", &weighted_geometric_expected);
+
+    var weighted_harmonic = try weighted_table.groupByWeightedHarmonicMean("bucket", "value", "weight", "value_weighted_harmonic");
+    defer weighted_harmonic.deinit();
+    try expectF64ColumnApproxOrNan(weighted_harmonic, gpa, "value_weighted_harmonic", &weighted_harmonic_expected);
+
     var weighted_variance = try weighted_table.groupByWeightedVarOn(&.{"bucket"}, "value", "weight", "value_weighted_variance");
     defer weighted_variance.deinit();
     const weighted_variance_values = try (try weighted_variance.column("value_weighted_variance")).f64.toOwnedSlice(gpa);
@@ -3264,6 +3275,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "bad_weighted_cum_mode"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "bad_weighted_cum_entropy"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedGeometricMean("bucket", "value", "weight", "bad_weighted_cum_geometric"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "bad_weighted_cum_harmonic"));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
@@ -3543,6 +3556,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const group_cum_weighted_l2_expected = [_]f64{ 10.0, std.math.sqrt(@as(f64, 1300.0)), std.math.sqrt(@as(f64, 3100.0)), 5.0, std.math.sqrt(@as(f64, 250.0)), 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_max_abs_expected = [_]f64{ 10.0, 20.0, 30.0, 5.0, 15.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_min_abs_expected = [_]f64{ 10.0, 10.0, 10.0, 5.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_geometric_expected = [_]f64{ 10.0, std.math.exp((std.math.log(f64, std.math.e, @as(f64, 10.0)) + 3.0 * std.math.log(f64, std.math.e, @as(f64, 20.0))) / 4.0), weighted_geometric_expected[0], 5.0, std.math.sqrt(@as(f64, 75.0)), 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_harmonic_expected = [_]f64{ 10.0, 4.0 / (1.0 / 10.0 + 3.0 / 20.0), weighted_harmonic_expected[0], 5.0, weighted_harmonic_expected[1], 0.0, std.math.nan(f64), std.math.nan(f64) };
 
     var group_cum_weighted_mean_abs = try weighted_table.withGroupCumulativeWeightedMeanAbs("bucket", "value", "weight", "value_weighted_cum_mean_abs");
     defer group_cum_weighted_mean_abs.deinit();
@@ -3563,6 +3578,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var group_cum_weighted_min_abs = try weighted_table.withGroupCumulativeWeightedMinAbs("bucket", "value", "weight", "value_weighted_cum_min_abs");
     defer group_cum_weighted_min_abs.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_min_abs, gpa, "value_weighted_cum_min_abs", &group_cum_weighted_min_abs_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_geometric = try weighted_table.withGroupCumulativeWeightedGeoMean("bucket", "value", "weight", "value_weighted_cum_geometric");
+    defer group_cum_weighted_geometric.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_geometric, gpa, "value_weighted_cum_geometric", &group_cum_weighted_geometric_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_harmonic = try weighted_table.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "value_weighted_cum_harmonic");
+    defer group_cum_weighted_harmonic.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_harmonic, gpa, "value_weighted_cum_harmonic", &group_cum_weighted_harmonic_expected, &.{ true, true, true, true, true, false, true, true });
 
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
@@ -3598,6 +3621,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedL2Norm("bucket", "value", "weight", "value_weighted_cum_l2_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedMaxAbs("bucket", "value", "weight", "value_weighted_cum_max_abs_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedMinAbs("bucket", "value", "weight", "value_weighted_cum_min_abs_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedGeoMean("bucket", "value", "weight", "value_weighted_cum_geometric_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "value_weighted_cum_harmonic_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedVar("bucket", "value", "weight", "value_weighted_cum_variance_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedStd("bucket", "value", "weight", "value_weighted_cum_stddev_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedSem("bucket", "value", "weight", "value_weighted_cum_sem_lazy");
@@ -3606,6 +3631,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const cumulative_weighted_moment_explained = try cumulative_weighted_moment_plan.explain(gpa);
     defer gpa.free(cumulative_weighted_moment_explained);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_mean_abs([bucket], value=value, weight=weight->value_weighted_cum_mean_abs_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_geometric_mean([bucket], value=value, weight=weight->value_weighted_cum_geometric_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_harmonic_mean([bucket], value=value, weight=weight->value_weighted_cum_harmonic_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_variance([bucket], value=value, weight=weight->value_weighted_cum_variance_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_stddev([bucket], value=value, weight=weight->value_weighted_cum_stddev_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_sem([bucket], value=value, weight=weight->value_weighted_cum_sem_lazy)") != null);
@@ -3616,6 +3643,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_l2_lazy", &group_cum_weighted_l2_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_max_abs_lazy", &group_cum_weighted_max_abs_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_min_abs_lazy", &group_cum_weighted_min_abs_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_geometric_lazy", &group_cum_weighted_geometric_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_harmonic_lazy", &group_cum_weighted_harmonic_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_variance_lazy", &group_cum_weighted_variance_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_stddev_lazy", &group_cum_weighted_stddev_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_sem_lazy", &group_cum_weighted_sem_expected, &.{ true, true, true, true, true, false, true, true });
@@ -3705,6 +3734,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_l2_norm, .output_name = "value_weighted_l2_lazy", .explain = "group_by_weighted_l2_norm(bucket, value=value, weight=weight -> value_weighted_l2_lazy)", .expected = &weighted_l2_expected },
         .{ .method = .weighted_max_abs, .output_name = "value_weighted_max_abs_lazy", .explain = "group_by_weighted_max_abs(bucket, value=value, weight=weight -> value_weighted_max_abs_lazy)", .expected = &weighted_max_abs_expected },
         .{ .method = .weighted_min_abs, .output_name = "value_weighted_min_abs_lazy", .explain = "group_by_weighted_min_abs(bucket, value=value, weight=weight -> value_weighted_min_abs_lazy)", .expected = &weighted_min_abs_expected },
+        .{ .method = .weighted_geometric_mean, .output_name = "value_weighted_geometric_lazy", .explain = "group_by_weighted_geometric_mean(bucket, value=value, weight=weight -> value_weighted_geometric_lazy)", .expected = &weighted_geometric_expected },
+        .{ .method = .weighted_harmonic_mean, .output_name = "value_weighted_harmonic_lazy", .explain = "group_by_weighted_harmonic_mean(bucket, value=value, weight=weight -> value_weighted_harmonic_lazy)", .expected = &weighted_harmonic_expected },
         .{ .method = .weighted_mode, .output_name = "value_weighted_mode_lazy", .explain = "group_by_weighted_mode(bucket, value=value, weight=weight -> value_weighted_mode_lazy)", .expected = &weighted_mode_expected },
         .{ .method = .weighted_mode_weight, .output_name = "value_weighted_mode_weight_lazy", .explain = "group_by_weighted_mode_weight(bucket, value=value, weight=weight -> value_weighted_mode_weight_lazy)", .expected = &weighted_mode_weight_expected },
         .{ .method = .weighted_mode_ratio, .output_name = "value_weighted_mode_ratio_lazy", .explain = "group_by_weighted_mode_ratio(bucket, value=value, weight=weight -> value_weighted_mode_ratio_lazy)", .expected = &weighted_mode_ratio_expected },
@@ -3731,6 +3762,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_l2_norm => plan.groupByWeightedL2Norm("bucket", "value", "weight", case.output_name),
             .weighted_max_abs => plan.groupByWeightedMaxAbs("bucket", "value", "weight", case.output_name),
             .weighted_min_abs => plan.groupByWeightedMinAbs("bucket", "value", "weight", case.output_name),
+            .weighted_geometric_mean => plan.groupByWeightedGeoMean("bucket", "value", "weight", case.output_name),
+            .weighted_harmonic_mean => plan.groupByWeightedHarmonicMean("bucket", "value", "weight", case.output_name),
             .weighted_mode => plan.groupByWeightedMode("bucket", "value", "weight", case.output_name),
             .weighted_mode_weight => plan.groupByWeightedModeWeight("bucket", "value", "weight", case.output_name),
             .weighted_mode_ratio => plan.groupByWeightedModeRatio("bucket", "value", "weight", case.output_name),

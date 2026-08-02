@@ -5087,6 +5087,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_l2_norm => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_l2_norm"),
         .group_cumulative_weighted_max_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_max_abs"),
         .group_cumulative_weighted_min_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_min_abs"),
+        .group_cumulative_weighted_geometric_mean => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_geometric_mean"),
+        .group_cumulative_weighted_harmonic_mean => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_harmonic_mean"),
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);
