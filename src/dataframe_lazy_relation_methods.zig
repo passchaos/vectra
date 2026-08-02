@@ -1640,6 +1640,22 @@ pub fn groupByZeroRatioOn(self: anytype, key_names: []const []const u8, value_na
     return self.groupByValueOn(key_names, value_name, output_name, .zero_ratio);
 }
 
+pub fn groupByFirstZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_zero_index);
+}
+
+pub fn groupByFirstZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_zero_index);
+}
+
+pub fn groupByLastZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_zero_index);
+}
+
+pub fn groupByLastZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_zero_index);
+}
+
 pub fn groupByPositiveZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .positive_zero_count);
 }
@@ -1720,6 +1736,22 @@ pub fn groupByNonZeroRatioOn(self: anytype, key_names: []const []const u8, value
     return self.groupByValueOn(key_names, value_name, output_name, .non_zero_ratio);
 }
 
+pub fn groupByFirstNonZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_non_zero_index);
+}
+
+pub fn groupByFirstNonZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_non_zero_index);
+}
+
+pub fn groupByLastNonZeroIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_non_zero_index);
+}
+
+pub fn groupByLastNonZeroIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_non_zero_index);
+}
+
 pub fn groupByPositiveCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .positive_count);
 }
@@ -1734,6 +1766,22 @@ pub fn groupByPositiveRatio(self: anytype, key_name: []const u8, value_name: []c
 
 pub fn groupByPositiveRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValueOn(key_names, value_name, output_name, .positive_ratio);
+}
+
+pub fn groupByFirstPositiveIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_positive_index);
+}
+
+pub fn groupByFirstPositiveIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_positive_index);
+}
+
+pub fn groupByLastPositiveIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_positive_index);
+}
+
+pub fn groupByLastPositiveIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_positive_index);
 }
 
 pub fn groupBySignBitCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -1752,6 +1800,22 @@ pub fn groupBySignBitRatioOn(self: anytype, key_names: []const []const u8, value
     return self.groupByValueOn(key_names, value_name, output_name, .signbit_ratio);
 }
 
+pub fn groupByFirstSignBitIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_signbit_index);
+}
+
+pub fn groupByFirstSignBitIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_signbit_index);
+}
+
+pub fn groupByLastSignBitIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_signbit_index);
+}
+
+pub fn groupByLastSignBitIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_signbit_index);
+}
+
 pub fn groupByNegativeCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .negative_count);
 }
@@ -1766,6 +1830,22 @@ pub fn groupByNegativeRatio(self: anytype, key_name: []const u8, value_name: []c
 
 pub fn groupByNegativeRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValueOn(key_names, value_name, output_name, .negative_ratio);
+}
+
+pub fn groupByFirstNegativeIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .first_negative_index);
+}
+
+pub fn groupByFirstNegativeIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .first_negative_index);
+}
+
+pub fn groupByLastNegativeIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .last_negative_index);
+}
+
+pub fn groupByLastNegativeIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .last_negative_index);
 }
 
 pub fn groupByArgMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {

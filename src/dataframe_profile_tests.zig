@@ -566,6 +566,57 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i64, &.{ 1, 6, 0 }, last_negative_zero_index_values);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false }, last_negative_zero_index_validity);
 
+    var sign_index_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
+    defer sign_index_key.deinit();
+    var sign_index_values_buffer = [_]f64{ 0.0, -2.0, 3.0, -4.0, 5.0, 0.0, -0.0, 9.0 };
+    var sign_index_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &sign_index_values_buffer, &.{ true, true, true, true, true, true, true, false }, .cpu);
+    defer sign_index_value.deinit();
+    var sign_index_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = sign_index_key },
+        .{ .name = "metric", .data = sign_index_value },
+    });
+    defer sign_index_table.deinit();
+
+    var first_zero_indices = try sign_index_table.groupByFirstZeroIndex("bucket", "metric", "first_zero_index");
+    defer first_zero_indices.deinit();
+    try expectNullableI64Column(first_zero_indices, gpa, "first_zero_index", &.{ 0, 5, 0 }, &.{ true, true, false });
+
+    var last_zero_indices = try sign_index_table.groupByLastZeroIndex("bucket", "metric", "last_zero_index");
+    defer last_zero_indices.deinit();
+    try expectNullableI64Column(last_zero_indices, gpa, "last_zero_index", &.{ 0, 6, 0 }, &.{ true, true, false });
+
+    var first_non_zero_indices = try sign_index_table.groupByFirstNonZeroIndex("bucket", "metric", "first_non_zero_index");
+    defer first_non_zero_indices.deinit();
+    try expectNullableI64Column(first_non_zero_indices, gpa, "first_non_zero_index", &.{ 1, 4, 0 }, &.{ true, true, false });
+
+    var last_non_zero_indices = try sign_index_table.groupByLastNonZeroIndex("bucket", "metric", "last_non_zero_index");
+    defer last_non_zero_indices.deinit();
+    try expectNullableI64Column(last_non_zero_indices, gpa, "last_non_zero_index", &.{ 3, 4, 0 }, &.{ true, true, false });
+
+    var first_positive_indices = try sign_index_table.groupByFirstPositiveIndex("bucket", "metric", "first_positive_index");
+    defer first_positive_indices.deinit();
+    try expectNullableI64Column(first_positive_indices, gpa, "first_positive_index", &.{ 2, 4, 0 }, &.{ true, true, false });
+
+    var last_positive_indices = try sign_index_table.groupByLastPositiveIndex("bucket", "metric", "last_positive_index");
+    defer last_positive_indices.deinit();
+    try expectNullableI64Column(last_positive_indices, gpa, "last_positive_index", &.{ 2, 4, 0 }, &.{ true, true, false });
+
+    var first_signbit_indices = try sign_index_table.groupByFirstSignBitIndex("bucket", "metric", "first_signbit_index");
+    defer first_signbit_indices.deinit();
+    try expectNullableI64Column(first_signbit_indices, gpa, "first_signbit_index", &.{ 1, 6, 0 }, &.{ true, true, false });
+
+    var last_signbit_indices = try sign_index_table.groupByLastSignBitIndex("bucket", "metric", "last_signbit_index");
+    defer last_signbit_indices.deinit();
+    try expectNullableI64Column(last_signbit_indices, gpa, "last_signbit_index", &.{ 3, 6, 0 }, &.{ true, true, false });
+
+    var first_negative_indices = try sign_index_table.groupByFirstNegativeIndex("bucket", "metric", "first_negative_index");
+    defer first_negative_indices.deinit();
+    try expectNullableI64Column(first_negative_indices, gpa, "first_negative_index", &.{ 1, 0, 0 }, &.{ true, false, false });
+
+    var last_negative_indices = try sign_index_table.groupByLastNegativeIndex("bucket", "metric", "last_negative_index");
+    defer last_negative_indices.deinit();
+    try expectNullableI64Column(last_negative_indices, gpa, "last_negative_index", &.{ 3, 0, 0 }, &.{ true, false, false });
+
     var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
     defer metric_nan_counts_on.deinit();
     const metric_nan_count_on_values = try (try metric_nan_counts_on.column("metric_nan_count_on")).i64.toOwnedSlice(gpa);
@@ -675,6 +726,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_last_negative_zero_index_validity);
     try std.testing.expectEqualSlices(i64, &.{ 1, 6, 0 }, lazy_last_negative_zero_index_values);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false }, lazy_last_negative_zero_index_validity);
+
+    var first_signbit_index_plan = try DeviceLazyFrame.init(gpa, sign_index_table);
+    defer first_signbit_index_plan.deinit();
+    try first_signbit_index_plan.groupByFirstSignBitIndex("bucket", "metric", "first_signbit_index_lazy");
+    const first_signbit_index_explained = try first_signbit_index_plan.explain(gpa);
+    defer gpa.free(first_signbit_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, first_signbit_index_explained, "group_by_first_signbit_index(bucket, value=metric -> first_signbit_index_lazy)") != null);
+    var lazy_first_signbit_index = try first_signbit_index_plan.collect();
+    defer lazy_first_signbit_index.deinit();
+    try expectNullableI64Column(lazy_first_signbit_index, gpa, "first_signbit_index_lazy", &.{ 1, 6, 0 }, &.{ true, true, false });
 
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();
