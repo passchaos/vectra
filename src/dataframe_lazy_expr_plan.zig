@@ -3646,6 +3646,34 @@ pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weig
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
 }
 
+fn withRowWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .weight_sum => .{ .row_weighted_weight_sum = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .positive_count => .{ .row_weighted_positive_count = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .effective_n => .{ .row_weighted_effective_n = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedWeightSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedSupport(frame, value_names, weight_names, output_name, .weight_sum);
+}
+
+pub fn withRowWeightedPositiveCount(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedSupport(frame, value_names, weight_names, output_name, .positive_count);
+}
+
+pub fn withRowWeightedEffectiveN(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedSupport(frame, value_names, weight_names, output_name, .effective_n);
+}
+
+pub const withRowWeightedEffectiveCount = withRowWeightedEffectiveN;
+
 fn withRowWeightedDispersion(
     frame: anytype,
     value_names: []const []const u8,

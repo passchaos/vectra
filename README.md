@@ -766,6 +766,10 @@ direct dominance diagnostics.
 `withRowPairCount` appends the per-row count of jointly valid pairs across
 two aligned column-name lists, exposing the sample coverage used by row-wise
 paired statistics and vector metrics.
+`withRowWeightedWeightSum`, `withRowWeightedPositiveCount`, and
+`withRowWeightedEffectiveN`/`withRowWeightedEffectiveCount` expose per-row
+weighted support diagnostics for aligned value/weight lists, including the
+Kish effective sample size `sum(w)^2 / sum(w^2)` over positive weights.
 `withRowWeightedVariance` and `withRowWeightedStddev` append per-row
 weighted dispersion for aligned value/weight column lists, skipping null pairs,
 rejecting negative weights, and honoring a correction parameter for denominator

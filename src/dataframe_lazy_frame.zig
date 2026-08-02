@@ -2415,6 +2415,20 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }
 
+            pub fn withRowWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedWeightSum(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedPositiveCount(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedPositiveCount(self, value_names, weight_names, output_name);
+            }
+
+            pub fn withRowWeightedEffectiveN(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowWeightedEffectiveN(self, value_names, weight_names, output_name);
+            }
+
+            pub const withRowWeightedEffectiveCount = withRowWeightedEffectiveN;
+
             pub fn withRowWeightedVariance(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedVariance(self, value_names, weight_names, output_name, correction);
             }

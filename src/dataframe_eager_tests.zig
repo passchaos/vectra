@@ -1494,6 +1494,18 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 56.0 / 5.0), row_weighted_mean[3], 1e-12);
     try std.testing.expectEqualSlices(bool, &.{ true, true, false, true }, row_weighted_mean_validity);
 
+    var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");
+    defer row_weighted_weight_sum_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_weight_sum_table, gpa, "row_weighted_weight_sum", &.{ 1.0, 1.0, 0.0, 5.0 }, &.{ true, true, false, true });
+
+    var row_weighted_positive_count_table = try validity_table.withRowWeightedPositiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_positive_count");
+    defer row_weighted_positive_count_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_positive_count_table, gpa, "row_weighted_positive_count", &.{ 1.0, 1.0, 0.0, 2.0 }, &.{ true, true, false, true });
+
+    var row_weighted_effective_n_table = try validity_table.withRowWeightedEffectiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_effective_n");
+    defer row_weighted_effective_n_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_effective_n_table, gpa, "row_weighted_effective_n", &.{ 1.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ true, true, false, true });
+
     var row_weighted_quantile_table = try validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
     defer row_weighted_quantile_table.deinit();
     const row_weighted_quantile_column = try row_weighted_quantile_table.column("row_weighted_quantile");
