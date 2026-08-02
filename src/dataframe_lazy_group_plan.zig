@@ -36,6 +36,26 @@ pub fn groupByCountOn(frame: anytype, key_names: []const []const u8, output_name
     } });
 }
 
+pub fn groupByRows(frame: anytype, key_name: []const u8, n: usize, keep_tail: bool) DeviceDataError!void {
+    const owned_key = try frame.allocator.dupe(u8, key_name);
+    errdefer frame.allocator.free(owned_key);
+    try frame.ops.append(frame.allocator, .{ .group_by_rows = .{
+        .key_name = owned_key,
+        .n = n,
+        .keep_tail = keep_tail,
+    } });
+}
+
+pub fn groupByRowsOn(frame: anytype, key_names: []const []const u8, n: usize, keep_tail: bool) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    try frame.ops.append(frame.allocator, .{ .group_by_rows_on = .{
+        .key_names = owned_keys,
+        .n = n,
+        .keep_tail = keep_tail,
+    } });
+}
+
 pub fn groupByValue(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation) DeviceDataError!void {
     return groupByValueQuantile(frame, key_name, value_name, output_name, aggregation, defaultAggregationParameter(aggregation));
 }

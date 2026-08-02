@@ -23,6 +23,22 @@ pub fn groupByCountOn(self: anytype, key_names: []const []const u8, output_name:
     return lazy_group_mod.groupByCountOn(self, key_names, output_name);
 }
 
+pub fn groupByHeadRows(self: anytype, key_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByRows(self, key_name, n, false);
+}
+
+pub fn groupByHeadRowsOn(self: anytype, key_names: []const []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByRowsOn(self, key_names, n, false);
+}
+
+pub fn groupByTailRows(self: anytype, key_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByRows(self, key_name, n, true);
+}
+
+pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByRowsOn(self, key_names, n, true);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }

@@ -758,6 +758,67 @@ pub fn groupByCountOn(
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, count_column);
 }
 
+fn groupByLimitRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    n: usize,
+    comptime keep_tail: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    if (n == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var groups: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (groups.items) |*group| group.deinit(frame.allocator);
+        groups.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            var rows: std.ArrayList(usize) = .empty;
+            errdefer rows.deinit(frame.allocator);
+            try groups.append(frame.allocator, rows);
+            break :blk groups.items.len - 1;
+        };
+        if (keep_tail) {
+            const group = &groups.items[group_index];
+            if (group.items.len == n) _ = group.orderedRemove(0);
+            try group.append(frame.allocator, row);
+        } else if (groups.items[group_index].items.len < n) {
+            try groups.items[group_index].append(frame.allocator, row);
+        }
+    }
+
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(frame.allocator);
+    for (groups.items) |group| try row_indices.appendSlice(frame.allocator, group.items);
+    return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
+}
+
+pub fn groupByHeadRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByLimitRowsOn(DeviceDataFrame, frame, key_names, n, false);
+}
+
+pub fn groupByTailRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByLimitRowsOn(DeviceDataFrame, frame, key_names, n, true);
+}
+
 pub fn groupByNumericOn(
     comptime DeviceDataFrame: type,
     op: DeviceGroupByAggregation,

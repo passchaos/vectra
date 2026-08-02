@@ -38,6 +38,24 @@ pub fn groupByCountOn(self: anytype, key_names: []const []const u8, output_name:
     return group_multi_mod.groupByCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, output_name);
 }
 
+pub fn groupByHeadRows(self: anytype, key_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByHeadRowsOn(self, key_names[0..], n);
+}
+
+pub fn groupByHeadRowsOn(self: anytype, key_names: []const []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByHeadRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, n);
+}
+
+pub fn groupByTailRows(self: anytype, key_name: []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByTailRowsOn(self, key_names[0..], n);
+}
+
+pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByTailRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, n);
+}
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return valueCountsAs(self, key_name, "count");
 }
