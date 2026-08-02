@@ -380,6 +380,98 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(modal_sales_values);
     try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, modal_sales_values);
 
+    var mode_diag_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 2, 2 }, .cpu);
+    defer mode_diag_key.deinit();
+    var mode_diag_value = try DeviceColumn.fromSlice(i32, gpa, &.{ 5, 5, 7, 8, 1, 1, 2, 2, 3 }, .cpu);
+    defer mode_diag_value.deinit();
+    var mode_diag_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = mode_diag_key },
+        .{ .name = "label", .data = mode_diag_value },
+    });
+    defer mode_diag_table.deinit();
+
+    var mode_diag_mode = try mode_diag_table.groupByMode("bucket", "label", "label_mode");
+    defer mode_diag_mode.deinit();
+    const mode_diag_mode_values = try (try mode_diag_mode.column("label_mode")).i32.toOwnedSlice(gpa);
+    defer gpa.free(mode_diag_mode_values);
+    try std.testing.expectEqualSlices(i32, &.{ 5, 1 }, mode_diag_mode_values);
+
+    var mode_count = try mode_diag_table.groupByModeCount("bucket", "label", "label_mode_count");
+    defer mode_count.deinit();
+    const mode_count_values = try (try mode_count.column("label_mode_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(mode_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, mode_count_values);
+
+    var mode_ratio = try mode_diag_table.groupByModeRatioOn(&.{"bucket"}, "label", "label_mode_ratio");
+    defer mode_ratio.deinit();
+    const mode_ratio_values = try (try mode_ratio.column("label_mode_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mode_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), mode_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), mode_ratio_values[1], 1e-12);
+
+    var mode_margin = try mode_diag_table.groupByModeMargin("bucket", "label", "label_mode_margin");
+    defer mode_margin.deinit();
+    const mode_margin_values = try (try mode_margin.column("label_mode_margin")).i64.toOwnedSlice(gpa);
+    defer gpa.free(mode_margin_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0 }, mode_margin_values);
+
+    var mode_margin_ratio = try mode_diag_table.groupByModeMarginRatioOn(&.{"bucket"}, "label", "label_mode_margin_ratio");
+    defer mode_margin_ratio.deinit();
+    const mode_margin_ratio_values = try (try mode_margin_ratio.column("label_mode_margin_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mode_margin_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), mode_margin_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), mode_margin_ratio_values[1], 1e-12);
+
+    var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mode_count_plan.deinit();
+    try mode_count_plan.groupByModeCount("bucket", "label", "label_mode_count_lazy");
+    const mode_count_explained = try mode_count_plan.explain(gpa);
+    defer gpa.free(mode_count_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mode_count_explained, "group_by_mode_count(bucket, value=label -> label_mode_count_lazy)") != null);
+    var lazy_mode_count = try mode_count_plan.collect();
+    defer lazy_mode_count.deinit();
+    const lazy_mode_count_values = try (try lazy_mode_count.column("label_mode_count_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mode_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 2 }, lazy_mode_count_values);
+
+    var mode_ratio_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mode_ratio_plan.deinit();
+    try mode_ratio_plan.groupByModeRatioOn(&.{"bucket"}, "label", "label_mode_ratio_lazy");
+    const mode_ratio_explained = try mode_ratio_plan.explain(gpa);
+    defer gpa.free(mode_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mode_ratio_explained, "group_by_mode_ratio_on([bucket], value=label -> label_mode_ratio_lazy)") != null);
+    var lazy_mode_ratio = try mode_ratio_plan.collect();
+    defer lazy_mode_ratio.deinit();
+    const lazy_mode_ratio_values = try (try lazy_mode_ratio.column("label_mode_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mode_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_mode_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.4), lazy_mode_ratio_values[1], 1e-12);
+
+    var mode_margin_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mode_margin_plan.deinit();
+    try mode_margin_plan.groupByModeMargin("bucket", "label", "label_mode_margin_lazy");
+    const mode_margin_explained = try mode_margin_plan.explain(gpa);
+    defer gpa.free(mode_margin_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mode_margin_explained, "group_by_mode_margin(bucket, value=label -> label_mode_margin_lazy)") != null);
+    var lazy_mode_margin = try mode_margin_plan.collect();
+    defer lazy_mode_margin.deinit();
+    const lazy_mode_margin_values = try (try lazy_mode_margin.column("label_mode_margin_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mode_margin_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0 }, lazy_mode_margin_values);
+
+    var mode_margin_ratio_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mode_margin_ratio_plan.deinit();
+    try mode_margin_ratio_plan.groupByModeMarginRatioOn(&.{"bucket"}, "label", "label_mode_margin_ratio_lazy");
+    const mode_margin_ratio_explained = try mode_margin_ratio_plan.explain(gpa);
+    defer gpa.free(mode_margin_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mode_margin_ratio_explained, "group_by_mode_margin_ratio_on([bucket], value=label -> label_mode_margin_ratio_lazy)") != null);
+    var lazy_mode_margin_ratio = try mode_margin_ratio_plan.collect();
+    defer lazy_mode_margin_ratio.deinit();
+    const lazy_mode_margin_ratio_values = try (try lazy_mode_margin_ratio.column("label_mode_margin_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mode_margin_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.25), lazy_mode_margin_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_mode_margin_ratio_values[1], 1e-12);
+
     var median_sales = try table.groupByMedian("store", "sales", "sales_median");
     defer median_sales.deinit();
     const median_sales_values = try (try median_sales.column("sales_median")).f64.toOwnedSlice(gpa);
