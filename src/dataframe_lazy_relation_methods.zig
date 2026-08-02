@@ -103,6 +103,18 @@ pub fn groupByBottomRowsByColumnsOn(self: anytype, key_names: []const []const u8
     return lazy_group_mod.groupBySortedRowsByColumnsOn(self, key_names, sort_names, n, options_values, true);
 }
 
+pub fn withGroupId(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupIdOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupIdOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupId(self, key_names, output_name);
+}
+
+pub const withGroupIndex = withGroupId;
+pub const withGroupIndexOn = withGroupIdOn;
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);
