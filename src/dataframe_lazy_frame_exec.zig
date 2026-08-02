@@ -1243,6 +1243,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_last_signbit_index => |shift| try current.withGroupCumulativeLastSignBitIndexOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_first_negative_index => |shift| try current.withGroupCumulativeFirstNegativeIndexOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_last_negative_index => |shift| try current.withGroupCumulativeLastNegativeIndexOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_distinct_count => |shift| try current.withGroupCumulativeDistinctCountOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_n_unique => |shift| try current.withGroupCumulativeNUniqueOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_any => |shift| try current.withGroupCumulativeAnyOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_all => |shift| try current.withGroupCumulativeAllOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_true_count => |shift| try current.withGroupCumulativeTrueCountOn(shift.names, shift.value_name, shift.output_name),

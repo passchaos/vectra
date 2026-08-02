@@ -1171,6 +1171,37 @@ pub const withGroupCumFirstNegativeIndexOn = withGroupCumulativeFirstNegativeInd
 pub const withGroupCumLastNegativeIndex = withGroupCumulativeLastNegativeIndex;
 pub const withGroupCumLastNegativeIndexOn = withGroupCumulativeLastNegativeIndexOn;
 
+pub fn withGroupCumulativeDistinctCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeDistinctCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeDistinctCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeDistinctCountOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNUnique(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNUniqueOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNUniqueOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeNUniqueOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeCountDistinct = withGroupCumulativeDistinctCount;
+pub const withGroupCumulativeCountDistinctOn = withGroupCumulativeDistinctCountOn;
+pub const withGroupCumulativeNunique = withGroupCumulativeNUnique;
+pub const withGroupCumulativeNuniqueOn = withGroupCumulativeNUniqueOn;
+pub const withGroupCumDistinctCount = withGroupCumulativeDistinctCount;
+pub const withGroupCumDistinctCountOn = withGroupCumulativeDistinctCountOn;
+pub const withGroupCumCountDistinct = withGroupCumulativeDistinctCount;
+pub const withGroupCumCountDistinctOn = withGroupCumulativeDistinctCountOn;
+pub const withGroupCumNUnique = withGroupCumulativeNUnique;
+pub const withGroupCumNUniqueOn = withGroupCumulativeNUniqueOn;
+pub const withGroupCumNunique = withGroupCumulativeNUnique;
+pub const withGroupCumNuniqueOn = withGroupCumulativeNUniqueOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

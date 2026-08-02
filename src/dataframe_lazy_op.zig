@@ -828,6 +828,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_last_signbit_index: Payloads.GroupShift,
         group_cumulative_first_negative_index: Payloads.GroupShift,
         group_cumulative_last_negative_index: Payloads.GroupShift,
+        group_cumulative_distinct_count: Payloads.GroupShift,
+        group_cumulative_n_unique: Payloads.GroupShift,
         group_cumulative_any: Payloads.GroupShift,
         group_cumulative_all: Payloads.GroupShift,
         group_cumulative_true_count: Payloads.GroupShift,

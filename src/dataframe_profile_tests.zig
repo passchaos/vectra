@@ -1556,6 +1556,37 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_null_ratio_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_null_ratio_sales, gpa, "store_sales_cum_null_ratio", &.{ 0.0, 0.0, 0.5, 0.0, 0.0, 1.0 / 3.0 }, &.{ true, true, true, false, true, true });
 
+    var distinct_key = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3 }, &.{ true, true, true, true, true, true, true, false }, .cpu);
+    defer distinct_key.deinit();
+    var distinct_value = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 5, 5, 7, 5, 1, 2, 1, 9 }, &.{ true, true, true, false, true, true, true, true }, .cpu);
+    defer distinct_value.deinit();
+    var distinct_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = distinct_key },
+        .{ .name = "label", .data = distinct_value },
+    });
+    defer distinct_table.deinit();
+
+    var group_cum_distinct_label = try distinct_table.withGroupCumulativeDistinctCount("bucket", "label", "label_cum_distinct");
+    defer group_cum_distinct_label.deinit();
+    try expectNullableI64Column(group_cum_distinct_label, gpa, "label_cum_distinct", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
+
+    var group_cum_nunique_label = try distinct_table.withGroupCumNUnique("bucket", "label", "label_cum_n_unique");
+    defer group_cum_nunique_label.deinit();
+    try expectNullableI64Column(group_cum_nunique_label, gpa, "label_cum_n_unique", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
+
+    var cumulative_distinct_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_distinct_plan.deinit();
+    try cumulative_distinct_plan.withGroupCumulativeDistinctCount("bucket", "label", "label_cum_distinct_lazy");
+    try cumulative_distinct_plan.withGroupCumulativeNUnique("bucket", "label", "label_cum_n_unique_lazy");
+    const cumulative_distinct_explained = try cumulative_distinct_plan.explain(gpa);
+    defer gpa.free(cumulative_distinct_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distinct_explained, "group_cumulative_distinct_count([bucket], value=label->label_cum_distinct_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_distinct_explained, "group_cumulative_n_unique([bucket], value=label->label_cum_n_unique_lazy)") != null);
+    var lazy_cumulative_distinct = try cumulative_distinct_plan.collect();
+    defer lazy_cumulative_distinct.deinit();
+    try expectNullableI64Column(lazy_cumulative_distinct, gpa, "label_cum_distinct_lazy", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
+    try expectNullableI64Column(lazy_cumulative_distinct, gpa, "label_cum_n_unique_lazy", &.{ 1, 1, 2, 0, 1, 2, 2, 0 }, &.{ true, true, true, false, true, true, true, false });
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });
