@@ -1177,6 +1177,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_fill_null_backward => |shift| try current.withGroupFillNullBackwardOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_valid_count => |shift| try current.withGroupCumulativeValidCountOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_null_count => |shift| try current.withGroupCumulativeNullCountOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_valid_ratio => |shift| try current.withGroupCumulativeValidRatioOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_null_ratio => |shift| try current.withGroupCumulativeNullRatioOn(shift.names, shift.value_name, shift.output_name),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),
