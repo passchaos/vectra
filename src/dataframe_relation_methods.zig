@@ -213,6 +213,20 @@ pub const groupByMADOn = groupByMadOn;
 pub const groupByMedianAbsDev = groupByMad;
 pub const groupByMedianAbsDevOn = groupByMadOn;
 
+pub fn groupByInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByInterdecileRangeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByInterdecileRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByInterdecileRangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByIdr = groupByInterdecileRange;
+pub const groupByIdrOn = groupByInterdecileRangeOn;
+pub const groupByIDR = groupByInterdecileRange;
+pub const groupByIDROn = groupByInterdecileRangeOn;
+
 pub fn groupByMidhinge(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByMidhingeOn(self, key_names[0..], value_name, output_name);
@@ -254,6 +268,18 @@ pub fn groupByQuartileCoeffDispersionOn(self: anytype, key_names: []const []cons
 
 pub const groupByQcd = groupByQuartileCoeffDispersion;
 pub const groupByQcdOn = groupByQuartileCoeffDispersionOn;
+
+pub fn groupByKelleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByKelleySkewnessOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByKelleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByKelleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByKelleySkew = groupByKelleySkewness;
+pub const groupByKelleySkewOn = groupByKelleySkewnessOn;
 
 pub fn groupByVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};

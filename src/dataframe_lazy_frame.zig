@@ -5665,6 +5665,12 @@ pub fn DeviceLazyTypes(
             pub const groupByMADOn = lazy_relation_methods_mod.groupByMADOn;
             pub const groupByMedianAbsDev = lazy_relation_methods_mod.groupByMedianAbsDev;
             pub const groupByMedianAbsDevOn = lazy_relation_methods_mod.groupByMedianAbsDevOn;
+            pub const groupByInterdecileRange = lazy_relation_methods_mod.groupByInterdecileRange;
+            pub const groupByInterdecileRangeOn = lazy_relation_methods_mod.groupByInterdecileRangeOn;
+            pub const groupByIdr = lazy_relation_methods_mod.groupByIdr;
+            pub const groupByIdrOn = lazy_relation_methods_mod.groupByIdrOn;
+            pub const groupByIDR = lazy_relation_methods_mod.groupByIDR;
+            pub const groupByIDROn = lazy_relation_methods_mod.groupByIDROn;
             pub const groupByMidhinge = lazy_relation_methods_mod.groupByMidhinge;
             pub const groupByMidhingeOn = lazy_relation_methods_mod.groupByMidhingeOn;
             pub const groupByTrimean = lazy_relation_methods_mod.groupByTrimean;
@@ -5677,6 +5683,10 @@ pub fn DeviceLazyTypes(
             pub const groupByQuartileCoeffDispersionOn = lazy_relation_methods_mod.groupByQuartileCoeffDispersionOn;
             pub const groupByQcd = lazy_relation_methods_mod.groupByQcd;
             pub const groupByQcdOn = lazy_relation_methods_mod.groupByQcdOn;
+            pub const groupByKelleySkewness = lazy_relation_methods_mod.groupByKelleySkewness;
+            pub const groupByKelleySkewnessOn = lazy_relation_methods_mod.groupByKelleySkewnessOn;
+            pub const groupByKelleySkew = lazy_relation_methods_mod.groupByKelleySkew;
+            pub const groupByKelleySkewOn = lazy_relation_methods_mod.groupByKelleySkewOn;
             pub const groupByVariance = lazy_relation_methods_mod.groupByVariance;
             pub const groupByVarianceOn = lazy_relation_methods_mod.groupByVarianceOn;
             pub const groupByStddev = lazy_relation_methods_mod.groupByStddev;

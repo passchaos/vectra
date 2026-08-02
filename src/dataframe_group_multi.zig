@@ -67,10 +67,12 @@ const GroupByRealAggregation = enum {
 const GroupByRobustAggregation = enum {
     iqr,
     mad,
+    interdecile_range,
     midhinge,
     trimean,
     bowley_skewness,
     quartile_coeff_dispersion,
+    kelley_skewness,
 };
 
 const GroupByBoolAggregation = enum {
@@ -1219,6 +1221,7 @@ fn groupByRobustOnTyped(
                 std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
                 break :blk quantileFromSorted(values_for_group.items, 0.5);
             },
+            .interdecile_range => quantileFromSorted(values_for_group.items, 0.9) - quantileFromSorted(values_for_group.items, 0.1),
             .midhinge => (quantileFromSorted(values_for_group.items, 0.25) + quantileFromSorted(values_for_group.items, 0.75)) / 2.0,
             .trimean => (quantileFromSorted(values_for_group.items, 0.25) + 2.0 * quantileFromSorted(values_for_group.items, 0.5) + quantileFromSorted(values_for_group.items, 0.75)) / 4.0,
             .bowley_skewness => blk: {
@@ -1233,6 +1236,13 @@ fn groupByRobustOnTyped(
                 const q3 = quantileFromSorted(values_for_group.items, 0.75);
                 const denominator = q3 + q1;
                 break :blk if (denominator == 0.0) std.math.nan(f64) else (q3 - q1) / denominator;
+            },
+            .kelley_skewness => blk: {
+                const p10 = quantileFromSorted(values_for_group.items, 0.1);
+                const median = quantileFromSorted(values_for_group.items, 0.5);
+                const p90 = quantileFromSorted(values_for_group.items, 0.9);
+                const spread = p90 - p10;
+                break :blk if (spread == 0.0) std.math.nan(f64) else (p90 + p10 - 2.0 * median) / spread;
             },
         };
     }
@@ -1275,6 +1285,16 @@ pub fn groupByMadOn(
     return groupByRobustOn(DeviceDataFrame, .mad, frame, key_names, value_name, output_name);
 }
 
+pub fn groupByInterdecileRangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .interdecile_range, frame, key_names, value_name, output_name);
+}
+
 pub fn groupByMidhingeOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -1313,6 +1333,16 @@ pub fn groupByQuartileCoeffDispersionOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRobustOn(DeviceDataFrame, .quartile_coeff_dispersion, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByKelleySkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .kelley_skewness, frame, key_names, value_name, output_name);
 }
 
 fn groupByBoolOn(

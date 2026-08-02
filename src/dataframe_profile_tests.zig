@@ -783,6 +783,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_mad);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, ms_simple_mad);
 
+    var multi_idr = try multi.groupByIDROn(&.{ "store", "day" }, "amount", "amount_idr_simple");
+    defer multi_idr.deinit();
+    const ms_simple_idr = try (try multi_idr.column("amount_idr_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_idr);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), ms_simple_idr[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_idr[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_idr[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_idr[3], 1e-12);
+
     var multi_midhinge = try multi.groupByMidhingeOn(&.{ "store", "day" }, "amount", "amount_midhinge_simple");
     defer multi_midhinge.deinit();
     const ms_simple_midhinge = try (try multi_midhinge.column("amount_midhinge_simple")).f64.toOwnedSlice(gpa);
@@ -812,6 +821,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_qcd[3], 1e-12);
+
+    var multi_kelley = try multi.groupByKelleySkewOn(&.{ "store", "day" }, "amount", "amount_kelley_simple");
+    defer multi_kelley.deinit();
+    const ms_simple_kelley = try (try multi_kelley.column("amount_kelley_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_kelley);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_kelley[0], 1e-12);
+    try std.testing.expect(std.math.isNan(ms_simple_kelley[1]));
+    try std.testing.expect(std.math.isNan(ms_simple_kelley[2]));
+    try std.testing.expect(std.math.isNan(ms_simple_kelley[3]));
 
     var multi_variance = try multi.groupByVarianceOn(&.{ "store", "day" }, "amount", "amount_variance_simple");
     defer multi_variance.deinit();
@@ -1137,6 +1155,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_ms_mad);
     try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, lazy_ms_mad);
 
+    var multi_idr_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_idr_plan.deinit();
+    try multi_idr_plan.groupByIdrOn(&.{ "store", "day" }, "amount", "amount_idr_lazy");
+    const multi_idr_explained = try multi_idr_plan.explain(gpa);
+    defer gpa.free(multi_idr_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_idr_explained, "group_by_interdecile_range_on([store,day], value=amount -> amount_idr_lazy)") != null);
+    var lazy_multi_idr = try multi_idr_plan.collect();
+    defer lazy_multi_idr.deinit();
+    const lazy_ms_idr = try (try lazy_multi_idr.column("amount_idr_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_idr);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), lazy_ms_idr[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_idr[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_idr[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_idr[3], 1e-12);
+
     var multi_qcd_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_qcd_plan.deinit();
     try multi_qcd_plan.groupByQcdOn(&.{ "store", "day" }, "amount", "amount_qcd_lazy");
@@ -1151,6 +1184,21 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_qcd[3], 1e-12);
+
+    var multi_kelley_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_kelley_plan.deinit();
+    try multi_kelley_plan.groupByKelleySkewnessOn(&.{ "store", "day" }, "amount", "amount_kelley_lazy");
+    const multi_kelley_explained = try multi_kelley_plan.explain(gpa);
+    defer gpa.free(multi_kelley_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_kelley_explained, "group_by_kelley_skewness_on([store,day], value=amount -> amount_kelley_lazy)") != null);
+    var lazy_multi_kelley = try multi_kelley_plan.collect();
+    defer lazy_multi_kelley.deinit();
+    const lazy_ms_kelley = try (try lazy_multi_kelley.column("amount_kelley_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_kelley);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_kelley[0], 1e-12);
+    try std.testing.expect(std.math.isNan(lazy_ms_kelley[1]));
+    try std.testing.expect(std.math.isNan(lazy_ms_kelley[2]));
+    try std.testing.expect(std.math.isNan(lazy_ms_kelley[3]));
 
     var multi_variance_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_variance_plan.deinit();
