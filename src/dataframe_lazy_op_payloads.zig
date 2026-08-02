@@ -25,6 +25,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     mean,
     first,
     last,
+    first_row,
+    last_row,
     n_unique,
     mode,
     mode_count,
