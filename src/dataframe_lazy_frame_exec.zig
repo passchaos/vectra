@@ -1285,6 +1285,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_sum => |shift| try current.withGroupCumulativeSumOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_mean => |shift| try current.withGroupCumulativeMeanOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_weighted_sum => |shift| try current.withGroupCumulativeWeightedSumOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
+            .group_cumulative_weighted_product => |shift| try current.withGroupCumulativeWeightedProductOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_mean => |shift| try current.withGroupCumulativeWeightedMeanOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_mean_square => |shift| try current.withGroupCumulativeWeightedMeanSquareOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_rms => |shift| try current.withGroupCumulativeWeightedRmsOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
@@ -1778,6 +1779,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .group_by_weighted => |group| switch (group.aggregation) {
                 .weighted_sum => try current.groupByWeightedSum(group.key_name, group.value_name, group.weight_name, group.output_name),
+                .weighted_product => try current.groupByWeightedProduct(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean => try current.groupByWeightedMean(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean_square => try current.groupByWeightedMeanSquare(group.key_name, group.value_name, group.weight_name, group.output_name),
                 .weighted_rms => try current.groupByWeightedRms(group.key_name, group.value_name, group.weight_name, group.output_name),
@@ -1818,6 +1820,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .group_by_weighted_on => |group| switch (group.aggregation) {
                 .weighted_sum => try current.groupByWeightedSumOn(group.key_names, group.value_name, group.weight_name, group.output_name),
+                .weighted_product => try current.groupByWeightedProductOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean => try current.groupByWeightedMeanOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_mean_square => try current.groupByWeightedMeanSquareOn(group.key_names, group.value_name, group.weight_name, group.output_name),
                 .weighted_rms => try current.groupByWeightedRmsOn(group.key_names, group.value_name, group.weight_name, group.output_name),

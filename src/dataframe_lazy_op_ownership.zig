@@ -5083,6 +5083,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_correlation => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_correlation"),
         .group_cumulative_weighted_beta => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_beta"),
         .group_cumulative_weighted_sum => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_sum"),
+        .group_cumulative_weighted_product => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_product"),
         .group_cumulative_weighted_min => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_min"),
         .group_cumulative_weighted_max => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_max"),
         .group_cumulative_weighted_mean_abs => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_mean_abs"),
