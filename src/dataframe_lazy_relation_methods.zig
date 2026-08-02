@@ -437,6 +437,42 @@ pub fn withGroupCumulativeInfRatioOn(self: anytype, key_names: []const []const u
     return lazy_group_mod.withGroupCumulativeInfRatio(self, key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativePositiveInfCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveInfCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveInfCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveInfCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveInfRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveInfRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveInfRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveInfRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeInfCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeInfCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeInfCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeInfCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeInfRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeInfRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeInfRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeInfRatio(self, key_names, value_name, output_name);
+}
+
 pub fn withGroupCumulativeFiniteCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeFiniteCountOn(self, key_names[0..], value_name, output_name);
@@ -453,6 +489,42 @@ pub fn withGroupCumulativeFiniteRatio(self: anytype, key_name: []const u8, value
 
 pub fn withGroupCumulativeFiniteRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return lazy_group_mod.withGroupCumulativeFiniteRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNormalCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNormalCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNormalCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNormalRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNormalRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNormalRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNormalRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeSubnormalCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSubnormalCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSubnormalCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeSubnormalCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeSubnormalRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSubnormalRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSubnormalRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeSubnormalRatio(self, key_names, value_name, output_name);
 }
 
 pub fn withGroupCumulativeNonFiniteCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
@@ -473,30 +545,267 @@ pub fn withGroupCumulativeNonFiniteRatioOn(self: anytype, key_names: []const []c
     return lazy_group_mod.withGroupCumulativeNonFiniteRatio(self, key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeZeroCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeZeroCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeZeroCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeZeroRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeZeroRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeZeroRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeZeroRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveZeroCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveZeroCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveZeroCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveZeroRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveZeroRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveZeroRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveZeroRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeZeroCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeZeroCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeZeroCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeZeroRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeZeroRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeZeroRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeZeroRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNonZeroCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNonZeroCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNonZeroCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNonZeroCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNonZeroRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNonZeroRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNonZeroRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNonZeroRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativePositiveRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativePositiveRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativePositiveRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeSignBitCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSignBitCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSignBitCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeSignBitCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeSignBitRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSignBitRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSignBitRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeSignBitRatio(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeCount(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeCountOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeCountOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeCount(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeNegativeRatioOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeNegativeRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeNegativeRatio(self, key_names, value_name, output_name);
+}
+
 pub const withGroupCumNaNCount = withGroupCumulativeNaNCount;
+
 pub const withGroupCumNaNCountOn = withGroupCumulativeNaNCountOn;
-pub const withGroupCumulativeNanCount = withGroupCumulativeNaNCount;
-pub const withGroupCumulativeNanCountOn = withGroupCumulativeNaNCountOn;
-pub const withGroupCumNanCount = withGroupCumulativeNaNCount;
-pub const withGroupCumNanCountOn = withGroupCumulativeNaNCountOn;
+
 pub const withGroupCumNaNRatio = withGroupCumulativeNaNRatio;
+
 pub const withGroupCumNaNRatioOn = withGroupCumulativeNaNRatioOn;
+
+pub const withGroupCumulativeNanCount = withGroupCumulativeNaNCount;
+
+pub const withGroupCumulativeNanCountOn = withGroupCumulativeNaNCountOn;
+
+pub const withGroupCumNanCount = withGroupCumulativeNaNCount;
+
+pub const withGroupCumNanCountOn = withGroupCumulativeNaNCountOn;
+
 pub const withGroupCumulativeNanRatio = withGroupCumulativeNaNRatio;
+
 pub const withGroupCumulativeNanRatioOn = withGroupCumulativeNaNRatioOn;
+
 pub const withGroupCumNanRatio = withGroupCumulativeNaNRatio;
+
 pub const withGroupCumNanRatioOn = withGroupCumulativeNaNRatioOn;
+
 pub const withGroupCumInfCount = withGroupCumulativeInfCount;
+
 pub const withGroupCumInfCountOn = withGroupCumulativeInfCountOn;
+
 pub const withGroupCumInfRatio = withGroupCumulativeInfRatio;
+
 pub const withGroupCumInfRatioOn = withGroupCumulativeInfRatioOn;
+
+pub const withGroupCumPositiveInfCount = withGroupCumulativePositiveInfCount;
+
+pub const withGroupCumPositiveInfCountOn = withGroupCumulativePositiveInfCountOn;
+
+pub const withGroupCumPositiveInfRatio = withGroupCumulativePositiveInfRatio;
+
+pub const withGroupCumPositiveInfRatioOn = withGroupCumulativePositiveInfRatioOn;
+
+pub const withGroupCumNegativeInfCount = withGroupCumulativeNegativeInfCount;
+
+pub const withGroupCumNegativeInfCountOn = withGroupCumulativeNegativeInfCountOn;
+
+pub const withGroupCumNegativeInfRatio = withGroupCumulativeNegativeInfRatio;
+
+pub const withGroupCumNegativeInfRatioOn = withGroupCumulativeNegativeInfRatioOn;
+
 pub const withGroupCumFiniteCount = withGroupCumulativeFiniteCount;
+
 pub const withGroupCumFiniteCountOn = withGroupCumulativeFiniteCountOn;
+
 pub const withGroupCumFiniteRatio = withGroupCumulativeFiniteRatio;
+
 pub const withGroupCumFiniteRatioOn = withGroupCumulativeFiniteRatioOn;
+
+pub const withGroupCumNormalCount = withGroupCumulativeNormalCount;
+
+pub const withGroupCumNormalCountOn = withGroupCumulativeNormalCountOn;
+
+pub const withGroupCumNormalRatio = withGroupCumulativeNormalRatio;
+
+pub const withGroupCumNormalRatioOn = withGroupCumulativeNormalRatioOn;
+
+pub const withGroupCumSubnormalCount = withGroupCumulativeSubnormalCount;
+
+pub const withGroupCumSubnormalCountOn = withGroupCumulativeSubnormalCountOn;
+
+pub const withGroupCumSubnormalRatio = withGroupCumulativeSubnormalRatio;
+
+pub const withGroupCumSubnormalRatioOn = withGroupCumulativeSubnormalRatioOn;
+
 pub const withGroupCumNonFiniteCount = withGroupCumulativeNonFiniteCount;
+
 pub const withGroupCumNonFiniteCountOn = withGroupCumulativeNonFiniteCountOn;
+
 pub const withGroupCumNonFiniteRatio = withGroupCumulativeNonFiniteRatio;
+
 pub const withGroupCumNonFiniteRatioOn = withGroupCumulativeNonFiniteRatioOn;
+
+pub const withGroupCumZeroCount = withGroupCumulativeZeroCount;
+
+pub const withGroupCumZeroCountOn = withGroupCumulativeZeroCountOn;
+
+pub const withGroupCumZeroRatio = withGroupCumulativeZeroRatio;
+
+pub const withGroupCumZeroRatioOn = withGroupCumulativeZeroRatioOn;
+
+pub const withGroupCumPositiveZeroCount = withGroupCumulativePositiveZeroCount;
+
+pub const withGroupCumPositiveZeroCountOn = withGroupCumulativePositiveZeroCountOn;
+
+pub const withGroupCumPositiveZeroRatio = withGroupCumulativePositiveZeroRatio;
+
+pub const withGroupCumPositiveZeroRatioOn = withGroupCumulativePositiveZeroRatioOn;
+
+pub const withGroupCumNegativeZeroCount = withGroupCumulativeNegativeZeroCount;
+
+pub const withGroupCumNegativeZeroCountOn = withGroupCumulativeNegativeZeroCountOn;
+
+pub const withGroupCumNegativeZeroRatio = withGroupCumulativeNegativeZeroRatio;
+
+pub const withGroupCumNegativeZeroRatioOn = withGroupCumulativeNegativeZeroRatioOn;
+
+pub const withGroupCumNonZeroCount = withGroupCumulativeNonZeroCount;
+
+pub const withGroupCumNonZeroCountOn = withGroupCumulativeNonZeroCountOn;
+
+pub const withGroupCumNonZeroRatio = withGroupCumulativeNonZeroRatio;
+
+pub const withGroupCumNonZeroRatioOn = withGroupCumulativeNonZeroRatioOn;
+
+pub const withGroupCumPositiveCount = withGroupCumulativePositiveCount;
+
+pub const withGroupCumPositiveCountOn = withGroupCumulativePositiveCountOn;
+
+pub const withGroupCumPositiveRatio = withGroupCumulativePositiveRatio;
+
+pub const withGroupCumPositiveRatioOn = withGroupCumulativePositiveRatioOn;
+
+pub const withGroupCumSignBitCount = withGroupCumulativeSignBitCount;
+
+pub const withGroupCumSignBitCountOn = withGroupCumulativeSignBitCountOn;
+
+pub const withGroupCumSignBitRatio = withGroupCumulativeSignBitRatio;
+
+pub const withGroupCumSignBitRatioOn = withGroupCumulativeSignBitRatioOn;
+
+pub const withGroupCumNegativeCount = withGroupCumulativeNegativeCount;
+
+pub const withGroupCumNegativeCountOn = withGroupCumulativeNegativeCountOn;
+
+pub const withGroupCumNegativeRatio = withGroupCumulativeNegativeRatio;
+
+pub const withGroupCumNegativeRatioOn = withGroupCumulativeNegativeRatioOn;
 
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};

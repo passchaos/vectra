@@ -4018,7 +4018,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
-        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count, .group_cumulative_valid_ratio, .group_cumulative_null_ratio, .group_cumulative_first_valid_index, .group_cumulative_last_valid_index, .group_cumulative_first_null_index, .group_cumulative_last_null_index, .group_cumulative_nan_count, .group_cumulative_nan_ratio, .group_cumulative_inf_count, .group_cumulative_inf_ratio, .group_cumulative_finite_count, .group_cumulative_finite_ratio, .group_cumulative_non_finite_count, .group_cumulative_non_finite_ratio, .group_cumulative_any, .group_cumulative_all, .group_cumulative_true_count, .group_cumulative_false_count, .group_cumulative_true_ratio, .group_cumulative_false_ratio, .group_cumulative_first_true_index, .group_cumulative_last_true_index, .group_cumulative_first_false_index, .group_cumulative_last_false_index, .group_cumulative_sum, .group_cumulative_mean, .group_cumulative_product, .group_cumulative_min, .group_cumulative_max, .group_cumulative_variance, .group_cumulative_stddev, .group_cumulative_sem, .group_cumulative_cv, .group_cumulative_fano, .group_cumulative_skewness, .group_cumulative_kurtosis, .group_cumulative_mean_abs, .group_cumulative_mean_square, .group_cumulative_rms, .group_cumulative_max_abs, .group_cumulative_min_abs, .group_cumulative_l1_norm, .group_cumulative_l2_norm, .group_cumulative_range, .group_cumulative_midrange, .group_cumulative_range_coeff, .group_cumulative_logsumexp, .group_cumulative_logmeanexp, .group_cumulative_geometric_mean, .group_cumulative_harmonic_mean, .group_cumulative_argmin, .group_cumulative_argmax => |shift, tag| blk: {
+        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count, .group_cumulative_valid_ratio, .group_cumulative_null_ratio, .group_cumulative_first_valid_index, .group_cumulative_last_valid_index, .group_cumulative_first_null_index, .group_cumulative_last_null_index, .group_cumulative_nan_count, .group_cumulative_nan_ratio, .group_cumulative_inf_count, .group_cumulative_inf_ratio, .group_cumulative_positive_inf_count, .group_cumulative_positive_inf_ratio, .group_cumulative_negative_inf_count, .group_cumulative_negative_inf_ratio, .group_cumulative_finite_count, .group_cumulative_finite_ratio, .group_cumulative_normal_count, .group_cumulative_normal_ratio, .group_cumulative_subnormal_count, .group_cumulative_subnormal_ratio, .group_cumulative_non_finite_count, .group_cumulative_non_finite_ratio, .group_cumulative_zero_count, .group_cumulative_zero_ratio, .group_cumulative_positive_zero_count, .group_cumulative_positive_zero_ratio, .group_cumulative_negative_zero_count, .group_cumulative_negative_zero_ratio, .group_cumulative_non_zero_count, .group_cumulative_non_zero_ratio, .group_cumulative_positive_count, .group_cumulative_positive_ratio, .group_cumulative_signbit_count, .group_cumulative_signbit_ratio, .group_cumulative_negative_count, .group_cumulative_negative_ratio, .group_cumulative_any, .group_cumulative_all, .group_cumulative_true_count, .group_cumulative_false_count, .group_cumulative_true_ratio, .group_cumulative_false_ratio, .group_cumulative_first_true_index, .group_cumulative_last_true_index, .group_cumulative_first_false_index, .group_cumulative_last_false_index, .group_cumulative_sum, .group_cumulative_mean, .group_cumulative_product, .group_cumulative_min, .group_cumulative_max, .group_cumulative_variance, .group_cumulative_stddev, .group_cumulative_sem, .group_cumulative_cv, .group_cumulative_fano, .group_cumulative_skewness, .group_cumulative_kurtosis, .group_cumulative_mean_abs, .group_cumulative_mean_square, .group_cumulative_rms, .group_cumulative_max_abs, .group_cumulative_min_abs, .group_cumulative_l1_norm, .group_cumulative_l2_norm, .group_cumulative_range, .group_cumulative_midrange, .group_cumulative_range_coeff, .group_cumulative_logsumexp, .group_cumulative_logmeanexp, .group_cumulative_geometric_mean, .group_cumulative_harmonic_mean, .group_cumulative_argmin, .group_cumulative_argmax => |shift, tag| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);
             const value_name = try allocator.dupe(u8, shift.value_name);
@@ -4158,6 +4158,30 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .output_name = output_name,
                     .offset = shift.offset,
                 } },
+                .group_cumulative_positive_inf_count => .{ .group_cumulative_positive_inf_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_positive_inf_ratio => .{ .group_cumulative_positive_inf_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_inf_count => .{ .group_cumulative_negative_inf_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_inf_ratio => .{ .group_cumulative_negative_inf_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
                 .group_cumulative_finite_count => .{ .group_cumulative_finite_count = .{
                     .names = names,
                     .value_name = value_name,
@@ -4170,6 +4194,30 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .output_name = output_name,
                     .offset = shift.offset,
                 } },
+                .group_cumulative_normal_count => .{ .group_cumulative_normal_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_normal_ratio => .{ .group_cumulative_normal_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_subnormal_count => .{ .group_cumulative_subnormal_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_subnormal_ratio => .{ .group_cumulative_subnormal_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
                 .group_cumulative_non_finite_count => .{ .group_cumulative_non_finite_count = .{
                     .names = names,
                     .value_name = value_name,
@@ -4177,6 +4225,90 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                     .offset = shift.offset,
                 } },
                 .group_cumulative_non_finite_ratio => .{ .group_cumulative_non_finite_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_zero_count => .{ .group_cumulative_zero_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_zero_ratio => .{ .group_cumulative_zero_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_positive_zero_count => .{ .group_cumulative_positive_zero_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_positive_zero_ratio => .{ .group_cumulative_positive_zero_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_zero_count => .{ .group_cumulative_negative_zero_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_zero_ratio => .{ .group_cumulative_negative_zero_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_non_zero_count => .{ .group_cumulative_non_zero_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_non_zero_ratio => .{ .group_cumulative_non_zero_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_positive_count => .{ .group_cumulative_positive_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_positive_ratio => .{ .group_cumulative_positive_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_signbit_count => .{ .group_cumulative_signbit_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_signbit_ratio => .{ .group_cumulative_signbit_ratio = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_count => .{ .group_cumulative_negative_count = .{
+                    .names = names,
+                    .value_name = value_name,
+                    .output_name = output_name,
+                    .offset = shift.offset,
+                } },
+                .group_cumulative_negative_ratio => .{ .group_cumulative_negative_ratio = .{
                     .names = names,
                     .value_name = value_name,
                     .output_name = output_name,

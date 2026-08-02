@@ -472,37 +472,157 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(metric_non_finite_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 0 }, metric_non_finite_count_values);
 
+    const quality_cum_validity = [_]bool{ true, true, true, true, true, true, false, false, true, false };
+    const metric_cum_nan_count_expected = [_]i64{ 0, 1, 1, 1, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_inf_count_expected = [_]i64{ 0, 0, 1, 2, 0, 0, 0, 0, 1, 0 };
+    const metric_cum_positive_inf_count_expected = [_]i64{ 0, 0, 1, 1, 0, 0, 0, 0, 1, 0 };
+    const metric_cum_negative_inf_count_expected = [_]i64{ 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_finite_count_expected = [_]i64{ 1, 1, 1, 1, 1, 2, 0, 0, 0, 0 };
+    const metric_cum_normal_count_expected = [_]i64{ 1, 1, 1, 1, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_subnormal_count_expected = [_]i64{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
+    const metric_cum_non_finite_count_expected = [_]i64{ 0, 1, 2, 3, 0, 0, 0, 0, 1, 0 };
+    const metric_cum_zero_count_expected = [_]i64{ 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
+    const metric_cum_positive_zero_count_expected = [_]i64{ 0, 0, 0, 0, 1, 1, 0, 0, 0, 0 };
+    const metric_cum_negative_zero_count_expected = [_]i64{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_non_zero_count_expected = [_]i64{ 1, 2, 3, 4, 0, 1, 0, 0, 1, 0 };
+    const metric_cum_positive_count_expected = [_]i64{ 1, 1, 2, 2, 0, 1, 0, 0, 1, 0 };
+    const metric_cum_signbit_count_expected = [_]i64{ 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_negative_count_expected = [_]i64{ 0, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
+    const metric_cum_nan_ratio_expected = [_]f64{ 0.0, 0.5, 1.0 / 3.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_inf_ratio_expected = [_]f64{ 0.0, 0.0, 1.0 / 3.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 };
+    const metric_cum_positive_inf_ratio_expected = [_]f64{ 0.0, 0.0, 1.0 / 3.0, 0.25, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 };
+    const metric_cum_negative_inf_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_finite_ratio_expected = [_]f64{ 1.0, 0.5, 1.0 / 3.0, 0.25, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_normal_ratio_expected = [_]f64{ 1.0, 0.5, 1.0 / 3.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_subnormal_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_non_finite_ratio_expected = [_]f64{ 0.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 };
+    const metric_cum_zero_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_positive_zero_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_negative_zero_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_non_zero_ratio_expected = [_]f64{ 1.0, 1.0, 1.0, 1.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0 };
+    const metric_cum_positive_ratio_expected = [_]f64{ 1.0, 0.5, 2.0 / 3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0 };
+    const metric_cum_signbit_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    const metric_cum_negative_ratio_expected = [_]f64{ 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
     var metric_cum_nan_count = try quality_table.withGroupCumulativeNaNCount("bucket", "metric", "metric_cum_nan_count");
     defer metric_cum_nan_count.deinit();
-    try expectNullableI64Column(metric_cum_nan_count, gpa, "metric_cum_nan_count", &.{ 0, 1, 1, 1, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(metric_cum_nan_count, gpa, "metric_cum_nan_count", &metric_cum_nan_count_expected, &quality_cum_validity);
 
     var metric_cum_inf_count = try quality_table.withGroupCumulativeInfCount("bucket", "metric", "metric_cum_inf_count");
     defer metric_cum_inf_count.deinit();
-    try expectNullableI64Column(metric_cum_inf_count, gpa, "metric_cum_inf_count", &.{ 0, 0, 1, 2, 0, 0, 0, 0, 1, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(metric_cum_inf_count, gpa, "metric_cum_inf_count", &metric_cum_inf_count_expected, &quality_cum_validity);
+
+    var metric_cum_positive_inf_count = try quality_table.withGroupCumulativePositiveInfCount("bucket", "metric", "metric_cum_positive_inf_count");
+    defer metric_cum_positive_inf_count.deinit();
+    try expectNullableI64Column(metric_cum_positive_inf_count, gpa, "metric_cum_positive_inf_count", &metric_cum_positive_inf_count_expected, &quality_cum_validity);
+
+    var metric_cum_negative_inf_count = try quality_table.withGroupCumulativeNegativeInfCount("bucket", "metric", "metric_cum_negative_inf_count");
+    defer metric_cum_negative_inf_count.deinit();
+    try expectNullableI64Column(metric_cum_negative_inf_count, gpa, "metric_cum_negative_inf_count", &metric_cum_negative_inf_count_expected, &quality_cum_validity);
 
     var metric_cum_finite_count = try quality_table.withGroupCumulativeFiniteCount("bucket", "metric", "metric_cum_finite_count");
     defer metric_cum_finite_count.deinit();
-    try expectNullableI64Column(metric_cum_finite_count, gpa, "metric_cum_finite_count", &.{ 1, 1, 1, 1, 1, 2, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(metric_cum_finite_count, gpa, "metric_cum_finite_count", &metric_cum_finite_count_expected, &quality_cum_validity);
+
+    var metric_cum_normal_count = try quality_table.withGroupCumulativeNormalCount("bucket", "metric", "metric_cum_normal_count");
+    defer metric_cum_normal_count.deinit();
+    try expectNullableI64Column(metric_cum_normal_count, gpa, "metric_cum_normal_count", &metric_cum_normal_count_expected, &quality_cum_validity);
+
+    var metric_cum_subnormal_count = try quality_table.withGroupCumulativeSubnormalCount("bucket", "metric", "metric_cum_subnormal_count");
+    defer metric_cum_subnormal_count.deinit();
+    try expectNullableI64Column(metric_cum_subnormal_count, gpa, "metric_cum_subnormal_count", &metric_cum_subnormal_count_expected, &quality_cum_validity);
 
     var metric_cum_non_finite_count = try quality_table.withGroupCumulativeNonFiniteCount("bucket", "metric", "metric_cum_non_finite_count");
     defer metric_cum_non_finite_count.deinit();
-    try expectNullableI64Column(metric_cum_non_finite_count, gpa, "metric_cum_non_finite_count", &.{ 0, 1, 2, 3, 0, 0, 0, 0, 1, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(metric_cum_non_finite_count, gpa, "metric_cum_non_finite_count", &metric_cum_non_finite_count_expected, &quality_cum_validity);
+
+    var metric_cum_zero_count = try quality_table.withGroupCumulativeZeroCount("bucket", "metric", "metric_cum_zero_count");
+    defer metric_cum_zero_count.deinit();
+    try expectNullableI64Column(metric_cum_zero_count, gpa, "metric_cum_zero_count", &metric_cum_zero_count_expected, &quality_cum_validity);
+
+    var metric_cum_positive_zero_count = try quality_table.withGroupCumulativePositiveZeroCount("bucket", "metric", "metric_cum_positive_zero_count");
+    defer metric_cum_positive_zero_count.deinit();
+    try expectNullableI64Column(metric_cum_positive_zero_count, gpa, "metric_cum_positive_zero_count", &metric_cum_positive_zero_count_expected, &quality_cum_validity);
+
+    var metric_cum_negative_zero_count = try quality_table.withGroupCumulativeNegativeZeroCount("bucket", "metric", "metric_cum_negative_zero_count");
+    defer metric_cum_negative_zero_count.deinit();
+    try expectNullableI64Column(metric_cum_negative_zero_count, gpa, "metric_cum_negative_zero_count", &metric_cum_negative_zero_count_expected, &quality_cum_validity);
+
+    var metric_cum_non_zero_count = try quality_table.withGroupCumulativeNonZeroCount("bucket", "metric", "metric_cum_non_zero_count");
+    defer metric_cum_non_zero_count.deinit();
+    try expectNullableI64Column(metric_cum_non_zero_count, gpa, "metric_cum_non_zero_count", &metric_cum_non_zero_count_expected, &quality_cum_validity);
+
+    var metric_cum_positive_count = try quality_table.withGroupCumulativePositiveCount("bucket", "metric", "metric_cum_positive_count");
+    defer metric_cum_positive_count.deinit();
+    try expectNullableI64Column(metric_cum_positive_count, gpa, "metric_cum_positive_count", &metric_cum_positive_count_expected, &quality_cum_validity);
+
+    var metric_cum_signbit_count = try quality_table.withGroupCumulativeSignBitCount("bucket", "metric", "metric_cum_signbit_count");
+    defer metric_cum_signbit_count.deinit();
+    try expectNullableI64Column(metric_cum_signbit_count, gpa, "metric_cum_signbit_count", &metric_cum_signbit_count_expected, &quality_cum_validity);
+
+    var metric_cum_negative_count = try quality_table.withGroupCumulativeNegativeCount("bucket", "metric", "metric_cum_negative_count");
+    defer metric_cum_negative_count.deinit();
+    try expectNullableI64Column(metric_cum_negative_count, gpa, "metric_cum_negative_count", &metric_cum_negative_count_expected, &quality_cum_validity);
 
     var metric_cum_nan_ratio = try quality_table.withGroupCumulativeNaNRatio("bucket", "metric", "metric_cum_nan_ratio");
     defer metric_cum_nan_ratio.deinit();
-    try expectF64ColumnWithValidity(metric_cum_nan_ratio, gpa, "metric_cum_nan_ratio", &.{ 0.0, 0.5, 1.0 / 3.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(metric_cum_nan_ratio, gpa, "metric_cum_nan_ratio", &metric_cum_nan_ratio_expected, &quality_cum_validity);
 
     var metric_cum_inf_ratio = try quality_table.withGroupCumulativeInfRatio("bucket", "metric", "metric_cum_inf_ratio");
     defer metric_cum_inf_ratio.deinit();
-    try expectF64ColumnWithValidity(metric_cum_inf_ratio, gpa, "metric_cum_inf_ratio", &.{ 0.0, 0.0, 1.0 / 3.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(metric_cum_inf_ratio, gpa, "metric_cum_inf_ratio", &metric_cum_inf_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_positive_inf_ratio = try quality_table.withGroupCumulativePositiveInfRatio("bucket", "metric", "metric_cum_positive_inf_ratio");
+    defer metric_cum_positive_inf_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_positive_inf_ratio, gpa, "metric_cum_positive_inf_ratio", &metric_cum_positive_inf_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_negative_inf_ratio = try quality_table.withGroupCumulativeNegativeInfRatio("bucket", "metric", "metric_cum_negative_inf_ratio");
+    defer metric_cum_negative_inf_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_negative_inf_ratio, gpa, "metric_cum_negative_inf_ratio", &metric_cum_negative_inf_ratio_expected, &quality_cum_validity);
 
     var metric_cum_finite_ratio = try quality_table.withGroupCumulativeFiniteRatio("bucket", "metric", "metric_cum_finite_ratio");
     defer metric_cum_finite_ratio.deinit();
-    try expectF64ColumnWithValidity(metric_cum_finite_ratio, gpa, "metric_cum_finite_ratio", &.{ 1.0, 0.5, 1.0 / 3.0, 0.25, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(metric_cum_finite_ratio, gpa, "metric_cum_finite_ratio", &metric_cum_finite_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_normal_ratio = try quality_table.withGroupCumulativeNormalRatio("bucket", "metric", "metric_cum_normal_ratio");
+    defer metric_cum_normal_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_normal_ratio, gpa, "metric_cum_normal_ratio", &metric_cum_normal_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_subnormal_ratio = try quality_table.withGroupCumulativeSubnormalRatio("bucket", "metric", "metric_cum_subnormal_ratio");
+    defer metric_cum_subnormal_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_subnormal_ratio, gpa, "metric_cum_subnormal_ratio", &metric_cum_subnormal_ratio_expected, &quality_cum_validity);
 
     var metric_cum_non_finite_ratio = try quality_table.withGroupCumulativeNonFiniteRatio("bucket", "metric", "metric_cum_non_finite_ratio");
     defer metric_cum_non_finite_ratio.deinit();
-    try expectF64ColumnWithValidity(metric_cum_non_finite_ratio, gpa, "metric_cum_non_finite_ratio", &.{ 0.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(metric_cum_non_finite_ratio, gpa, "metric_cum_non_finite_ratio", &metric_cum_non_finite_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_zero_ratio = try quality_table.withGroupCumulativeZeroRatio("bucket", "metric", "metric_cum_zero_ratio");
+    defer metric_cum_zero_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_zero_ratio, gpa, "metric_cum_zero_ratio", &metric_cum_zero_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_positive_zero_ratio = try quality_table.withGroupCumulativePositiveZeroRatio("bucket", "metric", "metric_cum_positive_zero_ratio");
+    defer metric_cum_positive_zero_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_positive_zero_ratio, gpa, "metric_cum_positive_zero_ratio", &metric_cum_positive_zero_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_negative_zero_ratio = try quality_table.withGroupCumulativeNegativeZeroRatio("bucket", "metric", "metric_cum_negative_zero_ratio");
+    defer metric_cum_negative_zero_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_negative_zero_ratio, gpa, "metric_cum_negative_zero_ratio", &metric_cum_negative_zero_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_non_zero_ratio = try quality_table.withGroupCumulativeNonZeroRatio("bucket", "metric", "metric_cum_non_zero_ratio");
+    defer metric_cum_non_zero_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_non_zero_ratio, gpa, "metric_cum_non_zero_ratio", &metric_cum_non_zero_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_positive_ratio = try quality_table.withGroupCumulativePositiveRatio("bucket", "metric", "metric_cum_positive_ratio");
+    defer metric_cum_positive_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_positive_ratio, gpa, "metric_cum_positive_ratio", &metric_cum_positive_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_signbit_ratio = try quality_table.withGroupCumulativeSignBitRatio("bucket", "metric", "metric_cum_signbit_ratio");
+    defer metric_cum_signbit_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_signbit_ratio, gpa, "metric_cum_signbit_ratio", &metric_cum_signbit_ratio_expected, &quality_cum_validity);
+
+    var metric_cum_negative_ratio = try quality_table.withGroupCumulativeNegativeRatio("bucket", "metric", "metric_cum_negative_ratio");
+    defer metric_cum_negative_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_negative_ratio, gpa, "metric_cum_negative_ratio", &metric_cum_negative_ratio_expected, &quality_cum_validity);
 
     const ratio_nan = std.math.nan(f64);
     const metric_nan_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
@@ -810,21 +930,99 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var cumulative_quality_plan = try DeviceLazyFrame.init(gpa, quality_table);
     defer cumulative_quality_plan.deinit();
     try cumulative_quality_plan.withGroupCumulativeNaNCount("bucket", "metric", "metric_cum_nan_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNaNRatio("bucket", "metric", "metric_cum_nan_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeInfCount("bucket", "metric", "metric_cum_inf_count_lazy");
     try cumulative_quality_plan.withGroupCumulativeInfRatio("bucket", "metric", "metric_cum_inf_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveInfCount("bucket", "metric", "metric_cum_positive_inf_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveInfRatio("bucket", "metric", "metric_cum_positive_inf_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeInfCount("bucket", "metric", "metric_cum_negative_inf_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeInfRatio("bucket", "metric", "metric_cum_negative_inf_ratio_lazy");
     try cumulative_quality_plan.withGroupCumulativeFiniteCount("bucket", "metric", "metric_cum_finite_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeFiniteRatio("bucket", "metric", "metric_cum_finite_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNormalCount("bucket", "metric", "metric_cum_normal_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNormalRatio("bucket", "metric", "metric_cum_normal_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeSubnormalCount("bucket", "metric", "metric_cum_subnormal_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeSubnormalRatio("bucket", "metric", "metric_cum_subnormal_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNonFiniteCount("bucket", "metric", "metric_cum_non_finite_count_lazy");
     try cumulative_quality_plan.withGroupCumulativeNonFiniteRatio("bucket", "metric", "metric_cum_non_finite_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeZeroCount("bucket", "metric", "metric_cum_zero_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeZeroRatio("bucket", "metric", "metric_cum_zero_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveZeroCount("bucket", "metric", "metric_cum_positive_zero_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveZeroRatio("bucket", "metric", "metric_cum_positive_zero_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeZeroCount("bucket", "metric", "metric_cum_negative_zero_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeZeroRatio("bucket", "metric", "metric_cum_negative_zero_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNonZeroCount("bucket", "metric", "metric_cum_non_zero_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNonZeroRatio("bucket", "metric", "metric_cum_non_zero_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveCount("bucket", "metric", "metric_cum_positive_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativePositiveRatio("bucket", "metric", "metric_cum_positive_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeSignBitCount("bucket", "metric", "metric_cum_signbit_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeSignBitRatio("bucket", "metric", "metric_cum_signbit_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeCount("bucket", "metric", "metric_cum_negative_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNegativeRatio("bucket", "metric", "metric_cum_negative_ratio_lazy");
     const cumulative_quality_explained = try cumulative_quality_plan.explain(gpa);
     defer gpa.free(cumulative_quality_explained);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_nan_count([bucket], value=metric->metric_cum_nan_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_nan_ratio([bucket], value=metric->metric_cum_nan_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_inf_count([bucket], value=metric->metric_cum_inf_count_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_inf_ratio([bucket], value=metric->metric_cum_inf_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_inf_count([bucket], value=metric->metric_cum_positive_inf_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_inf_ratio([bucket], value=metric->metric_cum_positive_inf_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_inf_count([bucket], value=metric->metric_cum_negative_inf_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_inf_ratio([bucket], value=metric->metric_cum_negative_inf_ratio_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_finite_count([bucket], value=metric->metric_cum_finite_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_finite_ratio([bucket], value=metric->metric_cum_finite_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_normal_count([bucket], value=metric->metric_cum_normal_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_normal_ratio([bucket], value=metric->metric_cum_normal_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_subnormal_count([bucket], value=metric->metric_cum_subnormal_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_subnormal_ratio([bucket], value=metric->metric_cum_subnormal_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_non_finite_count([bucket], value=metric->metric_cum_non_finite_count_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_non_finite_ratio([bucket], value=metric->metric_cum_non_finite_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_zero_count([bucket], value=metric->metric_cum_zero_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_zero_ratio([bucket], value=metric->metric_cum_zero_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_zero_count([bucket], value=metric->metric_cum_positive_zero_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_zero_ratio([bucket], value=metric->metric_cum_positive_zero_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_zero_count([bucket], value=metric->metric_cum_negative_zero_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_zero_ratio([bucket], value=metric->metric_cum_negative_zero_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_non_zero_count([bucket], value=metric->metric_cum_non_zero_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_non_zero_ratio([bucket], value=metric->metric_cum_non_zero_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_count([bucket], value=metric->metric_cum_positive_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_positive_ratio([bucket], value=metric->metric_cum_positive_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_signbit_count([bucket], value=metric->metric_cum_signbit_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_signbit_ratio([bucket], value=metric->metric_cum_signbit_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_count([bucket], value=metric->metric_cum_negative_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_negative_ratio([bucket], value=metric->metric_cum_negative_ratio_lazy)") != null);
     var lazy_cumulative_quality = try cumulative_quality_plan.collect();
     defer lazy_cumulative_quality.deinit();
-    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_nan_count_lazy", &.{ 0, 1, 1, 1, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
-    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_inf_ratio_lazy", &.{ 0.0, 0.0, 1.0 / 3.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
-    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_finite_count_lazy", &.{ 1, 1, 1, 1, 1, 2, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
-    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_non_finite_ratio_lazy", &.{ 0.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_nan_count_lazy", &metric_cum_nan_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_nan_ratio_lazy", &metric_cum_nan_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_inf_count_lazy", &metric_cum_inf_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_inf_ratio_lazy", &metric_cum_inf_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_positive_inf_count_lazy", &metric_cum_positive_inf_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_positive_inf_ratio_lazy", &metric_cum_positive_inf_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_negative_inf_count_lazy", &metric_cum_negative_inf_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_negative_inf_ratio_lazy", &metric_cum_negative_inf_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_finite_count_lazy", &metric_cum_finite_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_finite_ratio_lazy", &metric_cum_finite_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_normal_count_lazy", &metric_cum_normal_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_normal_ratio_lazy", &metric_cum_normal_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_subnormal_count_lazy", &metric_cum_subnormal_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_subnormal_ratio_lazy", &metric_cum_subnormal_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_non_finite_count_lazy", &metric_cum_non_finite_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_non_finite_ratio_lazy", &metric_cum_non_finite_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_zero_count_lazy", &metric_cum_zero_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_zero_ratio_lazy", &metric_cum_zero_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_positive_zero_count_lazy", &metric_cum_positive_zero_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_positive_zero_ratio_lazy", &metric_cum_positive_zero_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_negative_zero_count_lazy", &metric_cum_negative_zero_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_negative_zero_ratio_lazy", &metric_cum_negative_zero_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_non_zero_count_lazy", &metric_cum_non_zero_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_non_zero_ratio_lazy", &metric_cum_non_zero_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_positive_count_lazy", &metric_cum_positive_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_positive_ratio_lazy", &metric_cum_positive_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_signbit_count_lazy", &metric_cum_signbit_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_signbit_ratio_lazy", &metric_cum_signbit_ratio_expected, &quality_cum_validity);
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_negative_count_lazy", &metric_cum_negative_count_expected, &quality_cum_validity);
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_negative_ratio_lazy", &metric_cum_negative_ratio_expected, &quality_cum_validity);
 
     var last_inf_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
     defer last_inf_index_plan.deinit();

@@ -2887,6 +2887,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_positive_inf_count => |shift| {
+            try writer.print("group_cumulative_positive_inf_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_positive_inf_ratio => |shift| {
+            try writer.print("group_cumulative_positive_inf_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_inf_count => |shift| {
+            try writer.print("group_cumulative_negative_inf_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_inf_ratio => |shift| {
+            try writer.print("group_cumulative_negative_inf_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_cumulative_finite_count => |shift| {
             try writer.print("group_cumulative_finite_count([", .{});
             for (shift.names, 0..) |name, i| {
@@ -2903,6 +2935,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_normal_count => |shift| {
+            try writer.print("group_cumulative_normal_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_normal_ratio => |shift| {
+            try writer.print("group_cumulative_normal_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_subnormal_count => |shift| {
+            try writer.print("group_cumulative_subnormal_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_subnormal_ratio => |shift| {
+            try writer.print("group_cumulative_subnormal_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_cumulative_non_finite_count => |shift| {
             try writer.print("group_cumulative_non_finite_count([", .{});
             for (shift.names, 0..) |name, i| {
@@ -2913,6 +2977,118 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         },
         .group_cumulative_non_finite_ratio => |shift| {
             try writer.print("group_cumulative_non_finite_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_zero_count => |shift| {
+            try writer.print("group_cumulative_zero_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_zero_ratio => |shift| {
+            try writer.print("group_cumulative_zero_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_positive_zero_count => |shift| {
+            try writer.print("group_cumulative_positive_zero_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_positive_zero_ratio => |shift| {
+            try writer.print("group_cumulative_positive_zero_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_zero_count => |shift| {
+            try writer.print("group_cumulative_negative_zero_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_zero_ratio => |shift| {
+            try writer.print("group_cumulative_negative_zero_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_non_zero_count => |shift| {
+            try writer.print("group_cumulative_non_zero_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_non_zero_ratio => |shift| {
+            try writer.print("group_cumulative_non_zero_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_positive_count => |shift| {
+            try writer.print("group_cumulative_positive_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_positive_ratio => |shift| {
+            try writer.print("group_cumulative_positive_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_signbit_count => |shift| {
+            try writer.print("group_cumulative_signbit_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_signbit_ratio => |shift| {
+            try writer.print("group_cumulative_signbit_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_count => |shift| {
+            try writer.print("group_cumulative_negative_count([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_negative_ratio => |shift| {
+            try writer.print("group_cumulative_negative_ratio([", .{});
             for (shift.names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
