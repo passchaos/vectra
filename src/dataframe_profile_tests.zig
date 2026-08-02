@@ -2906,6 +2906,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const weighted_logsumexp_bucket2 = 15.0 + std.math.log1p(std.math.exp(@as(f64, -10.0)));
     const weighted_logsumexp_expected = [_]f64{ weighted_logsumexp_bucket1, weighted_logsumexp_bucket2, std.math.nan(f64) };
     const weighted_logmeanexp_expected = [_]f64{ weighted_logsumexp_bucket1 - std.math.log(f64, std.math.e, @as(f64, 6.0)), weighted_logsumexp_bucket2 - std.math.ln2, std.math.nan(f64) };
+    const weighted_range_expected = [_]f64{ 20.0, 10.0, std.math.nan(f64) };
+    const weighted_midrange_expected = [_]f64{ 20.0, 10.0, std.math.nan(f64) };
+    const weighted_range_coeff_expected = [_]f64{ 0.5, 0.5, std.math.nan(f64) };
 
     var weighted_geometric = try weighted_table.groupByWeightedGeoMean("bucket", "value", "weight", "value_weighted_geometric");
     defer weighted_geometric.deinit();
@@ -2922,6 +2925,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var weighted_logmeanexp = try weighted_table.groupByWeightedLogMeanExp("bucket", "value", "weight", "value_weighted_logmeanexp");
     defer weighted_logmeanexp.deinit();
     try expectF64ColumnApproxOrNan(weighted_logmeanexp, gpa, "value_weighted_logmeanexp", &weighted_logmeanexp_expected);
+
+    var weighted_range = try weighted_table.groupByWeightedRange("bucket", "value", "weight", "value_weighted_range");
+    defer weighted_range.deinit();
+    try expectF64ColumnApproxOrNan(weighted_range, gpa, "value_weighted_range", &weighted_range_expected);
+
+    var weighted_midrange = try weighted_table.groupByWeightedMidrange("bucket", "value", "weight", "value_weighted_midrange");
+    defer weighted_midrange.deinit();
+    try expectF64ColumnApproxOrNan(weighted_midrange, gpa, "value_weighted_midrange", &weighted_midrange_expected);
+
+    var weighted_range_coeff = try weighted_table.groupByWeightedRangeCoeff("bucket", "value", "weight", "value_weighted_range_coeff");
+    defer weighted_range_coeff.deinit();
+    try expectF64ColumnApproxOrNan(weighted_range_coeff, gpa, "value_weighted_range_coeff", &weighted_range_coeff_expected);
 
     var weighted_variance = try weighted_table.groupByWeightedVarOn(&.{"bucket"}, "value", "weight", "value_weighted_variance");
     defer weighted_variance.deinit();
@@ -3284,6 +3299,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedMean("bucket", "value", "weight", "bad_weighted_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedLogSumExp("bucket", "value", "weight", "bad_weighted_logsumexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedLogMeanExp("bucket", "value", "weight", "bad_weighted_logmeanexp"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedRange("bucket", "value", "weight", "bad_weighted_range"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
@@ -3293,6 +3309,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "bad_weighted_cum_harmonic"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedLogSumExp("bucket", "value", "weight", "bad_weighted_cum_logsumexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedLogMeanExp("bucket", "value", "weight", "bad_weighted_cum_logmeanexp"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedRange("bucket", "value", "weight", "bad_weighted_cum_range"));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
@@ -3576,6 +3593,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const group_cum_weighted_harmonic_expected = [_]f64{ 10.0, 4.0 / (1.0 / 10.0 + 3.0 / 20.0), weighted_harmonic_expected[0], 5.0, weighted_harmonic_expected[1], 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_logsumexp_expected = [_]f64{ 10.0, 20.0 + std.math.log(f64, std.math.e, 3.0 + std.math.exp(@as(f64, -10.0))), weighted_logsumexp_expected[0], 5.0, weighted_logsumexp_expected[1], 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_logmeanexp_expected = [_]f64{ 10.0, group_cum_weighted_logsumexp_expected[1] - std.math.log(f64, std.math.e, @as(f64, 4.0)), weighted_logmeanexp_expected[0], 5.0, weighted_logmeanexp_expected[1], 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_range_expected = [_]f64{ 0.0, 10.0, 20.0, 0.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_midrange_expected = [_]f64{ 10.0, 15.0, 20.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_range_coeff_expected = [_]f64{ 0.0, 1.0 / 3.0, 0.5, 0.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
 
     var group_cum_weighted_mean_abs = try weighted_table.withGroupCumulativeWeightedMeanAbs("bucket", "value", "weight", "value_weighted_cum_mean_abs");
     defer group_cum_weighted_mean_abs.deinit();
@@ -3612,6 +3632,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var group_cum_weighted_logmeanexp = try weighted_table.withGroupCumulativeWeightedLogMeanExp("bucket", "value", "weight", "value_weighted_cum_logmeanexp");
     defer group_cum_weighted_logmeanexp.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_logmeanexp, gpa, "value_weighted_cum_logmeanexp", &group_cum_weighted_logmeanexp_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_range = try weighted_table.withGroupCumulativeWeightedRange("bucket", "value", "weight", "value_weighted_cum_range");
+    defer group_cum_weighted_range.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_range, gpa, "value_weighted_cum_range", &group_cum_weighted_range_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_midrange = try weighted_table.withGroupCumulativeWeightedMidrange("bucket", "value", "weight", "value_weighted_cum_midrange");
+    defer group_cum_weighted_midrange.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_midrange, gpa, "value_weighted_cum_midrange", &group_cum_weighted_midrange_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_range_coeff = try weighted_table.withGroupCumulativeWeightedRangeCoefficient("bucket", "value", "weight", "value_weighted_cum_range_coeff");
+    defer group_cum_weighted_range_coeff.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_range_coeff, gpa, "value_weighted_cum_range_coeff", &group_cum_weighted_range_coeff_expected, &.{ true, true, true, true, true, false, true, true });
 
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
@@ -3651,6 +3683,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "value_weighted_cum_harmonic_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedLogsumexp("bucket", "value", "weight", "value_weighted_cum_logsumexp_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedLogMeanExp("bucket", "value", "weight", "value_weighted_cum_logmeanexp_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedRange("bucket", "value", "weight", "value_weighted_cum_range_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedMidrange("bucket", "value", "weight", "value_weighted_cum_midrange_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedRangeCoeff("bucket", "value", "weight", "value_weighted_cum_range_coeff_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedVar("bucket", "value", "weight", "value_weighted_cum_variance_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedStd("bucket", "value", "weight", "value_weighted_cum_stddev_lazy");
     try cumulative_weighted_moment_plan.withGroupCumulativeWeightedSem("bucket", "value", "weight", "value_weighted_cum_sem_lazy");
@@ -3663,6 +3698,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_harmonic_mean([bucket], value=value, weight=weight->value_weighted_cum_harmonic_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_logsumexp([bucket], value=value, weight=weight->value_weighted_cum_logsumexp_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_logmeanexp([bucket], value=value, weight=weight->value_weighted_cum_logmeanexp_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_range([bucket], value=value, weight=weight->value_weighted_cum_range_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_range_coeff([bucket], value=value, weight=weight->value_weighted_cum_range_coeff_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_variance([bucket], value=value, weight=weight->value_weighted_cum_variance_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_stddev([bucket], value=value, weight=weight->value_weighted_cum_stddev_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_sem([bucket], value=value, weight=weight->value_weighted_cum_sem_lazy)") != null);
@@ -3677,6 +3714,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_harmonic_lazy", &group_cum_weighted_harmonic_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_logsumexp_lazy", &group_cum_weighted_logsumexp_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_logmeanexp_lazy", &group_cum_weighted_logmeanexp_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_range_lazy", &group_cum_weighted_range_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_midrange_lazy", &group_cum_weighted_midrange_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_range_coeff_lazy", &group_cum_weighted_range_coeff_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_variance_lazy", &group_cum_weighted_variance_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_stddev_lazy", &group_cum_weighted_stddev_expected, &.{ true, true, true, true, true, false, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_sem_lazy", &group_cum_weighted_sem_expected, &.{ true, true, true, true, true, false, true, true });
@@ -3770,6 +3810,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_harmonic_mean, .output_name = "value_weighted_harmonic_lazy", .explain = "group_by_weighted_harmonic_mean(bucket, value=value, weight=weight -> value_weighted_harmonic_lazy)", .expected = &weighted_harmonic_expected },
         .{ .method = .weighted_logsumexp, .output_name = "value_weighted_logsumexp_lazy", .explain = "group_by_weighted_logsumexp(bucket, value=value, weight=weight -> value_weighted_logsumexp_lazy)", .expected = &weighted_logsumexp_expected },
         .{ .method = .weighted_logmeanexp, .output_name = "value_weighted_logmeanexp_lazy", .explain = "group_by_weighted_logmeanexp(bucket, value=value, weight=weight -> value_weighted_logmeanexp_lazy)", .expected = &weighted_logmeanexp_expected },
+        .{ .method = .weighted_range, .output_name = "value_weighted_range_lazy", .explain = "group_by_weighted_range(bucket, value=value, weight=weight -> value_weighted_range_lazy)", .expected = &weighted_range_expected },
+        .{ .method = .weighted_midrange, .output_name = "value_weighted_midrange_lazy", .explain = "group_by_weighted_midrange(bucket, value=value, weight=weight -> value_weighted_midrange_lazy)", .expected = &weighted_midrange_expected },
+        .{ .method = .weighted_range_coeff, .output_name = "value_weighted_range_coeff_lazy", .explain = "group_by_weighted_range_coeff(bucket, value=value, weight=weight -> value_weighted_range_coeff_lazy)", .expected = &weighted_range_coeff_expected },
         .{ .method = .weighted_mode, .output_name = "value_weighted_mode_lazy", .explain = "group_by_weighted_mode(bucket, value=value, weight=weight -> value_weighted_mode_lazy)", .expected = &weighted_mode_expected },
         .{ .method = .weighted_mode_weight, .output_name = "value_weighted_mode_weight_lazy", .explain = "group_by_weighted_mode_weight(bucket, value=value, weight=weight -> value_weighted_mode_weight_lazy)", .expected = &weighted_mode_weight_expected },
         .{ .method = .weighted_mode_ratio, .output_name = "value_weighted_mode_ratio_lazy", .explain = "group_by_weighted_mode_ratio(bucket, value=value, weight=weight -> value_weighted_mode_ratio_lazy)", .expected = &weighted_mode_ratio_expected },
@@ -3800,6 +3843,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_harmonic_mean => plan.groupByWeightedHarmonicMean("bucket", "value", "weight", case.output_name),
             .weighted_logsumexp => plan.groupByWeightedLogsumexp("bucket", "value", "weight", case.output_name),
             .weighted_logmeanexp => plan.groupByWeightedLogMeanExp("bucket", "value", "weight", case.output_name),
+            .weighted_range => plan.groupByWeightedRange("bucket", "value", "weight", case.output_name),
+            .weighted_midrange => plan.groupByWeightedMidrange("bucket", "value", "weight", case.output_name),
+            .weighted_range_coeff => plan.groupByWeightedRangeCoeff("bucket", "value", "weight", case.output_name),
             .weighted_mode => plan.groupByWeightedMode("bucket", "value", "weight", case.output_name),
             .weighted_mode_weight => plan.groupByWeightedModeWeight("bucket", "value", "weight", case.output_name),
             .weighted_mode_ratio => plan.groupByWeightedModeRatio("bucket", "value", "weight", case.output_name),

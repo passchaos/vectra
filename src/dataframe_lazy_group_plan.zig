@@ -1787,7 +1787,7 @@ pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, va
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, mean_square, rms, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, variance, stddev, sem, cv, fano }) DeviceDataError!void {
+fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, mean_square, rms, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1809,6 +1809,9 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
         .harmonic_mean => .{ .group_cumulative_weighted_harmonic_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .logsumexp => .{ .group_cumulative_weighted_logsumexp = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .logmeanexp => .{ .group_cumulative_weighted_logmeanexp = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .range => .{ .group_cumulative_weighted_range = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .midrange => .{ .group_cumulative_weighted_midrange = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .range_coeff => .{ .group_cumulative_weighted_range_coeff = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .variance => .{ .group_cumulative_weighted_variance = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .stddev => .{ .group_cumulative_weighted_stddev = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .sem => .{ .group_cumulative_weighted_sem = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
@@ -1859,6 +1862,18 @@ pub fn withGroupCumulativeWeightedLogSumExp(frame: anytype, key_names: []const [
 
 pub fn withGroupCumulativeWeightedLogMeanExp(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .logmeanexp);
+}
+
+pub fn withGroupCumulativeWeightedRange(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .range);
+}
+
+pub fn withGroupCumulativeWeightedMidrange(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .midrange);
+}
+
+pub fn withGroupCumulativeWeightedRangeCoeff(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .range_coeff);
 }
 
 fn withGroupCumulativeWeightedQuantileCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64, comptime op: enum { median, quantile, iqr, mad }) DeviceDataError!void {

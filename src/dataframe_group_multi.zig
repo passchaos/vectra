@@ -236,6 +236,9 @@ const GroupByWeightedAggregation = enum {
     weighted_harmonic_mean,
     weighted_logsumexp,
     weighted_logmeanexp,
+    weighted_range,
+    weighted_midrange,
+    weighted_range_coeff,
     weighted_variance,
     weighted_stddev,
     weighted_sem,
@@ -257,6 +260,19 @@ const GroupByWeightedAggregation = enum {
     weighted_simpson_concentration,
     weighted_evenness,
 };
+
+fn finishWeightedRange(min_value: f64, max_value: f64, positive_weight_count: usize, op: enum { range, midrange, range_coeff }) f64 {
+    if (positive_weight_count == 0) return std.math.nan(f64);
+    const range = max_value - min_value;
+    return switch (op) {
+        .range => range,
+        .midrange => (min_value + max_value) / 2.0,
+        .range_coeff => blk: {
+            const denominator = min_value + max_value;
+            break :blk if (denominator == 0.0) std.math.nan(f64) else range / denominator;
+        },
+    };
+}
 
 const WeightedLogExpState = struct {
     max_value: f64 = 0.0,
@@ -3547,7 +3563,7 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-const GroupCumulativeWeightedMoment = enum { mean, mean_square, rms, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, variance, stddev, sem, cv, fano };
+const GroupCumulativeWeightedMoment = enum { mean, mean_square, rms, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
 
@@ -3664,6 +3680,10 @@ fn withGroupCumulativeWeightedMomentOn(
     defer weighted_max_abs_values.deinit(frame.allocator);
     var weighted_min_abs_values: std.ArrayList(f64) = .empty;
     defer weighted_min_abs_values.deinit(frame.allocator);
+    var weighted_min_values: std.ArrayList(f64) = .empty;
+    defer weighted_min_values.deinit(frame.allocator);
+    var weighted_max_values: std.ArrayList(f64) = .empty;
+    defer weighted_max_values.deinit(frame.allocator);
     var positive_weight_counts: std.ArrayList(usize) = .empty;
     defer positive_weight_counts.deinit(frame.allocator);
     var weighted_log_sums: std.ArrayList(f64) = .empty;
@@ -3693,6 +3713,8 @@ fn withGroupCumulativeWeightedMomentOn(
             try weighted_abs_sums.append(frame.allocator, 0.0);
             try weighted_max_abs_values.append(frame.allocator, 0.0);
             try weighted_min_abs_values.append(frame.allocator, 0.0);
+            try weighted_min_values.append(frame.allocator, 0.0);
+            try weighted_max_values.append(frame.allocator, 0.0);
             try positive_weight_counts.append(frame.allocator, 0);
             try weighted_log_sums.append(frame.allocator, 0.0);
             try weighted_reciprocal_sums.append(frame.allocator, 0.0);
@@ -3712,6 +3734,12 @@ fn withGroupCumulativeWeightedMomentOn(
             }
             if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(abs_value) or (!std.math.isNan(weighted_min_abs_values.items[group_index]) and abs_value < weighted_min_abs_values.items[group_index])) {
                 weighted_min_abs_values.items[group_index] = abs_value;
+            }
+            if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(value) or (!std.math.isNan(weighted_min_values.items[group_index]) and value < weighted_min_values.items[group_index])) {
+                weighted_min_values.items[group_index] = value;
+            }
+            if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(value) or (!std.math.isNan(weighted_max_values.items[group_index]) and value > weighted_max_values.items[group_index])) {
+                weighted_max_values.items[group_index] = value;
             }
             positive_weight_counts.items[group_index] += 1;
         }
@@ -3742,6 +3770,9 @@ fn withGroupCumulativeWeightedMomentOn(
             .harmonic_mean => if (std.math.isInf(weighted_reciprocal_sums.items[group_index])) 0.0 else weight_sum / weighted_reciprocal_sums.items[group_index],
             .logsumexp => weighted_log_exp_states.items[group_index].finish(weight_sum, false),
             .logmeanexp => weighted_log_exp_states.items[group_index].finish(weight_sum, true),
+            .range => finishWeightedRange(weighted_min_values.items[group_index], weighted_max_values.items[group_index], positive_weight_counts.items[group_index], .range),
+            .midrange => finishWeightedRange(weighted_min_values.items[group_index], weighted_max_values.items[group_index], positive_weight_counts.items[group_index], .midrange),
+            .range_coeff => finishWeightedRange(weighted_min_values.items[group_index], weighted_max_values.items[group_index], positive_weight_counts.items[group_index], .range_coeff),
             .variance, .stddev, .sem, .cv, .fano => blk: {
                 var centered_square_sum = weighted_square_sums.items[group_index] - weighted_sums.items[group_index] * weighted_sums.items[group_index] / weight_sum;
                 // The one-pass prefix formula can produce a tiny negative value
@@ -3758,7 +3789,7 @@ fn withGroupCumulativeWeightedMomentOn(
                     .sem => std.math.sqrt(variance / weight_sum),
                     .cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
                     .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
-                    .mean, .mean_square, .rms, .mean_abs, .l1_norm, .l2_norm, .max_abs, .min_abs, .geometric_mean, .harmonic_mean, .logsumexp, .logmeanexp => unreachable,
+                    .mean, .mean_square, .rms, .mean_abs, .l1_norm, .l2_norm, .max_abs, .min_abs, .geometric_mean, .harmonic_mean, .logsumexp, .logmeanexp, .range, .midrange, .range_coeff => unreachable,
                 };
             },
         } else std.math.nan(f64);
@@ -3900,6 +3931,39 @@ pub fn withGroupCumulativeWeightedLogMeanExpOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .logmeanexp);
+}
+
+pub fn withGroupCumulativeWeightedRangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .range);
+}
+
+pub fn withGroupCumulativeWeightedMidrangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .midrange);
+}
+
+pub fn withGroupCumulativeWeightedRangeCoeffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .range_coeff);
 }
 
 pub fn withGroupCumulativeWeightedVarianceOn(
@@ -4517,6 +4581,7 @@ pub const withGroupCumulativeWeightedGeoMeanOn = withGroupCumulativeWeightedGeom
 pub const withGroupCumulativeWeightedHarmMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
 pub const withGroupCumulativeWeightedLogsumexpOn = withGroupCumulativeWeightedLogSumExpOn;
 pub const withGroupCumulativeWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
+pub const withGroupCumulativeWeightedRangeCoefficientOn = withGroupCumulativeWeightedRangeCoeffOn;
 pub const withGroupCumWeightedGeometricMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumWeightedGeoMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumWeightedHarmonicMeanOn = withGroupCumulativeWeightedHarmonicMeanOn;
@@ -4525,6 +4590,10 @@ pub const withGroupCumWeightedLogSumExpOn = withGroupCumulativeWeightedLogSumExp
 pub const withGroupCumWeightedLogsumexpOn = withGroupCumulativeWeightedLogSumExpOn;
 pub const withGroupCumWeightedLogMeanExpOn = withGroupCumulativeWeightedLogMeanExpOn;
 pub const withGroupCumWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
+pub const withGroupCumWeightedRangeOn = withGroupCumulativeWeightedRangeOn;
+pub const withGroupCumWeightedMidrangeOn = withGroupCumulativeWeightedMidrangeOn;
+pub const withGroupCumWeightedRangeCoeffOn = withGroupCumulativeWeightedRangeCoeffOn;
+pub const withGroupCumWeightedRangeCoefficientOn = withGroupCumulativeWeightedRangeCoeffOn;
 pub const withGroupCumulativeWeightedL1On = withGroupCumulativeWeightedL1NormOn;
 pub const withGroupCumulativeWeightedL2On = withGroupCumulativeWeightedL2NormOn;
 pub const withGroupCumulativeWeightedMaxAbsoluteOn = withGroupCumulativeWeightedMaxAbsOn;
@@ -6742,6 +6811,10 @@ pub fn groupByWeightedOn(
     defer weighted_max_abs_values.deinit(frame.allocator);
     var weighted_min_abs_values: std.ArrayList(f64) = .empty;
     defer weighted_min_abs_values.deinit(frame.allocator);
+    var weighted_min_values: std.ArrayList(f64) = .empty;
+    defer weighted_min_values.deinit(frame.allocator);
+    var weighted_max_values: std.ArrayList(f64) = .empty;
+    defer weighted_max_values.deinit(frame.allocator);
     var positive_weight_counts: std.ArrayList(usize) = .empty;
     defer positive_weight_counts.deinit(frame.allocator);
     var weighted_log_sums: std.ArrayList(f64) = .empty;
@@ -6776,6 +6849,8 @@ pub fn groupByWeightedOn(
             try weighted_abs_sums.append(frame.allocator, 0.0);
             try weighted_max_abs_values.append(frame.allocator, 0.0);
             try weighted_min_abs_values.append(frame.allocator, 0.0);
+            try weighted_min_values.append(frame.allocator, 0.0);
+            try weighted_max_values.append(frame.allocator, 0.0);
             try positive_weight_counts.append(frame.allocator, 0);
             try weighted_log_sums.append(frame.allocator, 0.0);
             try weighted_reciprocal_sums.append(frame.allocator, 0.0);
@@ -6797,6 +6872,12 @@ pub fn groupByWeightedOn(
             if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(abs_value) or (!std.math.isNan(weighted_min_abs_values.items[group_index]) and abs_value < weighted_min_abs_values.items[group_index])) {
                 weighted_min_abs_values.items[group_index] = abs_value;
             }
+            if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(value) or (!std.math.isNan(weighted_min_values.items[group_index]) and value < weighted_min_values.items[group_index])) {
+                weighted_min_values.items[group_index] = value;
+            }
+            if (positive_weight_counts.items[group_index] == 0 or std.math.isNan(value) or (!std.math.isNan(weighted_max_values.items[group_index]) and value > weighted_max_values.items[group_index])) {
+                weighted_max_values.items[group_index] = value;
+            }
             positive_weight_counts.items[group_index] += 1;
         }
         if (value < 0.0 and weight > 0.0) {
@@ -6817,7 +6898,7 @@ pub fn groupByWeightedOn(
 
     const out = try frame.allocator.alloc(f64, representative_rows.items.len);
     defer frame.allocator.free(out);
-    for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, weighted_abs_sums.items, weighted_max_abs_values.items, weighted_min_abs_values.items, positive_weight_counts.items, weighted_log_sums.items, weighted_reciprocal_sums.items, weighted_zero_seen.items, weighted_log_exp_states.items, group_value_rows.items, out) |weight_sum, weighted_sum, weighted_square_sum, weighted_abs_sum, weighted_max_abs_value, weighted_min_abs_value, positive_weight_count, weighted_log_sum, weighted_reciprocal_sum, has_weighted_zero, weighted_log_exp_state, rows, *slot| {
+    for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, weighted_abs_sums.items, weighted_max_abs_values.items, weighted_min_abs_values.items, weighted_min_values.items, weighted_max_values.items, positive_weight_counts.items, weighted_log_sums.items, weighted_reciprocal_sums.items, weighted_zero_seen.items, weighted_log_exp_states.items, group_value_rows.items, out) |weight_sum, weighted_sum, weighted_square_sum, weighted_abs_sum, weighted_max_abs_value, weighted_min_abs_value, weighted_min_value, weighted_max_value, positive_weight_count, weighted_log_sum, weighted_reciprocal_sum, has_weighted_zero, weighted_log_exp_state, rows, *slot| {
         if (!(weight_sum > 0.0)) {
             slot.* = std.math.nan(f64);
             continue;
@@ -6835,6 +6916,9 @@ pub fn groupByWeightedOn(
             .weighted_harmonic_mean => if (std.math.isInf(weighted_reciprocal_sum)) 0.0 else weight_sum / weighted_reciprocal_sum,
             .weighted_logsumexp => weighted_log_exp_state.finish(weight_sum, false),
             .weighted_logmeanexp => weighted_log_exp_state.finish(weight_sum, true),
+            .weighted_range => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range),
+            .weighted_midrange => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .midrange),
+            .weighted_range_coeff => finishWeightedRange(weighted_min_value, weighted_max_value, positive_weight_count, .range_coeff),
             .weighted_variance, .weighted_stddev, .weighted_sem, .weighted_cv, .weighted_fano => blk: {
                 var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
                 if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
@@ -7028,6 +7112,41 @@ pub fn groupByWeightedLogMeanExpOn(
 
 pub const groupByWeightedLogsumexpOn = groupByWeightedLogSumExpOn;
 pub const groupByWeightedLogmeanexpOn = groupByWeightedLogMeanExpOn;
+
+pub fn groupByWeightedRangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_range, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedMidrangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_midrange, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedRangeCoeffOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_range_coeff, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedRangeCoefficientOn = groupByWeightedRangeCoeffOn;
 
 pub const groupByWeightedL1On = groupByWeightedL1NormOn;
 pub const groupByWeightedL2On = groupByWeightedL2NormOn;

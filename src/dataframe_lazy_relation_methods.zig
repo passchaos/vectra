@@ -2262,6 +2262,33 @@ pub fn withGroupCumulativeWeightedLogMeanExpOn(self: anytype, key_names: []const
     return lazy_group_mod.withGroupCumulativeWeightedLogMeanExp(self, key_names, value_name, weight_name, output_name);
 }
 
+pub fn withGroupCumulativeWeightedRange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedRangeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedRange(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMidrange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMidrangeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMidrangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMidrange(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRangeCoeff(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedRangeCoeffOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedRangeCoeffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedRangeCoeff(self, key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumulativeWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
 pub const withGroupCumulativeWeightedGeoMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumulativeWeightedHarmMean = withGroupCumulativeWeightedHarmonicMean;
@@ -2270,6 +2297,8 @@ pub const withGroupCumulativeWeightedLogsumexp = withGroupCumulativeWeightedLogS
 pub const withGroupCumulativeWeightedLogsumexpOn = withGroupCumulativeWeightedLogSumExpOn;
 pub const withGroupCumulativeWeightedLogmeanexp = withGroupCumulativeWeightedLogMeanExp;
 pub const withGroupCumulativeWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
+pub const withGroupCumulativeWeightedRangeCoefficient = withGroupCumulativeWeightedRangeCoeff;
+pub const withGroupCumulativeWeightedRangeCoefficientOn = withGroupCumulativeWeightedRangeCoeffOn;
 pub const withGroupCumWeightedGeometricMean = withGroupCumulativeWeightedGeometricMean;
 pub const withGroupCumWeightedGeometricMeanOn = withGroupCumulativeWeightedGeometricMeanOn;
 pub const withGroupCumWeightedGeoMean = withGroupCumulativeWeightedGeometricMean;
@@ -2286,6 +2315,14 @@ pub const withGroupCumWeightedLogMeanExp = withGroupCumulativeWeightedLogMeanExp
 pub const withGroupCumWeightedLogMeanExpOn = withGroupCumulativeWeightedLogMeanExpOn;
 pub const withGroupCumWeightedLogmeanexp = withGroupCumulativeWeightedLogMeanExp;
 pub const withGroupCumWeightedLogmeanexpOn = withGroupCumulativeWeightedLogMeanExpOn;
+pub const withGroupCumWeightedRange = withGroupCumulativeWeightedRange;
+pub const withGroupCumWeightedRangeOn = withGroupCumulativeWeightedRangeOn;
+pub const withGroupCumWeightedMidrange = withGroupCumulativeWeightedMidrange;
+pub const withGroupCumWeightedMidrangeOn = withGroupCumulativeWeightedMidrangeOn;
+pub const withGroupCumWeightedRangeCoeff = withGroupCumulativeWeightedRangeCoeff;
+pub const withGroupCumWeightedRangeCoeffOn = withGroupCumulativeWeightedRangeCoeffOn;
+pub const withGroupCumWeightedRangeCoefficient = withGroupCumulativeWeightedRangeCoeff;
+pub const withGroupCumWeightedRangeCoefficientOn = withGroupCumulativeWeightedRangeCoeffOn;
 
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
@@ -3155,6 +3192,33 @@ pub const groupByWeightedLogsumexp = groupByWeightedLogSumExp;
 pub const groupByWeightedLogsumexpOn = groupByWeightedLogSumExpOn;
 pub const groupByWeightedLogmeanexp = groupByWeightedLogMeanExp;
 pub const groupByWeightedLogmeanexpOn = groupByWeightedLogMeanExpOn;
+
+pub fn groupByWeightedRange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_range);
+}
+
+pub fn groupByWeightedRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_range);
+}
+
+pub fn groupByWeightedMidrange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_midrange);
+}
+
+pub fn groupByWeightedMidrangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_midrange);
+}
+
+pub fn groupByWeightedRangeCoeff(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_range_coeff);
+}
+
+pub fn groupByWeightedRangeCoeffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_range_coeff);
+}
+
+pub const groupByWeightedRangeCoefficient = groupByWeightedRangeCoeff;
+pub const groupByWeightedRangeCoefficientOn = groupByWeightedRangeCoeffOn;
 
 pub fn groupByWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_variance);

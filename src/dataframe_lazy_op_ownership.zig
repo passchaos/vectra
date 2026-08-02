@@ -5091,6 +5091,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_harmonic_mean => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_harmonic_mean"),
         .group_cumulative_weighted_logsumexp => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_logsumexp"),
         .group_cumulative_weighted_logmeanexp => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_logmeanexp"),
+        .group_cumulative_weighted_range => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_range"),
+        .group_cumulative_weighted_midrange => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_midrange"),
+        .group_cumulative_weighted_range_coeff => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_range_coeff"),
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);
