@@ -127,6 +127,20 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
 };
 
 pub const DeviceLazyPairGroupByAggregation = enum {
+    dot,
+    cosine_similarity,
+    squared_euclidean_distance,
+    euclidean_distance,
+    manhattan_distance,
+    chebyshev_distance,
+    canberra_distance,
+    bray_curtis_distance,
+    mean_error,
+    mae,
+    mse,
+    rmse,
+    mape,
+    smape,
     pair_count,
     covariance,
     correlation,

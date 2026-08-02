@@ -697,9 +697,79 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(pair_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 3, 2, 2 }, pair_count_values);
 
+    const pair_dot_expected = [_]f64{ 36.0, 2.0, -25.0 };
+    const pair_cos_expected = [_]f64{ 36.0 / std.math.sqrt(@as(f64, 21.0 * 69.0)), 1.0 / std.math.sqrt(@as(f64, 10.0)), -25.0 / std.math.sqrt(@as(f64, 650.0)) };
+    const pair_sqdist_expected = [_]f64{ 18.0, 10.0, 185.0 };
+    const pair_euclidean_expected = [_]f64{ std.math.sqrt(@as(f64, 18.0)), std.math.sqrt(@as(f64, 10.0)), std.math.sqrt(@as(f64, 185.0)) };
+    const pair_manhattan_expected = [_]f64{ 6.0, 4.0, 19.0 };
+    const pair_chebyshev_expected = [_]f64{ 4.0, 3.0, 11.0 };
+    const pair_canberra_expected = [_]f64{ 1.0, 4.0 / 3.0, 2.0 };
+    const pair_bray_expected = [_]f64{ 1.0 / 3.0, 2.0 / 3.0, 1.0 };
+    const pair_mean_error_expected = [_]f64{ -4.0 / 3.0, 1.0, 19.0 / 2.0 };
+    const pair_mae_expected = [_]f64{ 2.0, 2.0, 19.0 / 2.0 };
+    const pair_mse_expected = [_]f64{ 6.0, 5.0, 185.0 / 2.0 };
+    const pair_rmse_expected = [_]f64{ std.math.sqrt(@as(f64, 6.0)), std.math.sqrt(@as(f64, 5.0)), std.math.sqrt(@as(f64, 185.0 / 2.0)) };
+    const pair_mape_expected = [_]f64{ 5.0 / 6.0, 1.0, 149.0 / 126.0 };
+    const pair_smape_expected = [_]f64{ 2.0 / 3.0, 4.0 / 3.0, 2.0 };
     const pair_cov_expected = [_]f64{ 31.0 / 9.0, -1.0, -0.5 };
     const pair_corr_expected = [_]f64{ 31.0 / std.math.sqrt(@as(f64, 1204.0)), -1.0, -1.0 };
     const pair_beta_expected = [_]f64{ 31.0 / 14.0, -1.0, -0.5 };
+
+    var dot = try weighted_table.groupByDot("bucket", "lhs", "rhs", "lhs_rhs_dot");
+    defer dot.deinit();
+    try expectF64ColumnApproxOrNan(dot, gpa, "lhs_rhs_dot", &pair_dot_expected);
+
+    var cosine = try weighted_table.groupByCosine("bucket", "lhs", "rhs", "lhs_rhs_cos");
+    defer cosine.deinit();
+    try expectF64ColumnApproxOrNan(cosine, gpa, "lhs_rhs_cos", &pair_cos_expected);
+
+    var squared_euclidean = try weighted_table.groupBySquaredEuclideanDistance("bucket", "lhs", "rhs", "lhs_rhs_sqdist");
+    defer squared_euclidean.deinit();
+    try expectF64ColumnApproxOrNan(squared_euclidean, gpa, "lhs_rhs_sqdist", &pair_sqdist_expected);
+
+    var euclidean = try weighted_table.groupByEuclideanDistance("bucket", "lhs", "rhs", "lhs_rhs_euclidean");
+    defer euclidean.deinit();
+    try expectF64ColumnApproxOrNan(euclidean, gpa, "lhs_rhs_euclidean", &pair_euclidean_expected);
+
+    var manhattan = try weighted_table.groupByManhattanDistance("bucket", "lhs", "rhs", "lhs_rhs_manhattan");
+    defer manhattan.deinit();
+    try expectF64ColumnApproxOrNan(manhattan, gpa, "lhs_rhs_manhattan", &pair_manhattan_expected);
+
+    var chebyshev = try weighted_table.groupByChebyshevDistance("bucket", "lhs", "rhs", "lhs_rhs_chebyshev");
+    defer chebyshev.deinit();
+    try expectF64ColumnApproxOrNan(chebyshev, gpa, "lhs_rhs_chebyshev", &pair_chebyshev_expected);
+
+    var canberra = try weighted_table.groupByCanberraDistance("bucket", "lhs", "rhs", "lhs_rhs_canberra");
+    defer canberra.deinit();
+    try expectF64ColumnApproxOrNan(canberra, gpa, "lhs_rhs_canberra", &pair_canberra_expected);
+
+    var bray = try weighted_table.groupByBrayCurtisDistance("bucket", "lhs", "rhs", "lhs_rhs_bray");
+    defer bray.deinit();
+    try expectF64ColumnApproxOrNan(bray, gpa, "lhs_rhs_bray", &pair_bray_expected);
+
+    var mean_error = try weighted_table.groupByMeanError("bucket", "lhs", "rhs", "lhs_rhs_mean_error");
+    defer mean_error.deinit();
+    try expectF64ColumnApproxOrNan(mean_error, gpa, "lhs_rhs_mean_error", &pair_mean_error_expected);
+
+    var mae = try weighted_table.groupByMae("bucket", "lhs", "rhs", "lhs_rhs_mae");
+    defer mae.deinit();
+    try expectF64ColumnApproxOrNan(mae, gpa, "lhs_rhs_mae", &pair_mae_expected);
+
+    var mse = try weighted_table.groupByMse("bucket", "lhs", "rhs", "lhs_rhs_mse");
+    defer mse.deinit();
+    try expectF64ColumnApproxOrNan(mse, gpa, "lhs_rhs_mse", &pair_mse_expected);
+
+    var rmse = try weighted_table.groupByRmse("bucket", "lhs", "rhs", "lhs_rhs_rmse");
+    defer rmse.deinit();
+    try expectF64ColumnApproxOrNan(rmse, gpa, "lhs_rhs_rmse", &pair_rmse_expected);
+
+    var mape = try weighted_table.groupByMape("bucket", "lhs", "rhs", "lhs_rhs_mape");
+    defer mape.deinit();
+    try expectF64ColumnApproxOrNan(mape, gpa, "lhs_rhs_mape", &pair_mape_expected);
+
+    var smape = try weighted_table.groupBySmape("bucket", "lhs", "rhs", "lhs_rhs_smape");
+    defer smape.deinit();
+    try expectF64ColumnApproxOrNan(smape, gpa, "lhs_rhs_smape", &pair_smape_expected);
 
     var covariance = try weighted_table.groupByCov("bucket", "lhs", "rhs", "lhs_rhs_cov");
     defer covariance.deinit();
@@ -933,6 +1003,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         explain: []const u8,
         expected: []const f64,
     }{
+        .{ .method = .dot, .output_name = "lhs_rhs_dot_lazy", .explain = "group_by_dot(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_dot_lazy)", .expected = &pair_dot_expected },
+        .{ .method = .cosine_similarity, .output_name = "lhs_rhs_cos_lazy", .explain = "group_by_cosine_similarity(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_cos_lazy)", .expected = &pair_cos_expected },
+        .{ .method = .squared_euclidean_distance, .output_name = "lhs_rhs_sqdist_lazy", .explain = "group_by_squared_euclidean_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_sqdist_lazy)", .expected = &pair_sqdist_expected },
+        .{ .method = .euclidean_distance, .output_name = "lhs_rhs_euclidean_lazy", .explain = "group_by_euclidean_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_euclidean_lazy)", .expected = &pair_euclidean_expected },
+        .{ .method = .manhattan_distance, .output_name = "lhs_rhs_manhattan_lazy", .explain = "group_by_manhattan_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_manhattan_lazy)", .expected = &pair_manhattan_expected },
+        .{ .method = .chebyshev_distance, .output_name = "lhs_rhs_chebyshev_lazy", .explain = "group_by_chebyshev_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_chebyshev_lazy)", .expected = &pair_chebyshev_expected },
+        .{ .method = .canberra_distance, .output_name = "lhs_rhs_canberra_lazy", .explain = "group_by_canberra_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_canberra_lazy)", .expected = &pair_canberra_expected },
+        .{ .method = .bray_curtis_distance, .output_name = "lhs_rhs_bray_lazy", .explain = "group_by_bray_curtis_distance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_bray_lazy)", .expected = &pair_bray_expected },
+        .{ .method = .mean_error, .output_name = "lhs_rhs_mean_error_lazy", .explain = "group_by_mean_error(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_mean_error_lazy)", .expected = &pair_mean_error_expected },
+        .{ .method = .mae, .output_name = "lhs_rhs_mae_lazy", .explain = "group_by_mae(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_mae_lazy)", .expected = &pair_mae_expected },
+        .{ .method = .mse, .output_name = "lhs_rhs_mse_lazy", .explain = "group_by_mse(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_mse_lazy)", .expected = &pair_mse_expected },
+        .{ .method = .rmse, .output_name = "lhs_rhs_rmse_lazy", .explain = "group_by_rmse(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_rmse_lazy)", .expected = &pair_rmse_expected },
+        .{ .method = .mape, .output_name = "lhs_rhs_mape_lazy", .explain = "group_by_mape(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_mape_lazy)", .expected = &pair_mape_expected },
+        .{ .method = .smape, .output_name = "lhs_rhs_smape_lazy", .explain = "group_by_smape(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_smape_lazy)", .expected = &pair_smape_expected },
         .{ .method = .covariance, .output_name = "lhs_rhs_cov_lazy", .explain = "group_by_covariance(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_cov_lazy)", .expected = &pair_cov_expected },
         .{ .method = .correlation, .output_name = "lhs_rhs_corr_lazy", .explain = "group_by_correlation(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_corr_lazy)", .expected = &pair_corr_expected },
         .{ .method = .beta, .output_name = "lhs_rhs_beta_lazy", .explain = "group_by_beta(bucket, lhs=lhs, rhs=rhs -> lhs_rhs_beta_lazy)", .expected = &pair_beta_expected },
@@ -943,6 +1027,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         var plan = try DeviceLazyFrame.init(gpa, weighted_table);
         defer plan.deinit();
         try switch (case.method) {
+            .dot => plan.groupByDot("bucket", "lhs", "rhs", case.output_name),
+            .cosine_similarity => plan.groupByCosine("bucket", "lhs", "rhs", case.output_name),
+            .squared_euclidean_distance => plan.groupBySquaredEuclideanDistance("bucket", "lhs", "rhs", case.output_name),
+            .euclidean_distance => plan.groupByEuclideanDistance("bucket", "lhs", "rhs", case.output_name),
+            .manhattan_distance => plan.groupByManhattanDistance("bucket", "lhs", "rhs", case.output_name),
+            .chebyshev_distance => plan.groupByChebyshevDistance("bucket", "lhs", "rhs", case.output_name),
+            .canberra_distance => plan.groupByCanberraDistance("bucket", "lhs", "rhs", case.output_name),
+            .bray_curtis_distance => plan.groupByBrayCurtisDistance("bucket", "lhs", "rhs", case.output_name),
+            .mean_error => plan.groupByMeanError("bucket", "lhs", "rhs", case.output_name),
+            .mae => plan.groupByMae("bucket", "lhs", "rhs", case.output_name),
+            .mse => plan.groupByMse("bucket", "lhs", "rhs", case.output_name),
+            .rmse => plan.groupByRmse("bucket", "lhs", "rhs", case.output_name),
+            .mape => plan.groupByMape("bucket", "lhs", "rhs", case.output_name),
+            .smape => plan.groupBySmape("bucket", "lhs", "rhs", case.output_name),
             .covariance => plan.groupByCov("bucket", "lhs", "rhs", case.output_name),
             .correlation => plan.groupByCorr("bucket", "lhs", "rhs", case.output_name),
             .beta => plan.groupByBeta("bucket", "lhs", "rhs", case.output_name),

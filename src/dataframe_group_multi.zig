@@ -160,6 +160,20 @@ const GroupByWeightedAggregation = enum {
 };
 
 const GroupByPairAggregation = enum {
+    dot,
+    cosine_similarity,
+    squared_euclidean_distance,
+    euclidean_distance,
+    manhattan_distance,
+    chebyshev_distance,
+    canberra_distance,
+    bray_curtis_distance,
+    mean_error,
+    mae,
+    mse,
+    rmse,
+    mape,
+    smape,
     covariance,
     correlation,
     beta,
@@ -1752,6 +1766,20 @@ pub fn groupByPairOn(
     defer rhs_square_sums.deinit(frame.allocator);
     var cross_sums: std.ArrayList(f64) = .empty;
     defer cross_sums.deinit(frame.allocator);
+    var manhattan_sums: std.ArrayList(f64) = .empty;
+    defer manhattan_sums.deinit(frame.allocator);
+    var chebyshev_values: std.ArrayList(f64) = .empty;
+    defer chebyshev_values.deinit(frame.allocator);
+    var canberra_sums: std.ArrayList(f64) = .empty;
+    defer canberra_sums.deinit(frame.allocator);
+    var bray_curtis_denominators: std.ArrayList(f64) = .empty;
+    defer bray_curtis_denominators.deinit(frame.allocator);
+    var mape_sums: std.ArrayList(f64) = .empty;
+    defer mape_sums.deinit(frame.allocator);
+    var smape_sums: std.ArrayList(f64) = .empty;
+    defer smape_sums.deinit(frame.allocator);
+    var signed_error_sums: std.ArrayList(f64) = .empty;
+    defer signed_error_sums.deinit(frame.allocator);
 
     for (0..frame.rows) |row| {
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
@@ -1763,6 +1791,13 @@ pub fn groupByPairOn(
             try lhs_square_sums.append(frame.allocator, 0.0);
             try rhs_square_sums.append(frame.allocator, 0.0);
             try cross_sums.append(frame.allocator, 0.0);
+            try manhattan_sums.append(frame.allocator, 0.0);
+            try chebyshev_values.append(frame.allocator, 0.0);
+            try canberra_sums.append(frame.allocator, 0.0);
+            try bray_curtis_denominators.append(frame.allocator, 0.0);
+            try mape_sums.append(frame.allocator, 0.0);
+            try smape_sums.append(frame.allocator, 0.0);
+            try signed_error_sums.append(frame.allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
 
@@ -1774,17 +1809,47 @@ pub fn groupByPairOn(
         }
         const lhs_value = lhs.values[row];
         const rhs_value = rhs.values[row];
+        const signed_error = lhs_value - rhs_value;
+        const abs_error = @abs(signed_error);
+        const abs_lhs = @abs(lhs_value);
+        const abs_rhs = @abs(rhs_value);
+        const abs_sum = abs_lhs + abs_rhs;
         pair_counts.items[group_index] += 1;
         lhs_sums.items[group_index] += lhs_value;
         rhs_sums.items[group_index] += rhs_value;
         lhs_square_sums.items[group_index] += lhs_value * lhs_value;
         rhs_square_sums.items[group_index] += rhs_value * rhs_value;
         cross_sums.items[group_index] += lhs_value * rhs_value;
+        manhattan_sums.items[group_index] += abs_error;
+        chebyshev_values.items[group_index] = @max(chebyshev_values.items[group_index], abs_error);
+        // Match row-wise paired metrics: zero/zero coordinates do not
+        // contribute to Canberra, while Bray-Curtis surfaces NaN when the
+        // entire group's absolute denominator is zero.
+        canberra_sums.items[group_index] += if (abs_sum == 0.0) 0.0 else abs_error / abs_sum;
+        bray_curtis_denominators.items[group_index] += abs_sum;
+        mape_sums.items[group_index] += if (lhs_value == 0.0) std.math.nan(f64) else abs_error / abs_lhs;
+        smape_sums.items[group_index] += if (abs_sum == 0.0) std.math.nan(f64) else 2.0 * abs_error / abs_sum;
+        signed_error_sums.items[group_index] += signed_error;
     }
 
     const out = try frame.allocator.alloc(f64, representative_rows.items.len);
     defer frame.allocator.free(out);
-    for (pair_counts.items, lhs_sums.items, rhs_sums.items, lhs_square_sums.items, rhs_square_sums.items, cross_sums.items, out) |pair_count, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, *slot| {
+    for (
+        pair_counts.items,
+        lhs_sums.items,
+        rhs_sums.items,
+        lhs_square_sums.items,
+        rhs_square_sums.items,
+        cross_sums.items,
+        manhattan_sums.items,
+        chebyshev_values.items,
+        canberra_sums.items,
+        bray_curtis_denominators.items,
+        mape_sums.items,
+        smape_sums.items,
+        signed_error_sums.items,
+        out,
+    ) |pair_count, lhs_sum, rhs_sum, lhs_square_sum, rhs_square_sum, cross_sum, manhattan_sum, chebyshev_value, canberra_sum, bray_curtis_denominator, mape_sum, smape_sum, signed_error_sum, *slot| {
         if (pair_count == 0) {
             slot.* = std.math.nan(f64);
             continue;
@@ -1793,11 +1858,26 @@ pub fn groupByPairOn(
         const mean_lhs = lhs_sum / count_f64;
         const mean_rhs = rhs_sum / count_f64;
         const covariance = cross_sum / count_f64 - mean_lhs * mean_rhs;
+        const squared_distance = lhs_square_sum + rhs_square_sum - 2.0 * cross_sum;
         var lhs_variance = lhs_square_sum / count_f64 - mean_lhs * mean_lhs;
         var rhs_variance = rhs_square_sum / count_f64 - mean_rhs * mean_rhs;
         if (lhs_variance < 0.0 and lhs_variance > -1e-12) lhs_variance = 0.0;
         if (rhs_variance < 0.0 and rhs_variance > -1e-12) rhs_variance = 0.0;
         slot.* = switch (aggregation) {
+            .dot => cross_sum,
+            .cosine_similarity => if (lhs_square_sum == 0.0 or rhs_square_sum == 0.0) std.math.nan(f64) else cross_sum / (std.math.sqrt(lhs_square_sum) * std.math.sqrt(rhs_square_sum)),
+            .squared_euclidean_distance => squared_distance,
+            .euclidean_distance => std.math.sqrt(squared_distance),
+            .manhattan_distance => manhattan_sum,
+            .chebyshev_distance => chebyshev_value,
+            .canberra_distance => canberra_sum,
+            .bray_curtis_distance => if (bray_curtis_denominator == 0.0) std.math.nan(f64) else manhattan_sum / bray_curtis_denominator,
+            .mean_error => signed_error_sum / count_f64,
+            .mae => manhattan_sum / count_f64,
+            .mse => squared_distance / count_f64,
+            .rmse => std.math.sqrt(squared_distance / count_f64),
+            .mape => mape_sum / count_f64,
+            .smape => smape_sum / count_f64,
             .covariance => covariance,
             .correlation => if (lhs_variance == 0.0 or rhs_variance == 0.0) std.math.nan(f64) else covariance / std.math.sqrt(lhs_variance * rhs_variance),
             .beta => if (lhs_variance == 0.0) std.math.nan(f64) else covariance / lhs_variance,
@@ -1806,6 +1886,160 @@ pub fn groupByPairOn(
 
     const output_column = try DeviceColumn.fromSlice(f64, frame.allocator, out, frame.device);
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+pub fn groupByDotOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .dot, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCosineSimilarityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .cosine_similarity, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupBySquaredEuclideanDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .squared_euclidean_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByEuclideanDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .euclidean_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByManhattanDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .manhattan_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByChebyshevDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .chebyshev_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCanberraDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .canberra_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByBrayCurtisDistanceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .bray_curtis_distance, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMeanErrorOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .mean_error, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMaeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .mae, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMseOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .mse, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByRmseOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .rmse, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMapeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .mape, frame, key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupBySmapeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByPairOn(DeviceDataFrame, .smape, frame, key_names, lhs_name, rhs_name, output_name);
 }
 
 pub fn groupByCovarianceOn(

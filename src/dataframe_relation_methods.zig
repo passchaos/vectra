@@ -508,6 +508,138 @@ pub fn groupByBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []c
     return group_multi_mod.groupByBetaOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
 }
 
+pub fn groupByDot(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByDotOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByDotOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByDotOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCosineSimilarity(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByCosineSimilarityOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCosineSimilarityOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByCosineSimilarityOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub const groupByCosine = groupByCosineSimilarity;
+pub const groupByCosineOn = groupByCosineSimilarityOn;
+
+pub fn groupBySquaredEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupBySquaredEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupBySquaredEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupBySquaredEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByEuclideanDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByEuclideanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByManhattanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByManhattanDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByManhattanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByManhattanDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByChebyshevDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByChebyshevDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByChebyshevDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByChebyshevDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCanberraDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByCanberraDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByCanberraDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByCanberraDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByBrayCurtisDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByBrayCurtisDistanceOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByBrayCurtisDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByBrayCurtisDistanceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMeanError(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMeanErrorOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMeanErrorOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMeanErrorOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub const groupByBias = groupByMeanError;
+pub const groupByBiasOn = groupByMeanErrorOn;
+
+pub fn groupByMae(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMaeOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMaeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMaeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMseOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByRmse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByRmseOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByRmseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByRmseOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMapeOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupByMapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
+pub fn groupBySmape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupBySmapeOn(self, key_names[0..], lhs_name, rhs_name, output_name);
+}
+
+pub fn groupBySmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupBySmapeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, output_name);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);

@@ -469,6 +469,124 @@ pub fn groupByBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []c
     return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .beta);
 }
 
+pub fn groupByDot(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .dot);
+}
+
+pub fn groupByDotOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .dot);
+}
+
+pub fn groupByCosineSimilarity(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .cosine_similarity);
+}
+
+pub fn groupByCosineSimilarityOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .cosine_similarity);
+}
+
+pub const groupByCosine = groupByCosineSimilarity;
+pub const groupByCosineOn = groupByCosineSimilarityOn;
+
+pub fn groupBySquaredEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .squared_euclidean_distance);
+}
+
+pub fn groupBySquaredEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .squared_euclidean_distance);
+}
+
+pub fn groupByEuclideanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .euclidean_distance);
+}
+
+pub fn groupByEuclideanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .euclidean_distance);
+}
+
+pub fn groupByManhattanDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .manhattan_distance);
+}
+
+pub fn groupByManhattanDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .manhattan_distance);
+}
+
+pub fn groupByChebyshevDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .chebyshev_distance);
+}
+
+pub fn groupByChebyshevDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .chebyshev_distance);
+}
+
+pub fn groupByCanberraDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .canberra_distance);
+}
+
+pub fn groupByCanberraDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .canberra_distance);
+}
+
+pub fn groupByBrayCurtisDistance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .bray_curtis_distance);
+}
+
+pub fn groupByBrayCurtisDistanceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .bray_curtis_distance);
+}
+
+pub fn groupByMeanError(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .mean_error);
+}
+
+pub fn groupByMeanErrorOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .mean_error);
+}
+
+pub const groupByBias = groupByMeanError;
+pub const groupByBiasOn = groupByMeanErrorOn;
+
+pub fn groupByMae(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .mae);
+}
+
+pub fn groupByMaeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .mae);
+}
+
+pub fn groupByMse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .mse);
+}
+
+pub fn groupByMseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .mse);
+}
+
+pub fn groupByRmse(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .rmse);
+}
+
+pub fn groupByRmseOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .rmse);
+}
+
+pub fn groupByMape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .mape);
+}
+
+pub fn groupByMapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .mape);
+}
+
+pub fn groupBySmape(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .smape);
+}
+
+pub fn groupBySmapeOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.groupByPairOn(self, key_names, lhs_name, rhs_name, output_name, .smape);
+}
+
 pub fn groupByWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
     return lazy_group_mod.groupByWeightedPair(self, key_name, lhs_name, rhs_name, weight_name, output_name, .weighted_covariance, correction);
 }
