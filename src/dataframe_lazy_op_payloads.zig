@@ -27,6 +27,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     last,
     first_row,
     last_row,
+    nth,
+    nth_row,
     n_unique,
     mode,
     mode_count,
@@ -580,6 +582,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             aggregation: DeviceLazyGroupByAggregation,
             quantile: f64 = 0.5,
+            index: usize = 0,
         };
         pub const GroupByValueOn = struct {
             key_names: [][]const u8,
@@ -587,6 +590,7 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             aggregation: DeviceLazyGroupByAggregation,
             quantile: f64 = 0.5,
+            index: usize = 0,
         };
         pub const GroupByWeighted = struct {
             key_name: []const u8,

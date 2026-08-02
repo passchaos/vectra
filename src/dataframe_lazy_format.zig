@@ -2626,6 +2626,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .group_by_value => |group| {
             switch (group.aggregation) {
                 .quantile => try writer.print("group_by_quantile({s}, value={s}, q={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
+                .nth => try writer.print("group_by_nth({s}, value={s}, n={d} -> {s})", .{ group.key_name, group.value_name, group.index, group.output_name }),
+                .nth_row => try writer.print("group_by_nth_row({s}, value={s}, n={d} -> {s})", .{ group.key_name, group.value_name, group.index, group.output_name }),
                 .trimmed_mean => try writer.print("group_by_trimmed_mean({s}, value={s}, trim_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
                 .winsorized_mean => try writer.print("group_by_winsorized_mean({s}, value={s}, winsor_fraction={d} -> {s})", .{ group.key_name, group.value_name, group.quantile, group.output_name }),
                 else => try writer.print("group_by_{s}({s}, value={s} -> {s})", .{ @tagName(group.aggregation), group.key_name, group.value_name, group.output_name }),
@@ -2639,6 +2641,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             switch (group.aggregation) {
                 .quantile => try writer.print("], value={s}, q={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
+                .nth => try writer.print("], value={s}, n={d} -> {s})", .{ group.value_name, group.index, group.output_name }),
+                .nth_row => try writer.print("], value={s}, n={d} -> {s})", .{ group.value_name, group.index, group.output_name }),
                 .trimmed_mean => try writer.print("], value={s}, trim_fraction={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
                 .winsorized_mean => try writer.print("], value={s}, winsor_fraction={d} -> {s})", .{ group.value_name, group.quantile, group.output_name }),
                 else => try writer.print("], value={s} -> {s})", .{ group.value_name, group.output_name }),

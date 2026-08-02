@@ -48,6 +48,14 @@ fn defaultAggregationParameter(aggregation: DeviceLazyGroupByAggregation) f64 {
 }
 
 pub fn groupByValueQuantile(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64) DeviceDataError!void {
+    return groupByValueQuantileIndex(frame, key_name, value_name, output_name, aggregation, quantile, 0);
+}
+
+pub fn groupByValueIndex(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, index: usize) DeviceDataError!void {
+    return groupByValueQuantileIndex(frame, key_name, value_name, output_name, aggregation, defaultAggregationParameter(aggregation), index);
+}
+
+fn groupByValueQuantileIndex(frame: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64, index: usize) DeviceDataError!void {
     const owned_key = try frame.allocator.dupe(u8, key_name);
     errdefer frame.allocator.free(owned_key);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -60,6 +68,7 @@ pub fn groupByValueQuantile(frame: anytype, key_name: []const u8, value_name: []
         .output_name = owned_output,
         .aggregation = aggregation,
         .quantile = quantile,
+        .index = index,
     } });
 }
 
@@ -68,6 +77,14 @@ pub fn groupByValueOn(frame: anytype, key_names: []const []const u8, value_name:
 }
 
 pub fn groupByValueOnQuantile(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64) DeviceDataError!void {
+    return groupByValueOnQuantileIndex(frame, key_names, value_name, output_name, aggregation, quantile, 0);
+}
+
+pub fn groupByValueOnIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, index: usize) DeviceDataError!void {
+    return groupByValueOnQuantileIndex(frame, key_names, value_name, output_name, aggregation, defaultAggregationParameter(aggregation), index);
+}
+
+fn groupByValueOnQuantileIndex(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, aggregation: DeviceLazyGroupByAggregation, quantile: f64, index: usize) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -80,6 +97,7 @@ pub fn groupByValueOnQuantile(frame: anytype, key_names: []const []const u8, val
         .output_name = owned_output,
         .aggregation = aggregation,
         .quantile = quantile,
+        .index = index,
     } });
 }
 

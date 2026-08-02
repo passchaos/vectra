@@ -44,6 +44,20 @@ fn expectNullableI64Column(frame: anytype, allocator: std.mem.Allocator, name: [
     try std.testing.expectEqualSlices(bool, expected_validity, validity);
 }
 
+fn expectF64ColumnWithValidity(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected_values: []const f64, expected_validity: []const bool) !void {
+    const column = try frame.column(name);
+    const values = try column.f64.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    try std.testing.expectEqualSlices(f64, expected_values, values);
+    if (column.f64.validity) |mask| {
+        const validity = try mask.toOwnedSlice(allocator);
+        defer allocator.free(validity);
+        try std.testing.expectEqualSlices(bool, expected_validity, validity);
+    } else {
+        for (expected_validity) |valid| try std.testing.expect(valid);
+    }
+}
+
 test "device dataframe rolling bool profile handles nullable windows" {
     const gpa = std.testing.allocator;
 
@@ -989,21 +1003,11 @@ test "device dataframe groupby aggregations on fixed-width columns" {
 
     var first_sales_rows = try table.groupByFirstRow("store", "sales", "sales_first_row");
     defer first_sales_rows.deinit();
-    const first_sales_row_values = try (try first_sales_rows.column("sales_first_row")).f64.toOwnedSlice(gpa);
-    defer gpa.free(first_sales_row_values);
-    const first_sales_row_validity = try (try first_sales_rows.column("sales_first_row")).f64.validity.?.toOwnedSlice(gpa);
-    defer gpa.free(first_sales_row_validity);
-    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0 }, first_sales_row_values);
-    try std.testing.expectEqualSlices(bool, &.{ true, true }, first_sales_row_validity);
+    try expectF64ColumnWithValidity(first_sales_rows, gpa, "sales_first_row", &.{ 2.0, 3.0 }, &.{ true, true });
 
     var last_sales_rows = try table.groupByLastRow("store", "sales", "sales_last_row");
     defer last_sales_rows.deinit();
-    const last_sales_row_values = try (try last_sales_rows.column("sales_last_row")).f64.toOwnedSlice(gpa);
-    defer gpa.free(last_sales_row_values);
-    const last_sales_row_validity = try (try last_sales_rows.column("sales_last_row")).f64.validity.?.toOwnedSlice(gpa);
-    defer gpa.free(last_sales_row_validity);
-    try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, last_sales_row_values);
-    try std.testing.expectEqualSlices(bool, &.{ true, true }, last_sales_row_validity);
+    try expectF64ColumnWithValidity(last_sales_rows, gpa, "sales_last_row", &.{ 13.0, 11.0 }, &.{ true, true });
 
     var row_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 2, 2, 2 }, .cpu);
     defer row_key.deinit();
@@ -1021,12 +1025,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
 
     var first_row_metrics = try row_table.groupByFirstRow("bucket", "metric", "metric_first_row");
     defer first_row_metrics.deinit();
-    const first_row_metric_values = try (try first_row_metrics.column("metric_first_row")).f64.toOwnedSlice(gpa);
-    defer gpa.free(first_row_metric_values);
-    const first_row_metric_validity = try (try first_row_metrics.column("metric_first_row")).f64.validity.?.toOwnedSlice(gpa);
-    defer gpa.free(first_row_metric_validity);
-    try std.testing.expectEqualSlices(f64, &.{ 10.0, 20.0 }, first_row_metric_values);
-    try std.testing.expectEqualSlices(bool, &.{ false, true }, first_row_metric_validity);
+    try expectF64ColumnWithValidity(first_row_metrics, gpa, "metric_first_row", &.{ 10.0, 20.0 }, &.{ false, true });
 
     var last_valid_metrics = try row_table.groupByLast("bucket", "metric", "metric_last_valid");
     defer last_valid_metrics.deinit();
@@ -1034,12 +1033,19 @@ test "device dataframe groupby aggregations on fixed-width columns" {
 
     var last_row_metrics = try row_table.groupByLastRow("bucket", "metric", "metric_last_row");
     defer last_row_metrics.deinit();
-    const last_row_metric_values = try (try last_row_metrics.column("metric_last_row")).f64.toOwnedSlice(gpa);
-    defer gpa.free(last_row_metric_values);
-    const last_row_metric_validity = try (try last_row_metrics.column("metric_last_row")).f64.validity.?.toOwnedSlice(gpa);
-    defer gpa.free(last_row_metric_validity);
-    try std.testing.expectEqualSlices(f64, &.{ 12.0, 22.0 }, last_row_metric_values);
-    try std.testing.expectEqualSlices(bool, &.{ true, false }, last_row_metric_validity);
+    try expectF64ColumnWithValidity(last_row_metrics, gpa, "metric_last_row", &.{ 12.0, 22.0 }, &.{ true, false });
+
+    var nth_valid_metrics = try row_table.groupByNth("bucket", "metric", "metric_nth_valid", 1);
+    defer nth_valid_metrics.deinit();
+    try expectF64ColumnWithValidity(nth_valid_metrics, gpa, "metric_nth_valid", &.{ 12.0, 21.0 }, &.{ true, true });
+
+    var nth_row_metrics = try row_table.groupByNthRow("bucket", "metric", "metric_nth_row", 1);
+    defer nth_row_metrics.deinit();
+    try expectF64ColumnWithValidity(nth_row_metrics, gpa, "metric_nth_row", &.{ 11.0, 21.0 }, &.{ true, true });
+
+    var nth_oob_metrics = try row_table.groupByNth("bucket", "metric", "metric_nth_oob", 2);
+    defer nth_oob_metrics.deinit();
+    try expectF64ColumnWithValidity(nth_oob_metrics, gpa, "metric_nth_oob", &.{ 0.0, 0.0 }, &.{ false, false });
 
     var last_row_plan = try DeviceLazyFrame.init(gpa, row_table);
     defer last_row_plan.deinit();
@@ -1049,12 +1055,17 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expect(std.mem.indexOf(u8, last_row_explained, "group_by_last_row(bucket, value=metric -> metric_last_row_lazy)") != null);
     var lazy_last_row = try last_row_plan.collect();
     defer lazy_last_row.deinit();
-    const lazy_last_row_values = try (try lazy_last_row.column("metric_last_row_lazy")).f64.toOwnedSlice(gpa);
-    defer gpa.free(lazy_last_row_values);
-    const lazy_last_row_validity = try (try lazy_last_row.column("metric_last_row_lazy")).f64.validity.?.toOwnedSlice(gpa);
-    defer gpa.free(lazy_last_row_validity);
-    try std.testing.expectEqualSlices(f64, &.{ 12.0, 22.0 }, lazy_last_row_values);
-    try std.testing.expectEqualSlices(bool, &.{ true, false }, lazy_last_row_validity);
+    try expectF64ColumnWithValidity(lazy_last_row, gpa, "metric_last_row_lazy", &.{ 12.0, 22.0 }, &.{ true, false });
+
+    var nth_row_plan = try DeviceLazyFrame.init(gpa, row_table);
+    defer nth_row_plan.deinit();
+    try nth_row_plan.groupByNthRow("bucket", "metric", "metric_nth_row_lazy", 1);
+    const nth_row_explained = try nth_row_plan.explain(gpa);
+    defer gpa.free(nth_row_explained);
+    try std.testing.expect(std.mem.indexOf(u8, nth_row_explained, "group_by_nth_row(bucket, value=metric, n=1 -> metric_nth_row_lazy)") != null);
+    var lazy_nth_row = try nth_row_plan.collect();
+    defer lazy_nth_row.deinit();
+    try expectF64ColumnWithValidity(lazy_nth_row, gpa, "metric_nth_row_lazy", &.{ 11.0, 21.0 }, &.{ true, true });
 
     var unique_sales = try table.groupByNUnique("store", "sales", "sales_n_unique");
     defer unique_sales.deinit();

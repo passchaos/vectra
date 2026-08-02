@@ -5651,6 +5651,10 @@ pub fn DeviceLazyTypes(
             pub const groupByFirstRowOn = lazy_relation_methods_mod.groupByFirstRowOn;
             pub const groupByLastRow = lazy_relation_methods_mod.groupByLastRow;
             pub const groupByLastRowOn = lazy_relation_methods_mod.groupByLastRowOn;
+            pub const groupByNth = lazy_relation_methods_mod.groupByNth;
+            pub const groupByNthOn = lazy_relation_methods_mod.groupByNthOn;
+            pub const groupByNthRow = lazy_relation_methods_mod.groupByNthRow;
+            pub const groupByNthRowOn = lazy_relation_methods_mod.groupByNthRowOn;
             pub const groupByNUnique = lazy_relation_methods_mod.groupByNUnique;
             pub const groupByNUniqueOn = lazy_relation_methods_mod.groupByNUniqueOn;
             pub const groupByNunique = lazy_relation_methods_mod.groupByNunique;

@@ -161,6 +161,22 @@ pub fn groupByLastRowOn(self: anytype, key_names: []const []const u8, value_name
     return self.groupByValueOn(key_names, value_name, output_name, .last_row);
 }
 
+pub fn groupByNth(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByValueIndex(self, key_name, value_name, output_name, .nth, n);
+}
+
+pub fn groupByNthOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOnIndex(self, key_names, value_name, output_name, .nth, n);
+}
+
+pub fn groupByNthRow(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByValueIndex(self, key_name, value_name, output_name, .nth_row, n);
+}
+
+pub fn groupByNthRowOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, n: usize) DeviceDataError!void {
+    return lazy_group_mod.groupByValueOnIndex(self, key_names, value_name, output_name, .nth_row, n);
+}
+
 pub fn groupByNUnique(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .n_unique);
 }

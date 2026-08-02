@@ -850,6 +850,49 @@ fn groupByRowValueOn(
     return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, value_column);
 }
 
+fn groupByNthValueOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+    comptime skip_nulls: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var value_rows: std.ArrayList(?usize) = .empty;
+    defer value_rows.deinit(frame.allocator);
+    var seen_counts: std.ArrayList(usize) = .empty;
+    defer seen_counts.deinit(frame.allocator);
+    var found_values: std.ArrayList(bool) = .empty;
+    defer found_values.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (skip_nulls and !try columnRowValid(frame.allocator, value.*, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try value_rows.append(frame.allocator, null);
+            try seen_counts.append(frame.allocator, 0);
+            try found_values.append(frame.allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        if (!found_values.items[group_index] and seen_counts.items[group_index] == n) {
+            value_rows.items[group_index] = row;
+            found_values.items[group_index] = true;
+        }
+        seen_counts.items[group_index] += 1;
+    }
+
+    const value_column = try value.takeOptional(value_rows.items);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, value_column);
+}
+
 pub fn groupByFirstOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -888,6 +931,28 @@ pub fn groupByLastRowOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByRowValueOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
+}
+
+pub fn groupByNthOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNthValueOn(DeviceDataFrame, frame, key_names, value_name, output_name, n, true);
+}
+
+pub fn groupByNthRowOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    n: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNthValueOn(DeviceDataFrame, frame, key_names, value_name, output_name, n, false);
 }
 
 pub fn groupByNUniqueOnDispatchValue(
