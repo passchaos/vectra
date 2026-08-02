@@ -1205,6 +1205,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_logmeanexp => |shift| try current.withGroupCumulativeLogMeanExpOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_geometric_mean => |shift| try current.withGroupCumulativeGeometricMeanOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_harmonic_mean => |shift| try current.withGroupCumulativeHarmonicMeanOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_argmin => |shift| try current.withGroupCumulativeArgMinOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_argmax => |shift| try current.withGroupCumulativeArgMaxOn(shift.names, shift.value_name, shift.output_name),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),

@@ -601,6 +601,24 @@ pub fn withGroupCumulativeHarmonicMeanOn(self: anytype, key_names: []const []con
     return lazy_group_mod.withGroupCumulativeHarmonicMean(self, key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeArgMin(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeArgMinOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeArgMinOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeArgMin(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeArgMax(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeArgMaxOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeArgMaxOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeArgMax(self, key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -735,6 +753,18 @@ pub const withGroupCumHarmonicMean = withGroupCumulativeHarmonicMean;
 pub const withGroupCumHarmonicMeanOn = withGroupCumulativeHarmonicMeanOn;
 pub const withGroupCumHarmMean = withGroupCumulativeHarmonicMean;
 pub const withGroupCumHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
+pub const withGroupCumArgMin = withGroupCumulativeArgMin;
+pub const withGroupCumArgMinOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumulativeArgmin = withGroupCumulativeArgMin;
+pub const withGroupCumulativeArgminOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumArgmin = withGroupCumulativeArgMin;
+pub const withGroupCumArgminOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumArgMax = withGroupCumulativeArgMax;
+pub const withGroupCumArgMaxOn = withGroupCumulativeArgMaxOn;
+pub const withGroupCumulativeArgmax = withGroupCumulativeArgMax;
+pub const withGroupCumulativeArgmaxOn = withGroupCumulativeArgMaxOn;
+pub const withGroupCumArgmax = withGroupCumulativeArgMax;
+pub const withGroupCumArgmaxOn = withGroupCumulativeArgMaxOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};

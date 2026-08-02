@@ -2586,6 +2586,113 @@ pub const withGroupCumulativeHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
 pub const withGroupCumHarmonicMeanOn = withGroupCumulativeHarmonicMeanOn;
 pub const withGroupCumHarmMeanOn = withGroupCumulativeHarmonicMeanOn;
 
+fn withGroupCumulativeArgOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    comptime argmax: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const indices = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(indices);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(indices, 0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var best_rows: std.ArrayList(usize) = .empty;
+    defer best_rows.deinit(frame.allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try best_rows.append(frame.allocator, row);
+            break :blk representative_rows.items.len - 1;
+        };
+        const best_row = best_rows.items[group_index];
+        const better = if (argmax)
+            compareSortValues(V, value_item, values[best_row]) > 0
+        else
+            compareSortValues(V, value_item, values[best_row]) < 0;
+        if (better) best_rows.items[group_index] = row;
+        indices[row] = @intCast(best_rows.items[group_index]);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, indices, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeArgOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime argmax: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .i8 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, argmax),
+        .i16 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, argmax),
+        .i32 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, argmax),
+        .i64 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, argmax),
+        .u8 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, argmax),
+        .u16 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, argmax),
+        .u32 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, argmax),
+        .u64 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, argmax),
+        .usize => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, argmax),
+        .isize => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, argmax),
+        .f16 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, argmax),
+        .f32 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, argmax),
+        .f64 => |typed| withGroupCumulativeArgOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, argmax),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeArgMinOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeArgOn(DeviceDataFrame, frame, key_names, value_name, output_name, false);
+}
+
+pub fn withGroupCumulativeArgMaxOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeArgOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
+}
+
+pub const withGroupCumArgMinOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumArgminOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumulativeArgminOn = withGroupCumulativeArgMinOn;
+pub const withGroupCumArgMaxOn = withGroupCumulativeArgMaxOn;
+pub const withGroupCumArgmaxOn = withGroupCumulativeArgMaxOn;
+pub const withGroupCumulativeArgmaxOn = withGroupCumulativeArgMaxOn;
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
