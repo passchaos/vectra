@@ -3487,6 +3487,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}, q={d}->{s})", .{ shift.value_name, shift.quantile, shift.output_name });
         },
+        .group_cumulative_iqr => |shift| {
+            try writer.print("group_cumulative_iqr([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_cumulative_any => |shift| {
             try writer.print("group_cumulative_any([", .{});
             for (shift.names, 0..) |name, i| {

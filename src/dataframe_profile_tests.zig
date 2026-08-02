@@ -1775,6 +1775,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_quantile.deinit();
     try expectF64ColumnWithValidity(lazy_cumulative_quantile, gpa, "label_cum_q25_lazy", &group_cum_q25_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_iqr_expected = [_]f64{ 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.5, 0.0 };
+
+    var group_cum_iqr_label = try distinct_table.withGroupCumulativeIqr("bucket", "label", "label_cum_iqr");
+    defer group_cum_iqr_label.deinit();
+    try expectF64ColumnWithValidity(group_cum_iqr_label, gpa, "label_cum_iqr", &group_cum_iqr_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_iqr_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_iqr_plan.deinit();
+    try cumulative_iqr_plan.withGroupCumulativeIQR("bucket", "label", "label_cum_iqr_lazy");
+    const cumulative_iqr_explained = try cumulative_iqr_plan.explain(gpa);
+    defer gpa.free(cumulative_iqr_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_iqr_explained, "group_cumulative_iqr([bucket], value=label->label_cum_iqr_lazy)") != null);
+    var lazy_cumulative_iqr = try cumulative_iqr_plan.collect();
+    defer lazy_cumulative_iqr.deinit();
+    try expectF64ColumnWithValidity(lazy_cumulative_iqr, gpa, "label_cum_iqr_lazy", &group_cum_iqr_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

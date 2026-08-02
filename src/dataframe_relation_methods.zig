@@ -1409,6 +1409,22 @@ pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 pub const withGroupCumMedian = withGroupCumulativeMedian;
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 
+pub fn withGroupCumulativeIqr(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeIqrOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeIqrOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeIqrOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeIQR = withGroupCumulativeIqr;
+pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
+pub const withGroupCumIqr = withGroupCumulativeIqr;
+pub const withGroupCumIqrOn = withGroupCumulativeIqrOn;
+pub const withGroupCumIQR = withGroupCumulativeIqr;
+pub const withGroupCumIQROn = withGroupCumulativeIqrOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);
