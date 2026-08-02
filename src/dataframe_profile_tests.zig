@@ -9,6 +9,28 @@ const DeviceLazyFrame = vectra.DeviceLazyFrame;
 const DeviceDType = vectra.DeviceDType;
 const DeviceValidityEncoding = vectra.DeviceValidityEncoding;
 const DeviceParquetScan = vectra.DeviceParquetScan;
+const DeviceLazyWeightedGroupByAggregation = vectra.DeviceLazyWeightedGroupByAggregation;
+
+fn expectApproxOrNan(expected: f64, actual: f64) !void {
+    if (std.math.isNan(expected)) {
+        try std.testing.expect(std.math.isNan(actual));
+    } else {
+        try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+}
+
+fn expectF64SliceApproxOrNan(expected: []const f64, actual: []const f64) !void {
+    try std.testing.expectEqual(expected.len, actual.len);
+    for (expected, actual) |expected_item, actual_item| {
+        try expectApproxOrNan(expected_item, actual_item);
+    }
+}
+
+fn expectF64ColumnApproxOrNan(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected: []const f64) !void {
+    const values = try (try frame.column(name)).f64.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    try expectF64SliceApproxOrNan(expected, values);
+}
 
 test "device dataframe rolling bool profile handles nullable windows" {
     const gpa = std.testing.allocator;
@@ -600,6 +622,67 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), weighted_mad_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_mad_values[2]));
 
+    const weighted_nan = std.math.nan(f64);
+    const weighted_mode_expected = [_]f64{ 20.0, 5.0, weighted_nan };
+    const weighted_mode_weight_expected = [_]f64{ 3.0, 1.0, weighted_nan };
+    const weighted_mode_ratio_expected = [_]f64{ 0.5, 0.5, weighted_nan };
+    const weighted_mode_margin_expected = [_]f64{ 1.0, 0.0, weighted_nan };
+    const weighted_mode_margin_ratio_expected = [_]f64{ 1.0 / 6.0, 0.0, weighted_nan };
+    const weighted_entropy_1 = -(@as(f64, 1.0 / 6.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 6.0)) + @as(f64, 0.5) * std.math.log(f64, std.math.e, @as(f64, 0.5)) + @as(f64, 1.0 / 3.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 3.0)));
+    const weighted_entropy_2 = std.math.log(f64, std.math.e, @as(f64, 2.0));
+    const weighted_concentration_1 = @as(f64, 7.0 / 18.0);
+    const weighted_concentration_2 = @as(f64, 0.5);
+    const weighted_entropy_expected = [_]f64{ weighted_entropy_1, weighted_entropy_2, weighted_nan };
+    const weighted_gini_expected = [_]f64{ @as(f64, 1.0) - weighted_concentration_1, @as(f64, 1.0) - weighted_concentration_2, weighted_nan };
+    const weighted_perplexity_expected = [_]f64{ std.math.exp(weighted_entropy_1), std.math.exp(weighted_entropy_2), weighted_nan };
+    const weighted_inverse_simpson_expected = [_]f64{ @as(f64, 1.0) / weighted_concentration_1, @as(f64, 1.0) / weighted_concentration_2, weighted_nan };
+    const weighted_concentration_expected = [_]f64{ weighted_concentration_1, weighted_concentration_2, weighted_nan };
+    const weighted_evenness_expected = [_]f64{ weighted_entropy_1 / std.math.log(f64, std.math.e, @as(f64, 3.0)), 1.0, weighted_nan };
+
+    var weighted_mode = try weighted_table.groupByWeightedMode("bucket", "value", "weight", "value_weighted_mode");
+    defer weighted_mode.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode, gpa, "value_weighted_mode", &weighted_mode_expected);
+
+    var weighted_mode_weight = try weighted_table.groupByWeightedModeWeight("bucket", "value", "weight", "value_weighted_mode_weight");
+    defer weighted_mode_weight.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode_weight, gpa, "value_weighted_mode_weight", &weighted_mode_weight_expected);
+
+    var weighted_mode_ratio = try weighted_table.groupByWeightedModeRatio("bucket", "value", "weight", "value_weighted_mode_ratio");
+    defer weighted_mode_ratio.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode_ratio, gpa, "value_weighted_mode_ratio", &weighted_mode_ratio_expected);
+
+    var weighted_mode_margin = try weighted_table.groupByWeightedModeMargin("bucket", "value", "weight", "value_weighted_mode_margin");
+    defer weighted_mode_margin.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode_margin, gpa, "value_weighted_mode_margin", &weighted_mode_margin_expected);
+
+    var weighted_mode_margin_ratio = try weighted_table.groupByWeightedModeMarginRatio("bucket", "value", "weight", "value_weighted_mode_margin_ratio");
+    defer weighted_mode_margin_ratio.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode_margin_ratio, gpa, "value_weighted_mode_margin_ratio", &weighted_mode_margin_ratio_expected);
+
+    var weighted_entropy = try weighted_table.groupByWeightedEntropy("bucket", "value", "weight", "value_weighted_entropy");
+    defer weighted_entropy.deinit();
+    try expectF64ColumnApproxOrNan(weighted_entropy, gpa, "value_weighted_entropy", &weighted_entropy_expected);
+
+    var weighted_gini = try weighted_table.groupByWeightedGini("bucket", "value", "weight", "value_weighted_gini");
+    defer weighted_gini.deinit();
+    try expectF64ColumnApproxOrNan(weighted_gini, gpa, "value_weighted_gini", &weighted_gini_expected);
+
+    var weighted_perplexity = try weighted_table.groupByWeightedPerplexity("bucket", "value", "weight", "value_weighted_perplexity");
+    defer weighted_perplexity.deinit();
+    try expectF64ColumnApproxOrNan(weighted_perplexity, gpa, "value_weighted_perplexity", &weighted_perplexity_expected);
+
+    var weighted_inverse = try weighted_table.groupByWeightedInverseSimpson("bucket", "value", "weight", "value_weighted_inverse");
+    defer weighted_inverse.deinit();
+    try expectF64ColumnApproxOrNan(weighted_inverse, gpa, "value_weighted_inverse", &weighted_inverse_simpson_expected);
+
+    var weighted_concentration = try weighted_table.groupByWeightedConcentration("bucket", "value", "weight", "value_weighted_concentration");
+    defer weighted_concentration.deinit();
+    try expectF64ColumnApproxOrNan(weighted_concentration, gpa, "value_weighted_concentration", &weighted_concentration_expected);
+
+    var weighted_evenness = try weighted_table.groupByWeightedEvenness("bucket", "value", "weight", "value_weighted_evenness");
+    defer weighted_evenness.deinit();
+    try expectF64ColumnApproxOrNan(weighted_evenness, gpa, "value_weighted_evenness", &weighted_evenness_expected);
+
     var weighted_median_on = try weighted_table.groupByWeightedMedianOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_median_on");
     defer weighted_median_on.deinit();
     const weighted_median_on_values = try (try weighted_median_on.column("value_weighted_median_on")).f64.toOwnedSlice(gpa);
@@ -608,6 +691,11 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 30.0), weighted_median_on_values[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), weighted_median_on_values[2], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_median_on_values[3]));
+
+    const weighted_mode_on_expected = [_]f64{ 20.0, 30.0, 5.0, weighted_nan };
+    var weighted_mode_on = try weighted_table.groupByWeightedModeOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_mode_on");
+    defer weighted_mode_on.deinit();
+    try expectF64ColumnApproxOrNan(weighted_mode_on, gpa, "value_weighted_mode_on", &weighted_mode_on_expected);
 
     try std.testing.expectError(error.InvalidShape, weighted_table.groupByWeightedQuantile("bucket", "value", "weight", "bad_weighted_q", 1.5));
 
@@ -708,6 +796,59 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_weighted_mad_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_weighted_mad_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(lazy_weighted_mad_values[2]));
+
+    const weighted_lazy_cases = [_]struct {
+        method: DeviceLazyWeightedGroupByAggregation,
+        output_name: []const u8,
+        explain: []const u8,
+        expected: []const f64,
+    }{
+        .{ .method = .weighted_mode, .output_name = "value_weighted_mode_lazy", .explain = "group_by_weighted_mode(bucket, value=value, weight=weight -> value_weighted_mode_lazy)", .expected = &weighted_mode_expected },
+        .{ .method = .weighted_mode_weight, .output_name = "value_weighted_mode_weight_lazy", .explain = "group_by_weighted_mode_weight(bucket, value=value, weight=weight -> value_weighted_mode_weight_lazy)", .expected = &weighted_mode_weight_expected },
+        .{ .method = .weighted_mode_ratio, .output_name = "value_weighted_mode_ratio_lazy", .explain = "group_by_weighted_mode_ratio(bucket, value=value, weight=weight -> value_weighted_mode_ratio_lazy)", .expected = &weighted_mode_ratio_expected },
+        .{ .method = .weighted_mode_margin, .output_name = "value_weighted_mode_margin_lazy", .explain = "group_by_weighted_mode_margin(bucket, value=value, weight=weight -> value_weighted_mode_margin_lazy)", .expected = &weighted_mode_margin_expected },
+        .{ .method = .weighted_mode_margin_ratio, .output_name = "value_weighted_mode_margin_ratio_lazy", .explain = "group_by_weighted_mode_margin_ratio(bucket, value=value, weight=weight -> value_weighted_mode_margin_ratio_lazy)", .expected = &weighted_mode_margin_ratio_expected },
+        .{ .method = .weighted_entropy, .output_name = "value_weighted_entropy_lazy", .explain = "group_by_weighted_entropy(bucket, value=value, weight=weight -> value_weighted_entropy_lazy)", .expected = &weighted_entropy_expected },
+        .{ .method = .weighted_gini_impurity, .output_name = "value_weighted_gini_lazy", .explain = "group_by_weighted_gini_impurity(bucket, value=value, weight=weight -> value_weighted_gini_lazy)", .expected = &weighted_gini_expected },
+        .{ .method = .weighted_perplexity, .output_name = "value_weighted_perplexity_lazy", .explain = "group_by_weighted_perplexity(bucket, value=value, weight=weight -> value_weighted_perplexity_lazy)", .expected = &weighted_perplexity_expected },
+        .{ .method = .weighted_inverse_simpson, .output_name = "value_weighted_inverse_lazy", .explain = "group_by_weighted_inverse_simpson(bucket, value=value, weight=weight -> value_weighted_inverse_lazy)", .expected = &weighted_inverse_simpson_expected },
+        .{ .method = .weighted_simpson_concentration, .output_name = "value_weighted_concentration_lazy", .explain = "group_by_weighted_simpson_concentration(bucket, value=value, weight=weight -> value_weighted_concentration_lazy)", .expected = &weighted_concentration_expected },
+        .{ .method = .weighted_evenness, .output_name = "value_weighted_evenness_lazy", .explain = "group_by_weighted_evenness(bucket, value=value, weight=weight -> value_weighted_evenness_lazy)", .expected = &weighted_evenness_expected },
+    };
+    for (weighted_lazy_cases) |case| {
+        var plan = try DeviceLazyFrame.init(gpa, weighted_table);
+        defer plan.deinit();
+        try switch (case.method) {
+            .weighted_mode => plan.groupByWeightedMode("bucket", "value", "weight", case.output_name),
+            .weighted_mode_weight => plan.groupByWeightedModeWeight("bucket", "value", "weight", case.output_name),
+            .weighted_mode_ratio => plan.groupByWeightedModeRatio("bucket", "value", "weight", case.output_name),
+            .weighted_mode_margin => plan.groupByWeightedModeMargin("bucket", "value", "weight", case.output_name),
+            .weighted_mode_margin_ratio => plan.groupByWeightedModeMarginRatio("bucket", "value", "weight", case.output_name),
+            .weighted_entropy => plan.groupByWeightedEntropy("bucket", "value", "weight", case.output_name),
+            .weighted_gini_impurity => plan.groupByWeightedGini("bucket", "value", "weight", case.output_name),
+            .weighted_perplexity => plan.groupByWeightedPerplexity("bucket", "value", "weight", case.output_name),
+            .weighted_inverse_simpson => plan.groupByWeightedInverseSimpson("bucket", "value", "weight", case.output_name),
+            .weighted_simpson_concentration => plan.groupByWeightedConcentration("bucket", "value", "weight", case.output_name),
+            .weighted_evenness => plan.groupByWeightedEvenness("bucket", "value", "weight", case.output_name),
+            .weighted_mean, .weighted_variance, .weighted_stddev, .weighted_quantile, .weighted_median, .weighted_iqr, .weighted_mad => unreachable,
+        };
+        const explained = try plan.explain(gpa);
+        defer gpa.free(explained);
+        try std.testing.expect(std.mem.indexOf(u8, explained, case.explain) != null);
+        var collected = try plan.collect();
+        defer collected.deinit();
+        try expectF64ColumnApproxOrNan(collected, gpa, case.output_name, case.expected);
+    }
+
+    var weighted_mode_on_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer weighted_mode_on_plan.deinit();
+    try weighted_mode_on_plan.groupByWeightedModeOn(&.{"bucket"}, "value", "weight", "value_weighted_mode_on_lazy");
+    const weighted_mode_on_explained = try weighted_mode_on_plan.explain(gpa);
+    defer gpa.free(weighted_mode_on_explained);
+    try std.testing.expect(std.mem.indexOf(u8, weighted_mode_on_explained, "group_by_weighted_mode_on([bucket], value=value, weight=weight -> value_weighted_mode_on_lazy)") != null);
+    var lazy_weighted_mode_on = try weighted_mode_on_plan.collect();
+    defer lazy_weighted_mode_on.deinit();
+    try expectF64ColumnApproxOrNan(lazy_weighted_mode_on, gpa, "value_weighted_mode_on_lazy", &weighted_mode_expected);
 
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();

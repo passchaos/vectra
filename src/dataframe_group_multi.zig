@@ -146,6 +146,17 @@ const GroupByWeightedAggregation = enum {
     weighted_median,
     weighted_iqr,
     weighted_mad,
+    weighted_mode,
+    weighted_mode_weight,
+    weighted_mode_ratio,
+    weighted_mode_margin,
+    weighted_mode_margin_ratio,
+    weighted_entropy,
+    weighted_gini_impurity,
+    weighted_perplexity,
+    weighted_inverse_simpson,
+    weighted_simpson_concentration,
+    weighted_evenness,
 };
 
 const OwnedGroupRealColumn = struct {
@@ -203,8 +214,22 @@ const GroupWeightedValue = struct {
     weight: f64,
 };
 
+const GroupWeightedModeStats = struct {
+    mode: f64,
+    mode_weight: f64,
+    second_weight: f64,
+    total_weight: f64,
+    distinct_positive_weight_count: usize,
+    entropy: f64,
+    sum_probability_sq: f64,
+};
+
 fn groupWeightedValueLess(_: void, lhs: GroupWeightedValue, rhs: GroupWeightedValue) bool {
     return groupByQuantileLess({}, lhs.value, rhs.value);
+}
+
+fn groupWeightedValueEqual(lhs: f64, rhs: f64) bool {
+    return (std.math.isNan(lhs) and std.math.isNan(rhs)) or lhs == rhs;
 }
 
 fn groupWeightedQuantileFromSorted(sorted: []const GroupWeightedValue, q: f64, total_weight: f64) f64 {
@@ -263,6 +288,76 @@ fn groupWeightedMadFromRows(
     for (scratch) |*item| item.value = @abs(item.value - center);
     std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
     return groupWeightedQuantileFromSorted(scratch, 0.5, total_weight);
+}
+
+fn groupWeightedModeStats(rows: []const usize, values: []const f64, weights: []const f64) GroupWeightedModeStats {
+    var total_weight: f64 = 0.0;
+    for (rows) |row| total_weight += weights[row];
+    if (rows.len == 0 or !(total_weight > 0.0)) {
+        return .{
+            .mode = std.math.nan(f64),
+            .mode_weight = 0.0,
+            .second_weight = 0.0,
+            .total_weight = total_weight,
+            .distinct_positive_weight_count = 0,
+            .entropy = std.math.nan(f64),
+            .sum_probability_sq = std.math.nan(f64),
+        };
+    }
+
+    var found = false;
+    var best_value: f64 = 0.0;
+    var best_weight: f64 = 0.0;
+    var second_weight: f64 = 0.0;
+    var entropy: f64 = 0.0;
+    var sum_probability_sq: f64 = 0.0;
+    var distinct_positive_weight_count: usize = 0;
+
+    for (rows, 0..) |candidate_row, candidate_index| {
+        const candidate = values[candidate_row];
+        var seen = false;
+        for (rows[0..candidate_index]) |previous_row| {
+            if (groupWeightedValueEqual(values[previous_row], candidate)) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) continue;
+
+        var candidate_weight: f64 = 0.0;
+        for (rows[candidate_index..]) |match_row| {
+            if (groupWeightedValueEqual(candidate, values[match_row])) candidate_weight += weights[match_row];
+        }
+
+        // Preserve unweighted grouped mode's stable first-tie semantics: equal
+        // winning weights leave the first distinct group value as the mode while
+        // still counting the tie as the second-best weight for margin metrics.
+        if (!found or candidate_weight > best_weight) {
+            second_weight = best_weight;
+            best_weight = candidate_weight;
+            best_value = candidate;
+            found = true;
+        } else if (candidate_weight > second_weight) {
+            second_weight = candidate_weight;
+        }
+
+        if (candidate_weight > 0.0) {
+            const probability = candidate_weight / total_weight;
+            entropy -= probability * std.math.log(f64, std.math.e, probability);
+            sum_probability_sq += probability * probability;
+            distinct_positive_weight_count += 1;
+        }
+    }
+
+    return .{
+        .mode = best_value,
+        .mode_weight = best_weight,
+        .second_weight = second_weight,
+        .total_weight = total_weight,
+        .distinct_positive_weight_count = distinct_positive_weight_count,
+        .entropy = entropy,
+        .sum_probability_sq = sum_probability_sq,
+    };
 }
 
 pub fn groupByStatsOnDispatchValue(
@@ -1316,7 +1411,7 @@ pub fn groupByWeightedOn(
     const out = try frame.allocator.alloc(f64, representative_rows.items.len);
     defer frame.allocator.free(out);
     for (weight_sums.items, weighted_sums.items, weighted_square_sums.items, group_value_rows.items, out) |weight_sum, weighted_sum, weighted_square_sum, rows, *slot| {
-        if (weight_sum == 0.0) {
+        if (!(weight_sum > 0.0)) {
             slot.* = std.math.nan(f64);
             continue;
         }
@@ -1332,6 +1427,32 @@ pub fn groupByWeightedOn(
             .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
             .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
             .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
+            .weighted_mode => groupWeightedModeStats(rows.items, values.values, weights.values).mode,
+            .weighted_mode_weight => groupWeightedModeStats(rows.items, values.values, weights.values).mode_weight,
+            .weighted_mode_ratio => blk: {
+                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                break :blk stats.mode_weight / stats.total_weight;
+            },
+            .weighted_mode_margin => blk: {
+                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                break :blk stats.mode_weight - stats.second_weight;
+            },
+            .weighted_mode_margin_ratio => blk: {
+                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                break :blk (stats.mode_weight - stats.second_weight) / stats.total_weight;
+            },
+            .weighted_entropy => groupWeightedModeStats(rows.items, values.values, weights.values).entropy,
+            .weighted_gini_impurity => 1.0 - groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
+            .weighted_perplexity => std.math.exp(groupWeightedModeStats(rows.items, values.values, weights.values).entropy),
+            .weighted_inverse_simpson => blk: {
+                const concentration = groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq;
+                break :blk if (concentration == 0.0) std.math.nan(f64) else 1.0 / concentration;
+            },
+            .weighted_simpson_concentration => groupWeightedModeStats(rows.items, values.values, weights.values).sum_probability_sq,
+            .weighted_evenness => blk: {
+                const stats = groupWeightedModeStats(rows.items, values.values, weights.values);
+                break :blk if (stats.distinct_positive_weight_count <= 1) 1.0 else stats.entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(stats.distinct_positive_weight_count)));
+            },
         };
     }
 
@@ -1415,6 +1536,127 @@ pub fn groupByWeightedMadOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_mad, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedModeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mode, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedModeWeightOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mode_weight, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedModeRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mode_ratio, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedModeMarginOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mode_margin, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedModeMarginRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_mode_margin_ratio, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedEntropyOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_entropy, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedGiniImpurityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_gini_impurity, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedPerplexityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_perplexity, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedInverseSimpsonOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_inverse_simpson, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedSimpsonConcentrationOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_simpson_concentration, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedEvennessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_evenness, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
 
 pub fn groupByMomentOnDispatchValue(
