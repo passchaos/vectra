@@ -115,6 +115,24 @@ pub fn withGroupIdOn(self: anytype, key_names: []const []const u8, output_name: 
 pub const withGroupIndex = withGroupId;
 pub const withGroupIndexOn = withGroupIdOn;
 
+pub fn withGroupFirstRowIndex(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupFirstRowIndexOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupFirstRowIndexOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupFirstRowIndex(self, key_names, output_name);
+}
+
+pub fn withGroupLastRowIndex(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupLastRowIndexOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupLastRowIndexOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupLastRowIndex(self, key_names, output_name);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

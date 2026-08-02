@@ -1155,6 +1155,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
                     try current.dropColumnMask(mask);
             },
             .group_id => |row_count| try current.withGroupIdOn(row_count.names, row_count.output_name),
+            .group_first_row_index => |row_count| try current.withGroupFirstRowIndexOn(row_count.names, row_count.output_name),
+            .group_last_row_index => |row_count| try current.withGroupLastRowIndexOn(row_count.names, row_count.output_name),
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
             .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),

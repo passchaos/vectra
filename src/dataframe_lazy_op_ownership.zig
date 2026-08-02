@@ -3918,6 +3918,26 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
                 .output_name = output_name,
             } };
         },
+        .group_first_row_index => |row_count| blk: {
+            const names = try cloneNameList(allocator, row_count.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_count.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_first_row_index = .{
+                .names = names,
+                .output_name = output_name,
+            } };
+        },
+        .group_last_row_index => |row_count| blk: {
+            const names = try cloneNameList(allocator, row_count.names);
+            errdefer freeNameList(allocator, names);
+            const output_name = try allocator.dupe(u8, row_count.output_name);
+            errdefer allocator.free(output_name);
+            break :blk .{ .group_last_row_index = .{
+                .names = names,
+                .output_name = output_name,
+            } };
+        },
         .group_row_number => |row_count| blk: {
             const names = try cloneNameList(allocator, row_count.names);
             errdefer freeNameList(allocator, names);

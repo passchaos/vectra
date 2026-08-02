@@ -919,6 +919,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_ids.deinit();
     try expectNullableI64Column(group_ids, gpa, "store_group_id", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
 
+    var group_first_row_indices = try table.withGroupFirstRowIndex("store", "store_first_row_index");
+    defer group_first_row_indices.deinit();
+    try expectNullableI64Column(group_first_row_indices, gpa, "store_first_row_index", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
+
+    var group_last_row_indices = try table.withGroupLastRowIndex("store", "store_last_row_index");
+    defer group_last_row_indices.deinit();
+    try expectNullableI64Column(group_last_row_indices, gpa, "store_last_row_index", &.{ 5, 4, 5, 0, 4, 5 }, &.{ true, true, true, false, true, true });
+
     var group_row_numbers = try table.withGroupRowNumber("store", "store_row_number");
     defer group_row_numbers.deinit();
     try expectNullableI64Column(group_row_numbers, gpa, "store_row_number", &.{ 0, 0, 1, 0, 1, 2 }, &.{ true, true, true, false, true, true });
@@ -1076,6 +1084,19 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_group_ids = try group_id_plan.collect();
     defer lazy_group_ids.deinit();
     try expectNullableI64Column(lazy_group_ids, gpa, "store_group_id_lazy", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
+
+    var group_boundary_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_boundary_plan.deinit();
+    try group_boundary_plan.withGroupFirstRowIndex("store", "store_first_row_index_lazy");
+    try group_boundary_plan.withGroupLastRowIndex("store", "store_last_row_index_lazy");
+    const group_boundary_explained = try group_boundary_plan.explain(gpa);
+    defer gpa.free(group_boundary_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_boundary_explained, "group_first_row_index([store]->store_first_row_index_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, group_boundary_explained, "group_last_row_index([store]->store_last_row_index_lazy)") != null);
+    var lazy_group_boundaries = try group_boundary_plan.collect();
+    defer lazy_group_boundaries.deinit();
+    try expectNullableI64Column(lazy_group_boundaries, gpa, "store_first_row_index_lazy", &.{ 0, 1, 0, 0, 1, 0 }, &.{ true, true, true, false, true, true });
+    try expectNullableI64Column(lazy_group_boundaries, gpa, "store_last_row_index_lazy", &.{ 5, 4, 5, 0, 4, 5 }, &.{ true, true, true, false, true, true });
 
     var group_row_number_plan = try DeviceLazyFrame.init(gpa, table);
     defer group_row_number_plan.deinit();

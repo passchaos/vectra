@@ -669,6 +669,14 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
         },
+        .group_first_row_index => |row_count| {
+            freeNameList(allocator, row_count.names);
+            allocator.free(row_count.output_name);
+        },
+        .group_last_row_index => |row_count| {
+            freeNameList(allocator, row_count.names);
+            allocator.free(row_count.output_name);
+        },
         .group_row_number => |row_count| {
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
