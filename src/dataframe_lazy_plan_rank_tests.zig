@@ -4609,12 +4609,27 @@ test "device lazy frame derives row cumulative weighted support columns" {
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
     try plan.withRowPrefixWeightedAvg(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummean", "b_row_weighted_cummean" });
+    try plan.withRowCumWeightedMeanSq(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummeansq", "b_row_weighted_cummeansq" });
+    try plan.withRowCumulativeWeightedRMS(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumrms", "b_row_weighted_cumrms" });
+    try plan.withRowCumulativeWeightedMeanAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummeanabs", "b_row_weighted_cummeanabs" });
+    try plan.withRowCumWeightedL1(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cuml1", "b_row_weighted_cuml1" });
+    try plan.withRowPrefixWeightedL2Norm(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cuml2", "b_row_weighted_cuml2" });
     try plan.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     try plan.withRowCumWeightedPositiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_positive_count", "b_row_weighted_cum_positive_count" });
     try plan.withRowPrefixWeightedEffectiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_effective_n", "b_row_weighted_cum_effective_n" });
     try plan.select(&.{
         "a_row_weighted_cummean",
         "b_row_weighted_cummean",
+        "a_row_weighted_cummeansq",
+        "b_row_weighted_cummeansq",
+        "a_row_weighted_cumrms",
+        "b_row_weighted_cumrms",
+        "a_row_weighted_cummeanabs",
+        "b_row_weighted_cummeanabs",
+        "a_row_weighted_cuml1",
+        "b_row_weighted_cuml1",
+        "a_row_weighted_cuml2",
+        "b_row_weighted_cuml2",
         "a_row_weighted_cum_weight_sum",
         "b_row_weighted_cum_weight_sum",
         "a_row_weighted_cum_positive_count",
@@ -4626,15 +4641,30 @@ test "device lazy frame derives row cumulative weighted support columns" {
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mean(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummean,b_row_weighted_cummean])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mean_square(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummeansq,b_row_weighted_cummeansq])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_rms(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumrms,b_row_weighted_cumrms])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mean_abs(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummeanabs,b_row_weighted_cummeanabs])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_l1_norm(values=[a,b], weights=[wa,wb]->[a_row_weighted_cuml1,b_row_weighted_cuml1])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_l2_norm(values=[a,b], weights=[wa,wb]->[a_row_weighted_cuml2,b_row_weighted_cuml2])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_weight_sum(values=[a,b], weights=[wa,wb]->[a_row_weighted_cum_weight_sum,b_row_weighted_cum_weight_sum])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_positive_count(values=[a,b], weights=[wa,wb]->[a_row_weighted_cum_positive_count,b_row_weighted_cum_positive_count])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_effective_n(values=[a,b], weights=[wa,wb]->[a_row_weighted_cum_effective_n,b_row_weighted_cum_effective_n])") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 8), result.width());
+    try std.testing.expectEqual(@as(usize, 18), result.width());
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummean", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummean", &.{ 0.0, 20.0, 0.0, 56.0 / 5.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummeansq", &.{ 1.0, 0.0, 0.0, 16.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummeansq", &.{ 0.0, 400.0, 0.0, 1664.0 / 5.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumrms", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumrms", &.{ 0.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0 / 5.0)) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummeanabs", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummeanabs", &.{ 0.0, 20.0, 0.0, 56.0 / 5.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cuml1", &.{ 1.0, 0.0, 0.0, 16.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cuml1", &.{ 0.0, 20.0, 0.0, 56.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cuml2", &.{ 1.0, 0.0, 0.0, 8.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cuml2", &.{ 0.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0)) }, &.{ false, true, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cum_weight_sum", &.{ 0.0, 1.0, 0.0, 5.0 }, &.{ false, true, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cum_positive_count", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
@@ -4644,7 +4674,7 @@ test "device lazy frame derives row cumulative weighted support columns" {
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
-    try invalid_plan.withRowCumulativeWeightedMean(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummean", "extra_row_weighted_cummean" });
+    try invalid_plan.withRowCumulativeWeightedMeanSquare(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummeansq", "extra_row_weighted_cummeansq" });
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 

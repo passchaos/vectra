@@ -3737,6 +3737,68 @@ pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
 
+fn withRowCumulativeWeightedMoment(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { mean_square, rms, mean_abs, l1_norm, l2_norm }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .mean_square => .{ .row_cumulative_weighted_mean_square = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .rms => .{ .row_cumulative_weighted_rms = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .mean_abs => .{ .row_cumulative_weighted_mean_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .l1_norm => .{ .row_cumulative_weighted_l1_norm = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .l2_norm => .{ .row_cumulative_weighted_l2_norm = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedMeanSquare(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedMoment(frame, value_names, weight_names, output_names, .mean_square);
+}
+
+pub fn withRowCumulativeWeightedRms(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedMoment(frame, value_names, weight_names, output_names, .rms);
+}
+
+pub fn withRowCumulativeWeightedMeanAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedMoment(frame, value_names, weight_names, output_names, .mean_abs);
+}
+
+pub fn withRowCumulativeWeightedL1Norm(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedMoment(frame, value_names, weight_names, output_names, .l1_norm);
+}
+
+pub fn withRowCumulativeWeightedL2Norm(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedMoment(frame, value_names, weight_names, output_names, .l2_norm);
+}
+
+pub const withRowCumulativeWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowPrefixWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowCumulativeWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumulativeWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
+
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

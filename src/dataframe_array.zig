@@ -3924,6 +3924,132 @@ pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
 
+const RowCumulativeWeightedMomentReduction = enum { mean_square, rms, mean_abs, l1_norm, l2_norm };
+
+fn withRowCumulativeWeightedMoment(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowCumulativeWeightedMomentReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var weighted_square_sum: f64 = 0.0;
+        var weighted_abs_sum: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                const value = flat.values[offset];
+                weight_sum += weight;
+                weighted_square_sum += value * value * weight;
+                weighted_abs_sum += @abs(value) * weight;
+            }
+            if (!(weight_sum > 0.0)) continue;
+            cumulative[offset] = switch (reduction) {
+                .mean_square => weighted_square_sum / weight_sum,
+                .rms => std.math.sqrt(weighted_square_sum / weight_sum),
+                .mean_abs => weighted_abs_sum / weight_sum,
+                .l1_norm => weighted_abs_sum,
+                .l2_norm => std.math.sqrt(weighted_square_sum),
+            };
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedMeanSquare(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_names, .mean_square);
+}
+
+pub fn withRowCumulativeWeightedRms(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_names, .rms);
+}
+
+pub fn withRowCumulativeWeightedMeanAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_names, .mean_abs);
+}
+
+pub fn withRowCumulativeWeightedL1Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_names, .l1_norm);
+}
+
+pub fn withRowCumulativeWeightedL2Norm(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedMoment(DeviceDataFrame, input, value_names, weight_names, output_names, .l2_norm);
+}
+
+pub const withRowCumulativeWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowPrefixWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowCumulativeWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumulativeWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
+
 const RowCumulativeWeightedSupportReduction = enum { weight_sum, positive_count, effective_n };
 
 fn withRowCumulativeWeightedSupport(

@@ -3549,6 +3549,52 @@ pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
 pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
 
+pub fn withRowCumulativeWeightedMeanSquare(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMeanSquare(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedRms(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedRms(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMeanAbs(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMeanAbs(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedL1Norm(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedL1Norm(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedL2Norm(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedL2Norm(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquare = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSquared = withRowCumulativeWeightedMeanSquare;
+pub const withRowPrefixWeightedMeanSq = withRowCumulativeWeightedMeanSquare;
+pub const withRowCumulativeWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRms = withRowCumulativeWeightedRms;
+pub const withRowPrefixWeightedRMS = withRowCumulativeWeightedRms;
+pub const withRowCumWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowPrefixWeightedMeanAbs = withRowCumulativeWeightedMeanAbs;
+pub const withRowCumulativeWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowCumWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1Norm = withRowCumulativeWeightedL1Norm;
+pub const withRowPrefixWeightedL1 = withRowCumulativeWeightedL1Norm;
+pub const withRowCumulativeWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowCumWeightedL2 = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
+pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
+
 pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }

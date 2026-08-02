@@ -779,6 +779,10 @@ positions.
 `withRowPrefixWeightedMean`, and weighted average/avg aliases) appends
 left-to-right prefix weighted means using the same aligned pair validity and
 positive-weight denominator contract.
+`withRowCumulativeWeightedMeanSquare`, `withRowCumulativeWeightedRms`,
+`withRowCumulativeWeightedMeanAbs`, `withRowCumulativeWeightedL1Norm`, and
+`withRowCumulativeWeightedL2Norm` plus `withRowCum...`/`withRowPrefix...`
+aliases append prefix weighted moment and norm diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`
