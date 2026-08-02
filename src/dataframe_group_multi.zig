@@ -94,6 +94,8 @@ const GroupByDistributionAggregation = enum {
 };
 
 const GroupByInequalityAggregation = enum {
+    mean_abs_dev,
+    mean_abs_dev_ratio,
     gini_mean_diff,
     gini_coefficient,
 };
@@ -948,6 +950,27 @@ const GroupGiniStats = struct {
     mean_diff: f64,
 };
 
+const GroupMeanAbsDevStats = struct {
+    mean: f64,
+    mean_abs_dev: f64,
+};
+
+fn groupMeanAbsDevStats(comptime V: type, values: []const V, rows: []const usize) GroupMeanAbsDevStats {
+    if (rows.len == 0) return .{ .mean = std.math.nan(f64), .mean_abs_dev = std.math.nan(f64) };
+
+    var total: f64 = 0.0;
+    for (rows) |row| total += castToF64(V, values[row]);
+    const mean = total / @as(f64, @floatFromInt(rows.len));
+
+    var deviation_sum: f64 = 0.0;
+    for (rows) |row| deviation_sum += @abs(castToF64(V, values[row]) - mean);
+
+    return .{
+        .mean = mean,
+        .mean_abs_dev = deviation_sum / @as(f64, @floatFromInt(rows.len)),
+    };
+}
+
 fn groupGiniStats(comptime V: type, values: []const V, rows: []const usize) GroupGiniStats {
     if (rows.len == 0) return .{ .mean = std.math.nan(f64), .mean_diff = std.math.nan(f64) };
 
@@ -1013,10 +1036,17 @@ fn groupByInequalityOnTyped(
     const out = try allocator.alloc(f64, group_value_rows.items.len);
     defer allocator.free(out);
     for (group_value_rows.items, out) |rows, *slot| {
-        const stats = groupGiniStats(V, values, rows.items);
         slot.* = switch (aggregation) {
-            .gini_mean_diff => stats.mean_diff,
-            .gini_coefficient => if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_diff / (2.0 * @abs(stats.mean)),
+            .mean_abs_dev => groupMeanAbsDevStats(V, values, rows.items).mean_abs_dev,
+            .mean_abs_dev_ratio => blk: {
+                const stats = groupMeanAbsDevStats(V, values, rows.items);
+                break :blk if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_abs_dev / @abs(stats.mean);
+            },
+            .gini_mean_diff => groupGiniStats(V, values, rows.items).mean_diff,
+            .gini_coefficient => blk: {
+                const stats = groupGiniStats(V, values, rows.items);
+                break :blk if (stats.mean == 0.0) std.math.nan(f64) else stats.mean_diff / (2.0 * @abs(stats.mean));
+            },
         };
     }
 
@@ -1046,6 +1076,26 @@ pub fn groupByGiniMeanDiffOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByInequalityOn(DeviceDataFrame, .gini_mean_diff, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMeanAbsDevOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByInequalityOn(DeviceDataFrame, .mean_abs_dev, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMeanAbsDevRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByInequalityOn(DeviceDataFrame, .mean_abs_dev_ratio, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByGiniCoefficientOn(

@@ -484,6 +484,20 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 75.0), gini_coeff_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 18.0), gini_coeff_values[1], 1e-12);
 
+    var mean_abs_dev_group = try mode_diag_table.groupByMeanAbsDev("bucket", "label", "label_mean_abs_dev");
+    defer mean_abs_dev_group.deinit();
+    const mean_abs_dev_values = try (try mean_abs_dev_group.column("label_mean_abs_dev")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mean_abs_dev_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 4.0), mean_abs_dev_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 25.0), mean_abs_dev_values[1], 1e-12);
+
+    var mean_abs_dev_ratio_group = try mode_diag_table.groupByMeanAbsDevRatioOn(&.{"bucket"}, "label", "label_mean_abs_dev_ratio");
+    defer mean_abs_dev_ratio_group.deinit();
+    const mean_abs_dev_ratio_values = try (try mean_abs_dev_ratio_group.column("label_mean_abs_dev_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(mean_abs_dev_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 5.0), mean_abs_dev_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 45.0), mean_abs_dev_ratio_values[1], 1e-12);
+
     var zero_gini_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1 }, .cpu);
     defer zero_gini_key.deinit();
     var zero_gini_value = try DeviceColumn.fromSlice(f64, gpa, &.{ -1.0, 1.0 }, .cpu);
@@ -498,6 +512,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const zero_gini_coeff_values = try (try zero_gini_coeff.column("value_gini_coeff")).f64.toOwnedSlice(gpa);
     defer gpa.free(zero_gini_coeff_values);
     try std.testing.expect(std.math.isNan(zero_gini_coeff_values[0]));
+
+    var zero_mean_abs_dev_ratio = try zero_gini_table.groupByMeanAbsDevRatio("bucket", "value", "value_mean_abs_dev_ratio");
+    defer zero_mean_abs_dev_ratio.deinit();
+    const zero_mean_abs_dev_ratio_values = try (try zero_mean_abs_dev_ratio.column("value_mean_abs_dev_ratio")).f64.toOwnedSlice(gpa);
+    defer gpa.free(zero_mean_abs_dev_ratio_values);
+    try std.testing.expect(std.math.isNan(zero_mean_abs_dev_ratio_values[0]));
 
     var mode_count_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
     defer mode_count_plan.deinit();
@@ -652,6 +672,32 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_gini_coeff_values);
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 75.0), lazy_gini_coeff_values[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 18.0), lazy_gini_coeff_values[1], 1e-12);
+
+    var mean_abs_dev_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mean_abs_dev_plan.deinit();
+    try mean_abs_dev_plan.groupByMeanAbsDevOn(&.{"bucket"}, "label", "label_mean_abs_dev_lazy");
+    const mean_abs_dev_explained = try mean_abs_dev_plan.explain(gpa);
+    defer gpa.free(mean_abs_dev_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mean_abs_dev_explained, "group_by_mean_abs_dev_on([bucket], value=label -> label_mean_abs_dev_lazy)") != null);
+    var lazy_mean_abs_dev = try mean_abs_dev_plan.collect();
+    defer lazy_mean_abs_dev.deinit();
+    const lazy_mean_abs_dev_values = try (try lazy_mean_abs_dev.column("label_mean_abs_dev_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mean_abs_dev_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 4.0), lazy_mean_abs_dev_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 25.0), lazy_mean_abs_dev_values[1], 1e-12);
+
+    var mean_abs_dev_ratio_plan = try DeviceLazyFrame.init(gpa, mode_diag_table);
+    defer mean_abs_dev_ratio_plan.deinit();
+    try mean_abs_dev_ratio_plan.groupByMeanAbsDevRatio("bucket", "label", "label_mean_abs_dev_ratio_lazy");
+    const mean_abs_dev_ratio_explained = try mean_abs_dev_ratio_plan.explain(gpa);
+    defer gpa.free(mean_abs_dev_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, mean_abs_dev_ratio_explained, "group_by_mean_abs_dev_ratio(bucket, value=label -> label_mean_abs_dev_ratio_lazy)") != null);
+    var lazy_mean_abs_dev_ratio = try mean_abs_dev_ratio_plan.collect();
+    defer lazy_mean_abs_dev_ratio.deinit();
+    const lazy_mean_abs_dev_ratio_values = try (try lazy_mean_abs_dev_ratio.column("label_mean_abs_dev_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_mean_abs_dev_ratio_values);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 5.0), lazy_mean_abs_dev_ratio_values[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 16.0 / 45.0), lazy_mean_abs_dev_ratio_values[1], 1e-12);
 
     var median_sales = try table.groupByMedian("store", "sales", "sales_median");
     defer median_sales.deinit();
@@ -1224,6 +1270,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), ms_simple_mean_abs[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), ms_simple_mean_abs[3], 1e-12);
 
+    var multi_mean_abs_dev = try multi.groupByMeanAbsDevOn(&.{ "store", "day" }, "amount", "amount_mean_abs_dev_simple");
+    defer multi_mean_abs_dev.deinit();
+    const ms_simple_mean_abs_dev = try (try multi_mean_abs_dev.column("amount_mean_abs_dev_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mean_abs_dev);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), ms_simple_mean_abs_dev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev[3], 1e-12);
+
+    var multi_mean_abs_dev_ratio = try multi.groupByMeanAbsDevRatioOn(&.{ "store", "day" }, "amount", "amount_mean_abs_dev_ratio_simple");
+    defer multi_mean_abs_dev_ratio.deinit();
+    const ms_simple_mean_abs_dev_ratio = try (try multi_mean_abs_dev_ratio.column("amount_mean_abs_dev_ratio_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mean_abs_dev_ratio);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), ms_simple_mean_abs_dev_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), ms_simple_mean_abs_dev_ratio[3], 1e-12);
+
     var multi_mean_square = try multi.groupByMeanSquareOn(&.{ "store", "day" }, "amount", "amount_mean_square_simple");
     defer multi_mean_square.deinit();
     const ms_simple_mean_square = try (try multi_mean_square.column("amount_mean_square_simple")).f64.toOwnedSlice(gpa);
@@ -1628,6 +1692,36 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 9.0), lazy_ms_mean_abs[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4.0), lazy_ms_mean_abs[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12.0), lazy_ms_mean_abs[3], 1e-12);
+
+    var multi_mean_abs_dev_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mean_abs_dev_plan.deinit();
+    try multi_mean_abs_dev_plan.groupByMeanAbsDevOn(&.{ "store", "day" }, "amount", "amount_mean_abs_dev_lazy");
+    const multi_mean_abs_dev_explained = try multi_mean_abs_dev_plan.explain(gpa);
+    defer gpa.free(multi_mean_abs_dev_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mean_abs_dev_explained, "group_by_mean_abs_dev_on([store,day], value=amount -> amount_mean_abs_dev_lazy)") != null);
+    var lazy_multi_mean_abs_dev = try multi_mean_abs_dev_plan.collect();
+    defer lazy_multi_mean_abs_dev.deinit();
+    const lazy_ms_mean_abs_dev = try (try lazy_multi_mean_abs_dev.column("amount_mean_abs_dev_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mean_abs_dev);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), lazy_ms_mean_abs_dev[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev[3], 1e-12);
+
+    var multi_mean_abs_dev_ratio_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mean_abs_dev_ratio_plan.deinit();
+    try multi_mean_abs_dev_ratio_plan.groupByMeanAbsDevRatioOn(&.{ "store", "day" }, "amount", "amount_mean_abs_dev_ratio_lazy");
+    const multi_mean_abs_dev_ratio_explained = try multi_mean_abs_dev_ratio_plan.explain(gpa);
+    defer gpa.free(multi_mean_abs_dev_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mean_abs_dev_ratio_explained, "group_by_mean_abs_dev_ratio_on([store,day], value=amount -> amount_mean_abs_dev_ratio_lazy)") != null);
+    var lazy_multi_mean_abs_dev_ratio = try multi_mean_abs_dev_ratio_plan.collect();
+    defer lazy_multi_mean_abs_dev_ratio.deinit();
+    const lazy_ms_mean_abs_dev_ratio = try (try lazy_multi_mean_abs_dev_ratio.column("amount_mean_abs_dev_ratio_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mean_abs_dev_ratio);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), lazy_ms_mean_abs_dev_ratio[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev_ratio[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev_ratio[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_ms_mean_abs_dev_ratio[3], 1e-12);
 
     var multi_max_abs_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_max_abs_plan.deinit();

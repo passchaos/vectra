@@ -260,6 +260,22 @@ pub fn groupByGiniCoefficientOn(self: anytype, key_names: []const []const u8, va
 pub const groupByGiniCoeff = groupByGiniCoefficient;
 pub const groupByGiniCoeffOn = groupByGiniCoefficientOn;
 
+pub fn groupByMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .mean_abs_dev);
+}
+
+pub fn groupByMeanAbsDevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .mean_abs_dev);
+}
+
+pub fn groupByMeanAbsDevRatio(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .mean_abs_dev_ratio);
+}
+
+pub fn groupByMeanAbsDevRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .mean_abs_dev_ratio);
+}
+
 pub fn groupByMedian(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .median);
 }

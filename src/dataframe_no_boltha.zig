@@ -171,6 +171,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     evenness,
     gini_mean_diff,
     gini_coefficient,
+    mean_abs_dev,
+    mean_abs_dev_ratio,
     median,
     quantile,
     iqr,
