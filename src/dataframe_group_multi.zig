@@ -167,6 +167,14 @@ const GroupByNumericQualityAggregation = enum {
 };
 
 const GroupByNumericQualityIndexAggregation = enum {
+    first_nan_index,
+    last_nan_index,
+    first_inf_index,
+    last_inf_index,
+    first_positive_inf_index,
+    last_positive_inf_index,
+    first_negative_inf_index,
+    last_negative_inf_index,
     first_positive_zero_index,
     last_positive_zero_index,
     first_negative_zero_index,
@@ -341,6 +349,10 @@ fn groupNumericQualityMatchesTyped(comptime T: type, value: T, aggregation: Grou
 
 fn groupNumericQualityIndexPredicate(aggregation: GroupByNumericQualityIndexAggregation) GroupByNumericQualityAggregation {
     return switch (aggregation) {
+        .first_nan_index, .last_nan_index => .nan_count,
+        .first_inf_index, .last_inf_index => .inf_count,
+        .first_positive_inf_index, .last_positive_inf_index => .positive_inf_count,
+        .first_negative_inf_index, .last_negative_inf_index => .negative_inf_count,
         .first_positive_zero_index, .last_positive_zero_index => .positive_zero_count,
         .first_negative_zero_index, .last_negative_zero_index => .negative_zero_count,
     };
@@ -348,8 +360,20 @@ fn groupNumericQualityIndexPredicate(aggregation: GroupByNumericQualityIndexAggr
 
 fn groupNumericQualityIndexKeepsLast(aggregation: GroupByNumericQualityIndexAggregation) bool {
     return switch (aggregation) {
-        .first_positive_zero_index, .first_negative_zero_index => false,
-        .last_positive_zero_index, .last_negative_zero_index => true,
+        .first_nan_index,
+        .first_inf_index,
+        .first_positive_inf_index,
+        .first_negative_inf_index,
+        .first_positive_zero_index,
+        .first_negative_zero_index,
+        => false,
+        .last_nan_index,
+        .last_inf_index,
+        .last_positive_inf_index,
+        .last_negative_inf_index,
+        .last_positive_zero_index,
+        .last_negative_zero_index,
+        => true,
     };
 }
 
@@ -4181,6 +4205,86 @@ pub fn groupByNegativeInfRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByNumericQualityOn(DeviceDataFrame, .negative_inf_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstNaNIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_nan_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastNaNIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_nan_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_inf_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_inf_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstPositiveInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_positive_inf_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastPositiveInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_positive_inf_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByFirstNegativeInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .first_negative_inf_index, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByLastNegativeInfIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityIndexOn(DeviceDataFrame, .last_negative_inf_index, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByFiniteCountOn(

@@ -34,6 +34,16 @@ fn expectF64ColumnApproxOrNan(frame: anytype, allocator: std.mem.Allocator, name
     try expectF64SliceApproxOrNan(expected, values);
 }
 
+fn expectNullableI64Column(frame: anytype, allocator: std.mem.Allocator, name: []const u8, expected_values: []const i64, expected_validity: []const bool) !void {
+    const column = try frame.column(name);
+    const values = try column.i64.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const validity = try column.i64.validity.?.toOwnedSlice(allocator);
+    defer allocator.free(validity);
+    try std.testing.expectEqualSlices(i64, expected_values, values);
+    try std.testing.expectEqualSlices(bool, expected_validity, validity);
+}
+
 test "device dataframe rolling bool profile handles nullable windows" {
     const gpa = std.testing.allocator;
 
@@ -256,6 +266,27 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     });
     defer quality_table.deinit();
 
+    var quality_index_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
+    defer quality_index_key.deinit();
+    var quality_index_values_buffer = [_]f64{
+        std.math.nan(f64),
+        std.math.inf(f64),
+        -std.math.inf(f64),
+        std.math.nan(f64),
+        std.math.inf(f64),
+        5.0,
+        -std.math.inf(f64),
+        std.math.inf(f64),
+        7.0,
+    };
+    var quality_index_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &quality_index_values_buffer, &.{ true, true, true, true, true, true, true, true, false }, .cpu);
+    defer quality_index_value.deinit();
+    var quality_index_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "bucket", .data = quality_index_key },
+        .{ .name = "metric", .data = quality_index_value },
+    });
+    defer quality_index_table.deinit();
+
     var metric_nan_counts = try quality_table.groupByNaNCount("bucket", "metric", "metric_nan_count");
     defer metric_nan_counts.deinit();
     const metric_nan_count_values = try (try metric_nan_counts.column("metric_nan_count")).i64.toOwnedSlice(gpa);
@@ -400,6 +431,38 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer metric_negative_ratios.deinit();
     try expectF64ColumnApproxOrNan(metric_negative_ratios, gpa, "metric_negative_ratio", &metric_negative_ratio_expected);
 
+    var first_nan_indices = try quality_index_table.groupByFirstNaNIndex("bucket", "metric", "first_nan_index");
+    defer first_nan_indices.deinit();
+    try expectNullableI64Column(first_nan_indices, gpa, "first_nan_index", &.{ 0, 0, 0 }, &.{ true, false, false });
+
+    var last_nan_indices = try quality_index_table.groupByLastNaNIndex("bucket", "metric", "last_nan_index");
+    defer last_nan_indices.deinit();
+    try expectNullableI64Column(last_nan_indices, gpa, "last_nan_index", &.{ 3, 0, 0 }, &.{ true, false, false });
+
+    var first_inf_indices = try quality_index_table.groupByFirstInfIndex("bucket", "metric", "first_inf_index");
+    defer first_inf_indices.deinit();
+    try expectNullableI64Column(first_inf_indices, gpa, "first_inf_index", &.{ 1, 6, 0 }, &.{ true, true, false });
+
+    var last_inf_indices = try quality_index_table.groupByLastInfIndex("bucket", "metric", "last_inf_index");
+    defer last_inf_indices.deinit();
+    try expectNullableI64Column(last_inf_indices, gpa, "last_inf_index", &.{ 4, 7, 0 }, &.{ true, true, false });
+
+    var first_positive_inf_indices = try quality_index_table.groupByFirstPositiveInfIndex("bucket", "metric", "first_positive_inf_index");
+    defer first_positive_inf_indices.deinit();
+    try expectNullableI64Column(first_positive_inf_indices, gpa, "first_positive_inf_index", &.{ 1, 7, 0 }, &.{ true, true, false });
+
+    var last_positive_inf_indices = try quality_index_table.groupByLastPositiveInfIndex("bucket", "metric", "last_positive_inf_index");
+    defer last_positive_inf_indices.deinit();
+    try expectNullableI64Column(last_positive_inf_indices, gpa, "last_positive_inf_index", &.{ 4, 7, 0 }, &.{ true, true, false });
+
+    var first_negative_inf_indices = try quality_index_table.groupByFirstNegativeInfIndex("bucket", "metric", "first_negative_inf_index");
+    defer first_negative_inf_indices.deinit();
+    try expectNullableI64Column(first_negative_inf_indices, gpa, "first_negative_inf_index", &.{ 2, 6, 0 }, &.{ true, true, false });
+
+    var last_negative_inf_indices = try quality_index_table.groupByLastNegativeInfIndex("bucket", "metric", "last_negative_inf_index");
+    defer last_negative_inf_indices.deinit();
+    try expectNullableI64Column(last_negative_inf_indices, gpa, "last_negative_inf_index", &.{ 2, 6, 0 }, &.{ true, true, false });
+
     var signed_zero_key = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 1, 1, 1, 2, 2, 2, 3 }, .cpu);
     defer signed_zero_key.deinit();
     var signed_zero_values_buffer = [_]f64{ 0.0, -0.0, 1.0, 0.0, -0.0, 0.0, -0.0, 5.0 };
@@ -491,6 +554,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_nan_count_values = try (try lazy_nan_count.column("metric_nan_count_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_nan_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, lazy_nan_count_values);
+
+    var last_inf_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
+    defer last_inf_index_plan.deinit();
+    try last_inf_index_plan.groupByLastInfIndex("bucket", "metric", "last_inf_index_lazy");
+    const last_inf_index_explained = try last_inf_index_plan.explain(gpa);
+    defer gpa.free(last_inf_index_explained);
+    try std.testing.expect(std.mem.indexOf(u8, last_inf_index_explained, "group_by_last_inf_index(bucket, value=metric -> last_inf_index_lazy)") != null);
+    var lazy_last_inf_index = try last_inf_index_plan.collect();
+    defer lazy_last_inf_index.deinit();
+    try expectNullableI64Column(lazy_last_inf_index, gpa, "last_inf_index_lazy", &.{ 4, 7, 0 }, &.{ true, true, false });
 
     var finite_ratio_plan = try DeviceLazyFrame.init(gpa, quality_table);
     defer finite_ratio_plan.deinit();
