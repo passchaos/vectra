@@ -1899,6 +1899,50 @@ pub const withGroupCumWeightedConcentrationOn = withGroupCumulativeWeightedSimps
 pub const withGroupCumWeightedEvenness = withGroupCumulativeWeightedEvenness;
 pub const withGroupCumWeightedEvennessOn = withGroupCumulativeWeightedEvennessOn;
 
+pub fn withGroupCumulativeWeightedCovariance(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedCovarianceOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn withGroupCumulativeWeightedCovarianceOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedCovarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub const withGroupCumulativeWeightedCov = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumulativeWeightedCovOn = withGroupCumulativeWeightedCovarianceOn;
+
+pub fn withGroupCumulativeWeightedCorrelation(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedCorrelationOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn withGroupCumulativeWeightedCorrelationOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedCorrelationOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub const withGroupCumulativeWeightedCorr = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumulativeWeightedCorrOn = withGroupCumulativeWeightedCorrelationOn;
+
+pub fn withGroupCumulativeWeightedBeta(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedBetaOn(self, key_names[0..], lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub fn withGroupCumulativeWeightedBetaOn(self: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedBetaOn(FrameType(@TypeOf(self)), frameValue(self), key_names, lhs_name, rhs_name, weight_name, output_name, correction);
+}
+
+pub const withGroupCumWeightedCovariance = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumWeightedCovarianceOn = withGroupCumulativeWeightedCovarianceOn;
+pub const withGroupCumWeightedCov = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumWeightedCovOn = withGroupCumulativeWeightedCovarianceOn;
+pub const withGroupCumWeightedCorrelation = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumWeightedCorrelationOn = withGroupCumulativeWeightedCorrelationOn;
+pub const withGroupCumWeightedCorr = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumWeightedCorrOn = withGroupCumulativeWeightedCorrelationOn;
+pub const withGroupCumWeightedBeta = withGroupCumulativeWeightedBeta;
+pub const withGroupCumWeightedBetaOn = withGroupCumulativeWeightedBetaOn;
+
 pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);

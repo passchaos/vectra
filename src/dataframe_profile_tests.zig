@@ -3404,6 +3404,40 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_concentration_lazy", &group_cum_weighted_concentration_expected, &group_cum_weighted_mode_validity);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_evenness_lazy", &group_cum_weighted_evenness_expected, &group_cum_weighted_mode_validity);
 
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cum_cov", 0.0));
+    try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedCovariance("bucket", "lhs", "rhs", "weight", "bad_weighted_cum_cov", -1.0));
+
+    const group_cum_weighted_cov_expected = [_]f64{ 0.0, -0.1875, 3.25, 0.0, -1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_corr_expected = [_]f64{ std.math.nan(f64), -1.0, 19.5 / std.math.sqrt(@as(f64, 7.5 * 61.5)), std.math.nan(f64), -1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_beta_expected = [_]f64{ std.math.nan(f64), -1.0, 2.6, std.math.nan(f64), -1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_cov = try weighted_table.withGroupCumulativeWeightedCov("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_cov", 0.0);
+    defer group_cum_weighted_cov.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_cov, gpa, "lhs_rhs_weighted_cum_cov", &group_cum_weighted_cov_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_corr = try weighted_table.withGroupCumulativeWeightedCorrelation("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_corr", 0.0);
+    defer group_cum_weighted_corr.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_corr, gpa, "lhs_rhs_weighted_cum_corr", &group_cum_weighted_corr_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_beta = try weighted_table.withGroupCumulativeWeightedBeta("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_beta", 0.0);
+    defer group_cum_weighted_beta.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_beta, gpa, "lhs_rhs_weighted_cum_beta", &group_cum_weighted_beta_expected, &group_cum_weighted_mode_validity);
+
+    var cumulative_weighted_pair_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_pair_plan.deinit();
+    try cumulative_weighted_pair_plan.withGroupCumulativeWeightedCov("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_cov_lazy", 0.0);
+    try cumulative_weighted_pair_plan.withGroupCumulativeWeightedCorr("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_corr_lazy", 0.0);
+    try cumulative_weighted_pair_plan.withGroupCumulativeWeightedBeta("bucket", "lhs", "rhs", "weight", "lhs_rhs_weighted_cum_beta_lazy", 0.0);
+    const cumulative_weighted_pair_explained = try cumulative_weighted_pair_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_pair_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_pair_explained, "group_cumulative_weighted_covariance([bucket], lhs=lhs, rhs=rhs, weight=weight->lhs_rhs_weighted_cum_cov_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_pair_explained, "group_cumulative_weighted_beta([bucket], lhs=lhs, rhs=rhs, weight=weight->lhs_rhs_weighted_cum_beta_lazy)") != null);
+    var lazy_cumulative_weighted_pair = try cumulative_weighted_pair_plan.collect();
+    defer lazy_cumulative_weighted_pair.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_pair, gpa, "lhs_rhs_weighted_cum_cov_lazy", &group_cum_weighted_cov_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_pair, gpa, "lhs_rhs_weighted_cum_corr_lazy", &group_cum_weighted_corr_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_pair, gpa, "lhs_rhs_weighted_cum_beta_lazy", &group_cum_weighted_beta_expected, &group_cum_weighted_mode_validity);
+
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
 

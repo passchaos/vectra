@@ -1921,6 +1921,36 @@ pub fn withGroupCumulativeWeightedEvenness(frame: anytype, key_names: []const []
     return withGroupCumulativeWeightedDistributionCore(frame, key_names, value_name, weight_name, output_name, .evenness);
 }
 
+fn withGroupCumulativeWeightedPairMoment(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64, comptime op: enum { covariance, correlation, beta }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_lhs = try frame.allocator.dupe(u8, lhs_name);
+    errdefer frame.allocator.free(owned_lhs);
+    const owned_rhs = try frame.allocator.dupe(u8, rhs_name);
+    errdefer frame.allocator.free(owned_rhs);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .covariance => .{ .group_cumulative_weighted_covariance = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .correlation => .{ .group_cumulative_weighted_correlation = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+        .beta => .{ .group_cumulative_weighted_beta = .{ .names = owned_keys, .lhs_name = owned_lhs, .rhs_name = owned_rhs, .weight_name = owned_weight, .output_name = owned_output, .correction = correction } },
+    });
+}
+
+pub fn withGroupCumulativeWeightedCovariance(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .covariance);
+}
+
+pub fn withGroupCumulativeWeightedCorrelation(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .correlation);
+}
+
+pub fn withGroupCumulativeWeightedBeta(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) DeviceDataError!void {
+    return withGroupCumulativeWeightedPairMoment(frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .beta);
+}
+
 pub fn withGroupCumulativeWeightedVariance(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .variance);
 }
@@ -1956,6 +1986,13 @@ pub const withGroupCumWeightedInverseSimpson = withGroupCumulativeWeightedInvers
 pub const withGroupCumWeightedSimpsonConcentration = withGroupCumulativeWeightedSimpsonConcentration;
 pub const withGroupCumWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
 pub const withGroupCumWeightedEvenness = withGroupCumulativeWeightedEvenness;
+pub const withGroupCumulativeWeightedCov = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumulativeWeightedCorr = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumWeightedCovariance = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumWeightedCov = withGroupCumulativeWeightedCovariance;
+pub const withGroupCumWeightedCorrelation = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumWeightedCorr = withGroupCumulativeWeightedCorrelation;
+pub const withGroupCumWeightedBeta = withGroupCumulativeWeightedBeta;
 
 pub fn withGroupCumulativeProduct(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .product);

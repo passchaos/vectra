@@ -3489,6 +3489,8 @@ const GroupCumulativeWeightedModeOp = enum { mode, mode_weight, mode_ratio, mode
 
 const GroupCumulativeWeightedDistributionOp = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
+const GroupCumulativeWeightedPairOp = enum { covariance, correlation, beta };
+
 const GroupWeightedPrefixStats = struct {
     mode: f64,
     mode_weight: f64,
@@ -3984,6 +3986,125 @@ pub fn withGroupCumulativeWeightedEvennessOn(comptime DeviceDataFrame: type, fra
     return withGroupCumulativeWeightedDistributionCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .evenness);
 }
 
+fn withGroupCumulativeWeightedPairMomentOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    correction: f64,
+    comptime op: GroupCumulativeWeightedPairOp,
+) GroupByOnError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const lhs_column = try frame.column(lhs_name);
+    const rhs_column = try frame.column(rhs_name);
+    const weight_column = try frame.column(weight_name);
+
+    var lhs = try ownedGroupRealColumn(frame.allocator, lhs_column.*);
+    defer lhs.deinit();
+    var rhs = try ownedGroupRealColumn(frame.allocator, rhs_column.*);
+    defer rhs.deinit();
+    var weights = try ownedGroupRealColumn(frame.allocator, weight_column.*);
+    defer weights.deinit();
+    if (frame.rows != lhs.values.len or frame.rows != rhs.values.len or frame.rows != weights.values.len) return error.LengthMismatch;
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var weight_sums: std.ArrayList(f64) = .empty;
+    defer weight_sums.deinit(frame.allocator);
+    var lhs_sums: std.ArrayList(f64) = .empty;
+    defer lhs_sums.deinit(frame.allocator);
+    var rhs_sums: std.ArrayList(f64) = .empty;
+    defer rhs_sums.deinit(frame.allocator);
+    var lhs_square_sums: std.ArrayList(f64) = .empty;
+    defer lhs_square_sums.deinit(frame.allocator);
+    var rhs_square_sums: std.ArrayList(f64) = .empty;
+    defer rhs_square_sums.deinit(frame.allocator);
+    var cross_sums: std.ArrayList(f64) = .empty;
+    defer cross_sums.deinit(frame.allocator);
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (lhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (rhs.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (weights.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const weight = weights.values[row];
+        if (weight < 0.0) return error.InvalidShape;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try weight_sums.append(frame.allocator, 0.0);
+            try lhs_sums.append(frame.allocator, 0.0);
+            try rhs_sums.append(frame.allocator, 0.0);
+            try lhs_square_sums.append(frame.allocator, 0.0);
+            try rhs_square_sums.append(frame.allocator, 0.0);
+            try cross_sums.append(frame.allocator, 0.0);
+            break :blk representative_rows.items.len - 1;
+        };
+
+        const lhs_value = lhs.values[row];
+        const rhs_value = rhs.values[row];
+        weight_sums.items[group_index] += weight;
+        lhs_sums.items[group_index] += weight * lhs_value;
+        rhs_sums.items[group_index] += weight * rhs_value;
+        lhs_square_sums.items[group_index] += weight * lhs_value * lhs_value;
+        rhs_square_sums.items[group_index] += weight * rhs_value * rhs_value;
+        cross_sums.items[group_index] += weight * lhs_value * rhs_value;
+
+        const weight_sum = weight_sums.items[group_index];
+        if (!(weight_sum > 0.0)) {
+            outputs[row] = std.math.nan(f64);
+            row_validity[row] = true;
+            continue;
+        }
+
+        const denominator = weight_sum - correction;
+        var lhs_centered = lhs_square_sums.items[group_index] - lhs_sums.items[group_index] * lhs_sums.items[group_index] / weight_sum;
+        var rhs_centered = rhs_square_sums.items[group_index] - rhs_sums.items[group_index] * rhs_sums.items[group_index] / weight_sum;
+        const cross_centered = cross_sums.items[group_index] - lhs_sums.items[group_index] * rhs_sums.items[group_index] / weight_sum;
+        if (lhs_centered < 0.0 and lhs_centered > -1e-12) lhs_centered = 0.0;
+        if (rhs_centered < 0.0 and rhs_centered > -1e-12) rhs_centered = 0.0;
+        outputs[row] = switch (op) {
+            .covariance => if (denominator <= 0.0) std.math.nan(f64) else cross_centered / denominator,
+            .correlation => if (denominator <= 0.0 or lhs_centered == 0.0 or rhs_centered == 0.0) std.math.nan(f64) else cross_centered / std.math.sqrt(lhs_centered * rhs_centered),
+            .beta => if (denominator <= 0.0 or lhs_centered == 0.0) std.math.nan(f64) else cross_centered / lhs_centered,
+        };
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeWeightedCovarianceOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .covariance);
+}
+
+pub fn withGroupCumulativeWeightedCorrelationOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .correlation);
+}
+
+pub fn withGroupCumulativeWeightedBetaOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedPairMomentOn(DeviceDataFrame, frame, key_names, lhs_name, rhs_name, weight_name, output_name, correction, .beta);
+}
+
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
@@ -4011,6 +4132,13 @@ pub const withGroupCumWeightedInverseSimpsonOn = withGroupCumulativeWeightedInve
 pub const withGroupCumWeightedSimpsonConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
 pub const withGroupCumWeightedConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
 pub const withGroupCumWeightedEvennessOn = withGroupCumulativeWeightedEvennessOn;
+pub const withGroupCumulativeWeightedCovOn = withGroupCumulativeWeightedCovarianceOn;
+pub const withGroupCumulativeWeightedCorrOn = withGroupCumulativeWeightedCorrelationOn;
+pub const withGroupCumWeightedCovarianceOn = withGroupCumulativeWeightedCovarianceOn;
+pub const withGroupCumWeightedCovOn = withGroupCumulativeWeightedCovarianceOn;
+pub const withGroupCumWeightedCorrelationOn = withGroupCumulativeWeightedCorrelationOn;
+pub const withGroupCumWeightedCorrOn = withGroupCumulativeWeightedCorrelationOn;
+pub const withGroupCumWeightedBetaOn = withGroupCumulativeWeightedBetaOn;
 pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;

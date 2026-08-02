@@ -39,6 +39,32 @@ fn cloneGroupWeightedShift(
     });
 }
 
+fn cloneGroupWeightedPairShift(
+    comptime Self: type,
+    allocator: std.mem.Allocator,
+    shift: anytype,
+    comptime tag_name: []const u8,
+) DeviceDataError!Self {
+    const names = try cloneNameList(allocator, shift.names);
+    errdefer freeNameList(allocator, names);
+    const lhs_name = try allocator.dupe(u8, shift.lhs_name);
+    errdefer allocator.free(lhs_name);
+    const rhs_name = try allocator.dupe(u8, shift.rhs_name);
+    errdefer allocator.free(rhs_name);
+    const weight_name = try allocator.dupe(u8, shift.weight_name);
+    errdefer allocator.free(weight_name);
+    const output_name = try allocator.dupe(u8, shift.output_name);
+    errdefer allocator.free(output_name);
+    return @unionInit(Self, tag_name, .{
+        .names = names,
+        .lhs_name = lhs_name,
+        .rhs_name = rhs_name,
+        .weight_name = weight_name,
+        .output_name = output_name,
+        .correction = shift.correction,
+    });
+}
+
 pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) DeviceDataError!Self {
     return switch (self) {
         .select => |names| blk: {
@@ -5037,6 +5063,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .group_cumulative_weighted_inverse_simpson => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_inverse_simpson"),
         .group_cumulative_weighted_simpson_concentration => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_simpson_concentration"),
         .group_cumulative_weighted_evenness => |shift| try cloneGroupWeightedShift(Self, allocator, shift, "group_cumulative_weighted_evenness"),
+        .group_cumulative_weighted_covariance => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_covariance"),
+        .group_cumulative_weighted_correlation => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_correlation"),
+        .group_cumulative_weighted_beta => |shift| try cloneGroupWeightedPairShift(Self, allocator, shift, "group_cumulative_weighted_beta"),
         .group_cumulative_weighted_variance => |shift| blk: {
             const names = try cloneNameList(allocator, shift.names);
             errdefer freeNameList(allocator, names);

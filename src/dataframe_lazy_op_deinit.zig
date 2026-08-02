@@ -731,6 +731,13 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             allocator.free(shift.weight_name);
             allocator.free(shift.output_name);
         },
+        .group_cumulative_weighted_covariance, .group_cumulative_weighted_correlation, .group_cumulative_weighted_beta => |shift| {
+            freeNameList(allocator, shift.names);
+            allocator.free(shift.lhs_name);
+            allocator.free(shift.rhs_name);
+            allocator.free(shift.weight_name);
+            allocator.free(shift.output_name);
+        },
         .group_row_number => |row_count| {
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
