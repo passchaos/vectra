@@ -6043,6 +6043,14 @@ pub fn DeviceLazyTypes(
             pub const groupByFirstFalseIndexOn = lazy_relation_methods_mod.groupByFirstFalseIndexOn;
             pub const groupByLastFalseIndex = lazy_relation_methods_mod.groupByLastFalseIndex;
             pub const groupByLastFalseIndexOn = lazy_relation_methods_mod.groupByLastFalseIndexOn;
+            pub const groupByAnyValid = lazy_relation_methods_mod.groupByAnyValid;
+            pub const groupByAnyValidOn = lazy_relation_methods_mod.groupByAnyValidOn;
+            pub const groupByAllValid = lazy_relation_methods_mod.groupByAllValid;
+            pub const groupByAllValidOn = lazy_relation_methods_mod.groupByAllValidOn;
+            pub const groupByAnyNull = lazy_relation_methods_mod.groupByAnyNull;
+            pub const groupByAnyNullOn = lazy_relation_methods_mod.groupByAnyNullOn;
+            pub const groupByAllNull = lazy_relation_methods_mod.groupByAllNull;
+            pub const groupByAllNullOn = lazy_relation_methods_mod.groupByAllNullOn;
             pub const groupByValidCount = lazy_relation_methods_mod.groupByValidCount;
             pub const groupByValidCountOn = lazy_relation_methods_mod.groupByValidCountOn;
             pub const groupByNullCount = lazy_relation_methods_mod.groupByNullCount;

@@ -231,6 +231,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(active_null_on_values);
     try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 1 }, active_null_on_values);
 
+    var active_any_valid = try bool_table.groupByAnyValid("store", "active", "active_any_valid");
+    defer active_any_valid.deinit();
+    const active_any_valid_values = try (try active_any_valid.column("active_any_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_any_valid_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, active_any_valid_values);
+
+    var active_all_valid = try bool_table.groupByAllValid("store", "active", "active_all_valid");
+    defer active_all_valid.deinit();
+    const active_all_valid_values = try (try active_all_valid.column("active_all_valid")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_all_valid_values);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, active_all_valid_values);
+
+    var active_any_null = try bool_table.groupByAnyNull("store", "active", "active_any_null");
+    defer active_any_null.deinit();
+    const active_any_null_values = try (try active_any_null.column("active_any_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_any_null_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, active_any_null_values);
+
+    var active_all_null = try bool_table.groupByAllNull("store", "active", "active_all_null");
+    defer active_all_null.deinit();
+    const active_all_null_values = try (try active_all_null.column("active_all_null")).bool.toOwnedSlice(gpa);
+    defer gpa.free(active_all_null_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true }, active_all_null_values);
+
     var active_first_valid_indices = try bool_table.groupByFirstValidIndex("store", "active", "active_first_valid_index");
     defer active_first_valid_indices.deinit();
     try expectNullableI64Column(active_first_valid_indices, gpa, "active_first_valid_index", &.{ 0, 2, 0 }, &.{ true, true, false });
@@ -807,6 +831,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_null_ratio_values[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_null_ratio_values[3], 1e-12);
+
+    var any_null_plan = try DeviceLazyFrame.init(gpa, bool_table);
+    defer any_null_plan.deinit();
+    try any_null_plan.groupByAnyNullOn(&.{ "store", "day" }, "active", "active_any_null_lazy");
+    const any_null_explained = try any_null_plan.explain(gpa);
+    defer gpa.free(any_null_explained);
+    try std.testing.expect(std.mem.indexOf(u8, any_null_explained, "group_by_any_null_on([store,day], value=active -> active_any_null_lazy)") != null);
+    var lazy_any_null = try any_null_plan.collect();
+    defer lazy_any_null.deinit();
+    const lazy_any_null_values = try (try lazy_any_null.column("active_any_null_lazy")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_any_null_values);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true }, lazy_any_null_values);
 
     var last_valid_index_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer last_valid_index_plan.deinit();
