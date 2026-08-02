@@ -64,6 +64,11 @@ const GroupByRealAggregation = enum {
     range_coeff,
 };
 
+const GroupByRobustAggregation = enum {
+    iqr,
+    mad,
+};
+
 const GroupByBoolAggregation = enum {
     any,
     all,
@@ -1130,6 +1135,125 @@ pub fn groupByMedianOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByQuantileOn(DeviceDataFrame, frame, key_names, value_name, output_name, 0.5);
+}
+
+pub fn groupByRobustOnDispatchValue(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByRobustAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceColumn,
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    return switch (value) {
+        .i8 => |typed| groupByRobustOnTyped(DeviceDataFrame, i8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i16 => |typed| groupByRobustOnTyped(DeviceDataFrame, i16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i32 => |typed| groupByRobustOnTyped(DeviceDataFrame, i32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .i64 => |typed| groupByRobustOnTyped(DeviceDataFrame, i64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u8 => |typed| groupByRobustOnTyped(DeviceDataFrame, u8, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u16 => |typed| groupByRobustOnTyped(DeviceDataFrame, u16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u32 => |typed| groupByRobustOnTyped(DeviceDataFrame, u32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .u64 => |typed| groupByRobustOnTyped(DeviceDataFrame, u64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .usize => |typed| groupByRobustOnTyped(DeviceDataFrame, usize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .isize => |typed| groupByRobustOnTyped(DeviceDataFrame, isize, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f16 => |typed| groupByRobustOnTyped(DeviceDataFrame, f16, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f32 => |typed| groupByRobustOnTyped(DeviceDataFrame, f32, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .f64 => |typed| groupByRobustOnTyped(DeviceDataFrame, f64, aggregation, allocator, frame, key_names, output_name, typed, device_value),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+fn groupByRobustOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    aggregation: GroupByRobustAggregation,
+    allocator: std.mem.Allocator,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    device_value: array_mod.Device,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(allocator);
+    defer allocator.free(values);
+    const maybe_value_validity = try validityValues(value, allocator);
+    defer if (maybe_value_validity) |validity| allocator.free(validity);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(allocator);
+    var group_values: std.ArrayList(std.ArrayList(f64)) = .empty;
+    defer {
+        for (group_values.items) |*rows| rows.deinit(allocator);
+        group_values.deinit(allocator);
+    }
+
+    for (values, 0..) |value_item, row| {
+        if (maybe_value_validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (!try rowHasValidKeys(allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(allocator, row);
+            try group_values.append(allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_values.items[group_index].append(allocator, castToF64(V, value_item));
+    }
+
+    const out = try allocator.alloc(f64, group_values.items.len);
+    defer allocator.free(out);
+    for (group_values.items, out) |values_for_group, *slot| {
+        std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
+        slot.* = switch (aggregation) {
+            .iqr => quantileFromSorted(values_for_group.items, 0.75) - quantileFromSorted(values_for_group.items, 0.25),
+            .mad => blk: {
+                const center = quantileFromSorted(values_for_group.items, 0.5);
+                for (values_for_group.items) |*item| item.* = @abs(item.* - center);
+                std.sort.insertion(f64, values_for_group.items, {}, groupByQuantileLess);
+                break :blk quantileFromSorted(values_for_group.items, 0.5);
+            },
+        };
+    }
+
+    const output_column = try DeviceColumn.fromSlice(f64, allocator, out, device_value);
+    return initMultiKeyAggregatedDataFrame(DeviceDataFrame, frame, key_names, representative_rows.items, output_name, output_column);
+}
+
+fn groupByRobustOn(
+    comptime DeviceDataFrame: type,
+    aggregation: GroupByRobustAggregation,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return groupByRobustOnDispatchValue(DeviceDataFrame, aggregation, frame.allocator, frame, key_names, output_name, value.*, frame.device);
+}
+
+pub fn groupByIqrOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .iqr, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByMadOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByRobustOn(DeviceDataFrame, .mad, frame, key_names, value_name, output_name);
 }
 
 fn groupByBoolOn(

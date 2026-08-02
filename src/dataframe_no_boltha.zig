@@ -161,6 +161,8 @@ pub const DeviceLazyGroupByAggregation = enum {
     mode,
     median,
     quantile,
+    iqr,
+    mad,
     variance,
     stddev,
     sem,

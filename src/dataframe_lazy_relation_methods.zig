@@ -171,6 +171,30 @@ pub fn groupByQuantileOn(self: anytype, key_names: []const []const u8, value_nam
     return lazy_group_mod.groupByValueOnQuantile(self, key_names, value_name, output_name, .quantile, q);
 }
 
+pub fn groupByIqr(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .iqr);
+}
+
+pub fn groupByIqrOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .iqr);
+}
+
+pub const groupByIQR = groupByIqr;
+pub const groupByIQROn = groupByIqrOn;
+
+pub fn groupByMad(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValue(key_name, value_name, output_name, .mad);
+}
+
+pub fn groupByMadOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByValueOn(key_names, value_name, output_name, .mad);
+}
+
+pub const groupByMAD = groupByMad;
+pub const groupByMADOn = groupByMadOn;
+pub const groupByMedianAbsDev = groupByMad;
+pub const groupByMedianAbsDevOn = groupByMadOn;
+
 pub fn groupByVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return self.groupByValue(key_name, value_name, output_name, .variance);
 }

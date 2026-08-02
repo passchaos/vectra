@@ -771,6 +771,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(ms_simple_q1);
     try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, ms_simple_q1);
 
+    var multi_iqr = try multi.groupByIQROn(&.{ "store", "day" }, "amount", "amount_iqr_simple");
+    defer multi_iqr.deinit();
+    const ms_simple_iqr = try (try multi_iqr.column("amount_iqr_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_iqr);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, ms_simple_iqr);
+
+    var multi_mad = try multi.groupByMedianAbsDevOn(&.{ "store", "day" }, "amount", "amount_mad_simple");
+    defer multi_mad.deinit();
+    const ms_simple_mad = try (try multi_mad.column("amount_mad_simple")).f64.toOwnedSlice(gpa);
+    defer gpa.free(ms_simple_mad);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, ms_simple_mad);
+
     var multi_variance = try multi.groupByVarianceOn(&.{ "store", "day" }, "amount", "amount_variance_simple");
     defer multi_variance.deinit();
     const ms_simple_variance = try (try multi_variance.column("amount_variance_simple")).f64.toOwnedSlice(gpa);
@@ -1070,6 +1082,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_ms_q1 = try (try lazy_multi_q1.column("amount_q1_lazy")).f64.toOwnedSlice(gpa);
     defer gpa.free(lazy_ms_q1);
     try std.testing.expectEqualSlices(f64, &.{ 1.25, 9.0, 4.0, 12.0 }, lazy_ms_q1);
+
+    var multi_iqr_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_iqr_plan.deinit();
+    try multi_iqr_plan.groupByIqrOn(&.{ "store", "day" }, "amount", "amount_iqr_lazy");
+    const multi_iqr_explained = try multi_iqr_plan.explain(gpa);
+    defer gpa.free(multi_iqr_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_iqr_explained, "group_by_iqr_on([store,day], value=amount -> amount_iqr_lazy)") != null);
+    var lazy_multi_iqr = try multi_iqr_plan.collect();
+    defer lazy_multi_iqr.deinit();
+    const lazy_ms_iqr = try (try lazy_multi_iqr.column("amount_iqr_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_iqr);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, lazy_ms_iqr);
+
+    var multi_mad_plan = try DeviceLazyFrame.init(gpa, multi);
+    defer multi_mad_plan.deinit();
+    try multi_mad_plan.groupByMADOn(&.{ "store", "day" }, "amount", "amount_mad_lazy");
+    const multi_mad_explained = try multi_mad_plan.explain(gpa);
+    defer gpa.free(multi_mad_explained);
+    try std.testing.expect(std.mem.indexOf(u8, multi_mad_explained, "group_by_mad_on([store,day], value=amount -> amount_mad_lazy)") != null);
+    var lazy_multi_mad = try multi_mad_plan.collect();
+    defer lazy_multi_mad.deinit();
+    const lazy_ms_mad = try (try lazy_multi_mad.column("amount_mad_lazy")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_ms_mad);
+    try std.testing.expectEqualSlices(f64, &.{ 0.5, 0.0, 0.0, 0.0 }, lazy_ms_mad);
 
     var multi_variance_plan = try DeviceLazyFrame.init(gpa, multi);
     defer multi_variance_plan.deinit();

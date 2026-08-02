@@ -187,6 +187,32 @@ pub fn groupByQuantileOn(self: anytype, key_names: []const []const u8, value_nam
     return group_multi_mod.groupByQuantileOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, q);
 }
 
+pub fn groupByIqr(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByIqrOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByIqrOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByIqrOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByIQR = groupByIqr;
+pub const groupByIQROn = groupByIqrOn;
+
+pub fn groupByMad(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByMadOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn groupByMadOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByMadOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const groupByMAD = groupByMad;
+pub const groupByMADOn = groupByMadOn;
+pub const groupByMedianAbsDev = groupByMad;
+pub const groupByMedianAbsDevOn = groupByMadOn;
+
 pub fn groupByVariance(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByVarianceOn(self, key_names[0..], value_name, output_name);
