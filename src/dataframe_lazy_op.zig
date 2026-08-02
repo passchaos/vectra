@@ -846,6 +846,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_gini_mean_diff: Payloads.GroupShift,
         group_cumulative_gini_coefficient: Payloads.GroupShift,
         group_cumulative_median: Payloads.GroupShift,
+        group_cumulative_quantile: Payloads.GroupShiftQuantile,
         group_cumulative_any: Payloads.GroupShift,
         group_cumulative_all: Payloads.GroupShift,
         group_cumulative_true_count: Payloads.GroupShift,

@@ -1261,6 +1261,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_gini_mean_diff => |shift| try current.withGroupCumulativeGiniMeanDiffOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_gini_coefficient => |shift| try current.withGroupCumulativeGiniCoefficientOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_median => |shift| try current.withGroupCumulativeMedianOn(shift.names, shift.value_name, shift.output_name),
+            .group_cumulative_quantile => |shift| try current.withGroupCumulativeQuantileOn(shift.names, shift.value_name, shift.output_name, shift.quantile),
             .group_cumulative_any => |shift| try current.withGroupCumulativeAnyOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_all => |shift| try current.withGroupCumulativeAllOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_true_count => |shift| try current.withGroupCumulativeTrueCountOn(shift.names, shift.value_name, shift.output_name),

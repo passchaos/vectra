@@ -6073,6 +6073,10 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumGiniCoeffOn = lazy_relation_methods_mod.withGroupCumGiniCoeffOn;
             pub const withGroupCumulativeMedian = lazy_relation_methods_mod.withGroupCumulativeMedian;
             pub const withGroupCumulativeMedianOn = lazy_relation_methods_mod.withGroupCumulativeMedianOn;
+            pub const withGroupCumulativeQuantile = lazy_relation_methods_mod.withGroupCumulativeQuantile;
+            pub const withGroupCumulativeQuantileOn = lazy_relation_methods_mod.withGroupCumulativeQuantileOn;
+            pub const withGroupCumQuantile = lazy_relation_methods_mod.withGroupCumQuantile;
+            pub const withGroupCumQuantileOn = lazy_relation_methods_mod.withGroupCumQuantileOn;
             pub const withGroupCumMedian = lazy_relation_methods_mod.withGroupCumMedian;
             pub const withGroupCumMedianOn = lazy_relation_methods_mod.withGroupCumMedianOn;
             pub const withGroupCumulativeAny = lazy_relation_methods_mod.withGroupCumulativeAny;

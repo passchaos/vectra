@@ -1276,6 +1276,21 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
                 }
             },
+            .group_cumulative_quantile => |shift| {
+                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
+                if (shift.names.len == 0) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (shift.names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
+                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
+                }
+            },
             .group_row_number => |row_count| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
                 if (row_count.names.len == 0) {

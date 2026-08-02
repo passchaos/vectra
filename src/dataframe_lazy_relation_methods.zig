@@ -1370,6 +1370,17 @@ pub fn withGroupCumulativeMedianOn(self: anytype, key_names: []const []const u8,
     return lazy_group_mod.withGroupCumulativeMedian(self, key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeQuantile(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeQuantileOn(self, key_names[0..], value_name, output_name, q);
+}
+
+pub fn withGroupCumulativeQuantileOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeQuantile(self, key_names, value_name, output_name, q);
+}
+
+pub const withGroupCumQuantile = withGroupCumulativeQuantile;
+pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 pub const withGroupCumMedian = withGroupCumulativeMedian;
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 
