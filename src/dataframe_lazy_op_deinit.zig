@@ -709,7 +709,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_count.names);
             allocator.free(row_count.output_name);
         },
-        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count, .group_cumulative_valid_ratio, .group_cumulative_null_ratio, .group_cumulative_sum => |shift| {
+        .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count, .group_cumulative_valid_ratio, .group_cumulative_null_ratio, .group_cumulative_sum, .group_cumulative_mean => |shift| {
             freeNameList(allocator, shift.names);
             allocator.free(shift.value_name);
             allocator.free(shift.output_name);
