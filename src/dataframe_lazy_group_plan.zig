@@ -1787,7 +1787,7 @@ pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, va
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano }) DeviceDataError!void {
+fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { sum, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1797,6 +1797,7 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
     const owned_output = try frame.allocator.dupe(u8, output_name);
     errdefer frame.allocator.free(owned_output);
     try frame.ops.append(frame.allocator, switch (op) {
+        .sum => .{ .group_cumulative_weighted_sum = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .mean => .{ .group_cumulative_weighted_mean = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .mean_square => .{ .group_cumulative_weighted_mean_square = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .rms => .{ .group_cumulative_weighted_rms = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
@@ -1824,6 +1825,10 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
 
 pub fn withGroupCumulativeWeightedMean(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .mean);
+}
+
+pub fn withGroupCumulativeWeightedSum(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .sum);
 }
 
 pub fn withGroupCumulativeWeightedMeanSquare(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {

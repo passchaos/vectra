@@ -1708,8 +1708,19 @@ pub fn withGroupCumulativeWeightedMeanOn(self: anytype, key_names: []const []con
     return group_multi_mod.withGroupCumulativeWeightedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
 }
 
+pub fn withGroupCumulativeWeightedSum(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSumOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedSumOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumWeightedMean = withGroupCumulativeWeightedMean;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
+pub const withGroupCumWeightedSum = withGroupCumulativeWeightedSum;
+pub const withGroupCumWeightedSumOn = withGroupCumulativeWeightedSumOn;
 
 pub fn withGroupCumulativeWeightedMedian(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
@@ -3142,6 +3153,15 @@ pub fn groupByWeightedMean(self: anytype, key_name: []const u8, value_name: []co
 
 pub fn groupByWeightedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return group_multi_mod.groupByWeightedMeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSum(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedSumOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSumOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedSumOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
 }
 
 pub fn groupByWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {

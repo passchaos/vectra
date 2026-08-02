@@ -2863,6 +2863,11 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 10.0), weighted_mean_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_mean_values[2]));
 
+    const weighted_sum_expected = [_]f64{ 130.0, 20.0, std.math.nan(f64) };
+    var weighted_sum = try weighted_table.groupByWeightedSum("bucket", "value", "weight", "value_weighted_sum");
+    defer weighted_sum.deinit();
+    try expectF64ColumnApproxOrNan(weighted_sum, gpa, "value_weighted_sum", &weighted_sum_expected);
+
     const weighted_mean_square_expected = [_]f64{ 1550.0 / 3.0, 125.0, std.math.nan(f64) };
     const weighted_rms_expected = [_]f64{ std.math.sqrt(@as(f64, 1550.0 / 3.0)), std.math.sqrt(@as(f64, 125.0)), std.math.nan(f64) };
 
@@ -3307,12 +3312,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     });
     defer negative_weight_table.deinit();
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedMean("bucket", "value", "weight", "bad_weighted_mean"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedSum("bucket", "value", "weight", "bad_weighted_sum"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedMin("bucket", "value", "weight", "bad_weighted_min"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedLogSumExp("bucket", "value", "weight", "bad_weighted_logsumexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedLogMeanExp("bucket", "value", "weight", "bad_weighted_logmeanexp"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedRange("bucket", "value", "weight", "bad_weighted_range"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedSum("bucket", "value", "weight", "bad_weighted_cum_sum"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMax("bucket", "value", "weight", "bad_weighted_cum_max"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "bad_weighted_cum_mode"));
@@ -3324,9 +3331,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedRange("bucket", "value", "weight", "bad_weighted_cum_range"));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
+    const group_cum_weighted_sum_expected = [_]f64{ 10.0, 70.0, 130.0, 5.0, 20.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
     defer group_cum_weighted_mean.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mean, gpa, "value_weighted_cum_mean", &.{ 10.0, 17.5, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_sum = try weighted_table.withGroupCumulativeWeightedSum("bucket", "value", "weight", "value_weighted_cum_sum");
+    defer group_cum_weighted_sum.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_sum, gpa, "value_weighted_cum_sum", &group_cum_weighted_sum_expected, &.{ true, true, true, true, true, false, true, true });
 
     var weighted_mean_plan = try DeviceLazyFrame.init(gpa, weighted_table);
     defer weighted_mean_plan.deinit();
@@ -3345,12 +3358,15 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var cumulative_weighted_mean_plan = try DeviceLazyFrame.init(gpa, weighted_table);
     defer cumulative_weighted_mean_plan.deinit();
     try cumulative_weighted_mean_plan.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean_lazy");
+    try cumulative_weighted_mean_plan.withGroupCumulativeWeightedSum("bucket", "value", "weight", "value_weighted_cum_sum_lazy");
     const cumulative_weighted_mean_explained = try cumulative_weighted_mean_plan.explain(gpa);
     defer gpa.free(cumulative_weighted_mean_explained);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_mean([bucket], value=value, weight=weight->value_weighted_cum_mean_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mean_explained, "group_cumulative_weighted_sum([bucket], value=value, weight=weight->value_weighted_cum_sum_lazy)") != null);
     var lazy_cumulative_weighted_mean = try cumulative_weighted_mean_plan.collect();
     defer lazy_cumulative_weighted_mean.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_mean_lazy", &.{ 10.0, 17.5, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_sum_lazy", &group_cum_weighted_sum_expected, &.{ true, true, true, true, true, false, true, true });
 
     const group_cum_weighted_median_expected = [_]f64{ 10.0, 20.0, 20.0, 5.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_q75_expected = [_]f64{ 10.0, 20.0, 30.0, 5.0, 15.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
@@ -3827,6 +3843,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         explain: []const u8,
         expected: []const f64,
     }{
+        .{ .method = .weighted_sum, .output_name = "value_weighted_sum_lazy", .explain = "group_by_weighted_sum(bucket, value=value, weight=weight -> value_weighted_sum_lazy)", .expected = &weighted_sum_expected },
         .{ .method = .weighted_mean_square, .output_name = "value_weighted_mean_square_lazy", .explain = "group_by_weighted_mean_square(bucket, value=value, weight=weight -> value_weighted_mean_square_lazy)", .expected = &weighted_mean_square_expected },
         .{ .method = .weighted_rms, .output_name = "value_weighted_rms_lazy", .explain = "group_by_weighted_rms(bucket, value=value, weight=weight -> value_weighted_rms_lazy)", .expected = &weighted_rms_expected },
         .{ .method = .weighted_min, .output_name = "value_weighted_min_lazy", .explain = "group_by_weighted_min(bucket, value=value, weight=weight -> value_weighted_min_lazy)", .expected = &weighted_min_expected },
@@ -3862,6 +3879,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         var plan = try DeviceLazyFrame.init(gpa, weighted_table);
         defer plan.deinit();
         try switch (case.method) {
+            .weighted_sum => plan.groupByWeightedSum("bucket", "value", "weight", case.output_name),
             .weighted_mean_square => plan.groupByWeightedMeanSquare("bucket", "value", "weight", case.output_name),
             .weighted_rms => plan.groupByWeightedRms("bucket", "value", "weight", case.output_name),
             .weighted_min => plan.groupByWeightedMin("bucket", "value", "weight", case.output_name),

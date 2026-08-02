@@ -6203,8 +6203,12 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumMeanOn = lazy_relation_methods_mod.withGroupCumMeanOn;
             pub const withGroupCumulativeWeightedMean = lazy_relation_methods_mod.withGroupCumulativeWeightedMean;
             pub const withGroupCumulativeWeightedMeanOn = lazy_relation_methods_mod.withGroupCumulativeWeightedMeanOn;
+            pub const withGroupCumulativeWeightedSum = lazy_relation_methods_mod.withGroupCumulativeWeightedSum;
+            pub const withGroupCumulativeWeightedSumOn = lazy_relation_methods_mod.withGroupCumulativeWeightedSumOn;
             pub const withGroupCumWeightedMean = lazy_relation_methods_mod.withGroupCumWeightedMean;
             pub const withGroupCumWeightedMeanOn = lazy_relation_methods_mod.withGroupCumWeightedMeanOn;
+            pub const withGroupCumWeightedSum = lazy_relation_methods_mod.withGroupCumWeightedSum;
+            pub const withGroupCumWeightedSumOn = lazy_relation_methods_mod.withGroupCumWeightedSumOn;
             pub const withGroupCumulativeWeightedMedian = lazy_relation_methods_mod.withGroupCumulativeWeightedMedian;
             pub const withGroupCumulativeWeightedMedianOn = lazy_relation_methods_mod.withGroupCumulativeWeightedMedianOn;
             pub const withGroupCumulativeWeightedQuantile = lazy_relation_methods_mod.withGroupCumulativeWeightedQuantile;
@@ -6815,6 +6819,8 @@ pub fn DeviceLazyTypes(
             pub const groupByGiniCoeffOn = lazy_relation_methods_mod.groupByGiniCoeffOn;
             pub const groupByWeightedMean = lazy_relation_methods_mod.groupByWeightedMean;
             pub const groupByWeightedMeanOn = lazy_relation_methods_mod.groupByWeightedMeanOn;
+            pub const groupByWeightedSum = lazy_relation_methods_mod.groupByWeightedSum;
+            pub const groupByWeightedSumOn = lazy_relation_methods_mod.groupByWeightedSumOn;
             pub const groupByWeightedMeanSquare = lazy_relation_methods_mod.groupByWeightedMeanSquare;
             pub const groupByWeightedMeanSquareOn = lazy_relation_methods_mod.groupByWeightedMeanSquareOn;
             pub const groupByWeightedRms = lazy_relation_methods_mod.groupByWeightedRms;
