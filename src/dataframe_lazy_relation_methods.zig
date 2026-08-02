@@ -1420,6 +1420,18 @@ pub const withGroupCumMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumMedianAbsDev = withGroupCumulativeMad;
 pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
 
+pub fn withGroupCumulativeTrimmedMean(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeTrimmedMeanOn(self, key_names[0..], value_name, output_name, trim_fraction);
+}
+
+pub fn withGroupCumulativeTrimmedMeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeTrimmedMean(self, key_names, value_name, output_name, trim_fraction);
+}
+
+pub const withGroupCumTrimmedMean = withGroupCumulativeTrimmedMean;
+pub const withGroupCumTrimmedMeanOn = withGroupCumulativeTrimmedMeanOn;
+
 pub fn withGroupCumulativeInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeInterdecileRangeOn(self, key_names[0..], value_name, output_name);

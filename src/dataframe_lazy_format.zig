@@ -3503,6 +3503,14 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_trimmed_mean => |shift| {
+            try writer.print("group_cumulative_trimmed_mean([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, trim_fraction={d}->{s})", .{ shift.value_name, shift.quantile, shift.output_name });
+        },
         .group_cumulative_interdecile_range => |shift| {
             try writer.print("group_cumulative_interdecile_range([", .{});
             for (shift.names, 0..) |name, i| {

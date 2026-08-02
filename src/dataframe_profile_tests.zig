@@ -1904,6 +1904,33 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_kelley.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_kelley, gpa, "label_cum_kelley_lazy", &group_cum_kelley_expected, &group_cum_mode_validity_expected);
 
+    var trim_key = try DeviceColumn.fromSliceWithValidity(i32, gpa, &.{ 1, 1, 1, 1, 1, 2, 2 }, &.{ true, true, true, true, true, true, false }, .cpu);
+    defer trim_key.deinit();
+    var trim_value = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 100.0, 4.0, 9.0, 10.0, 20.0 }, &.{ true, true, true, true, false, true, true }, .cpu);
+    defer trim_value.deinit();
+    var trim_table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "trim_bucket", .data = trim_key },
+        .{ .name = "trim_value", .data = trim_value },
+    });
+    defer trim_table.deinit();
+    const group_cum_trimmed_expected = [_]f64{ 1.0, 1.5, 103.0 / 3.0, 3.0, 0.0, 10.0, 0.0 };
+    const group_cum_trimmed_validity = [_]bool{ true, true, true, true, false, true, false };
+
+    var group_cum_trimmed = try trim_table.withGroupCumulativeTrimmedMean("trim_bucket", "trim_value", "trim_value_cum_trimmed", 0.25);
+    defer group_cum_trimmed.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_trimmed, gpa, "trim_value_cum_trimmed", &group_cum_trimmed_expected, &group_cum_trimmed_validity);
+    try std.testing.expectError(error.InvalidShape, trim_table.withGroupCumulativeTrimmedMean("trim_bucket", "trim_value", "bad_trimmed", 0.5));
+
+    var cumulative_trimmed_plan = try DeviceLazyFrame.init(gpa, trim_table);
+    defer cumulative_trimmed_plan.deinit();
+    try cumulative_trimmed_plan.withGroupCumTrimmedMean("trim_bucket", "trim_value", "trim_value_cum_trimmed_lazy", 0.25);
+    const cumulative_trimmed_explained = try cumulative_trimmed_plan.explain(gpa);
+    defer gpa.free(cumulative_trimmed_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_trimmed_explained, "group_cumulative_trimmed_mean([trim_bucket], value=trim_value, trim_fraction=0.25->trim_value_cum_trimmed_lazy)") != null);
+    var lazy_cumulative_trimmed = try cumulative_trimmed_plan.collect();
+    defer lazy_cumulative_trimmed.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_trimmed, gpa, "trim_value_cum_trimmed_lazy", &group_cum_trimmed_expected, &group_cum_trimmed_validity);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

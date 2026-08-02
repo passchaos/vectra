@@ -3276,7 +3276,7 @@ pub fn withGroupCumulativeQuantileOn(comptime DeviceDataFrame: type, frame: Devi
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 
-const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness };
+const GroupCumulativeRobustAggregation = enum { iqr, mad, trimmed_mean, interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness };
 
 fn withGroupCumulativeRobustOnTyped(
     comptime DeviceDataFrame: type,
@@ -3286,6 +3286,7 @@ fn withGroupCumulativeRobustOnTyped(
     output_name: []const u8,
     value: DeviceTypedColumn(V),
     comptime aggregation: GroupCumulativeRobustAggregation,
+    fraction: f64,
 ) GroupByOnError!DeviceDataFrame {
     if (frame.rows != value.len()) return error.LengthMismatch;
     const values = try value.values.toOwnedSlice(frame.allocator);
@@ -3323,6 +3324,7 @@ fn withGroupCumulativeRobustOnTyped(
         outputs[row] = switch (aggregation) {
             .iqr => quantileFromSorted(sorted, 0.75) - quantileFromSorted(sorted, 0.25),
             .mad => try medianAbsDevFromSorted(frame.allocator, sorted),
+            .trimmed_mean => trimmedMeanFromSorted(sorted, fraction),
             .interdecile_range => quantileFromSorted(sorted, 0.9) - quantileFromSorted(sorted, 0.1),
             .midhinge => (quantileFromSorted(sorted, 0.25) + quantileFromSorted(sorted, 0.75)) / 2.0,
             .trimean => (quantileFromSorted(sorted, 0.25) + 2.0 * quantileFromSorted(sorted, 0.5) + quantileFromSorted(sorted, 0.75)) / 4.0,
@@ -3362,58 +3364,64 @@ fn withGroupCumulativeRobustCoreOn(
     value_name: []const u8,
     output_name: []const u8,
     comptime aggregation: GroupCumulativeRobustAggregation,
+    fraction: f64,
 ) GroupByOnError!DeviceDataFrame {
+    if (aggregation == .trimmed_mean) try validateTailFraction(fraction);
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
     const value = try frame.column(value_name);
     return switch (value.*) {
-        .i8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation),
-        .i16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation),
-        .i32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation),
-        .i64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation),
-        .u8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation),
-        .u16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation),
-        .u32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation),
-        .u64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation),
-        .usize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation),
-        .isize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation),
-        .f16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation),
-        .f32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation),
-        .f64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation),
+        .i8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation, fraction),
+        .i16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation, fraction),
+        .i32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation, fraction),
+        .i64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation, fraction),
+        .u8 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation, fraction),
+        .u16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation, fraction),
+        .u32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation, fraction),
+        .u64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation, fraction),
+        .usize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation, fraction),
+        .isize => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation, fraction),
+        .f16 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation, fraction),
+        .f32 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation, fraction),
+        .f64 => |typed| withGroupCumulativeRobustOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation, fraction),
         .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
     };
 }
 
 pub fn withGroupCumulativeIqrOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .iqr);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .iqr, 0.0);
 }
 
 pub fn withGroupCumulativeMadOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mad);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mad, 0.0);
+}
+
+pub fn withGroupCumulativeTrimmedMeanOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, trim_fraction: f64) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .trimmed_mean, trim_fraction);
 }
 
 pub fn withGroupCumulativeInterdecileRangeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .interdecile_range);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .interdecile_range, 0.0);
 }
 
 pub fn withGroupCumulativeMidhingeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .midhinge);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .midhinge, 0.0);
 }
 
 pub fn withGroupCumulativeTrimeanOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .trimean);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .trimean, 0.0);
 }
 
 pub fn withGroupCumulativeBowleySkewnessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .bowley_skewness);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .bowley_skewness, 0.0);
 }
 
 pub fn withGroupCumulativeQuartileCoeffDispersionOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .quartile_coeff_dispersion);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .quartile_coeff_dispersion, 0.0);
 }
 
 pub fn withGroupCumulativeKelleySkewnessOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
-    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .kelley_skewness);
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .kelley_skewness, 0.0);
 }
 
 pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
@@ -3426,6 +3434,7 @@ pub const withGroupCumIQROn = withGroupCumulativeIqrOn;
 pub const withGroupCumMadOn = withGroupCumulativeMadOn;
 pub const withGroupCumMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
+pub const withGroupCumTrimmedMeanOn = withGroupCumulativeTrimmedMeanOn;
 pub const withGroupCumIdrOn = withGroupCumulativeInterdecileRangeOn;
 pub const withGroupCumIDROn = withGroupCumulativeInterdecileRangeOn;
 pub const withGroupCumMidhingeOn = withGroupCumulativeMidhingeOn;
