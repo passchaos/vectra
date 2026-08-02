@@ -2623,14 +2623,25 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("] -> {s})", .{group.output_name});
         },
-        .group_by_rows => |group| try writer.print("group_by_{s}_rows({s}, n={d})", .{ if (group.keep_tail) "tail" else "head", group.key_name, group.n }),
+        .group_by_rows => |group| if (!group.keep_tail and group.start != 0)
+            try writer.print("group_by_slice_rows({s}, start={d}, length={d})", .{ group.key_name, group.start, group.n })
+        else
+            try writer.print("group_by_{s}_rows({s}, n={d})", .{ if (group.keep_tail) "tail" else "head", group.key_name, group.n }),
         .group_by_rows_on => |group| {
-            try writer.print("group_by_{s}_rows_on([", .{if (group.keep_tail) "tail" else "head"});
+            if (!group.keep_tail and group.start != 0) {
+                try writer.print("group_by_slice_rows_on([", .{});
+            } else {
+                try writer.print("group_by_{s}_rows_on([", .{if (group.keep_tail) "tail" else "head"});
+            }
             for (group.key_names, 0..) |name, i| {
                 if (i != 0) try writer.print(",", .{});
                 try writer.print("{s}", .{name});
             }
-            try writer.print("], n={d})", .{group.n});
+            if (!group.keep_tail and group.start != 0) {
+                try writer.print("], start={d}, length={d})", .{ group.start, group.n });
+            } else {
+                try writer.print("], n={d})", .{group.n});
+            }
         },
         .group_by_sorted_rows => |group| try writer.print("group_by_{s}_rows({s}, sort={s}, n={d}, desc={any})", .{ if (group.keep_bottom) "bottom" else "top", group.key_name, group.sort_name, group.n, group.options.descending }),
         .group_by_sorted_rows_on => |group| {

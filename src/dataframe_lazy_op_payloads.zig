@@ -580,11 +580,13 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
         };
         pub const GroupByRows = struct {
             key_name: []const u8,
+            start: usize = 0,
             n: usize,
             keep_tail: bool,
         };
         pub const GroupByRowsOn = struct {
             key_names: [][]const u8,
+            start: usize = 0,
             n: usize,
             keep_tail: bool,
         };

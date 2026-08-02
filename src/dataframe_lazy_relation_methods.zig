@@ -39,6 +39,14 @@ pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize)
     return lazy_group_mod.groupByRowsOn(self, key_names, n, true);
 }
 
+pub fn groupBySliceRows(self: anytype, key_name: []const u8, start: usize, length: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRows(self, key_name, start, length);
+}
+
+pub fn groupBySliceRowsOn(self: anytype, key_names: []const []const u8, start: usize, length: usize) DeviceDataError!void {
+    return lazy_group_mod.groupBySliceRowsOn(self, key_names, start, length);
+}
+
 pub fn groupByTopRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!void {
     return lazy_group_mod.groupBySortedRows(self, key_name, sort_name, n, options_value, false);
 }

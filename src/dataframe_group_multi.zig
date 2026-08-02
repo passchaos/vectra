@@ -802,6 +802,47 @@ fn groupByLimitRowsOn(
     return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
 }
 
+fn groupBySliceRowsCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: usize,
+    length: usize,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    if (length == 0) return dataframe_array_mod.takeRows(DeviceDataFrame, frame, &.{});
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var groups: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (groups.items) |*group| group.deinit(frame.allocator);
+        groups.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            var rows: std.ArrayList(usize) = .empty;
+            errdefer rows.deinit(frame.allocator);
+            try groups.append(frame.allocator, rows);
+            break :blk groups.items.len - 1;
+        };
+        try groups.items[group_index].append(frame.allocator, row);
+    }
+
+    var row_indices: std.ArrayList(usize) = .empty;
+    defer row_indices.deinit(frame.allocator);
+    for (groups.items) |group| {
+        if (start >= group.items.len) continue;
+        const stop = @min(start +| length, group.items.len);
+        try row_indices.appendSlice(frame.allocator, group.items[start..stop]);
+    }
+    return dataframe_array_mod.takeRows(DeviceDataFrame, frame, row_indices.items);
+}
+
 fn RowSortContext(comptime T: type) type {
     return struct {
         values: []const T,
@@ -924,6 +965,16 @@ pub fn groupByTailRowsOn(
     n: usize,
 ) GroupByOnError!DeviceDataFrame {
     return groupByLimitRowsOn(DeviceDataFrame, frame, key_names, n, true);
+}
+
+pub fn groupBySliceRowsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    start: usize,
+    length: usize,
+) GroupByOnError!DeviceDataFrame {
+    return groupBySliceRowsCoreOn(DeviceDataFrame, frame, key_names, start, length);
 }
 
 pub fn groupByTopRowsOn(

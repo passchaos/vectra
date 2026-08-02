@@ -960,6 +960,18 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, tail_row_keys);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, tail_row_sales);
 
+    var slice_rows = try table.groupBySliceRows("store", 1, 2);
+    defer slice_rows.deinit();
+    const slice_row_keys = try (try slice_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(slice_row_keys);
+    const slice_row_sales = try (try slice_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(slice_row_sales);
+    const slice_row_sales_validity = try (try slice_rows.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(slice_row_sales_validity);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2 }, slice_row_keys);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 13.0, 11.0 }, slice_row_sales);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, slice_row_sales_validity);
+
     var top_sales_rows = try table.groupByTopRows("store", "sales", 2, .{ .descending = true, .nulls = .last });
     defer top_sales_rows.deinit();
     const top_sales_keys = try (try top_sales_rows.column("store")).i32.toOwnedSlice(gpa);
@@ -1037,6 +1049,24 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(lazy_tail_sales);
     try std.testing.expectEqualSlices(i32, &.{ 1, 2 }, lazy_tail_keys);
     try std.testing.expectEqualSlices(f64, &.{ 13.0, 11.0 }, lazy_tail_sales);
+
+    var slice_rows_plan = try DeviceLazyFrame.init(gpa, table);
+    defer slice_rows_plan.deinit();
+    try slice_rows_plan.groupBySliceRows("store", 1, 2);
+    const slice_rows_explained = try slice_rows_plan.explain(gpa);
+    defer gpa.free(slice_rows_explained);
+    try std.testing.expect(std.mem.indexOf(u8, slice_rows_explained, "group_by_slice_rows(store, start=1, length=2)") != null);
+    var lazy_slice_rows = try slice_rows_plan.collect();
+    defer lazy_slice_rows.deinit();
+    const lazy_slice_keys = try (try lazy_slice_rows.column("store")).i32.toOwnedSlice(gpa);
+    defer gpa.free(lazy_slice_keys);
+    const lazy_slice_sales = try (try lazy_slice_rows.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_slice_sales);
+    const lazy_slice_sales_validity = try (try lazy_slice_rows.column("sales")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_slice_sales_validity);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 2 }, lazy_slice_keys);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 13.0, 11.0 }, lazy_slice_sales);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true }, lazy_slice_sales_validity);
 
     var top_rows_plan = try DeviceLazyFrame.init(gpa, table);
     defer top_rows_plan.deinit();

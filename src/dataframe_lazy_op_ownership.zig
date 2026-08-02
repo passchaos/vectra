@@ -3933,6 +3933,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             errdefer allocator.free(key_name);
             break :blk .{ .group_by_rows = .{
                 .key_name = key_name,
+                .start = group.start,
                 .n = group.n,
                 .keep_tail = group.keep_tail,
             } };
@@ -3942,6 +3943,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
             errdefer freeNameList(allocator, key_names);
             break :blk .{ .group_by_rows_on = .{
                 .key_names = key_names,
+                .start = group.start,
                 .n = group.n,
                 .keep_tail = group.keep_tail,
             } };

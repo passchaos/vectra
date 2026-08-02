@@ -1158,12 +1158,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_by_count_on => |group| try current.groupByCountOn(group.key_names, group.output_name),
             .group_by_rows => |group| if (group.keep_tail)
                 try current.groupByTailRows(group.key_name, group.n)
+            else if (group.start == 0)
+                try current.groupByHeadRows(group.key_name, group.n)
             else
-                try current.groupByHeadRows(group.key_name, group.n),
+                try current.groupBySliceRows(group.key_name, group.start, group.n),
             .group_by_rows_on => |group| if (group.keep_tail)
                 try current.groupByTailRowsOn(group.key_names, group.n)
+            else if (group.start == 0)
+                try current.groupByHeadRowsOn(group.key_names, group.n)
             else
-                try current.groupByHeadRowsOn(group.key_names, group.n),
+                try current.groupBySliceRowsOn(group.key_names, group.start, group.n),
             .group_by_sorted_rows => |group| if (group.keep_bottom)
                 try current.groupByBottomRows(group.key_name, group.sort_name, group.n, group.options)
             else

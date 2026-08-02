@@ -56,6 +56,15 @@ pub fn groupByTailRowsOn(self: anytype, key_names: []const []const u8, n: usize)
     return group_multi_mod.groupByTailRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, n);
 }
 
+pub fn groupBySliceRows(self: anytype, key_name: []const u8, start: usize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupBySliceRowsOn(self, key_names[0..], start, length);
+}
+
+pub fn groupBySliceRowsOn(self: anytype, key_names: []const []const u8, start: usize, length: usize) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupBySliceRowsOn(FrameType(@TypeOf(self)), frameValue(self), key_names, start, length);
+}
+
 pub fn groupByTopRows(self: anytype, key_name: []const u8, sort_name: []const u8, n: usize, options_value: options_mod.DeviceSortOptions) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByTopRowsOn(self, key_names[0..], sort_name, n, options_value);
