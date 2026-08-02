@@ -4070,6 +4070,22 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
         },
+        .group_cumulative_weighted_skewness => |shift| {
+            try writer.print("group_cumulative_weighted_skewness([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_kurtosis => |shift| {
+            try writer.print("group_cumulative_weighted_kurtosis([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
         .group_cumulative_product => |shift| {
             try writer.print("group_cumulative_product([", .{});
             for (shift.names, 0..) |name, i| {

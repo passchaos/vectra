@@ -930,6 +930,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_cumulative_weighted_sem: Payloads.GroupWeightedShift,
         group_cumulative_weighted_cv: Payloads.GroupWeightedShift,
         group_cumulative_weighted_fano: Payloads.GroupWeightedShift,
+        group_cumulative_weighted_skewness: Payloads.GroupWeightedShift,
+        group_cumulative_weighted_kurtosis: Payloads.GroupWeightedShift,
         group_cumulative_product: Payloads.GroupShift,
         group_cumulative_min: Payloads.GroupShift,
         group_cumulative_max: Payloads.GroupShift,

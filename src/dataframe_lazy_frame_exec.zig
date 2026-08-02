@@ -1345,6 +1345,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .group_cumulative_weighted_sem => |shift| try current.withGroupCumulativeWeightedSemOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_cv => |shift| try current.withGroupCumulativeWeightedCvOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_weighted_fano => |shift| try current.withGroupCumulativeWeightedFanoOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
+            .group_cumulative_weighted_skewness => |shift| try current.withGroupCumulativeWeightedSkewnessOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
+            .group_cumulative_weighted_kurtosis => |shift| try current.withGroupCumulativeWeightedKurtosisOn(shift.names, shift.value_name, shift.weight_name, shift.output_name),
             .group_cumulative_product => |shift| try current.withGroupCumulativeProductOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_min => |shift| try current.withGroupCumulativeMinOn(shift.names, shift.value_name, shift.output_name),
             .group_cumulative_max => |shift| try current.withGroupCumulativeMaxOn(shift.names, shift.value_name, shift.output_name),

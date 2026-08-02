@@ -3705,7 +3705,7 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-const GroupCumulativeWeightedMoment = enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano };
+const GroupCumulativeWeightedMoment = enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano, skewness, kurtosis };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad, trimmed_mean, winsorized_mean };
 
@@ -3818,6 +3818,10 @@ fn withGroupCumulativeWeightedMomentOn(
     defer weighted_sums.deinit(frame.allocator);
     var weighted_square_sums: std.ArrayList(f64) = .empty;
     defer weighted_square_sums.deinit(frame.allocator);
+    var weighted_cube_sums: std.ArrayList(f64) = .empty;
+    defer weighted_cube_sums.deinit(frame.allocator);
+    var weighted_fourth_sums: std.ArrayList(f64) = .empty;
+    defer weighted_fourth_sums.deinit(frame.allocator);
     var weighted_abs_sums: std.ArrayList(f64) = .empty;
     defer weighted_abs_sums.deinit(frame.allocator);
     var weighted_max_abs_values: std.ArrayList(f64) = .empty;
@@ -3857,6 +3861,8 @@ fn withGroupCumulativeWeightedMomentOn(
             try weight_square_sums.append(frame.allocator, 0.0);
             try weighted_sums.append(frame.allocator, 0.0);
             try weighted_square_sums.append(frame.allocator, 0.0);
+            try weighted_cube_sums.append(frame.allocator, 0.0);
+            try weighted_fourth_sums.append(frame.allocator, 0.0);
             try weighted_abs_sums.append(frame.allocator, 0.0);
             try weighted_max_abs_values.append(frame.allocator, 0.0);
             try weighted_min_abs_values.append(frame.allocator, 0.0);
@@ -3875,6 +3881,8 @@ fn withGroupCumulativeWeightedMomentOn(
         if (weight > 0.0) weight_square_sums.items[group_index] += weight * weight;
         weighted_sums.items[group_index] += value * weight;
         weighted_square_sums.items[group_index] += value * value * weight;
+        weighted_cube_sums.items[group_index] += value * value * value * weight;
+        weighted_fourth_sums.items[group_index] += value * value * value * value * weight;
         weighted_abs_sums.items[group_index] += @abs(value) * weight;
         if (weight > 0.0) {
             const abs_value = @abs(value);
@@ -3932,7 +3940,7 @@ fn withGroupCumulativeWeightedMomentOn(
                 .midrange => finishWeightedRange(weighted_min_values.items[group_index], weighted_max_values.items[group_index], positive_weight_counts.items[group_index], .midrange),
                 .range_coeff => finishWeightedRange(weighted_min_values.items[group_index], weighted_max_values.items[group_index], positive_weight_counts.items[group_index], .range_coeff),
                 .weight_sum, .positive_count, .effective_n => unreachable,
-                .variance, .stddev, .sem, .cv, .fano => blk: {
+                .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => blk: {
                     var centered_square_sum = weighted_square_sums.items[group_index] - weighted_sums.items[group_index] * weighted_sums.items[group_index] / weight_sum;
                     // The one-pass prefix formula can produce a tiny negative value
                     // through cancellation when the true weighted variance is zero.
@@ -3942,12 +3950,21 @@ fn withGroupCumulativeWeightedMomentOn(
                     const variance = centered_square_sum / weight_sum;
                     const stddev = std.math.sqrt(variance);
                     const mean = weighted_sums.items[group_index] / weight_sum;
+                    // Skewness/kurtosis need central third/fourth moments.  Keep
+                    // raw weighted power sums in the prefix state and expand
+                    // around the current weighted mean here so the cumulative
+                    // implementation preserves row order without replaying each
+                    // group's prefix on every row.
+                    const centered_cube_sum = weighted_cube_sums.items[group_index] - 3.0 * mean * weighted_square_sums.items[group_index] + 3.0 * mean * mean * weighted_sums.items[group_index] - mean * mean * mean * weight_sum;
+                    const centered_fourth_sum = weighted_fourth_sums.items[group_index] - 4.0 * mean * weighted_cube_sums.items[group_index] + 6.0 * mean * mean * weighted_square_sums.items[group_index] - 4.0 * mean * mean * mean * weighted_sums.items[group_index] + mean * mean * mean * mean * weight_sum;
                     break :blk switch (moment) {
                         .variance => variance,
                         .stddev => stddev,
                         .sem => std.math.sqrt(variance / weight_sum),
                         .cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
                         .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
+                        .skewness => if (centered_square_sum == 0.0) std.math.nan(f64) else std.math.sqrt(weight_sum) * centered_cube_sum / std.math.pow(f64, centered_square_sum, 1.5),
+                        .kurtosis => if (centered_square_sum == 0.0) std.math.nan(f64) else weight_sum * centered_fourth_sum / (centered_square_sum * centered_square_sum) - 3.0,
                         .sum, .product, .weight_sum, .positive_count, .effective_n, .mean, .mean_square, .rms, .min, .max, .mean_abs, .l1_norm, .l2_norm, .max_abs, .min_abs, .geometric_mean, .harmonic_mean, .logsumexp, .logmeanexp, .range, .midrange, .range_coeff => unreachable,
                     };
                 },
@@ -4258,6 +4275,28 @@ pub fn withGroupCumulativeWeightedFanoOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .fano);
+}
+
+pub fn withGroupCumulativeWeightedSkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .skewness);
+}
+
+pub fn withGroupCumulativeWeightedKurtosisOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .kurtosis);
 }
 
 fn withGroupCumulativeWeightedQuantileCoreOn(
@@ -4898,11 +4937,17 @@ pub const withGroupCumWeightedMaximumOn = withGroupCumulativeWeightedMaxOn;
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumulativeWeightedSkewOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumulativeWeightedKurtOn = withGroupCumulativeWeightedKurtosisOn;
 pub const withGroupCumWeightedSemOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumWeightedSEMOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumWeightedCvOn = withGroupCumulativeWeightedCvOn;
 pub const withGroupCumWeightedCVOn = withGroupCumulativeWeightedCvOn;
 pub const withGroupCumWeightedFanoOn = withGroupCumulativeWeightedFanoOn;
+pub const withGroupCumWeightedSkewnessOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumWeightedSkewOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumWeightedKurtosisOn = withGroupCumulativeWeightedKurtosisOn;
+pub const withGroupCumWeightedKurtOn = withGroupCumulativeWeightedKurtosisOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
 pub const withGroupCumWeightedQuantileOn = withGroupCumulativeWeightedQuantileOn;

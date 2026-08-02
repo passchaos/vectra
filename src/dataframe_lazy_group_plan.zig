@@ -1787,7 +1787,7 @@ pub fn withGroupCumulativeMean(frame: anytype, key_names: []const []const u8, va
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .mean);
 }
 
-fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano }) DeviceDataError!void {
+fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { sum, product, weight_sum, positive_count, effective_n, mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano, skewness, kurtosis }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
     const owned_value = try frame.allocator.dupe(u8, value_name);
@@ -1824,6 +1824,8 @@ fn withGroupCumulativeWeightedMoment(frame: anytype, key_names: []const []const 
         .sem => .{ .group_cumulative_weighted_sem = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .cv => .{ .group_cumulative_weighted_cv = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
         .fano => .{ .group_cumulative_weighted_fano = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .skewness => .{ .group_cumulative_weighted_skewness = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .kurtosis => .{ .group_cumulative_weighted_kurtosis = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
     });
 }
 
@@ -2155,6 +2157,14 @@ pub fn withGroupCumulativeWeightedFano(frame: anytype, key_names: []const []cons
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .fano);
 }
 
+pub fn withGroupCumulativeWeightedSkewness(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .skewness);
+}
+
+pub fn withGroupCumulativeWeightedKurtosis(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .kurtosis);
+}
+
 pub const withGroupCumulativeWeightedMeanSquared = withGroupCumulativeWeightedMeanSquare;
 pub const withGroupCumulativeWeightedMeanSq = withGroupCumulativeWeightedMeanSquare;
 pub const withGroupCumulativeWeightedRMS = withGroupCumulativeWeightedRms;
@@ -2172,6 +2182,12 @@ pub const withGroupCumWeightedSEM = withGroupCumulativeWeightedSem;
 pub const withGroupCumWeightedCv = withGroupCumulativeWeightedCv;
 pub const withGroupCumWeightedCV = withGroupCumulativeWeightedCv;
 pub const withGroupCumWeightedFano = withGroupCumulativeWeightedFano;
+pub const withGroupCumulativeWeightedSkew = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumWeightedSkewness = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumWeightedSkew = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumulativeWeightedKurt = withGroupCumulativeWeightedKurtosis;
+pub const withGroupCumWeightedKurtosis = withGroupCumulativeWeightedKurtosis;
+pub const withGroupCumWeightedKurt = withGroupCumulativeWeightedKurtosis;
 pub const withGroupCumWeightedMedian = withGroupCumulativeWeightedMedian;
 pub const withGroupCumWeightedQuantile = withGroupCumulativeWeightedQuantile;
 pub const withGroupCumulativeWeightedIQR = withGroupCumulativeWeightedIqr;

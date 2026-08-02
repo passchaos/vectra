@@ -2194,10 +2194,32 @@ pub fn withGroupCumulativeWeightedFanoOn(self: anytype, key_names: []const []con
     return lazy_group_mod.withGroupCumulativeWeightedFano(self, key_names, value_name, weight_name, output_name);
 }
 
+pub fn withGroupCumulativeWeightedSkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedSkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedSkewness(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedKurtosisOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedKurtosis(self, key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumulativeWeightedSEM = withGroupCumulativeWeightedSem;
 pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumulativeWeightedCV = withGroupCumulativeWeightedCv;
 pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
+pub const withGroupCumulativeWeightedSkew = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumulativeWeightedSkewOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumulativeWeightedKurt = withGroupCumulativeWeightedKurtosis;
+pub const withGroupCumulativeWeightedKurtOn = withGroupCumulativeWeightedKurtosisOn;
 pub const withGroupCumWeightedSem = withGroupCumulativeWeightedSem;
 pub const withGroupCumWeightedSemOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumWeightedSEM = withGroupCumulativeWeightedSem;
@@ -2208,6 +2230,14 @@ pub const withGroupCumWeightedCV = withGroupCumulativeWeightedCv;
 pub const withGroupCumWeightedCVOn = withGroupCumulativeWeightedCvOn;
 pub const withGroupCumWeightedFano = withGroupCumulativeWeightedFano;
 pub const withGroupCumWeightedFanoOn = withGroupCumulativeWeightedFanoOn;
+pub const withGroupCumWeightedSkewness = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumWeightedSkewnessOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumWeightedSkew = withGroupCumulativeWeightedSkewness;
+pub const withGroupCumWeightedSkewOn = withGroupCumulativeWeightedSkewnessOn;
+pub const withGroupCumWeightedKurtosis = withGroupCumulativeWeightedKurtosis;
+pub const withGroupCumWeightedKurtosisOn = withGroupCumulativeWeightedKurtosisOn;
+pub const withGroupCumWeightedKurt = withGroupCumulativeWeightedKurtosis;
+pub const withGroupCumWeightedKurtOn = withGroupCumulativeWeightedKurtosisOn;
 
 pub fn withGroupCumulativeWeightedMeanSquare(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
