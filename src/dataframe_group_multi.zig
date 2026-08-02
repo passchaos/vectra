@@ -2044,7 +2044,14 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano };
+
+fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {
+    return switch (op) {
+        .variance, .stddev, .sem, .cv, .fano => true,
+        else => false,
+    };
+}
 
 fn withGroupCumulativeNumericOnTyped(
     comptime DeviceDataFrame: type,
@@ -2083,7 +2090,7 @@ fn withGroupCumulativeNumericOnTyped(
             try representative_rows.append(frame.allocator, row);
             try group_accumulators.append(frame.allocator, if (op == .product) 1.0 else 0.0);
             try group_counts.append(frame.allocator, 0);
-            if (op == .variance or op == .stddev) try group_profiles.append(frame.allocator, .{});
+            if (groupCumulativeNumericUsesMomentProfile(op)) try group_profiles.append(frame.allocator, .{});
             break :blk representative_rows.items.len - 1;
         };
         const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
@@ -2095,7 +2102,7 @@ fn withGroupCumulativeNumericOnTyped(
             .product => group_accumulators.items[group_index] *= value_f64,
             .min => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @min(group_accumulators.items[group_index], value_f64),
             .max => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @max(group_accumulators.items[group_index], value_f64),
-            .variance, .stddev => group_profiles.items[group_index].update(value_f64),
+            .variance, .stddev, .sem, .cv, .fano => group_profiles.items[group_index].update(value_f64),
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
@@ -2103,6 +2110,12 @@ fn withGroupCumulativeNumericOnTyped(
             .mean => group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index])),
             .variance => group_profiles.items[group_index].variance(),
             .stddev => group_profiles.items[group_index].stddev(),
+            .sem => group_profiles.items[group_index].sem(),
+            .cv => group_profiles.items[group_index].cv(),
+            .fano => blk: {
+                const profile = group_profiles.items[group_index];
+                break :blk if (profile.mean == 0.0) std.math.nan(f64) else profile.variance() / profile.mean;
+            },
         };
         row_validity[row] = true;
     }
@@ -2211,6 +2224,36 @@ pub fn withGroupCumulativeStddevOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .stddev);
 }
 
+pub fn withGroupCumulativeSemOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .sem);
+}
+
+pub fn withGroupCumulativeCvOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .cv);
+}
+
+pub fn withGroupCumulativeFanoOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .fano);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
@@ -2223,6 +2266,13 @@ pub const withGroupCumVarOn = withGroupCumulativeVarianceOn;
 pub const withGroupCumulativeStdOn = withGroupCumulativeStddevOn;
 pub const withGroupCumStddevOn = withGroupCumulativeStddevOn;
 pub const withGroupCumStdOn = withGroupCumulativeStddevOn;
+pub const withGroupCumulativeSEMOn = withGroupCumulativeSemOn;
+pub const withGroupCumSemOn = withGroupCumulativeSemOn;
+pub const withGroupCumulativeCVOn = withGroupCumulativeCvOn;
+pub const withGroupCumCvOn = withGroupCumulativeCvOn;
+pub const withGroupCumFanoOn = withGroupCumulativeFanoOn;
+pub const withGroupCumulativeIndexOfDispersionOn = withGroupCumulativeFanoOn;
+pub const withGroupCumIndexOfDispersionOn = withGroupCumulativeFanoOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,

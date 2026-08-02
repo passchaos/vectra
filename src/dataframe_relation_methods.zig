@@ -455,6 +455,33 @@ pub fn withGroupCumulativeStddevOn(self: anytype, key_names: []const []const u8,
     return group_multi_mod.withGroupCumulativeStddevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
 }
 
+pub fn withGroupCumulativeSem(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeSemOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeSemOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeCv(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeCvOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeCvOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFano(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFanoOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeFanoOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub const withGroupCumMin = withGroupCumulativeMin;
 pub const withGroupCumMinOn = withGroupCumulativeMinOn;
 pub const withGroupCumMax = withGroupCumulativeMax;
@@ -471,6 +498,20 @@ pub const withGroupCumStddev = withGroupCumulativeStddev;
 pub const withGroupCumStddevOn = withGroupCumulativeStddevOn;
 pub const withGroupCumStd = withGroupCumulativeStddev;
 pub const withGroupCumStdOn = withGroupCumulativeStddevOn;
+pub const withGroupCumulativeSEM = withGroupCumulativeSem;
+pub const withGroupCumulativeSEMOn = withGroupCumulativeSemOn;
+pub const withGroupCumSem = withGroupCumulativeSem;
+pub const withGroupCumSemOn = withGroupCumulativeSemOn;
+pub const withGroupCumulativeCV = withGroupCumulativeCv;
+pub const withGroupCumulativeCVOn = withGroupCumulativeCvOn;
+pub const withGroupCumCv = withGroupCumulativeCv;
+pub const withGroupCumCvOn = withGroupCumulativeCvOn;
+pub const withGroupCumFano = withGroupCumulativeFano;
+pub const withGroupCumFanoOn = withGroupCumulativeFanoOn;
+pub const withGroupCumulativeIndexOfDispersion = withGroupCumulativeFano;
+pub const withGroupCumulativeIndexOfDispersionOn = withGroupCumulativeFanoOn;
+pub const withGroupCumIndexOfDispersion = withGroupCumulativeFano;
+pub const withGroupCumIndexOfDispersionOn = withGroupCumulativeFanoOn;
 
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
