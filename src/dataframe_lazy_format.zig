@@ -2919,6 +2919,30 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
         },
+        .group_cumulative_mean_abs => |shift| {
+            try writer.print("group_cumulative_mean_abs([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_mean_square => |shift| {
+            try writer.print("group_cumulative_mean_square([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
+        .group_cumulative_rms => |shift| {
+            try writer.print("group_cumulative_rms([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}->{s})", .{ shift.value_name, shift.output_name });
+        },
         .group_row_number => |row_count| {
             try writer.print("group_row_number([", .{});
             for (row_count.names, 0..) |name, i| {

@@ -2044,7 +2044,7 @@ pub fn withGroupCumulativeNullRatioOn(
 pub const withGroupCumValidRatioOn = withGroupCumulativeValidRatioOn;
 pub const withGroupCumNullRatioOn = withGroupCumulativeNullRatioOn;
 
-const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis };
+const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {
     return switch (op) {
@@ -2103,11 +2103,14 @@ fn withGroupCumulativeNumericOnTyped(
             .min => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @min(group_accumulators.items[group_index], value_f64),
             .max => group_accumulators.items[group_index] = if (seen_before == 0) value_f64 else @max(group_accumulators.items[group_index], value_f64),
             .variance, .stddev, .sem, .cv, .fano, .skewness, .kurtosis => group_profiles.items[group_index].update(value_f64),
+            .mean_abs => group_accumulators.items[group_index] += @abs(value_f64),
+            .mean_square, .rms => group_accumulators.items[group_index] += value_f64 * value_f64,
         }
         group_counts.items[group_index] += 1;
         sums[row] = switch (op) {
             .sum, .product, .min, .max => group_accumulators.items[group_index],
-            .mean => group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index])),
+            .mean, .mean_abs, .mean_square => group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index])),
+            .rms => std.math.sqrt(group_accumulators.items[group_index] / @as(f64, @floatFromInt(group_counts.items[group_index]))),
             .variance => group_profiles.items[group_index].variance(),
             .stddev => group_profiles.items[group_index].stddev(),
             .sem => group_profiles.items[group_index].sem(),
@@ -2276,6 +2279,36 @@ pub fn withGroupCumulativeKurtosisOn(
     return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .kurtosis);
 }
 
+pub fn withGroupCumulativeMeanAbsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mean_abs);
+}
+
+pub fn withGroupCumulativeMeanSquareOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mean_square);
+}
+
+pub fn withGroupCumulativeRmsOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericOn(DeviceDataFrame, frame, key_names, value_name, output_name, .rms);
+}
+
 pub const withGroupCumSumOn = withGroupCumulativeSumOn;
 pub const withGroupCumMeanOn = withGroupCumulativeMeanOn;
 pub const withGroupCumProductOn = withGroupCumulativeProductOn;
@@ -2301,6 +2334,17 @@ pub const withGroupCumSkewOn = withGroupCumulativeSkewnessOn;
 pub const withGroupCumulativeKurtOn = withGroupCumulativeKurtosisOn;
 pub const withGroupCumKurtosisOn = withGroupCumulativeKurtosisOn;
 pub const withGroupCumKurtOn = withGroupCumulativeKurtosisOn;
+pub const withGroupCumulativeMeanAbsoluteOn = withGroupCumulativeMeanAbsOn;
+pub const withGroupCumMeanAbsOn = withGroupCumulativeMeanAbsOn;
+pub const withGroupCumMeanAbsoluteOn = withGroupCumulativeMeanAbsOn;
+pub const withGroupCumulativeMeanSquaredOn = withGroupCumulativeMeanSquareOn;
+pub const withGroupCumulativeMeanSqOn = withGroupCumulativeMeanSquareOn;
+pub const withGroupCumMeanSquareOn = withGroupCumulativeMeanSquareOn;
+pub const withGroupCumMeanSquaredOn = withGroupCumulativeMeanSquareOn;
+pub const withGroupCumMeanSqOn = withGroupCumulativeMeanSquareOn;
+pub const withGroupCumulativeRMSOn = withGroupCumulativeRmsOn;
+pub const withGroupCumRmsOn = withGroupCumulativeRmsOn;
+pub const withGroupCumRMSOn = withGroupCumulativeRmsOn;
 
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
