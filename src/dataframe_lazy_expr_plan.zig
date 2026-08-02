@@ -3716,6 +3716,58 @@ pub const withRowWeightedRMS = withRowWeightedRms;
 pub const withRowWeightedL1 = withRowWeightedL1Norm;
 pub const withRowWeightedL2 = withRowWeightedL2Norm;
 
+fn withRowWeightedExtrema(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime reduction: enum { min, max, max_abs, min_abs, range, midrange, range_coeff }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .min => .{ .row_weighted_min = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .max => .{ .row_weighted_max = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .max_abs => .{ .row_weighted_max_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .min_abs => .{ .row_weighted_min_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .range => .{ .row_weighted_range = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .midrange => .{ .row_weighted_midrange = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+        .range_coeff => .{ .row_weighted_range_coeff = .{ .value_names = owned_values, .weight_names = owned_weights, .output_name = owned_output } },
+    });
+}
+
+pub fn withRowWeightedMin(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .min);
+}
+
+pub fn withRowWeightedMax(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .max);
+}
+
+pub fn withRowWeightedMaxAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .max_abs);
+}
+
+pub fn withRowWeightedMinAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .min_abs);
+}
+
+pub fn withRowWeightedRange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .range);
+}
+
+pub fn withRowWeightedMidrange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .midrange);
+}
+
+pub fn withRowWeightedRangeCoeff(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return withRowWeightedExtrema(frame, value_names, weight_names, output_name, .range_coeff);
+}
+
+pub const withRowWeightedMinimum = withRowWeightedMin;
+pub const withRowWeightedMaximum = withRowWeightedMax;
+pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
+
 fn withRowWeightedDispersion(
     frame: anytype,
     value_names: []const []const u8,

@@ -3848,6 +3848,161 @@ pub const withRowWeightedRMS = withRowWeightedRms;
 pub const withRowWeightedL1 = withRowWeightedL1Norm;
 pub const withRowWeightedL2 = withRowWeightedL2Norm;
 
+const RowWeightedExtremaReduction = enum { min, max, max_abs, min_abs, range, midrange, range_coeff };
+
+fn finishRowWeightedRange(min_value: f64, max_value: f64, positive_weight_count: usize, comptime reduction: RowWeightedExtremaReduction) f64 {
+    if (positive_weight_count == 0) return quietNanF64();
+    const range = max_value - min_value;
+    return switch (reduction) {
+        .range => range,
+        .midrange => (min_value + max_value) / 2.0,
+        .range_coeff => blk: {
+            const denominator = min_value + max_value;
+            break :blk if (denominator == 0.0) quietNanF64() else range / denominator;
+        },
+        else => unreachable,
+    };
+}
+
+fn withRowWeightedExtrema(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+    comptime reduction: RowWeightedExtremaReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+
+    const values = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(values);
+    const validity = try input.allocator.alloc(bool, input.rows);
+    defer input.allocator.free(validity);
+    @memset(values, 0.0);
+    @memset(validity, false);
+
+    for (0..flat.rows) |row| {
+        var min_value: f64 = 0.0;
+        var max_value: f64 = 0.0;
+        var min_abs_value: f64 = 0.0;
+        var max_abs_value: f64 = 0.0;
+        var positive_count: usize = 0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (!(weight > 0.0)) continue;
+            const value = flat.values[offset];
+            const abs_value = @abs(value);
+            if (positive_count == 0 or std.math.isNan(value) or (!std.math.isNan(min_value) and value < min_value)) {
+                min_value = value;
+            }
+            if (positive_count == 0 or std.math.isNan(value) or (!std.math.isNan(max_value) and value > max_value)) {
+                max_value = value;
+            }
+            if (positive_count == 0 or std.math.isNan(abs_value) or (!std.math.isNan(min_abs_value) and abs_value < min_abs_value)) {
+                min_abs_value = abs_value;
+            }
+            if (positive_count == 0 or std.math.isNan(abs_value) or (!std.math.isNan(max_abs_value) and abs_value > max_abs_value)) {
+                max_abs_value = abs_value;
+            }
+            positive_count += 1;
+        }
+        if (positive_count == 0) continue;
+
+        values[row] = switch (reduction) {
+            .min => min_value,
+            .max => max_value,
+            .max_abs => max_abs_value,
+            .min_abs => min_abs_value,
+            .range, .midrange, .range_coeff => finishRowWeightedRange(min_value, max_value, positive_count, reduction),
+        };
+        validity[row] = true;
+    }
+
+    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
+    var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
+    defer column.deinit();
+    return withColumn(DeviceDataFrame, input, output_name, column);
+}
+
+pub fn withRowWeightedMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .min);
+}
+
+pub fn withRowWeightedMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .max);
+}
+
+pub fn withRowWeightedMaxAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .max_abs);
+}
+
+pub fn withRowWeightedMinAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .min_abs);
+}
+
+pub fn withRowWeightedRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .range);
+}
+
+pub fn withRowWeightedMidrange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .midrange);
+}
+
+pub fn withRowWeightedRangeCoeff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_name, .range_coeff);
+}
+
+pub const withRowWeightedMinimum = withRowWeightedMin;
+pub const withRowWeightedMaximum = withRowWeightedMax;
+pub const withRowWeightedMaximumAbs = withRowWeightedMaxAbs;
+pub const withRowWeightedMinimumAbs = withRowWeightedMinAbs;
+pub const withRowWeightedRangeCoefficient = withRowWeightedRangeCoeff;
+
 const RowWeightedDispersion = enum { variance, stddev };
 
 fn withRowWeightedDispersion(

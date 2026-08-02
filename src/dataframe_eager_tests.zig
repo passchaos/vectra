@@ -1526,6 +1526,34 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_l2_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_l2_table, gpa, "row_weighted_l2", &.{ 1.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0)) }, &.{ true, true, false, true });
 
+    var row_weighted_min_table = try validity_table.withRowWeightedMinimum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_min");
+    defer row_weighted_min_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_min_table, gpa, "row_weighted_min", &.{ 1.0, 20.0, 0.0, 4.0 }, &.{ true, true, false, true });
+
+    var row_weighted_max_table = try validity_table.withRowWeightedMaximum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_max");
+    defer row_weighted_max_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_max_table, gpa, "row_weighted_max", &.{ 1.0, 20.0, 0.0, 40.0 }, &.{ true, true, false, true });
+
+    var row_weighted_max_abs_table = try validity_table.withRowWeightedMaximumAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_max_abs");
+    defer row_weighted_max_abs_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_max_abs_table, gpa, "row_weighted_max_abs", &.{ 1.0, 20.0, 0.0, 40.0 }, &.{ true, true, false, true });
+
+    var row_weighted_min_abs_table = try validity_table.withRowWeightedMinimumAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_min_abs");
+    defer row_weighted_min_abs_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_min_abs_table, gpa, "row_weighted_min_abs", &.{ 1.0, 20.0, 0.0, 4.0 }, &.{ true, true, false, true });
+
+    var row_weighted_range_table = try validity_table.withRowWeightedRange(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_range");
+    defer row_weighted_range_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_range_table, gpa, "row_weighted_range", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ true, true, false, true });
+
+    var row_weighted_midrange_table = try validity_table.withRowWeightedMidrange(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_midrange");
+    defer row_weighted_midrange_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_midrange_table, gpa, "row_weighted_midrange", &.{ 1.0, 20.0, 0.0, 22.0 }, &.{ true, true, false, true });
+
+    var row_weighted_range_coeff_table = try validity_table.withRowWeightedRangeCoefficient(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_range_coeff");
+    defer row_weighted_range_coeff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_weighted_range_coeff_table, gpa, "row_weighted_range_coeff", &.{ 0.0, 0.0, 0.0, 9.0 / 11.0 }, &.{ true, true, false, true });
+
     var row_weighted_quantile_table = try validity_table.withRowWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_quantile", 0.9);
     defer row_weighted_quantile_table.deinit();
     const row_weighted_quantile_column = try row_weighted_quantile_table.column("row_weighted_quantile");

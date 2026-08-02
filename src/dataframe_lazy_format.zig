@@ -32,6 +32,20 @@ fn formatGroupWeightedPairShift(writer: *std.Io.Writer, comptime op_name: []cons
     try writer.print("->{s})", .{shift.output_name});
 }
 
+fn formatRowWeightedMeanPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}(values=[", .{op_name});
+    for (row_weighted.value_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], weights=[", .{});
+    for (row_weighted.weight_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("]->{s})", .{row_weighted.output_name});
+}
+
 pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!void {
     switch (op) {
         .select => |names| {
@@ -755,6 +769,13 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("]->{s})", .{row_weighted.output_name});
         },
+        .row_weighted_min => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_min", row_weighted),
+        .row_weighted_max => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_max", row_weighted),
+        .row_weighted_max_abs => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_max_abs", row_weighted),
+        .row_weighted_min_abs => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_min_abs", row_weighted),
+        .row_weighted_range => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_range", row_weighted),
+        .row_weighted_midrange => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_midrange", row_weighted),
+        .row_weighted_range_coeff => |row_weighted| try formatRowWeightedMeanPayload(writer, "row_weighted_range_coeff", row_weighted),
         .row_weighted_variance => |row_weighted| {
             try writer.print("row_weighted_variance(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

@@ -3287,6 +3287,13 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_weighted_mean_abs => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean_abs"),
         .row_weighted_l1_norm => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_l1_norm"),
         .row_weighted_l2_norm => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_l2_norm"),
+        .row_weighted_min => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_min"),
+        .row_weighted_max => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_max"),
+        .row_weighted_max_abs => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_max_abs"),
+        .row_weighted_min_abs => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_min_abs"),
+        .row_weighted_range => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_range"),
+        .row_weighted_midrange => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_midrange"),
+        .row_weighted_range_coeff => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_range_coeff"),
         .row_weighted_median => |row_weighted| blk: {
             const value_names = try cloneNameList(allocator, row_weighted.value_names);
             errdefer freeNameList(allocator, value_names);
