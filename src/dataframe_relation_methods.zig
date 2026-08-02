@@ -2183,6 +2183,37 @@ pub const withGroupCumWeightedRmsOn = withGroupCumulativeWeightedRmsOn;
 pub const withGroupCumWeightedRMS = withGroupCumulativeWeightedRms;
 pub const withGroupCumWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
 
+pub fn withGroupCumulativeWeightedMin(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMinOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMinOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMinOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMax(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMaxOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMaxOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedMaxOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedMinimum = withGroupCumulativeWeightedMin;
+pub const withGroupCumulativeWeightedMinimumOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumulativeWeightedMaximum = withGroupCumulativeWeightedMax;
+pub const withGroupCumulativeWeightedMaximumOn = withGroupCumulativeWeightedMaxOn;
+pub const withGroupCumWeightedMin = withGroupCumulativeWeightedMin;
+pub const withGroupCumWeightedMinOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumWeightedMinimum = withGroupCumulativeWeightedMin;
+pub const withGroupCumWeightedMinimumOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumWeightedMax = withGroupCumulativeWeightedMax;
+pub const withGroupCumWeightedMaxOn = withGroupCumulativeWeightedMaxOn;
+pub const withGroupCumWeightedMaximum = withGroupCumulativeWeightedMax;
+pub const withGroupCumWeightedMaximumOn = withGroupCumulativeWeightedMaxOn;
+
 pub fn withGroupCumulativeWeightedMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeWeightedMeanAbsOn(self, key_names[0..], value_name, weight_name, output_name);
@@ -3137,6 +3168,29 @@ pub const groupByWeightedMeanSq = groupByWeightedMeanSquare;
 pub const groupByWeightedMeanSqOn = groupByWeightedMeanSquareOn;
 pub const groupByWeightedRMS = groupByWeightedRms;
 pub const groupByWeightedRMSOn = groupByWeightedRmsOn;
+
+pub fn groupByWeightedMin(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMinOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMinOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMinOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMax(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMaxOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMaxOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMaxOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedMinimum = groupByWeightedMin;
+pub const groupByWeightedMinimumOn = groupByWeightedMinOn;
+pub const groupByWeightedMaximum = groupByWeightedMax;
+pub const groupByWeightedMaximumOn = groupByWeightedMaxOn;
 
 pub fn groupByWeightedMeanAbs(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};

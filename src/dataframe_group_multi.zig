@@ -227,6 +227,8 @@ const GroupByWeightedAggregation = enum {
     weighted_mean,
     weighted_mean_square,
     weighted_rms,
+    weighted_min,
+    weighted_max,
     weighted_mean_abs,
     weighted_l1_norm,
     weighted_l2_norm,
@@ -3563,7 +3565,7 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-const GroupCumulativeWeightedMoment = enum { mean, mean_square, rms, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano };
+const GroupCumulativeWeightedMoment = enum { mean, mean_square, rms, min, max, mean_abs, l1_norm, l2_norm, max_abs, min_abs, geometric_mean, harmonic_mean, logsumexp, logmeanexp, range, midrange, range_coeff, variance, stddev, sem, cv, fano };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
 
@@ -3761,6 +3763,8 @@ fn withGroupCumulativeWeightedMomentOn(
             .mean => weighted_sums.items[group_index] / weight_sum,
             .mean_square => weighted_square_sums.items[group_index] / weight_sum,
             .rms => std.math.sqrt(weighted_square_sums.items[group_index] / weight_sum),
+            .min => if (positive_weight_counts.items[group_index] == 0) std.math.nan(f64) else weighted_min_values.items[group_index],
+            .max => if (positive_weight_counts.items[group_index] == 0) std.math.nan(f64) else weighted_max_values.items[group_index],
             .mean_abs => weighted_abs_sums.items[group_index] / weight_sum,
             .l1_norm => weighted_abs_sums.items[group_index],
             .l2_norm => std.math.sqrt(weighted_square_sums.items[group_index]),
@@ -3789,7 +3793,7 @@ fn withGroupCumulativeWeightedMomentOn(
                     .sem => std.math.sqrt(variance / weight_sum),
                     .cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
                     .fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
-                    .mean, .mean_square, .rms, .mean_abs, .l1_norm, .l2_norm, .max_abs, .min_abs, .geometric_mean, .harmonic_mean, .logsumexp, .logmeanexp, .range, .midrange, .range_coeff => unreachable,
+                    .mean, .mean_square, .rms, .min, .max, .mean_abs, .l1_norm, .l2_norm, .max_abs, .min_abs, .geometric_mean, .harmonic_mean, .logsumexp, .logmeanexp, .range, .midrange, .range_coeff => unreachable,
                 };
             },
         } else std.math.nan(f64);
@@ -3832,6 +3836,28 @@ pub fn withGroupCumulativeWeightedRmsOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .rms);
+}
+
+pub fn withGroupCumulativeWeightedMinOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .min);
+}
+
+pub fn withGroupCumulativeWeightedMaxOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .max);
 }
 
 pub fn withGroupCumulativeWeightedMeanAbsOn(
@@ -4608,11 +4634,17 @@ pub const withGroupCumWeightedMinAbsOn = withGroupCumulativeWeightedMinAbsOn;
 pub const withGroupCumulativeWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
 pub const withGroupCumulativeWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
 pub const withGroupCumulativeWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumulativeWeightedMinimumOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumulativeWeightedMaximumOn = withGroupCumulativeWeightedMaxOn;
 pub const withGroupCumWeightedMeanSquareOn = withGroupCumulativeWeightedMeanSquareOn;
 pub const withGroupCumWeightedMeanSquaredOn = withGroupCumulativeWeightedMeanSquareOn;
 pub const withGroupCumWeightedMeanSqOn = withGroupCumulativeWeightedMeanSquareOn;
 pub const withGroupCumWeightedRmsOn = withGroupCumulativeWeightedRmsOn;
 pub const withGroupCumWeightedRMSOn = withGroupCumulativeWeightedRmsOn;
+pub const withGroupCumWeightedMinOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumWeightedMinimumOn = withGroupCumulativeWeightedMinOn;
+pub const withGroupCumWeightedMaxOn = withGroupCumulativeWeightedMaxOn;
+pub const withGroupCumWeightedMaximumOn = withGroupCumulativeWeightedMaxOn;
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumulativeWeightedSEMOn = withGroupCumulativeWeightedSemOn;
 pub const withGroupCumulativeWeightedCVOn = withGroupCumulativeWeightedCvOn;
@@ -6907,6 +6939,8 @@ pub fn groupByWeightedOn(
             .weighted_mean => weighted_sum / weight_sum,
             .weighted_mean_square => weighted_square_sum / weight_sum,
             .weighted_rms => std.math.sqrt(weighted_square_sum / weight_sum),
+            .weighted_min => if (positive_weight_count == 0) std.math.nan(f64) else weighted_min_value,
+            .weighted_max => if (positive_weight_count == 0) std.math.nan(f64) else weighted_max_value,
             .weighted_mean_abs => weighted_abs_sum / weight_sum,
             .weighted_l1_norm => weighted_abs_sum,
             .weighted_l2_norm => std.math.sqrt(weighted_square_sum),
@@ -7007,6 +7041,31 @@ pub fn groupByWeightedRmsOn(
 pub const groupByWeightedMeanSquaredOn = groupByWeightedMeanSquareOn;
 pub const groupByWeightedMeanSqOn = groupByWeightedMeanSquareOn;
 pub const groupByWeightedRMSOn = groupByWeightedRmsOn;
+
+pub fn groupByWeightedMinOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_min, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedMaxOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_max, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedMinimumOn = groupByWeightedMinOn;
+pub const groupByWeightedMaximumOn = groupByWeightedMaxOn;
 
 pub fn groupByWeightedMeanAbsOn(
     comptime DeviceDataFrame: type,

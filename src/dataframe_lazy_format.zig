@@ -3862,6 +3862,22 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             if (shift.correction != 0.0) try writer.print(", correction={d}", .{shift.correction});
             try writer.print("->{s})", .{shift.output_name});
         },
+        .group_cumulative_weighted_min => |shift| {
+            try writer.print("group_cumulative_weighted_min([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_max => |shift| {
+            try writer.print("group_cumulative_weighted_max([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
         .group_cumulative_weighted_mean_abs => |shift| {
             try writer.print("group_cumulative_weighted_mean_abs([", .{});
             for (shift.names, 0..) |name, i| {
