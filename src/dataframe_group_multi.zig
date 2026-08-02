@@ -3457,13 +3457,16 @@ pub const withGroupCumulativeKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewnessOn = withGroupCumulativeKelleySkewnessOn;
 pub const withGroupCumKelleySkewOn = withGroupCumulativeKelleySkewnessOn;
 
-pub fn withGroupCumulativeWeightedMeanOn(
+const GroupCumulativeWeightedMoment = enum { mean, variance, stddev };
+
+fn withGroupCumulativeWeightedMomentOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
     key_names: []const []const u8,
     value_name: []const u8,
     weight_name: []const u8,
     output_name: []const u8,
+    comptime moment: GroupCumulativeWeightedMoment,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
@@ -3489,6 +3492,8 @@ pub fn withGroupCumulativeWeightedMeanOn(
     defer weight_sums.deinit(frame.allocator);
     var weighted_sums: std.ArrayList(f64) = .empty;
     defer weighted_sums.deinit(frame.allocator);
+    var weighted_square_sums: std.ArrayList(f64) = .empty;
+    defer weighted_square_sums.deinit(frame.allocator);
 
     for (0..frame.rows) |row| {
         if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
@@ -3504,12 +3509,27 @@ pub fn withGroupCumulativeWeightedMeanOn(
             try representative_rows.append(frame.allocator, row);
             try weight_sums.append(frame.allocator, 0.0);
             try weighted_sums.append(frame.allocator, 0.0);
+            try weighted_square_sums.append(frame.allocator, 0.0);
             break :blk representative_rows.items.len - 1;
         };
+        const value = values.values[row];
         weight_sums.items[group_index] += weight;
-        weighted_sums.items[group_index] += values.values[row] * weight;
+        weighted_sums.items[group_index] += value * weight;
+        weighted_square_sums.items[group_index] += value * value * weight;
         const weight_sum = weight_sums.items[group_index];
-        outputs[row] = if (weight_sum > 0.0) weighted_sums.items[group_index] / weight_sum else std.math.nan(f64);
+        outputs[row] = if (weight_sum > 0.0) switch (moment) {
+            .mean => weighted_sums.items[group_index] / weight_sum,
+            .variance, .stddev => blk: {
+                var centered_square_sum = weighted_square_sums.items[group_index] - weighted_sums.items[group_index] * weighted_sums.items[group_index] / weight_sum;
+                // The one-pass prefix formula can produce a tiny negative value
+                // through cancellation when the true weighted variance is zero.
+                // Clamp only that numerical dust; a materially negative value is
+                // left visible so callers do not get a silently fabricated stddev.
+                if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
+                const variance = centered_square_sum / weight_sum;
+                break :blk if (moment == .stddev) std.math.sqrt(variance) else variance;
+            },
+        } else std.math.nan(f64);
         row_validity[row] = true;
     }
 
@@ -3517,6 +3537,46 @@ pub fn withGroupCumulativeWeightedMeanOn(
     defer column.deinit();
     return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
 }
+
+pub fn withGroupCumulativeWeightedMeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mean);
+}
+
+pub fn withGroupCumulativeWeightedVarianceOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .variance);
+}
+
+pub fn withGroupCumulativeWeightedStddevOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedMomentOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .stddev);
+}
+
+pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
+pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;
+pub const withGroupCumWeightedStdOn = withGroupCumulativeWeightedStddevOn;
 
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 

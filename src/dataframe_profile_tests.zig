@@ -3237,6 +3237,30 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_weighted_mean.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_mean, gpa, "value_weighted_cum_mean_lazy", &.{ 10.0, 17.5, 65.0 / 3.0, 5.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) }, &.{ true, true, true, true, true, false, true, true });
 
+    const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_variance = try weighted_table.withGroupCumulativeWeightedVar("bucket", "value", "weight", "value_weighted_cum_variance");
+    defer group_cum_weighted_variance.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_variance, gpa, "value_weighted_cum_variance", &group_cum_weighted_variance_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var group_cum_weighted_stddev = try weighted_table.withGroupCumulativeWeightedStddev("bucket", "value", "weight", "value_weighted_cum_stddev");
+    defer group_cum_weighted_stddev.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_stddev, gpa, "value_weighted_cum_stddev", &group_cum_weighted_stddev_expected, &.{ true, true, true, true, true, false, true, true });
+
+    var cumulative_weighted_moment_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_moment_plan.deinit();
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedVar("bucket", "value", "weight", "value_weighted_cum_variance_lazy");
+    try cumulative_weighted_moment_plan.withGroupCumulativeWeightedStd("bucket", "value", "weight", "value_weighted_cum_stddev_lazy");
+    const cumulative_weighted_moment_explained = try cumulative_weighted_moment_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_moment_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_variance([bucket], value=value, weight=weight->value_weighted_cum_variance_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_moment_explained, "group_cumulative_weighted_stddev([bucket], value=value, weight=weight->value_weighted_cum_stddev_lazy)") != null);
+    var lazy_cumulative_weighted_moments = try cumulative_weighted_moment_plan.collect();
+    defer lazy_cumulative_weighted_moments.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_variance_lazy", &group_cum_weighted_variance_expected, &.{ true, true, true, true, true, false, true, true });
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_moments, gpa, "value_weighted_cum_stddev_lazy", &group_cum_weighted_stddev_expected, &.{ true, true, true, true, true, false, true, true });
+
     var weighted_std_plan = try DeviceLazyFrame.init(gpa, weighted_table);
     defer weighted_std_plan.deinit();
     try weighted_std_plan.groupByWeightedStddev("bucket", "value", "weight", "value_weighted_stddev_lazy");

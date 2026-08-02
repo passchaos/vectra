@@ -1711,6 +1711,37 @@ pub fn withGroupCumulativeWeightedMeanOn(self: anytype, key_names: []const []con
 pub const withGroupCumWeightedMean = withGroupCumulativeWeightedMean;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 
+pub fn withGroupCumulativeWeightedVariance(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedVarianceOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedVarianceOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedVarianceOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedStddev(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedStddevOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedStddevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeWeightedStddevOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const withGroupCumulativeWeightedVar = withGroupCumulativeWeightedVariance;
+pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumulativeWeightedStd = withGroupCumulativeWeightedStddev;
+pub const withGroupCumulativeWeightedStdOn = withGroupCumulativeWeightedStddevOn;
+pub const withGroupCumWeightedVariance = withGroupCumulativeWeightedVariance;
+pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumWeightedVar = withGroupCumulativeWeightedVariance;
+pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
+pub const withGroupCumWeightedStddev = withGroupCumulativeWeightedStddev;
+pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;
+pub const withGroupCumWeightedStd = withGroupCumulativeWeightedStddev;
+pub const withGroupCumWeightedStdOn = withGroupCumulativeWeightedStddevOn;
+
 pub fn withGroupCumulativeProduct(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeProductOn(self, key_names[0..], value_name, output_name);
