@@ -1808,6 +1808,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_mad.deinit();
     try expectF64ColumnWithValidity(lazy_cumulative_mad, gpa, "label_cum_median_abs_dev_lazy", &group_cum_median_abs_dev_expected, &group_cum_mode_validity_expected);
 
+    const group_cum_idr_expected = [_]f64{ 0.0, 0.0, 8.0 / 5.0, 0.0, 0.0, 4.0 / 5.0, 4.0 / 5.0, 0.0 };
+
+    var group_cum_idr_label = try distinct_table.withGroupCumulativeInterdecileRange("bucket", "label", "label_cum_idr");
+    defer group_cum_idr_label.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_idr_label, gpa, "label_cum_idr", &group_cum_idr_expected, &group_cum_mode_validity_expected);
+
+    var cumulative_idr_plan = try DeviceLazyFrame.init(gpa, distinct_table);
+    defer cumulative_idr_plan.deinit();
+    try cumulative_idr_plan.withGroupCumulativeIDR("bucket", "label", "label_cum_idr_lazy");
+    const cumulative_idr_explained = try cumulative_idr_plan.explain(gpa);
+    defer gpa.free(cumulative_idr_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_idr_explained, "group_cumulative_interdecile_range([bucket], value=label->label_cum_idr_lazy)") != null);
+    var lazy_cumulative_idr = try cumulative_idr_plan.collect();
+    defer lazy_cumulative_idr.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_idr, gpa, "label_cum_idr_lazy", &group_cum_idr_expected, &group_cum_mode_validity_expected);
+
     var group_cum_sum_sales = try table.withGroupCumulativeSum("store", "sales", "store_sales_cum_sum");
     defer group_cum_sum_sales.deinit();
     try expectF64ColumnWithValidity(group_cum_sum_sales, gpa, "store_sales_cum_sum", &.{ 2.0, 3.0, 0.0, 0.0, 14.0, 15.0 }, &.{ true, true, false, false, true, true });

@@ -3276,7 +3276,7 @@ pub fn withGroupCumulativeQuantileOn(comptime DeviceDataFrame: type, frame: Devi
 pub const withGroupCumMedianOn = withGroupCumulativeMedianOn;
 pub const withGroupCumQuantileOn = withGroupCumulativeQuantileOn;
 
-const GroupCumulativeRobustAggregation = enum { iqr, mad };
+const GroupCumulativeRobustAggregation = enum { iqr, mad, interdecile_range };
 
 fn withGroupCumulativeRobustOnTyped(
     comptime DeviceDataFrame: type,
@@ -3323,6 +3323,7 @@ fn withGroupCumulativeRobustOnTyped(
         outputs[row] = switch (aggregation) {
             .iqr => quantileFromSorted(sorted, 0.75) - quantileFromSorted(sorted, 0.25),
             .mad => try medianAbsDevFromSorted(frame.allocator, sorted),
+            .interdecile_range => quantileFromSorted(sorted, 0.9) - quantileFromSorted(sorted, 0.1),
         };
         row_validity[row] = true;
     }
@@ -3369,14 +3370,22 @@ pub fn withGroupCumulativeMadOn(comptime DeviceDataFrame: type, frame: DeviceDat
     return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .mad);
 }
 
+pub fn withGroupCumulativeInterdecileRangeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeRobustCoreOn(DeviceDataFrame, frame, key_names, value_name, output_name, .interdecile_range);
+}
+
 pub const withGroupCumulativeIQROn = withGroupCumulativeIqrOn;
 pub const withGroupCumulativeMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumulativeMedianAbsDevOn = withGroupCumulativeMadOn;
+pub const withGroupCumulativeIdrOn = withGroupCumulativeInterdecileRangeOn;
+pub const withGroupCumulativeIDROn = withGroupCumulativeInterdecileRangeOn;
 pub const withGroupCumIqrOn = withGroupCumulativeIqrOn;
 pub const withGroupCumIQROn = withGroupCumulativeIqrOn;
 pub const withGroupCumMadOn = withGroupCumulativeMadOn;
 pub const withGroupCumMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
+pub const withGroupCumIdrOn = withGroupCumulativeInterdecileRangeOn;
+pub const withGroupCumIDROn = withGroupCumulativeInterdecileRangeOn;
 
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 

@@ -1445,6 +1445,24 @@ pub const withGroupCumMADOn = withGroupCumulativeMadOn;
 pub const withGroupCumMedianAbsDev = withGroupCumulativeMad;
 pub const withGroupCumMedianAbsDevOn = withGroupCumulativeMadOn;
 
+pub fn withGroupCumulativeInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeInterdecileRangeOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeInterdecileRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupCumulativeInterdecileRangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub const withGroupCumulativeIdr = withGroupCumulativeInterdecileRange;
+pub const withGroupCumulativeIdrOn = withGroupCumulativeInterdecileRangeOn;
+pub const withGroupCumulativeIDR = withGroupCumulativeInterdecileRange;
+pub const withGroupCumulativeIDROn = withGroupCumulativeInterdecileRangeOn;
+pub const withGroupCumIdr = withGroupCumulativeInterdecileRange;
+pub const withGroupCumIdrOn = withGroupCumulativeInterdecileRangeOn;
+pub const withGroupCumIDR = withGroupCumulativeInterdecileRange;
+pub const withGroupCumIDROn = withGroupCumulativeInterdecileRangeOn;
+
 pub fn withGroupCumulativeAny(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeAnyOn(self, key_names[0..], value_name, output_name);

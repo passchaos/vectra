@@ -6099,6 +6099,16 @@ pub fn DeviceLazyTypes(
             pub const withGroupCumMADOn = lazy_relation_methods_mod.withGroupCumMADOn;
             pub const withGroupCumMedianAbsDev = lazy_relation_methods_mod.withGroupCumMedianAbsDev;
             pub const withGroupCumMedianAbsDevOn = lazy_relation_methods_mod.withGroupCumMedianAbsDevOn;
+            pub const withGroupCumulativeInterdecileRange = lazy_relation_methods_mod.withGroupCumulativeInterdecileRange;
+            pub const withGroupCumulativeInterdecileRangeOn = lazy_relation_methods_mod.withGroupCumulativeInterdecileRangeOn;
+            pub const withGroupCumulativeIdr = lazy_relation_methods_mod.withGroupCumulativeIdr;
+            pub const withGroupCumulativeIdrOn = lazy_relation_methods_mod.withGroupCumulativeIdrOn;
+            pub const withGroupCumulativeIDR = lazy_relation_methods_mod.withGroupCumulativeIDR;
+            pub const withGroupCumulativeIDROn = lazy_relation_methods_mod.withGroupCumulativeIDROn;
+            pub const withGroupCumIdr = lazy_relation_methods_mod.withGroupCumIdr;
+            pub const withGroupCumIdrOn = lazy_relation_methods_mod.withGroupCumIdrOn;
+            pub const withGroupCumIDR = lazy_relation_methods_mod.withGroupCumIDR;
+            pub const withGroupCumIDROn = lazy_relation_methods_mod.withGroupCumIDROn;
             pub const withGroupCumulativeAny = lazy_relation_methods_mod.withGroupCumulativeAny;
             pub const withGroupCumulativeAnyOn = lazy_relation_methods_mod.withGroupCumulativeAnyOn;
             pub const withGroupCumulativeAll = lazy_relation_methods_mod.withGroupCumulativeAll;
