@@ -3805,12 +3805,7 @@ pub fn withRowCumulativeWeightedSum(
 ) DeviceFrameArrayError!DeviceDataFrame {
     var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
     defer flat.deinit();
-    if (output_names.len != flat.width) return error.LengthMismatch;
-    for (output_names, 0..) |output_name, index| {
-        for (output_names[0..index]) |previous| {
-            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
-        }
-    }
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
 
     const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
     defer input.allocator.free(cumulative);
@@ -3830,18 +3825,42 @@ pub fn withRowCumulativeWeightedSum(
         }
     }
 
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
+pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+
+fn validateRowCumulativeWeightedOutputs(output_names: []const []const u8, width: usize) DeviceFrameArrayError!void {
+    if (output_names.len != width) return error.LengthMismatch;
+    for (output_names, 0..) |output_name, index| {
+        for (output_names[0..index]) |previous| {
+            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
+        }
+    }
+}
+
+fn withRowCumulativeWeightedOutputColumns(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    output_names: []const []const u8,
+    rows: usize,
+    width: usize,
+    cumulative: []const f64,
+    cumulative_validity: []const bool,
+) DeviceFrameArrayError!DeviceDataFrame {
     var result = try input.clone();
     errdefer result.deinit();
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
     for (output_names, 0..) |output_name, col_index| {
-        const values = try input.allocator.alloc(f64, flat.rows);
+        const values = try input.allocator.alloc(f64, rows);
         defer input.allocator.free(values);
-        const validity = try input.allocator.alloc(bool, flat.rows);
+        const validity = try input.allocator.alloc(bool, rows);
         defer input.allocator.free(validity);
         @memset(values, 0.0);
         @memset(validity, false);
-        for (0..flat.rows) |row| {
-            const offset = row * flat.width + col_index;
+        for (0..rows) |row| {
+            const offset = row * width + col_index;
             if (!cumulative_validity[offset]) continue;
             values[row] = cumulative[offset];
             validity[row] = true;
@@ -3855,8 +3874,55 @@ pub fn withRowCumulativeWeightedSum(
     return result;
 }
 
-pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
-pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+pub fn withRowCumulativeWeightedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var numerator: f64 = 0.0;
+        var denominator: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                numerator += flat.values[offset] * weight;
+                denominator += weight;
+            }
+            // A valid zero-weight pair should preserve the current prefix
+            // state.  If no positive weight has appeared yet, the weighted
+            // mean is still undefined, so the current output remains null.
+            if (!(denominator > 0.0)) continue;
+            cumulative[offset] = numerator / denominator;
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub const withRowCumWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
 
 const RowCumulativeWeightedSupportReduction = enum { weight_sum, positive_count, effective_n };
 
@@ -3870,12 +3936,7 @@ fn withRowCumulativeWeightedSupport(
 ) DeviceFrameArrayError!DeviceDataFrame {
     var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
     defer flat.deinit();
-    if (output_names.len != flat.width) return error.LengthMismatch;
-    for (output_names, 0..) |output_name, index| {
-        for (output_names[0..index]) |previous| {
-            if (std.mem.eql(u8, output_name, previous)) return error.InvalidShape;
-        }
-    }
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
 
     const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
     defer input.allocator.free(cumulative);
@@ -3906,29 +3967,7 @@ fn withRowCumulativeWeightedSupport(
         }
     }
 
-    var result = try input.clone();
-    errdefer result.deinit();
-    const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));
-    for (output_names, 0..) |output_name, col_index| {
-        const values = try input.allocator.alloc(f64, flat.rows);
-        defer input.allocator.free(values);
-        const validity = try input.allocator.alloc(bool, flat.rows);
-        defer input.allocator.free(validity);
-        @memset(values, 0.0);
-        @memset(validity, false);
-        for (0..flat.rows) |row| {
-            const offset = row * flat.width + col_index;
-            if (!cumulative_validity[offset]) continue;
-            values[row] = cumulative[offset];
-            validity[row] = true;
-        }
-        var column = try DeviceColumn.fromSliceWithValidity(f64, input.allocator, values, validity, input.device);
-        defer column.deinit();
-        const next = try withColumn(DeviceDataFrame, result, output_name, column);
-        result.deinit();
-        result = next;
-    }
-    return result;
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
 }
 
 pub fn withRowCumulativeWeightedWeightSum(

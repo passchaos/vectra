@@ -775,6 +775,10 @@ lists, skipping null pairs and rejecting negative weights.
 `withRowPrefixWeightedSum` append left-to-right prefix weighted sums across
 aligned value/weight row lists, preserving nullable output at invalid pair
 positions.
+`withRowCumulativeWeightedMean` (`withRowCumWeightedMean`,
+`withRowPrefixWeightedMean`, and weighted average/avg aliases) appends
+left-to-right prefix weighted means using the same aligned pair validity and
+positive-weight denominator contract.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

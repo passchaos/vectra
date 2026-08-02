@@ -2440,6 +2440,19 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
             pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
 
+            pub fn withRowCumulativeWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMean(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedMean = withRowCumulativeWeightedMean;
+            pub const withRowPrefixWeightedMean = withRowCumulativeWeightedMean;
+            pub const withRowCumulativeWeightedAverage = withRowCumulativeWeightedMean;
+            pub const withRowCumulativeWeightedAvg = withRowCumulativeWeightedMean;
+            pub const withRowCumWeightedAverage = withRowCumulativeWeightedMean;
+            pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
+            pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
+            pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
+
             pub fn withRowCumulativeWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeWeightedWeightSum(self, value_names, weight_names, output_names);
             }

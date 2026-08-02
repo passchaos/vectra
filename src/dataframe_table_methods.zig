@@ -3536,6 +3536,19 @@ pub fn withRowCumulativeWeightedSum(self: anytype, value_names: []const []const 
 pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
 pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
 
+pub fn withRowCumulativeWeightedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
+
 pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }

@@ -3704,22 +3704,38 @@ fn withRowWeightedSupport(frame: anytype, value_names: []const []const u8, weigh
     });
 }
 
-pub fn withRowCumulativeWeightedSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+fn withRowCumulativeWeightedColumns(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { sum, mean }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);
     const owned_weights = try cloneNameList(frame.allocator, weight_names);
     errdefer freeNameList(frame.allocator, owned_weights);
     const owned_outputs = try cloneNameList(frame.allocator, output_names);
     errdefer freeNameList(frame.allocator, owned_outputs);
-    try frame.ops.append(frame.allocator, .{ .row_cumulative_weighted_sum = .{
-        .value_names = owned_values,
-        .weight_names = owned_weights,
-        .output_names = owned_outputs,
-    } });
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .sum => .{ .row_cumulative_weighted_sum = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .mean => .{ .row_cumulative_weighted_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedSum(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedColumns(frame, value_names, weight_names, output_names, .sum);
 }
 
 pub const withRowCumWeightedSum = withRowCumulativeWeightedSum;
 pub const withRowPrefixWeightedSum = withRowCumulativeWeightedSum;
+
+pub fn withRowCumulativeWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedColumns(frame, value_names, weight_names, output_names, .mean);
+}
+
+pub const withRowCumWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedMean = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumulativeWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowCumWeightedAvg = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAverage = withRowCumulativeWeightedMean;
+pub const withRowPrefixWeightedAvg = withRowCumulativeWeightedMean;
 
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);

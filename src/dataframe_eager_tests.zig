@@ -1515,6 +1515,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sum_table, gpa, "a_row_weighted_cumsum", &.{ 1.0, 0.0, 0.0, 16.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sum_table, gpa, "b_row_weighted_cumsum", &.{ 0.0, 20.0, 0.0, 56.0 }, &.{ false, true, false, true });
 
+    var row_cum_weighted_mean_table = try validity_table.withRowPrefixWeightedAverage(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummean", "b_row_weighted_cummean" });
+    defer row_cum_weighted_mean_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mean_table, gpa, "a_row_weighted_cummean", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mean_table, gpa, "b_row_weighted_cummean", &.{ 0.0, 20.0, 0.0, 56.0 / 5.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1529,6 +1534,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_cum_weighted_effective_n_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_effective_n_table, gpa, "a_row_weighted_cum_effective_n", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_effective_n_table, gpa, "b_row_weighted_cum_effective_n", &.{ 0.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ false, true, false, true });
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMean(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummean", "extra_row_weighted_cummean" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");
