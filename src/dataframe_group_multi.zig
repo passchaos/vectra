@@ -2238,6 +2238,122 @@ pub const withGroupCumFalseCountOn = withGroupCumulativeFalseCountOn;
 pub const withGroupCumTrueRatioOn = withGroupCumulativeTrueRatioOn;
 pub const withGroupCumFalseRatioOn = withGroupCumulativeFalseRatioOn;
 
+const GroupCumulativeBoolIndexOp = enum { first_true, last_true, first_false, last_false };
+
+fn withGroupCumulativeBoolIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime op: GroupCumulativeBoolIndexOp,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    if (value.* != .bool) return error.TypeUnsupported;
+
+    const values = try value.bool.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value.bool, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const indices = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(indices);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(indices, 0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var best_indices: std.ArrayList(i64) = .empty;
+    defer best_indices.deinit(frame.allocator);
+    var best_validity: std.ArrayList(bool) = .empty;
+    defer best_validity.deinit(frame.allocator);
+
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try best_indices.append(frame.allocator, 0);
+            try best_validity.append(frame.allocator, false);
+            break :blk representative_rows.items.len - 1;
+        };
+        const matches = switch (op) {
+            .first_true, .last_true => value_item,
+            .first_false, .last_false => !value_item,
+        };
+        if (matches) {
+            switch (op) {
+                .first_true, .first_false => if (!best_validity.items[group_index]) {
+                    best_indices.items[group_index] = @intCast(row);
+                    best_validity.items[group_index] = true;
+                },
+                .last_true, .last_false => {
+                    best_indices.items[group_index] = @intCast(row);
+                    best_validity.items[group_index] = true;
+                },
+            }
+        }
+        if (best_validity.items[group_index]) {
+            indices[row] = best_indices.items[group_index];
+            row_validity[row] = true;
+        }
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, indices, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeFirstTrueIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_true);
+}
+
+pub fn withGroupCumulativeLastTrueIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_true);
+}
+
+pub fn withGroupCumulativeFirstFalseIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .first_false);
+}
+
+pub fn withGroupCumulativeLastFalseIndexOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeBoolIndexOn(DeviceDataFrame, frame, key_names, value_name, output_name, .last_false);
+}
+
+pub const withGroupCumFirstTrueIndexOn = withGroupCumulativeFirstTrueIndexOn;
+pub const withGroupCumLastTrueIndexOn = withGroupCumulativeLastTrueIndexOn;
+pub const withGroupCumFirstFalseIndexOn = withGroupCumulativeFirstFalseIndexOn;
+pub const withGroupCumLastFalseIndexOn = withGroupCumulativeLastFalseIndexOn;
+
 const GroupCumulativeNumericOp = enum { sum, mean, product, min, max, variance, stddev, sem, cv, fano, skewness, kurtosis, mean_abs, mean_square, rms, max_abs, min_abs, l1_norm, l2_norm, range, midrange, range_coeff, logsumexp, logmeanexp, geometric_mean, harmonic_mean };
 
 fn groupCumulativeNumericUsesMomentProfile(comptime op: GroupCumulativeNumericOp) bool {

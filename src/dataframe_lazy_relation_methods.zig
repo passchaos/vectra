@@ -423,6 +423,51 @@ pub const withGroupCumTrueRatioOn = withGroupCumulativeTrueRatioOn;
 pub const withGroupCumFalseRatio = withGroupCumulativeFalseRatio;
 pub const withGroupCumFalseRatioOn = withGroupCumulativeFalseRatioOn;
 
+pub fn withGroupCumulativeFirstTrueIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstTrueIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstTrueIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstTrueIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastTrueIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastTrueIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastTrueIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastTrueIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstFalseIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeFirstFalseIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeFirstFalseIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeFirstFalseIndex(self, key_names, value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastFalseIndex(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeLastFalseIndexOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupCumulativeLastFalseIndexOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeLastFalseIndex(self, key_names, value_name, output_name);
+}
+
+pub const withGroupCumFirstTrueIndex = withGroupCumulativeFirstTrueIndex;
+pub const withGroupCumFirstTrueIndexOn = withGroupCumulativeFirstTrueIndexOn;
+pub const withGroupCumLastTrueIndex = withGroupCumulativeLastTrueIndex;
+pub const withGroupCumLastTrueIndexOn = withGroupCumulativeLastTrueIndexOn;
+pub const withGroupCumFirstFalseIndex = withGroupCumulativeFirstFalseIndex;
+pub const withGroupCumFirstFalseIndexOn = withGroupCumulativeFirstFalseIndexOn;
+pub const withGroupCumLastFalseIndex = withGroupCumulativeLastFalseIndex;
+pub const withGroupCumLastFalseIndexOn = withGroupCumulativeLastFalseIndexOn;
+
 pub fn withGroupCumulativeSum(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     const key_names = [_][]const u8{key_name};
     return withGroupCumulativeSumOn(self, key_names[0..], value_name, output_name);
