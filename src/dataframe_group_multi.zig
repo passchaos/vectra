@@ -3485,6 +3485,8 @@ const GroupCumulativeWeightedMoment = enum { mean, variance, stddev };
 
 const GroupCumulativeWeightedQuantileOp = enum { median, quantile, iqr, mad };
 
+const GroupCumulativeWeightedModeOp = enum { mode, mode_weight, mode_ratio, mode_margin, mode_margin_ratio };
+
 fn withGroupCumulativeWeightedMomentOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,
@@ -3720,6 +3722,126 @@ pub fn withGroupCumulativeWeightedMadOn(
     return withGroupCumulativeWeightedQuantileCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, 0.5, .mad);
 }
 
+fn withGroupCumulativeWeightedModeCoreOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+    comptime op: GroupCumulativeWeightedModeOp,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value_column = try frame.column(value_name);
+    const weight_column = try frame.column(weight_name);
+
+    var values = try ownedGroupRealColumn(frame.allocator, value_column.*);
+    defer values.deinit();
+    var weights = try ownedGroupRealColumn(frame.allocator, weight_column.*);
+    defer weights.deinit();
+    if (frame.rows != values.values.len or frame.rows != weights.values.len) return error.LengthMismatch;
+
+    const outputs = try frame.allocator.alloc(f64, frame.rows);
+    defer frame.allocator.free(outputs);
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(outputs, 0.0);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var weight_sums: std.ArrayList(f64) = .empty;
+    defer weight_sums.deinit(frame.allocator);
+    var mode_weights: std.ArrayList(std.ArrayList(GroupWeightedValue)) = .empty;
+    defer {
+        for (mode_weights.items) |*items| items.deinit(frame.allocator);
+        mode_weights.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        if (values.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        if (weights.validity) |validity| {
+            if (!validity[row]) continue;
+        }
+        const weight = weights.values[row];
+        if (weight < 0.0) return error.InvalidShape;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try weight_sums.append(frame.allocator, 0.0);
+            try mode_weights.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+
+        weight_sums.items[group_index] += weight;
+        const value = values.values[row];
+        var found_value = false;
+        for (mode_weights.items[group_index].items) |*item| {
+            if (groupWeightedValueEqual(item.value, value)) {
+                item.weight += weight;
+                found_value = true;
+                break;
+            }
+        }
+        if (!found_value) {
+            try mode_weights.items[group_index].append(frame.allocator, .{ .value = value, .weight = weight });
+        }
+
+        var best_value: f64 = 0.0;
+        var best_weight: f64 = 0.0;
+        var second_weight: f64 = 0.0;
+        var found_positive = false;
+        for (mode_weights.items[group_index].items) |item| {
+            if (item.weight <= 0.0) continue;
+            if (!found_positive or item.weight > best_weight) {
+                second_weight = best_weight;
+                best_value = item.value;
+                best_weight = item.weight;
+                found_positive = true;
+            } else if (item.weight > second_weight) {
+                second_weight = item.weight;
+            }
+        }
+
+        const weight_sum = weight_sums.items[group_index];
+        outputs[row] = if (weight_sum > 0.0 and found_positive) switch (op) {
+            .mode => best_value,
+            .mode_weight => best_weight,
+            .mode_ratio => best_weight / weight_sum,
+            .mode_margin => best_weight - second_weight,
+            .mode_margin_ratio => (best_weight - second_weight) / weight_sum,
+        } else std.math.nan(f64);
+        row_validity[row] = true;
+    }
+
+    var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+pub fn withGroupCumulativeWeightedModeOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedModeCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mode);
+}
+
+pub fn withGroupCumulativeWeightedModeWeightOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedModeCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mode_weight);
+}
+
+pub fn withGroupCumulativeWeightedModeRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedModeCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mode_ratio);
+}
+
+pub fn withGroupCumulativeWeightedModeMarginOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedModeCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mode_margin);
+}
+
+pub fn withGroupCumulativeWeightedModeMarginRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeWeightedModeCoreOn(DeviceDataFrame, frame, key_names, value_name, weight_name, output_name, .mode_margin_ratio);
+}
+
 pub const withGroupCumulativeWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedMeanOn = withGroupCumulativeWeightedMeanOn;
 pub const withGroupCumWeightedMedianOn = withGroupCumulativeWeightedMedianOn;
@@ -3732,6 +3854,11 @@ pub const withGroupCumWeightedIQROn = withGroupCumulativeWeightedIqrOn;
 pub const withGroupCumWeightedMadOn = withGroupCumulativeWeightedMadOn;
 pub const withGroupCumWeightedMADOn = withGroupCumulativeWeightedMadOn;
 pub const withGroupCumWeightedMedianAbsDevOn = withGroupCumulativeWeightedMadOn;
+pub const withGroupCumWeightedModeOn = withGroupCumulativeWeightedModeOn;
+pub const withGroupCumWeightedModeWeightOn = withGroupCumulativeWeightedModeWeightOn;
+pub const withGroupCumWeightedModeRatioOn = withGroupCumulativeWeightedModeRatioOn;
+pub const withGroupCumWeightedModeMarginOn = withGroupCumulativeWeightedModeMarginOn;
+pub const withGroupCumWeightedModeMarginRatioOn = withGroupCumulativeWeightedModeMarginRatioOn;
 pub const withGroupCumWeightedVarianceOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedVarOn = withGroupCumulativeWeightedVarianceOn;
 pub const withGroupCumWeightedStddevOn = withGroupCumulativeWeightedStddevOn;

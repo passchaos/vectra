@@ -3209,6 +3209,7 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.groupByWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "bad_weighted_cum_mean"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "bad_weighted_cum_mode"));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 1.5));
 
     var group_cum_weighted_mean = try weighted_table.withGroupCumulativeWeightedMean("bucket", "value", "weight", "value_weighted_cum_mean");
@@ -3299,6 +3300,52 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer lazy_cumulative_weighted_robust.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust, gpa, "value_weighted_cum_iqr_lazy", &group_cum_weighted_iqr_expected, &.{ true, true, true, true, true, true });
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_robust, gpa, "value_weighted_cum_mad_lazy", &group_cum_weighted_mad_expected, &.{ true, true, true, true, true, true });
+
+    const group_cum_weighted_mode_validity = [_]bool{ true, true, true, true, true, false, true, true };
+    const group_cum_weighted_mode_expected = [_]f64{ 10.0, 20.0, 20.0, 5.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mode_weight_expected = [_]f64{ 1.0, 3.0, 3.0, 1.0, 1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mode_ratio_expected = [_]f64{ 1.0, 0.75, 0.5, 1.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mode_margin_expected = [_]f64{ 1.0, 2.0, 1.0, 1.0, 0.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mode_margin_ratio_expected = [_]f64{ 1.0, 0.5, 1.0 / 6.0, 1.0, 0.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+
+    var group_cum_weighted_mode = try weighted_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "value_weighted_cum_mode");
+    defer group_cum_weighted_mode.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mode, gpa, "value_weighted_cum_mode", &group_cum_weighted_mode_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_mode_weight = try weighted_table.withGroupCumulativeWeightedModeWeight("bucket", "value", "weight", "value_weighted_cum_mode_weight");
+    defer group_cum_weighted_mode_weight.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mode_weight, gpa, "value_weighted_cum_mode_weight", &group_cum_weighted_mode_weight_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_mode_ratio = try weighted_table.withGroupCumulativeWeightedModeRatio("bucket", "value", "weight", "value_weighted_cum_mode_ratio");
+    defer group_cum_weighted_mode_ratio.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mode_ratio, gpa, "value_weighted_cum_mode_ratio", &group_cum_weighted_mode_ratio_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_mode_margin = try weighted_table.withGroupCumulativeWeightedModeMargin("bucket", "value", "weight", "value_weighted_cum_mode_margin");
+    defer group_cum_weighted_mode_margin.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mode_margin, gpa, "value_weighted_cum_mode_margin", &group_cum_weighted_mode_margin_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_mode_margin_ratio = try weighted_table.withGroupCumulativeWeightedModeMarginRatio("bucket", "value", "weight", "value_weighted_cum_mode_margin_ratio");
+    defer group_cum_weighted_mode_margin_ratio.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mode_margin_ratio, gpa, "value_weighted_cum_mode_margin_ratio", &group_cum_weighted_mode_margin_ratio_expected, &group_cum_weighted_mode_validity);
+
+    var cumulative_weighted_mode_plan = try DeviceLazyFrame.init(gpa, weighted_table);
+    defer cumulative_weighted_mode_plan.deinit();
+    try cumulative_weighted_mode_plan.withGroupCumulativeWeightedMode("bucket", "value", "weight", "value_weighted_cum_mode_lazy");
+    try cumulative_weighted_mode_plan.withGroupCumulativeWeightedModeWeight("bucket", "value", "weight", "value_weighted_cum_mode_weight_lazy");
+    try cumulative_weighted_mode_plan.withGroupCumulativeWeightedModeRatio("bucket", "value", "weight", "value_weighted_cum_mode_ratio_lazy");
+    try cumulative_weighted_mode_plan.withGroupCumulativeWeightedModeMargin("bucket", "value", "weight", "value_weighted_cum_mode_margin_lazy");
+    try cumulative_weighted_mode_plan.withGroupCumulativeWeightedModeMarginRatio("bucket", "value", "weight", "value_weighted_cum_mode_margin_ratio_lazy");
+    const cumulative_weighted_mode_explained = try cumulative_weighted_mode_plan.explain(gpa);
+    defer gpa.free(cumulative_weighted_mode_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mode_explained, "group_cumulative_weighted_mode([bucket], value=value, weight=weight->value_weighted_cum_mode_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_mode_explained, "group_cumulative_weighted_mode_margin_ratio([bucket], value=value, weight=weight->value_weighted_cum_mode_margin_ratio_lazy)") != null);
+    var lazy_cumulative_weighted_modes = try cumulative_weighted_mode_plan.collect();
+    defer lazy_cumulative_weighted_modes.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_lazy", &group_cum_weighted_mode_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_weight_lazy", &group_cum_weighted_mode_weight_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_ratio_lazy", &group_cum_weighted_mode_ratio_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_margin_lazy", &group_cum_weighted_mode_margin_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_modes, gpa, "value_weighted_cum_mode_margin_ratio_lazy", &group_cum_weighted_mode_margin_ratio_expected, &group_cum_weighted_mode_validity);
 
     const group_cum_weighted_variance_expected = [_]f64{ 0.0, 18.75, 425.0 / 9.0, 0.0, 25.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_stddev_expected = [_]f64{ 0.0, std.math.sqrt(@as(f64, 18.75)), std.math.sqrt(@as(f64, 425.0 / 9.0)), 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };

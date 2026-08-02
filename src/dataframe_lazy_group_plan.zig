@@ -1840,6 +1840,44 @@ pub fn withGroupCumulativeWeightedMad(frame: anytype, key_names: []const []const
     return withGroupCumulativeWeightedQuantileCore(frame, key_names, value_name, weight_name, output_name, 0.5, .mad);
 }
 
+fn withGroupCumulativeWeightedModeCore(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mode, weight, ratio, margin, margin_ratio }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .mode => .{ .group_cumulative_weighted_mode = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .weight => .{ .group_cumulative_weighted_mode_weight = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .ratio => .{ .group_cumulative_weighted_mode_ratio = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .margin => .{ .group_cumulative_weighted_mode_margin = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .margin_ratio => .{ .group_cumulative_weighted_mode_margin_ratio = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+    });
+}
+
+pub fn withGroupCumulativeWeightedMode(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .mode);
+}
+
+pub fn withGroupCumulativeWeightedModeWeight(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .weight);
+}
+
+pub fn withGroupCumulativeWeightedModeRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .ratio);
+}
+
+pub fn withGroupCumulativeWeightedModeMargin(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .margin);
+}
+
+pub fn withGroupCumulativeWeightedModeMarginRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedModeCore(frame, key_names, value_name, weight_name, output_name, .margin_ratio);
+}
+
 pub fn withGroupCumulativeWeightedVariance(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeWeightedMoment(frame, key_names, value_name, weight_name, output_name, .variance);
 }
@@ -1860,6 +1898,11 @@ pub const withGroupCumWeightedIQR = withGroupCumulativeWeightedIqr;
 pub const withGroupCumWeightedMad = withGroupCumulativeWeightedMad;
 pub const withGroupCumWeightedMAD = withGroupCumulativeWeightedMad;
 pub const withGroupCumWeightedMedianAbsDev = withGroupCumulativeWeightedMad;
+pub const withGroupCumWeightedMode = withGroupCumulativeWeightedMode;
+pub const withGroupCumWeightedModeWeight = withGroupCumulativeWeightedModeWeight;
+pub const withGroupCumWeightedModeRatio = withGroupCumulativeWeightedModeRatio;
+pub const withGroupCumWeightedModeMargin = withGroupCumulativeWeightedModeMargin;
+pub const withGroupCumWeightedModeMarginRatio = withGroupCumulativeWeightedModeMarginRatio;
 
 pub fn withGroupCumulativeProduct(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return withGroupCumulativeNumeric(frame, key_names, value_name, output_name, .product);
