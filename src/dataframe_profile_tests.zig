@@ -2990,6 +2990,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const weighted_sem_expected = [_]f64{ std.math.sqrt(@as(f64, (425.0 / 9.0) / 6.0)), std.math.sqrt(@as(f64, 25.0 / 2.0)), std.math.nan(f64) };
     const weighted_cv_expected = [_]f64{ std.math.sqrt(@as(f64, 425.0 / 9.0)) / (65.0 / 3.0), 0.5, std.math.nan(f64) };
     const weighted_fano_expected = [_]f64{ (425.0 / 9.0) / (65.0 / 3.0), 2.5, std.math.nan(f64) };
+    const weighted_skew_expected = [_]f64{ std.math.sqrt(@as(f64, 6.0)) * (-4000.0 / 9.0) / std.math.pow(f64, 850.0 / 3.0, 1.5), 0.0, std.math.nan(f64) };
+    const weighted_kurt_expected = [_]f64{ 6.0 * (253750.0 / 9.0) / ((850.0 / 3.0) * (850.0 / 3.0)) - 3.0, -2.0, std.math.nan(f64) };
 
     var weighted_sem = try weighted_table.groupByWeightedSEM("bucket", "value", "weight", "value_weighted_sem");
     defer weighted_sem.deinit();
@@ -3002,6 +3004,14 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var weighted_fano = try weighted_table.groupByWeightedFano("bucket", "value", "weight", "value_weighted_fano");
     defer weighted_fano.deinit();
     try expectF64ColumnApproxOrNan(weighted_fano, gpa, "value_weighted_fano", &weighted_fano_expected);
+
+    var weighted_skew = try weighted_table.groupByWeightedSkewness("bucket", "value", "weight", "value_weighted_skew");
+    defer weighted_skew.deinit();
+    try expectF64ColumnApproxOrNan(weighted_skew, gpa, "value_weighted_skew", &weighted_skew_expected);
+
+    var weighted_kurt = try weighted_table.groupByWeightedKurtosis("bucket", "value", "weight", "value_weighted_kurt");
+    defer weighted_kurt.deinit();
+    try expectF64ColumnApproxOrNan(weighted_kurt, gpa, "value_weighted_kurt", &weighted_kurt_expected);
 
     var weighted_mean_on = try weighted_table.groupByWeightedMeanOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_mean_on");
     defer weighted_mean_on.deinit();
@@ -3923,6 +3933,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_sem, .output_name = "value_weighted_sem_lazy", .explain = "group_by_weighted_sem(bucket, value=value, weight=weight -> value_weighted_sem_lazy)", .expected = &weighted_sem_expected },
         .{ .method = .weighted_cv, .output_name = "value_weighted_cv_lazy", .explain = "group_by_weighted_cv(bucket, value=value, weight=weight -> value_weighted_cv_lazy)", .expected = &weighted_cv_expected },
         .{ .method = .weighted_fano, .output_name = "value_weighted_fano_lazy", .explain = "group_by_weighted_fano(bucket, value=value, weight=weight -> value_weighted_fano_lazy)", .expected = &weighted_fano_expected },
+        .{ .method = .weighted_skewness, .output_name = "value_weighted_skew_lazy", .explain = "group_by_weighted_skewness(bucket, value=value, weight=weight -> value_weighted_skew_lazy)", .expected = &weighted_skew_expected },
+        .{ .method = .weighted_kurtosis, .output_name = "value_weighted_kurt_lazy", .explain = "group_by_weighted_kurtosis(bucket, value=value, weight=weight -> value_weighted_kurt_lazy)", .expected = &weighted_kurt_expected },
     };
     for (weighted_lazy_cases) |case| {
         var plan = try DeviceLazyFrame.init(gpa, weighted_table);
@@ -3963,6 +3975,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_sem => plan.groupByWeightedSem("bucket", "value", "weight", case.output_name),
             .weighted_cv => plan.groupByWeightedCv("bucket", "value", "weight", case.output_name),
             .weighted_fano => plan.groupByWeightedFano("bucket", "value", "weight", case.output_name),
+            .weighted_skewness => plan.groupByWeightedSkewness("bucket", "value", "weight", case.output_name),
+            .weighted_kurtosis => plan.groupByWeightedKurtosis("bucket", "value", "weight", case.output_name),
             .weighted_mean, .weighted_variance, .weighted_stddev, .weighted_quantile, .weighted_median, .weighted_iqr, .weighted_mad => unreachable,
         };
         const explained = try plan.explain(gpa);

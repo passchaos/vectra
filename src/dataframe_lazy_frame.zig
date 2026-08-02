@@ -6931,6 +6931,14 @@ pub fn DeviceLazyTypes(
             pub const groupByWeightedCvOn = lazy_relation_methods_mod.groupByWeightedCvOn;
             pub const groupByWeightedFano = lazy_relation_methods_mod.groupByWeightedFano;
             pub const groupByWeightedFanoOn = lazy_relation_methods_mod.groupByWeightedFanoOn;
+            pub const groupByWeightedSkewness = lazy_relation_methods_mod.groupByWeightedSkewness;
+            pub const groupByWeightedSkewnessOn = lazy_relation_methods_mod.groupByWeightedSkewnessOn;
+            pub const groupByWeightedSkew = lazy_relation_methods_mod.groupByWeightedSkew;
+            pub const groupByWeightedSkewOn = lazy_relation_methods_mod.groupByWeightedSkewOn;
+            pub const groupByWeightedKurtosis = lazy_relation_methods_mod.groupByWeightedKurtosis;
+            pub const groupByWeightedKurtosisOn = lazy_relation_methods_mod.groupByWeightedKurtosisOn;
+            pub const groupByWeightedKurt = lazy_relation_methods_mod.groupByWeightedKurt;
+            pub const groupByWeightedKurtOn = lazy_relation_methods_mod.groupByWeightedKurtOn;
             pub const groupByWeightedSEM = lazy_relation_methods_mod.groupByWeightedSEM;
             pub const groupByWeightedSEMOn = lazy_relation_methods_mod.groupByWeightedSEMOn;
             pub const groupByWeightedCV = lazy_relation_methods_mod.groupByWeightedCV;

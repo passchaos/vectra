@@ -251,6 +251,8 @@ const GroupByWeightedAggregation = enum {
     weighted_sem,
     weighted_cv,
     weighted_fano,
+    weighted_skewness,
+    weighted_kurtosis,
     weighted_quantile,
     weighted_median,
     weighted_iqr,
@@ -613,6 +615,37 @@ fn groupWeightedQuantileFromSorted(sorted: []const GroupWeightedValue, q: f64, t
         if (cumulative >= threshold) return item.value;
     }
     return sorted[sorted.len - 1].value;
+}
+
+fn groupWeightedShapeFromRows(rows: []const usize, values: []const f64, weights: []const f64, op: enum { skewness, kurtosis }) f64 {
+    var weight_sum: f64 = 0.0;
+    var weighted_sum: f64 = 0.0;
+    for (rows) |row| {
+        const weight = weights[row];
+        if (!(weight > 0.0)) continue;
+        weight_sum += weight;
+        weighted_sum += values[row] * weight;
+    }
+    if (!(weight_sum > 0.0)) return std.math.nan(f64);
+    const mean = weighted_sum / weight_sum;
+
+    var centered2: f64 = 0.0;
+    var centered3: f64 = 0.0;
+    var centered4: f64 = 0.0;
+    for (rows) |row| {
+        const weight = weights[row];
+        if (!(weight > 0.0)) continue;
+        const centered = values[row] - mean;
+        const centered_sq = centered * centered;
+        centered2 += weight * centered_sq;
+        centered3 += weight * centered_sq * centered;
+        centered4 += weight * centered_sq * centered_sq;
+    }
+    if (centered2 == 0.0) return std.math.nan(f64);
+    return switch (op) {
+        .skewness => std.math.sqrt(weight_sum) * centered3 / std.math.pow(f64, centered2, 1.5),
+        .kurtosis => weight_sum * centered4 / (centered2 * centered2) - 3.0,
+    };
 }
 
 fn groupWeightedQuantileFromRows(
@@ -7099,6 +7132,8 @@ pub fn groupByWeightedOn(
                             else => unreachable,
                         };
                     },
+                    .weighted_skewness => groupWeightedShapeFromRows(rows.items, values.values, weights.values, .skewness),
+                    .weighted_kurtosis => groupWeightedShapeFromRows(rows.items, values.values, weights.values, .kurtosis),
                     .weighted_quantile => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, q, null),
                     .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
                     .weighted_iqr => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.75, 0.25),
@@ -7462,6 +7497,31 @@ pub fn groupByWeightedFanoOn(
 
 pub const groupByWeightedSEMOn = groupByWeightedSemOn;
 pub const groupByWeightedCVOn = groupByWeightedCvOn;
+
+pub fn groupByWeightedSkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_skewness, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedKurtosisOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_kurtosis, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedSkewOn = groupByWeightedSkewnessOn;
+pub const groupByWeightedKurtOn = groupByWeightedKurtosisOn;
 
 pub fn groupByWeightedQuantileOn(
     comptime DeviceDataFrame: type,

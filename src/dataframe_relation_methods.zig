@@ -3492,6 +3492,29 @@ pub const groupByWeightedSEMOn = groupByWeightedSemOn;
 pub const groupByWeightedCV = groupByWeightedCv;
 pub const groupByWeightedCVOn = groupByWeightedCvOn;
 
+pub fn groupByWeightedSkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedSkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedSkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedKurtosisOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedKurtosisOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedSkew = groupByWeightedSkewness;
+pub const groupByWeightedSkewOn = groupByWeightedSkewnessOn;
+pub const groupByWeightedKurt = groupByWeightedKurtosis;
+pub const groupByWeightedKurtOn = groupByWeightedKurtosisOn;
+
 pub fn groupByWeightedQuantile(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedQuantileOn(self, key_names[0..], value_name, weight_name, output_name, q);

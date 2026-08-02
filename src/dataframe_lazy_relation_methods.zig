@@ -3432,6 +3432,27 @@ pub const groupByWeightedSEMOn = groupByWeightedSemOn;
 pub const groupByWeightedCV = groupByWeightedCv;
 pub const groupByWeightedCVOn = groupByWeightedCvOn;
 
+pub fn groupByWeightedSkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_skewness);
+}
+
+pub fn groupByWeightedSkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_skewness);
+}
+
+pub fn groupByWeightedKurtosis(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_kurtosis);
+}
+
+pub fn groupByWeightedKurtosisOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_kurtosis);
+}
+
+pub const groupByWeightedSkew = groupByWeightedSkewness;
+pub const groupByWeightedSkewOn = groupByWeightedSkewnessOn;
+pub const groupByWeightedKurt = groupByWeightedKurtosis;
+pub const groupByWeightedKurtOn = groupByWeightedKurtosisOn;
+
 pub fn groupByWeightedQuantile(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     return lazy_group_mod.groupByWeightedQuantile(self, key_name, value_name, weight_name, output_name, .weighted_quantile, q);
 }

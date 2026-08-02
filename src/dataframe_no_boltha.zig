@@ -343,6 +343,8 @@ pub const DeviceLazyWeightedGroupByAggregation = enum {
     weighted_sem,
     weighted_cv,
     weighted_fano,
+    weighted_skewness,
+    weighted_kurtosis,
     weighted_quantile,
     weighted_median,
     weighted_iqr,
