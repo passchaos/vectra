@@ -2150,6 +2150,153 @@ pub const withGroupCumLastValidIndexOn = withGroupCumulativeLastValidIndexOn;
 pub const withGroupCumFirstNullIndexOn = withGroupCumulativeFirstNullIndexOn;
 pub const withGroupCumLastNullIndexOn = withGroupCumulativeLastNullIndexOn;
 
+fn withGroupCumulativeNumericQualityOnTyped(
+    comptime DeviceDataFrame: type,
+    comptime V: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    output_name: []const u8,
+    value: DeviceTypedColumn(V),
+    comptime aggregation: GroupByNumericQualityAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (frame.rows != value.len()) return error.LengthMismatch;
+    const values = try value.values.toOwnedSlice(frame.allocator);
+    defer frame.allocator.free(values);
+    const maybe_value_validity = try validityValues(value, frame.allocator);
+    defer if (maybe_value_validity) |validity| frame.allocator.free(validity);
+
+    const row_validity = try frame.allocator.alloc(bool, frame.rows);
+    defer frame.allocator.free(row_validity);
+    @memset(row_validity, false);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var match_counts: std.ArrayList(i64) = .empty;
+    defer match_counts.deinit(frame.allocator);
+    var valid_counts: std.ArrayList(i64) = .empty;
+    defer valid_counts.deinit(frame.allocator);
+
+    if (groupNumericQualityIsRatio(aggregation)) {
+        const outputs = try frame.allocator.alloc(f64, frame.rows);
+        defer frame.allocator.free(outputs);
+        @memset(outputs, 0.0);
+        for (values, 0..) |value_item, row| {
+            if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+            const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+            if (!value_valid) continue;
+            const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+                try representative_rows.append(frame.allocator, row);
+                try match_counts.append(frame.allocator, 0);
+                try valid_counts.append(frame.allocator, 0);
+                break :blk representative_rows.items.len - 1;
+            };
+            valid_counts.items[group_index] += 1;
+            if (groupNumericQualityMatchesTyped(V, value_item, aggregation)) match_counts.items[group_index] += 1;
+            outputs[row] = @as(f64, @floatFromInt(match_counts.items[group_index])) / @as(f64, @floatFromInt(valid_counts.items[group_index]));
+            row_validity[row] = true;
+        }
+        var column = try DeviceColumn.fromSliceWithValidity(f64, frame.allocator, outputs, row_validity, frame.device);
+        defer column.deinit();
+        return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+    }
+
+    const outputs = try frame.allocator.alloc(i64, frame.rows);
+    defer frame.allocator.free(outputs);
+    @memset(outputs, 0);
+    for (values, 0..) |value_item, row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const value_valid = if (maybe_value_validity) |validity| validity[row] else true;
+        if (!value_valid) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try match_counts.append(frame.allocator, 0);
+            try valid_counts.append(frame.allocator, 0);
+            break :blk representative_rows.items.len - 1;
+        };
+        valid_counts.items[group_index] += 1;
+        if (groupNumericQualityMatchesTyped(V, value_item, aggregation)) match_counts.items[group_index] += 1;
+        outputs[row] = match_counts.items[group_index];
+        row_validity[row] = true;
+    }
+    var column = try DeviceColumn.fromSliceWithValidity(i64, frame.allocator, outputs, row_validity, frame.device);
+    defer column.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, column);
+}
+
+fn withGroupCumulativeNumericQualityOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime aggregation: GroupByNumericQualityAggregation,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+    return switch (value.*) {
+        .i8 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, i8, frame, key_names, output_name, typed, aggregation),
+        .i16 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, i16, frame, key_names, output_name, typed, aggregation),
+        .i32 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, i32, frame, key_names, output_name, typed, aggregation),
+        .i64 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, i64, frame, key_names, output_name, typed, aggregation),
+        .u8 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, u8, frame, key_names, output_name, typed, aggregation),
+        .u16 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, u16, frame, key_names, output_name, typed, aggregation),
+        .u32 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, u32, frame, key_names, output_name, typed, aggregation),
+        .u64 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, u64, frame, key_names, output_name, typed, aggregation),
+        .usize => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, usize, frame, key_names, output_name, typed, aggregation),
+        .isize => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, isize, frame, key_names, output_name, typed, aggregation),
+        .f16 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, f16, frame, key_names, output_name, typed, aggregation),
+        .f32 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, f32, frame, key_names, output_name, typed, aggregation),
+        .f64 => |typed| withGroupCumulativeNumericQualityOnTyped(DeviceDataFrame, f64, frame, key_names, output_name, typed, aggregation),
+        .bool, .bf16, .c64, .c128 => error.TypeUnsupported,
+    };
+}
+
+pub fn withGroupCumulativeNaNCountOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .nan_count);
+}
+
+pub fn withGroupCumulativeNaNRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .nan_ratio);
+}
+
+pub fn withGroupCumulativeInfCountOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .inf_count);
+}
+
+pub fn withGroupCumulativeInfRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .inf_ratio);
+}
+
+pub fn withGroupCumulativeFiniteCountOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .finite_count);
+}
+
+pub fn withGroupCumulativeFiniteRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .finite_ratio);
+}
+
+pub fn withGroupCumulativeNonFiniteCountOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .non_finite_count);
+}
+
+pub fn withGroupCumulativeNonFiniteRatioOn(comptime DeviceDataFrame: type, frame: DeviceDataFrame, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) GroupByOnError!DeviceDataFrame {
+    return withGroupCumulativeNumericQualityOn(DeviceDataFrame, frame, key_names, value_name, output_name, .non_finite_ratio);
+}
+
+pub const withGroupCumNaNCountOn = withGroupCumulativeNaNCountOn;
+pub const withGroupCumNanCountOn = withGroupCumulativeNaNCountOn;
+pub const withGroupCumulativeNanCountOn = withGroupCumulativeNaNCountOn;
+pub const withGroupCumNaNRatioOn = withGroupCumulativeNaNRatioOn;
+pub const withGroupCumNanRatioOn = withGroupCumulativeNaNRatioOn;
+pub const withGroupCumulativeNanRatioOn = withGroupCumulativeNaNRatioOn;
+pub const withGroupCumInfCountOn = withGroupCumulativeInfCountOn;
+pub const withGroupCumInfRatioOn = withGroupCumulativeInfRatioOn;
+pub const withGroupCumFiniteCountOn = withGroupCumulativeFiniteCountOn;
+pub const withGroupCumFiniteRatioOn = withGroupCumulativeFiniteRatioOn;
+pub const withGroupCumNonFiniteCountOn = withGroupCumulativeNonFiniteCountOn;
+pub const withGroupCumNonFiniteRatioOn = withGroupCumulativeNonFiniteRatioOn;
+
 const GroupCumulativeBoolOp = enum { any, all, true_count, false_count, true_ratio, false_ratio };
 
 fn withGroupCumulativeBoolOn(

@@ -567,6 +567,97 @@ pub fn withGroupCumulativeLastNullIndex(frame: anytype, key_names: []const []con
     return withGroupCumulativeValidityIndex(frame, key_names, value_name, output_name, .last_null);
 }
 
+fn withGroupCumulativeQuality(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { nan_count, nan_ratio, inf_count, inf_ratio, finite_count, finite_ratio, non_finite_count, non_finite_ratio }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .nan_count => .{ .group_cumulative_nan_count = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .nan_ratio => .{ .group_cumulative_nan_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .inf_count => .{ .group_cumulative_inf_count = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .inf_ratio => .{ .group_cumulative_inf_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .finite_count => .{ .group_cumulative_finite_count = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .finite_ratio => .{ .group_cumulative_finite_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .non_finite_count => .{ .group_cumulative_non_finite_count = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+        .non_finite_ratio => .{ .group_cumulative_non_finite_ratio = .{
+            .names = owned_keys,
+            .value_name = owned_value,
+            .output_name = owned_output,
+            .offset = 0,
+        } },
+    });
+}
+
+pub fn withGroupCumulativeNaNCount(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .nan_count);
+}
+
+pub fn withGroupCumulativeNaNRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .nan_ratio);
+}
+
+pub fn withGroupCumulativeInfCount(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .inf_count);
+}
+
+pub fn withGroupCumulativeInfRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .inf_ratio);
+}
+
+pub fn withGroupCumulativeFiniteCount(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .finite_count);
+}
+
+pub fn withGroupCumulativeFiniteRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .finite_ratio);
+}
+
+pub fn withGroupCumulativeNonFiniteCount(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .non_finite_count);
+}
+
+pub fn withGroupCumulativeNonFiniteRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeQuality(frame, key_names, value_name, output_name, .non_finite_ratio);
+}
+
 fn withGroupCumulativeBool(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime op: enum { any, all, true_count, false_count, true_ratio, false_ratio }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

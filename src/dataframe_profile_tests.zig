@@ -472,6 +472,38 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer gpa.free(metric_non_finite_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 3, 0, 1, 0 }, metric_non_finite_count_values);
 
+    var metric_cum_nan_count = try quality_table.withGroupCumulativeNaNCount("bucket", "metric", "metric_cum_nan_count");
+    defer metric_cum_nan_count.deinit();
+    try expectNullableI64Column(metric_cum_nan_count, gpa, "metric_cum_nan_count", &.{ 0, 1, 1, 1, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_inf_count = try quality_table.withGroupCumulativeInfCount("bucket", "metric", "metric_cum_inf_count");
+    defer metric_cum_inf_count.deinit();
+    try expectNullableI64Column(metric_cum_inf_count, gpa, "metric_cum_inf_count", &.{ 0, 0, 1, 2, 0, 0, 0, 0, 1, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_finite_count = try quality_table.withGroupCumulativeFiniteCount("bucket", "metric", "metric_cum_finite_count");
+    defer metric_cum_finite_count.deinit();
+    try expectNullableI64Column(metric_cum_finite_count, gpa, "metric_cum_finite_count", &.{ 1, 1, 1, 1, 1, 2, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_non_finite_count = try quality_table.withGroupCumulativeNonFiniteCount("bucket", "metric", "metric_cum_non_finite_count");
+    defer metric_cum_non_finite_count.deinit();
+    try expectNullableI64Column(metric_cum_non_finite_count, gpa, "metric_cum_non_finite_count", &.{ 0, 1, 2, 3, 0, 0, 0, 0, 1, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_nan_ratio = try quality_table.withGroupCumulativeNaNRatio("bucket", "metric", "metric_cum_nan_ratio");
+    defer metric_cum_nan_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_nan_ratio, gpa, "metric_cum_nan_ratio", &.{ 0.0, 0.5, 1.0 / 3.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_inf_ratio = try quality_table.withGroupCumulativeInfRatio("bucket", "metric", "metric_cum_inf_ratio");
+    defer metric_cum_inf_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_inf_ratio, gpa, "metric_cum_inf_ratio", &.{ 0.0, 0.0, 1.0 / 3.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_finite_ratio = try quality_table.withGroupCumulativeFiniteRatio("bucket", "metric", "metric_cum_finite_ratio");
+    defer metric_cum_finite_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_finite_ratio, gpa, "metric_cum_finite_ratio", &.{ 1.0, 0.5, 1.0 / 3.0, 0.25, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
+    var metric_cum_non_finite_ratio = try quality_table.withGroupCumulativeNonFiniteRatio("bucket", "metric", "metric_cum_non_finite_ratio");
+    defer metric_cum_non_finite_ratio.deinit();
+    try expectF64ColumnWithValidity(metric_cum_non_finite_ratio, gpa, "metric_cum_non_finite_ratio", &.{ 0.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+
     const ratio_nan = std.math.nan(f64);
     const metric_nan_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
     var metric_nan_ratios = try quality_table.groupByNaNRatio("bucket", "metric", "metric_nan_ratio");
@@ -774,6 +806,25 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const lazy_nan_count_values = try (try lazy_nan_count.column("metric_nan_count_lazy")).i64.toOwnedSlice(gpa);
     defer gpa.free(lazy_nan_count_values);
     try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, lazy_nan_count_values);
+
+    var cumulative_quality_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer cumulative_quality_plan.deinit();
+    try cumulative_quality_plan.withGroupCumulativeNaNCount("bucket", "metric", "metric_cum_nan_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeInfRatio("bucket", "metric", "metric_cum_inf_ratio_lazy");
+    try cumulative_quality_plan.withGroupCumulativeFiniteCount("bucket", "metric", "metric_cum_finite_count_lazy");
+    try cumulative_quality_plan.withGroupCumulativeNonFiniteRatio("bucket", "metric", "metric_cum_non_finite_ratio_lazy");
+    const cumulative_quality_explained = try cumulative_quality_plan.explain(gpa);
+    defer gpa.free(cumulative_quality_explained);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_nan_count([bucket], value=metric->metric_cum_nan_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_inf_ratio([bucket], value=metric->metric_cum_inf_ratio_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_finite_count([bucket], value=metric->metric_cum_finite_count_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_quality_explained, "group_cumulative_non_finite_ratio([bucket], value=metric->metric_cum_non_finite_ratio_lazy)") != null);
+    var lazy_cumulative_quality = try cumulative_quality_plan.collect();
+    defer lazy_cumulative_quality.deinit();
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_nan_count_lazy", &.{ 0, 1, 1, 1, 0, 0, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_inf_ratio_lazy", &.{ 0.0, 0.0, 1.0 / 3.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectNullableI64Column(lazy_cumulative_quality, gpa, "metric_cum_finite_count_lazy", &.{ 1, 1, 1, 1, 1, 2, 0, 0, 0, 0 }, &.{ true, true, true, true, true, true, false, false, true, false });
+    try expectF64ColumnWithValidity(lazy_cumulative_quality, gpa, "metric_cum_non_finite_ratio_lazy", &.{ 0.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }, &.{ true, true, true, true, true, true, false, false, true, false });
 
     var last_inf_index_plan = try DeviceLazyFrame.init(gpa, quality_index_table);
     defer last_inf_index_plan.deinit();
