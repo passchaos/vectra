@@ -345,6 +345,61 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer metric_non_finite_ratios.deinit();
     try expectF64ColumnApproxOrNan(metric_non_finite_ratios, gpa, "metric_non_finite_ratio", &metric_non_finite_ratio_expected);
 
+    var metric_zero_counts = try quality_table.groupByZeroCount("bucket", "metric", "metric_zero_count");
+    defer metric_zero_counts.deinit();
+    const metric_zero_count_values = try (try metric_zero_counts.column("metric_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, metric_zero_count_values);
+
+    const metric_zero_ratio_expected = [_]f64{ 0.0, 0.5, 0.0, ratio_nan };
+    var metric_zero_ratios = try quality_table.groupByZeroRatio("bucket", "metric", "metric_zero_ratio");
+    defer metric_zero_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_zero_ratios, gpa, "metric_zero_ratio", &metric_zero_ratio_expected);
+
+    var metric_non_zero_counts = try quality_table.groupByNonZeroCount("bucket", "metric", "metric_non_zero_count");
+    defer metric_non_zero_counts.deinit();
+    const metric_non_zero_count_values = try (try metric_non_zero_counts.column("metric_non_zero_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_non_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 4, 1, 1, 0 }, metric_non_zero_count_values);
+
+    const metric_non_zero_ratio_expected = [_]f64{ 1.0, 0.5, 1.0, ratio_nan };
+    var metric_non_zero_ratios = try quality_table.groupByNonZeroRatio("bucket", "metric", "metric_non_zero_ratio");
+    defer metric_non_zero_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_non_zero_ratios, gpa, "metric_non_zero_ratio", &metric_non_zero_ratio_expected);
+
+    var metric_positive_counts = try quality_table.groupByPositiveCount("bucket", "metric", "metric_positive_count");
+    defer metric_positive_counts.deinit();
+    const metric_positive_count_values = try (try metric_positive_counts.column("metric_positive_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_positive_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 2, 1, 1, 0 }, metric_positive_count_values);
+
+    const metric_positive_ratio_expected = [_]f64{ 0.5, 0.5, 1.0, ratio_nan };
+    var metric_positive_ratios = try quality_table.groupByPositiveRatio("bucket", "metric", "metric_positive_ratio");
+    defer metric_positive_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_positive_ratios, gpa, "metric_positive_ratio", &metric_positive_ratio_expected);
+
+    var metric_signbit_counts = try quality_table.groupBySignBitCount("bucket", "metric", "metric_signbit_count");
+    defer metric_signbit_counts.deinit();
+    const metric_signbit_count_values = try (try metric_signbit_counts.column("metric_signbit_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_signbit_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, metric_signbit_count_values);
+
+    const metric_signbit_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
+    var metric_signbit_ratios = try quality_table.groupBySignBitRatio("bucket", "metric", "metric_signbit_ratio");
+    defer metric_signbit_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_signbit_ratios, gpa, "metric_signbit_ratio", &metric_signbit_ratio_expected);
+
+    var metric_negative_counts = try quality_table.groupByNegativeCount("bucket", "metric", "metric_negative_count");
+    defer metric_negative_counts.deinit();
+    const metric_negative_count_values = try (try metric_negative_counts.column("metric_negative_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(metric_negative_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 1, 0, 0, 0 }, metric_negative_count_values);
+
+    const metric_negative_ratio_expected = [_]f64{ 0.25, 0.0, 0.0, ratio_nan };
+    var metric_negative_ratios = try quality_table.groupByNegativeRatio("bucket", "metric", "metric_negative_ratio");
+    defer metric_negative_ratios.deinit();
+    try expectF64ColumnApproxOrNan(metric_negative_ratios, gpa, "metric_negative_ratio", &metric_negative_ratio_expected);
+
     var metric_nan_counts_on = try quality_table.groupByNaNCountOn(&.{ "bucket", "day" }, "metric", "metric_nan_count_on");
     defer metric_nan_counts_on.deinit();
     const metric_nan_count_on_values = try (try metric_nan_counts_on.column("metric_nan_count_on")).i64.toOwnedSlice(gpa);
@@ -387,6 +442,28 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_non_finite_ratio = try non_finite_ratio_plan.collect();
     defer lazy_non_finite_ratio.deinit();
     try expectF64ColumnApproxOrNan(lazy_non_finite_ratio, gpa, "metric_non_finite_ratio_lazy", &metric_non_finite_ratio_expected);
+
+    var zero_count_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer zero_count_plan.deinit();
+    try zero_count_plan.groupByZeroCount("bucket", "metric", "metric_zero_count_lazy");
+    const zero_count_explained = try zero_count_plan.explain(gpa);
+    defer gpa.free(zero_count_explained);
+    try std.testing.expect(std.mem.indexOf(u8, zero_count_explained, "group_by_zero_count(bucket, value=metric -> metric_zero_count_lazy)") != null);
+    var lazy_zero_count = try zero_count_plan.collect();
+    defer lazy_zero_count.deinit();
+    const lazy_zero_count_values = try (try lazy_zero_count.column("metric_zero_count_lazy")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_zero_count_values);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 0, 0 }, lazy_zero_count_values);
+
+    var positive_ratio_plan = try DeviceLazyFrame.init(gpa, quality_table);
+    defer positive_ratio_plan.deinit();
+    try positive_ratio_plan.groupByPositiveRatioOn(&.{"bucket"}, "metric", "metric_positive_ratio_lazy");
+    const positive_ratio_explained = try positive_ratio_plan.explain(gpa);
+    defer gpa.free(positive_ratio_explained);
+    try std.testing.expect(std.mem.indexOf(u8, positive_ratio_explained, "group_by_positive_ratio_on([bucket], value=metric -> metric_positive_ratio_lazy)") != null);
+    var lazy_positive_ratio = try positive_ratio_plan.collect();
+    defer lazy_positive_ratio.deinit();
+    try expectF64ColumnApproxOrNan(lazy_positive_ratio, gpa, "metric_positive_ratio_lazy", &metric_positive_ratio_expected);
 
     var any_active_plan = try DeviceLazyFrame.init(gpa, bool_table);
     defer any_active_plan.deinit();

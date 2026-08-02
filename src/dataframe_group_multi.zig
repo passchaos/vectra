@@ -150,6 +150,16 @@ const GroupByNumericQualityAggregation = enum {
     subnormal_ratio,
     non_finite_count,
     non_finite_ratio,
+    zero_count,
+    zero_ratio,
+    non_zero_count,
+    non_zero_ratio,
+    positive_count,
+    positive_ratio,
+    signbit_count,
+    signbit_ratio,
+    negative_count,
+    negative_ratio,
 };
 
 const GroupByArgAggregation = enum {
@@ -265,6 +275,11 @@ fn groupNumericQualityMatches(value: f64, aggregation: GroupByNumericQualityAggr
         .normal_count, .normal_ratio => std.math.isNormal(value),
         .subnormal_count, .subnormal_ratio => std.math.isFinite(value) and value != 0.0 and !std.math.isNormal(value),
         .non_finite_count, .non_finite_ratio => !std.math.isFinite(value),
+        .zero_count, .zero_ratio => value == 0.0,
+        .non_zero_count, .non_zero_ratio => value != 0.0,
+        .positive_count, .positive_ratio => value > 0.0,
+        .signbit_count, .signbit_ratio => std.math.signbit(value),
+        .negative_count, .negative_ratio => value < 0.0,
     };
 }
 
@@ -278,6 +293,11 @@ fn groupNumericQualityIsRatio(aggregation: GroupByNumericQualityAggregation) boo
         .normal_ratio,
         .subnormal_ratio,
         .non_finite_ratio,
+        .zero_ratio,
+        .non_zero_ratio,
+        .positive_ratio,
+        .signbit_ratio,
+        .negative_ratio,
         => true,
         else => false,
     };
@@ -4057,6 +4077,106 @@ pub fn groupByNonFiniteRatioOn(
     output_name: []const u8,
 ) GroupByOnError!DeviceDataFrame {
     return groupByNumericQualityOn(DeviceDataFrame, .non_finite_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByZeroCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .zero_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByZeroRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .zero_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNonZeroCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .non_zero_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNonZeroRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .non_zero_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .positive_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByPositiveRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .positive_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupBySignBitCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .signbit_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupBySignBitRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .signbit_ratio, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeCountOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .negative_count, frame, key_names, value_name, output_name);
+}
+
+pub fn groupByNegativeRatioOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByNumericQualityOn(DeviceDataFrame, .negative_ratio, frame, key_names, value_name, output_name);
 }
 
 pub fn groupByArgOnDispatchValue(
