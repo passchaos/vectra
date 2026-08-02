@@ -1820,6 +1820,92 @@ pub fn withGroupNthValidValueOn(
     return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, shifted);
 }
 
+fn withGroupFillNullOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+    comptime backward: bool,
+) GroupByOnError!DeviceDataFrame {
+    if (key_names.len == 0) return error.LengthMismatch;
+    for (key_names) |key_name| _ = try frame.column(key_name);
+    const value = try frame.column(value_name);
+
+    const take_indices = try frame.allocator.alloc(?usize, frame.rows);
+    defer frame.allocator.free(take_indices);
+    @memset(take_indices, null);
+
+    var representative_rows: std.ArrayList(usize) = .empty;
+    defer representative_rows.deinit(frame.allocator);
+    var group_rows: std.ArrayList(std.ArrayList(usize)) = .empty;
+    defer {
+        for (group_rows.items) |*rows| rows.deinit(frame.allocator);
+        group_rows.deinit(frame.allocator);
+    }
+
+    for (0..frame.rows) |row| {
+        if (!try rowHasValidKeys(frame.allocator, frame, key_names, row)) continue;
+        const group_index = (try findMultiKeyGroupIndex(frame.allocator, frame, key_names, representative_rows.items, row)) orelse blk: {
+            try representative_rows.append(frame.allocator, row);
+            try group_rows.append(frame.allocator, .empty);
+            break :blk representative_rows.items.len - 1;
+        };
+        try group_rows.items[group_index].append(frame.allocator, row);
+    }
+
+    for (group_rows.items) |rows| {
+        if (backward) {
+            var next_valid: ?usize = null;
+            var index = rows.items.len;
+            while (index > 0) {
+                index -= 1;
+                const row = rows.items[index];
+                if (try columnRowValid(frame.allocator, value.*, row)) {
+                    take_indices[row] = row;
+                    next_valid = row;
+                } else if (next_valid) |source_row| {
+                    take_indices[row] = source_row;
+                }
+            }
+        } else {
+            var last_valid: ?usize = null;
+            for (rows.items) |row| {
+                if (try columnRowValid(frame.allocator, value.*, row)) {
+                    take_indices[row] = row;
+                    last_valid = row;
+                } else if (last_valid) |source_row| {
+                    take_indices[row] = source_row;
+                }
+            }
+        }
+    }
+
+    var filled = try value.takeOptional(take_indices);
+    defer filled.deinit();
+    return dataframe_array_mod.withColumn(DeviceDataFrame, frame, output_name, filled);
+}
+
+pub fn withGroupFillNullForwardOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupFillNullOn(DeviceDataFrame, frame, key_names, value_name, output_name, false);
+}
+
+pub fn withGroupFillNullBackwardOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return withGroupFillNullOn(DeviceDataFrame, frame, key_names, value_name, output_name, true);
+}
+
 pub fn withGroupRowNumberOn(
     comptime DeviceDataFrame: type,
     frame: DeviceDataFrame,

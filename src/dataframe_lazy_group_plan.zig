@@ -432,6 +432,34 @@ pub fn withGroupNthValidValue(frame: anytype, key_names: []const []const u8, val
     } });
 }
 
+fn withGroupFillNull(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8, comptime backward: bool) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, if (backward) .{ .group_fill_null_backward = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = 0,
+    } } else .{ .group_fill_null_forward = .{
+        .names = owned_keys,
+        .value_name = owned_value,
+        .output_name = owned_output,
+        .offset = 0,
+    } });
+}
+
+pub fn withGroupFillNullForward(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupFillNull(frame, key_names, value_name, output_name, false);
+}
+
+pub fn withGroupFillNullBackward(frame: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupFillNull(frame, key_names, value_name, output_name, true);
+}
+
 pub fn withGroupRowNumber(frame: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);

@@ -317,6 +317,24 @@ pub fn withGroupNthValidValueOn(self: anytype, key_names: []const []const u8, va
     return group_multi_mod.withGroupNthValidValueOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name, n);
 }
 
+pub fn withGroupFillNullForward(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupFillNullForwardOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupFillNullForwardOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupFillNullForwardOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
+pub fn withGroupFillNullBackward(self: anytype, key_name: []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return withGroupFillNullBackwardOn(self, key_names[0..], value_name, output_name);
+}
+
+pub fn withGroupFillNullBackwardOn(self: anytype, key_names: []const []const u8, value_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.withGroupFillNullBackwardOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, output_name);
+}
+
 pub fn withGroupRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return withGroupRowNumberOn(self, key_names[0..], output_name);

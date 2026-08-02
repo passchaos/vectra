@@ -758,6 +758,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         group_first_valid_value: Payloads.GroupShift,
         group_last_valid_value: Payloads.GroupShift,
         group_nth_valid_value: Payloads.GroupShift,
+        group_fill_null_forward: Payloads.GroupShift,
+        group_fill_null_backward: Payloads.GroupShift,
         group_row_number: Payloads.RowValidityCount,
         group_size: Payloads.RowValidityCount,
         group_reverse_row_number: Payloads.RowValidityCount,
