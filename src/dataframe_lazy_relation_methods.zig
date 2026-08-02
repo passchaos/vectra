@@ -127,6 +127,18 @@ pub fn withGroupSizeOn(self: anytype, key_names: []const []const u8, output_name
 pub const withGroupCount = withGroupSize;
 pub const withGroupCountOn = withGroupSizeOn;
 
+pub fn withGroupReverseRowNumber(self: anytype, key_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupReverseRowNumberOn(self, key_names[0..], output_name);
+}
+
+pub fn withGroupReverseRowNumberOn(self: anytype, key_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupReverseRowNumber(self, key_names, output_name);
+}
+
+pub const withGroupReverseCumCount = withGroupReverseRowNumber;
+pub const withGroupReverseCumCountOn = withGroupReverseRowNumberOn;
+
 pub fn valueCounts(self: anytype, key_name: []const u8) DeviceDataError!void {
     return valueCountsAs(self, key_name, "count");
 }

@@ -923,6 +923,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_sizes.deinit();
     try expectNullableI64Column(group_sizes, gpa, "store_group_size", &.{ 3, 2, 3, 0, 2, 3 }, &.{ true, true, true, false, true, true });
 
+    var group_reverse_row_numbers = try table.withGroupReverseRowNumber("store", "store_reverse_row_number");
+    defer group_reverse_row_numbers.deinit();
+    try expectNullableI64Column(group_reverse_row_numbers, gpa, "store_reverse_row_number", &.{ 2, 1, 1, 0, 0, 0 }, &.{ true, true, true, false, true, true });
+
     var value_counts = try table.valueCounts("store");
     defer value_counts.deinit();
     const value_count_keys = try (try value_counts.column("store")).i32.toOwnedSlice(gpa);
@@ -1078,6 +1082,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     var lazy_group_sizes = try group_size_plan.collect();
     defer lazy_group_sizes.deinit();
     try expectNullableI64Column(lazy_group_sizes, gpa, "store_group_size_lazy", &.{ 3, 2, 3, 0, 2, 3 }, &.{ true, true, true, false, true, true });
+
+    var group_reverse_row_plan = try DeviceLazyFrame.init(gpa, table);
+    defer group_reverse_row_plan.deinit();
+    try group_reverse_row_plan.withGroupReverseRowNumber("store", "store_reverse_row_number_lazy");
+    const group_reverse_row_explained = try group_reverse_row_plan.explain(gpa);
+    defer gpa.free(group_reverse_row_explained);
+    try std.testing.expect(std.mem.indexOf(u8, group_reverse_row_explained, "group_reverse_row_number([store]->store_reverse_row_number_lazy)") != null);
+    var lazy_group_reverse_rows = try group_reverse_row_plan.collect();
+    defer lazy_group_reverse_rows.deinit();
+    try expectNullableI64Column(lazy_group_reverse_rows, gpa, "store_reverse_row_number_lazy", &.{ 2, 1, 1, 0, 0, 0 }, &.{ true, true, true, false, true, true });
 
     var tail_rows_plan = try DeviceLazyFrame.init(gpa, table);
     defer tail_rows_plan.deinit();

@@ -1156,6 +1156,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             },
             .group_row_number => |row_count| try current.withGroupRowNumberOn(row_count.names, row_count.output_name),
             .group_size => |row_count| try current.withGroupSizeOn(row_count.names, row_count.output_name),
+            .group_reverse_row_number => |row_count| try current.withGroupReverseRowNumberOn(row_count.names, row_count.output_name),
             .group_by_count => |group| try current.groupByCount(group.key_name, group.output_name),
             .group_by_count_on => |group| try current.groupByCountOn(group.key_names, group.output_name),
             .group_by_rows => |group| if (group.keep_tail)
