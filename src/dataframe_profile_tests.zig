@@ -3145,6 +3145,37 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer weighted_gini_coeff.deinit();
     try expectF64ColumnApproxOrNan(weighted_gini_coeff, gpa, "value_weighted_gini_coeff", &weighted_gini_coeff_expected);
 
+    const weighted_idr_expected = [_]f64{ 20.0, 10.0, weighted_nan };
+    const weighted_midhinge_expected = [_]f64{ 25.0, 10.0, weighted_nan };
+    const weighted_trimean_expected = [_]f64{ 22.5, 7.5, weighted_nan };
+    const weighted_bowley_expected = [_]f64{ 1.0, 1.0, weighted_nan };
+    const weighted_qcd_expected = [_]f64{ 0.2, 0.5, weighted_nan };
+    const weighted_kelley_expected = [_]f64{ 0.0, 1.0, weighted_nan };
+
+    var weighted_idr = try weighted_table.groupByWeightedInterdecileRange("bucket", "value", "weight", "value_weighted_idr");
+    defer weighted_idr.deinit();
+    try expectF64ColumnApproxOrNan(weighted_idr, gpa, "value_weighted_idr", &weighted_idr_expected);
+
+    var weighted_midhinge = try weighted_table.groupByWeightedMidhinge("bucket", "value", "weight", "value_weighted_midhinge");
+    defer weighted_midhinge.deinit();
+    try expectF64ColumnApproxOrNan(weighted_midhinge, gpa, "value_weighted_midhinge", &weighted_midhinge_expected);
+
+    var weighted_trimean = try weighted_table.groupByWeightedTrimean("bucket", "value", "weight", "value_weighted_trimean");
+    defer weighted_trimean.deinit();
+    try expectF64ColumnApproxOrNan(weighted_trimean, gpa, "value_weighted_trimean", &weighted_trimean_expected);
+
+    var weighted_bowley = try weighted_table.groupByWeightedBowleySkewness("bucket", "value", "weight", "value_weighted_bowley");
+    defer weighted_bowley.deinit();
+    try expectF64ColumnApproxOrNan(weighted_bowley, gpa, "value_weighted_bowley", &weighted_bowley_expected);
+
+    var weighted_qcd = try weighted_table.groupByWeightedQcd("bucket", "value", "weight", "value_weighted_qcd");
+    defer weighted_qcd.deinit();
+    try expectF64ColumnApproxOrNan(weighted_qcd, gpa, "value_weighted_qcd", &weighted_qcd_expected);
+
+    var weighted_kelley = try weighted_table.groupByWeightedKelleySkewness("bucket", "value", "weight", "value_weighted_kelley");
+    defer weighted_kelley.deinit();
+    try expectF64ColumnApproxOrNan(weighted_kelley, gpa, "value_weighted_kelley", &weighted_kelley_expected);
+
     var pair_count = try weighted_table.groupByPairCount("bucket", "lhs", "rhs", "lhs_rhs_pair_count");
     defer pair_count.deinit();
     const pair_count_values = try (try pair_count.column("lhs_rhs_pair_count")).i64.toOwnedSlice(gpa);
@@ -4046,6 +4077,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_mean_abs_dev_ratio, .output_name = "value_weighted_mean_abs_dev_ratio_lazy", .explain = "group_by_weighted_mean_abs_dev_ratio(bucket, value=value, weight=weight -> value_weighted_mean_abs_dev_ratio_lazy)", .expected = &weighted_mean_abs_dev_ratio_expected },
         .{ .method = .weighted_gini_mean_diff, .output_name = "value_weighted_gini_mean_diff_lazy", .explain = "group_by_weighted_gini_mean_diff(bucket, value=value, weight=weight -> value_weighted_gini_mean_diff_lazy)", .expected = &weighted_gini_mean_diff_expected },
         .{ .method = .weighted_gini_coefficient, .output_name = "value_weighted_gini_coeff_lazy", .explain = "group_by_weighted_gini_coefficient(bucket, value=value, weight=weight -> value_weighted_gini_coeff_lazy)", .expected = &weighted_gini_coeff_expected },
+        .{ .method = .weighted_interdecile_range, .output_name = "value_weighted_idr_lazy", .explain = "group_by_weighted_interdecile_range_on([bucket], value=value, weight=weight -> value_weighted_idr_lazy)", .expected = &weighted_idr_expected },
+        .{ .method = .weighted_midhinge, .output_name = "value_weighted_midhinge_lazy", .explain = "group_by_weighted_midhinge_on([bucket], value=value, weight=weight -> value_weighted_midhinge_lazy)", .expected = &weighted_midhinge_expected },
+        .{ .method = .weighted_trimean, .output_name = "value_weighted_trimean_lazy", .explain = "group_by_weighted_trimean_on([bucket], value=value, weight=weight -> value_weighted_trimean_lazy)", .expected = &weighted_trimean_expected },
+        .{ .method = .weighted_bowley_skewness, .output_name = "value_weighted_bowley_lazy", .explain = "group_by_weighted_bowley_skewness_on([bucket], value=value, weight=weight -> value_weighted_bowley_lazy)", .expected = &weighted_bowley_expected },
+        .{ .method = .weighted_quartile_coeff_dispersion, .output_name = "value_weighted_qcd_lazy", .explain = "group_by_weighted_quartile_coeff_dispersion_on([bucket], value=value, weight=weight -> value_weighted_qcd_lazy)", .expected = &weighted_qcd_expected },
+        .{ .method = .weighted_kelley_skewness, .output_name = "value_weighted_kelley_lazy", .explain = "group_by_weighted_kelley_skewness_on([bucket], value=value, weight=weight -> value_weighted_kelley_lazy)", .expected = &weighted_kelley_expected },
         .{ .method = .weighted_sem, .output_name = "value_weighted_sem_lazy", .explain = "group_by_weighted_sem(bucket, value=value, weight=weight -> value_weighted_sem_lazy)", .expected = &weighted_sem_expected },
         .{ .method = .weighted_cv, .output_name = "value_weighted_cv_lazy", .explain = "group_by_weighted_cv(bucket, value=value, weight=weight -> value_weighted_cv_lazy)", .expected = &weighted_cv_expected },
         .{ .method = .weighted_fano, .output_name = "value_weighted_fano_lazy", .explain = "group_by_weighted_fano(bucket, value=value, weight=weight -> value_weighted_fano_lazy)", .expected = &weighted_fano_expected },
@@ -4094,6 +4131,12 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_mean_abs_dev_ratio => plan.groupByWeightedMeanAbsDevRatio("bucket", "value", "weight", case.output_name),
             .weighted_gini_mean_diff => plan.groupByWeightedGiniMeanDiff("bucket", "value", "weight", case.output_name),
             .weighted_gini_coefficient => plan.groupByWeightedGiniCoefficient("bucket", "value", "weight", case.output_name),
+            .weighted_interdecile_range => plan.groupByWeightedInterdecileRange("bucket", "value", "weight", case.output_name),
+            .weighted_midhinge => plan.groupByWeightedMidhinge("bucket", "value", "weight", case.output_name),
+            .weighted_trimean => plan.groupByWeightedTrimean("bucket", "value", "weight", case.output_name),
+            .weighted_bowley_skewness => plan.groupByWeightedBowleySkewness("bucket", "value", "weight", case.output_name),
+            .weighted_quartile_coeff_dispersion => plan.groupByWeightedQcd("bucket", "value", "weight", case.output_name),
+            .weighted_kelley_skewness => plan.groupByWeightedKelleySkewness("bucket", "value", "weight", case.output_name),
             .weighted_sem => plan.groupByWeightedSem("bucket", "value", "weight", case.output_name),
             .weighted_cv => plan.groupByWeightedCv("bucket", "value", "weight", case.output_name),
             .weighted_fano => plan.groupByWeightedFano("bucket", "value", "weight", case.output_name),

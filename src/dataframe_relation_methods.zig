@@ -3826,6 +3826,73 @@ pub const groupByWeightedMeanAbsoluteDeviationOn = groupByWeightedMeanAbsDevOn;
 pub const groupByWeightedGiniCoeff = groupByWeightedGiniCoefficient;
 pub const groupByWeightedGiniCoeffOn = groupByWeightedGiniCoefficientOn;
 
+pub fn groupByWeightedInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedInterdecileRangeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedInterdecileRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedInterdecileRangeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMidhinge(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMidhingeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMidhingeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedMidhingeOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedTrimean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedTrimeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedTrimeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedTrimeanOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedBowleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedBowleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedBowleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedBowleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedQuartileCoeffDispersion(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedQuartileCoeffDispersionOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedQuartileCoeffDispersionOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedQuartileCoeffDispersionOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedKelleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedKelleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedKelleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedKelleySkewnessOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedIdr = groupByWeightedInterdecileRange;
+pub const groupByWeightedIdrOn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedIDR = groupByWeightedInterdecileRange;
+pub const groupByWeightedIDROn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedBowleySkew = groupByWeightedBowleySkewness;
+pub const groupByWeightedBowleySkewOn = groupByWeightedBowleySkewnessOn;
+pub const groupByWeightedQcd = groupByWeightedQuartileCoeffDispersion;
+pub const groupByWeightedQcdOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedQCD = groupByWeightedQuartileCoeffDispersion;
+pub const groupByWeightedQCDOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedKelleySkew = groupByWeightedKelleySkewness;
+pub const groupByWeightedKelleySkewOn = groupByWeightedKelleySkewnessOn;
+
 pub fn groupByPairCount(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByPairCountOn(self, key_names[0..], lhs_name, rhs_name, output_name);

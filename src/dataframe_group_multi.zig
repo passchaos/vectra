@@ -259,6 +259,12 @@ const GroupByWeightedAggregation = enum {
     weighted_mad,
     weighted_trimmed_mean,
     weighted_winsorized_mean,
+    weighted_interdecile_range,
+    weighted_midhinge,
+    weighted_trimean,
+    weighted_bowley_skewness,
+    weighted_quartile_coeff_dispersion,
+    weighted_kelley_skewness,
     weighted_mode,
     weighted_mode_weight,
     weighted_mode_ratio,
@@ -767,6 +773,50 @@ fn groupWeightedMadFromRows(
     for (scratch) |*item| item.value = @abs(item.value - center);
     std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
     return groupWeightedQuantileFromSorted(scratch, 0.5, total_weight);
+}
+
+fn groupWeightedPercentileShapeFromRows(
+    allocator: std.mem.Allocator,
+    rows: []const usize,
+    values: []const f64,
+    weights: []const f64,
+    op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness },
+) std.mem.Allocator.Error!f64 {
+    const scratch = try allocator.alloc(GroupWeightedValue, rows.len);
+    defer allocator.free(scratch);
+
+    var total_weight: f64 = 0.0;
+    for (rows, 0..) |row, index| {
+        const weight = weights[row];
+        scratch[index] = .{ .value = values[row], .weight = weight };
+        total_weight += weight;
+    }
+    if (rows.len == 0 or !(total_weight > 0.0)) return std.math.nan(f64);
+
+    std.sort.insertion(GroupWeightedValue, scratch, {}, groupWeightedValueLess);
+    const q10 = groupWeightedQuantileFromSorted(scratch, 0.10, total_weight);
+    const q25 = groupWeightedQuantileFromSorted(scratch, 0.25, total_weight);
+    const q50 = groupWeightedQuantileFromSorted(scratch, 0.50, total_weight);
+    const q75 = groupWeightedQuantileFromSorted(scratch, 0.75, total_weight);
+    const q90 = groupWeightedQuantileFromSorted(scratch, 0.90, total_weight);
+
+    return switch (op) {
+        .interdecile_range => q90 - q10,
+        .midhinge => (q25 + q75) / 2.0,
+        .trimean => (q25 + 2.0 * q50 + q75) / 4.0,
+        .bowley_skewness => blk: {
+            const denominator = q75 - q25;
+            break :blk if (denominator == 0.0) std.math.nan(f64) else (q75 + q25 - 2.0 * q50) / denominator;
+        },
+        .quartile_coeff_dispersion => blk: {
+            const denominator = q75 + q25;
+            break :blk if (denominator == 0.0) std.math.nan(f64) else (q75 - q25) / denominator;
+        },
+        .kelley_skewness => blk: {
+            const denominator = q90 - q10;
+            break :blk if (denominator == 0.0) std.math.nan(f64) else (q90 + q10 - 2.0 * q50) / denominator;
+        },
+    };
 }
 
 fn groupWeightedMadFromSorted(
@@ -7484,6 +7534,12 @@ pub fn groupByWeightedOn(
                     .weighted_mad => try groupWeightedMadFromRows(frame.allocator, rows.items, values.values, weights.values),
                     .weighted_trimmed_mean => try groupWeightedRobustMeanFromRows(frame.allocator, rows.items, values.values, weights.values, q, .trimmed_mean),
                     .weighted_winsorized_mean => try groupWeightedRobustMeanFromRows(frame.allocator, rows.items, values.values, weights.values, q, .winsorized_mean),
+                    .weighted_interdecile_range => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .interdecile_range),
+                    .weighted_midhinge => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .midhinge),
+                    .weighted_trimean => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .trimean),
+                    .weighted_bowley_skewness => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .bowley_skewness),
+                    .weighted_quartile_coeff_dispersion => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .quartile_coeff_dispersion),
+                    .weighted_kelley_skewness => try groupWeightedPercentileShapeFromRows(frame.allocator, rows.items, values.values, weights.values, .kelley_skewness),
                     .weighted_mode => groupWeightedModeStats(rows.items, values.values, weights.values).mode,
                     .weighted_mode_weight => groupWeightedModeStats(rows.items, values.values, weights.values).mode_weight,
                     .weighted_mode_ratio => blk: {
@@ -7947,6 +8003,79 @@ pub fn groupByWeightedWinsorizedMeanOn(
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_winsorized_mean, frame, key_names, value_name, weight_name, output_name, winsor_fraction);
 }
+
+pub fn groupByWeightedInterdecileRangeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_interdecile_range, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedMidhingeOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_midhinge, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedTrimeanOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_trimean, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedBowleySkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_bowley_skewness, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedQuartileCoeffDispersionOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_quartile_coeff_dispersion, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedKelleySkewnessOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_kelley_skewness, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedIdrOn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedIDROn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedBowleySkewOn = groupByWeightedBowleySkewnessOn;
+pub const groupByWeightedQcdOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedQCDOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedKelleySkewOn = groupByWeightedKelleySkewnessOn;
 
 pub fn groupByWeightedModeOn(
     comptime DeviceDataFrame: type,

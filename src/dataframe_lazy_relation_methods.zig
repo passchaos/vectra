@@ -3743,6 +3743,73 @@ pub const groupByWeightedMeanAbsoluteDeviationOn = groupByWeightedMeanAbsDevOn;
 pub const groupByWeightedGiniCoeff = groupByWeightedGiniCoefficient;
 pub const groupByWeightedGiniCoeffOn = groupByWeightedGiniCoefficientOn;
 
+pub fn groupByWeightedInterdecileRange(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedInterdecileRangeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedInterdecileRangeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_interdecile_range);
+}
+
+pub fn groupByWeightedMidhinge(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedMidhingeOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedMidhingeOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_midhinge);
+}
+
+pub fn groupByWeightedTrimean(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedTrimeanOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedTrimeanOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_trimean);
+}
+
+pub fn groupByWeightedBowleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedBowleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedBowleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_bowley_skewness);
+}
+
+pub fn groupByWeightedQuartileCoeffDispersion(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedQuartileCoeffDispersionOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedQuartileCoeffDispersionOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_quartile_coeff_dispersion);
+}
+
+pub fn groupByWeightedKelleySkewness(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedKelleySkewnessOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedKelleySkewnessOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_kelley_skewness);
+}
+
+pub const groupByWeightedIdr = groupByWeightedInterdecileRange;
+pub const groupByWeightedIdrOn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedIDR = groupByWeightedInterdecileRange;
+pub const groupByWeightedIDROn = groupByWeightedInterdecileRangeOn;
+pub const groupByWeightedBowleySkew = groupByWeightedBowleySkewness;
+pub const groupByWeightedBowleySkewOn = groupByWeightedBowleySkewnessOn;
+pub const groupByWeightedQcd = groupByWeightedQuartileCoeffDispersion;
+pub const groupByWeightedQcdOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedQCD = groupByWeightedQuartileCoeffDispersion;
+pub const groupByWeightedQCDOn = groupByWeightedQuartileCoeffDispersionOn;
+pub const groupByWeightedKelleySkew = groupByWeightedKelleySkewness;
+pub const groupByWeightedKelleySkewOn = groupByWeightedKelleySkewnessOn;
+
 pub fn groupByPairCount(self: anytype, key_name: []const u8, lhs_name: []const u8, rhs_name: []const u8, output_name: []const u8) DeviceDataError!void {
     return lazy_group_mod.groupByPair(self, key_name, lhs_name, rhs_name, output_name, .pair_count);
 }
