@@ -2900,6 +2900,35 @@ pub fn groupByWeightedStddevOn(self: anytype, key_names: []const []const u8, val
 pub const groupByWeightedStd = groupByWeightedStddev;
 pub const groupByWeightedStdOn = groupByWeightedStddevOn;
 
+pub fn groupByWeightedSem(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_sem);
+}
+
+pub fn groupByWeightedSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_sem);
+}
+
+pub fn groupByWeightedCv(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_cv);
+}
+
+pub fn groupByWeightedCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_cv);
+}
+
+pub fn groupByWeightedFano(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeighted(key_name, value_name, weight_name, output_name, .weighted_fano);
+}
+
+pub fn groupByWeightedFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return self.groupByWeightedOn(key_names, value_name, weight_name, output_name, .weighted_fano);
+}
+
+pub const groupByWeightedSEM = groupByWeightedSem;
+pub const groupByWeightedSEMOn = groupByWeightedSemOn;
+pub const groupByWeightedCV = groupByWeightedCv;
+pub const groupByWeightedCVOn = groupByWeightedCvOn;
+
 pub fn groupByWeightedQuantile(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     return lazy_group_mod.groupByWeightedQuantile(self, key_name, value_name, weight_name, output_name, .weighted_quantile, q);
 }

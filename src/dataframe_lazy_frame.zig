@@ -6707,6 +6707,16 @@ pub fn DeviceLazyTypes(
             pub const groupByWeightedStddevOn = lazy_relation_methods_mod.groupByWeightedStddevOn;
             pub const groupByWeightedStd = lazy_relation_methods_mod.groupByWeightedStd;
             pub const groupByWeightedStdOn = lazy_relation_methods_mod.groupByWeightedStdOn;
+            pub const groupByWeightedSem = lazy_relation_methods_mod.groupByWeightedSem;
+            pub const groupByWeightedSemOn = lazy_relation_methods_mod.groupByWeightedSemOn;
+            pub const groupByWeightedCv = lazy_relation_methods_mod.groupByWeightedCv;
+            pub const groupByWeightedCvOn = lazy_relation_methods_mod.groupByWeightedCvOn;
+            pub const groupByWeightedFano = lazy_relation_methods_mod.groupByWeightedFano;
+            pub const groupByWeightedFanoOn = lazy_relation_methods_mod.groupByWeightedFanoOn;
+            pub const groupByWeightedSEM = lazy_relation_methods_mod.groupByWeightedSEM;
+            pub const groupByWeightedSEMOn = lazy_relation_methods_mod.groupByWeightedSEMOn;
+            pub const groupByWeightedCV = lazy_relation_methods_mod.groupByWeightedCV;
+            pub const groupByWeightedCVOn = lazy_relation_methods_mod.groupByWeightedCVOn;
             pub const groupByWeightedQuantile = lazy_relation_methods_mod.groupByWeightedQuantile;
             pub const groupByWeightedQuantileOn = lazy_relation_methods_mod.groupByWeightedQuantileOn;
             pub const groupByWeightedMedian = lazy_relation_methods_mod.groupByWeightedMedian;

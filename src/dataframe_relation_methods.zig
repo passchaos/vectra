@@ -2936,6 +2936,38 @@ pub fn groupByWeightedStddevOn(self: anytype, key_names: []const []const u8, val
 pub const groupByWeightedStd = groupByWeightedStddev;
 pub const groupByWeightedStdOn = groupByWeightedStddevOn;
 
+pub fn groupByWeightedSem(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedSemOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedSemOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedSemOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCv(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedCvOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedCvOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedCvOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedFano(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    const key_names = [_][]const u8{key_name};
+    return groupByWeightedFanoOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn groupByWeightedFanoOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return group_multi_mod.groupByWeightedFanoOn(FrameType(@TypeOf(self)), frameValue(self), key_names, value_name, weight_name, output_name);
+}
+
+pub const groupByWeightedSEM = groupByWeightedSem;
+pub const groupByWeightedSEMOn = groupByWeightedSemOn;
+pub const groupByWeightedCV = groupByWeightedCv;
+pub const groupByWeightedCVOn = groupByWeightedCvOn;
+
 pub fn groupByWeightedQuantile(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
     const key_names = [_][]const u8{key_name};
     return groupByWeightedQuantileOn(self, key_names[0..], value_name, weight_name, output_name, q);

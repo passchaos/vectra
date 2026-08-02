@@ -227,6 +227,9 @@ const GroupByWeightedAggregation = enum {
     weighted_mean,
     weighted_variance,
     weighted_stddev,
+    weighted_sem,
+    weighted_cv,
+    weighted_fano,
     weighted_quantile,
     weighted_median,
     weighted_iqr,
@@ -6499,11 +6502,20 @@ pub fn groupByWeightedOn(
         }
         slot.* = switch (aggregation) {
             .weighted_mean => weighted_sum / weight_sum,
-            .weighted_variance, .weighted_stddev => blk: {
+            .weighted_variance, .weighted_stddev, .weighted_sem, .weighted_cv, .weighted_fano => blk: {
                 var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
                 if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
                 const variance = centered_square_sum / weight_sum;
-                break :blk if (aggregation == .weighted_stddev) std.math.sqrt(variance) else variance;
+                const stddev = std.math.sqrt(variance);
+                const mean = weighted_sum / weight_sum;
+                break :blk switch (aggregation) {
+                    .weighted_variance => variance,
+                    .weighted_stddev => stddev,
+                    .weighted_sem => std.math.sqrt(variance / weight_sum),
+                    .weighted_cv => if (mean == 0.0) std.math.nan(f64) else stddev / mean,
+                    .weighted_fano => if (mean == 0.0) std.math.nan(f64) else variance / mean,
+                    else => unreachable,
+                };
             },
             .weighted_quantile => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, q, null),
             .weighted_median => try groupWeightedQuantileFromRows(frame.allocator, rows.items, values.values, weights.values, 0.5, null),
@@ -6574,6 +6586,42 @@ pub fn groupByWeightedStddevOn(
 ) GroupByOnError!DeviceDataFrame {
     return groupByWeightedOn(DeviceDataFrame, .weighted_stddev, frame, key_names, value_name, weight_name, output_name, 0.5);
 }
+
+pub fn groupByWeightedSemOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_sem, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedCvOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_cv, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub fn groupByWeightedFanoOn(
+    comptime DeviceDataFrame: type,
+    frame: DeviceDataFrame,
+    key_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) GroupByOnError!DeviceDataFrame {
+    return groupByWeightedOn(DeviceDataFrame, .weighted_fano, frame, key_names, value_name, weight_name, output_name, 0.5);
+}
+
+pub const groupByWeightedSEMOn = groupByWeightedSemOn;
+pub const groupByWeightedCVOn = groupByWeightedCvOn;
 
 pub fn groupByWeightedQuantileOn(
     comptime DeviceDataFrame: type,

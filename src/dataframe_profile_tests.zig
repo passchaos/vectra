@@ -2879,6 +2879,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0), weighted_stddev_values[1], 1e-12);
     try std.testing.expect(std.math.isNan(weighted_stddev_values[2]));
 
+    const weighted_sem_expected = [_]f64{ std.math.sqrt(@as(f64, (425.0 / 9.0) / 6.0)), std.math.sqrt(@as(f64, 25.0 / 2.0)), std.math.nan(f64) };
+    const weighted_cv_expected = [_]f64{ std.math.sqrt(@as(f64, 425.0 / 9.0)) / (65.0 / 3.0), 0.5, std.math.nan(f64) };
+    const weighted_fano_expected = [_]f64{ (425.0 / 9.0) / (65.0 / 3.0), 2.5, std.math.nan(f64) };
+
+    var weighted_sem = try weighted_table.groupByWeightedSEM("bucket", "value", "weight", "value_weighted_sem");
+    defer weighted_sem.deinit();
+    try expectF64ColumnApproxOrNan(weighted_sem, gpa, "value_weighted_sem", &weighted_sem_expected);
+
+    var weighted_cv = try weighted_table.groupByWeightedCV("bucket", "value", "weight", "value_weighted_cv");
+    defer weighted_cv.deinit();
+    try expectF64ColumnApproxOrNan(weighted_cv, gpa, "value_weighted_cv", &weighted_cv_expected);
+
+    var weighted_fano = try weighted_table.groupByWeightedFano("bucket", "value", "weight", "value_weighted_fano");
+    defer weighted_fano.deinit();
+    try expectF64ColumnApproxOrNan(weighted_fano, gpa, "value_weighted_fano", &weighted_fano_expected);
+
     var weighted_mean_on = try weighted_table.groupByWeightedMeanOn(&.{ "bucket", "day" }, "value", "weight", "value_weighted_mean_on");
     defer weighted_mean_on.deinit();
     const weighted_mean_on_values = try (try weighted_mean_on.column("value_weighted_mean_on")).f64.toOwnedSlice(gpa);
@@ -3619,6 +3635,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
         .{ .method = .weighted_inverse_simpson, .output_name = "value_weighted_inverse_lazy", .explain = "group_by_weighted_inverse_simpson(bucket, value=value, weight=weight -> value_weighted_inverse_lazy)", .expected = &weighted_inverse_simpson_expected },
         .{ .method = .weighted_simpson_concentration, .output_name = "value_weighted_concentration_lazy", .explain = "group_by_weighted_simpson_concentration(bucket, value=value, weight=weight -> value_weighted_concentration_lazy)", .expected = &weighted_concentration_expected },
         .{ .method = .weighted_evenness, .output_name = "value_weighted_evenness_lazy", .explain = "group_by_weighted_evenness(bucket, value=value, weight=weight -> value_weighted_evenness_lazy)", .expected = &weighted_evenness_expected },
+        .{ .method = .weighted_sem, .output_name = "value_weighted_sem_lazy", .explain = "group_by_weighted_sem(bucket, value=value, weight=weight -> value_weighted_sem_lazy)", .expected = &weighted_sem_expected },
+        .{ .method = .weighted_cv, .output_name = "value_weighted_cv_lazy", .explain = "group_by_weighted_cv(bucket, value=value, weight=weight -> value_weighted_cv_lazy)", .expected = &weighted_cv_expected },
+        .{ .method = .weighted_fano, .output_name = "value_weighted_fano_lazy", .explain = "group_by_weighted_fano(bucket, value=value, weight=weight -> value_weighted_fano_lazy)", .expected = &weighted_fano_expected },
     };
     for (weighted_lazy_cases) |case| {
         var plan = try DeviceLazyFrame.init(gpa, weighted_table);
@@ -3635,6 +3654,9 @@ test "device dataframe groupby aggregations on fixed-width columns" {
             .weighted_inverse_simpson => plan.groupByWeightedInverseSimpson("bucket", "value", "weight", case.output_name),
             .weighted_simpson_concentration => plan.groupByWeightedConcentration("bucket", "value", "weight", case.output_name),
             .weighted_evenness => plan.groupByWeightedEvenness("bucket", "value", "weight", case.output_name),
+            .weighted_sem => plan.groupByWeightedSem("bucket", "value", "weight", case.output_name),
+            .weighted_cv => plan.groupByWeightedCv("bucket", "value", "weight", case.output_name),
+            .weighted_fano => plan.groupByWeightedFano("bucket", "value", "weight", case.output_name),
             .weighted_mean, .weighted_variance, .weighted_stddev, .weighted_quantile, .weighted_median, .weighted_iqr, .weighted_mad => unreachable,
         };
         const explained = try plan.explain(gpa);
