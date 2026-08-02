@@ -3874,6 +3874,38 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
             }
             try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
         },
+        .group_cumulative_weighted_mean_abs_dev => |shift| {
+            try writer.print("group_cumulative_weighted_mean_abs_dev([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_mean_abs_dev_ratio => |shift| {
+            try writer.print("group_cumulative_weighted_mean_abs_dev_ratio([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_gini_mean_diff => |shift| {
+            try writer.print("group_cumulative_weighted_gini_mean_diff([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
+        .group_cumulative_weighted_gini_coefficient => |shift| {
+            try writer.print("group_cumulative_weighted_gini_coefficient([", .{});
+            for (shift.names, 0..) |name, i| {
+                if (i != 0) try writer.print(",", .{});
+                try writer.print("{s}", .{name});
+            }
+            try writer.print("], value={s}, weight={s}->{s})", .{ shift.value_name, shift.weight_name, shift.output_name });
+        },
         .group_cumulative_weighted_dot => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_dot", shift),
         .group_cumulative_weighted_cosine_similarity => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_cosine_similarity", shift),
         .group_cumulative_weighted_squared_euclidean_distance => |shift| try formatGroupWeightedPairShift(writer, "group_cumulative_weighted_squared_euclidean_distance", shift),

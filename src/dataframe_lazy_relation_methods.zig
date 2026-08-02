@@ -1939,10 +1939,62 @@ pub fn withGroupCumulativeWeightedEvennessOn(self: anytype, key_names: []const [
     return lazy_group_mod.withGroupCumulativeWeightedEvenness(self, key_names, value_name, weight_name, output_name);
 }
 
+pub fn withGroupCumulativeWeightedMeanAbsDev(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanAbsDevOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsDevOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMeanAbsDev(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsDevRatio(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedMeanAbsDevRatioOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsDevRatioOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedMeanAbsDevRatio(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniMeanDiff(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedGiniMeanDiffOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniMeanDiffOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedGiniMeanDiff(self, key_names, value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniCoefficient(self: anytype, key_name: []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    const key_names = [_][]const u8{key_name};
+    return withGroupCumulativeWeightedGiniCoefficientOn(self, key_names[0..], value_name, weight_name, output_name);
+}
+
+pub fn withGroupCumulativeWeightedGiniCoefficientOn(self: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return lazy_group_mod.withGroupCumulativeWeightedGiniCoefficient(self, key_names, value_name, weight_name, output_name);
+}
+
 pub const withGroupCumulativeWeightedGini = withGroupCumulativeWeightedGiniImpurity;
 pub const withGroupCumulativeWeightedGiniOn = withGroupCumulativeWeightedGiniImpurityOn;
 pub const withGroupCumulativeWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
 pub const withGroupCumulativeWeightedConcentrationOn = withGroupCumulativeWeightedSimpsonConcentrationOn;
+pub const withGroupCumulativeWeightedMeanAbsoluteDeviation = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumulativeWeightedMeanAbsoluteDeviationOn = withGroupCumulativeWeightedMeanAbsDevOn;
+pub const withGroupCumulativeWeightedGiniCoeff = withGroupCumulativeWeightedGiniCoefficient;
+pub const withGroupCumulativeWeightedGiniCoeffOn = withGroupCumulativeWeightedGiniCoefficientOn;
+pub const withGroupCumWeightedMeanAbsDev = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumWeightedMeanAbsDevOn = withGroupCumulativeWeightedMeanAbsDevOn;
+pub const withGroupCumWeightedMeanAbsDevRatio = withGroupCumulativeWeightedMeanAbsDevRatio;
+pub const withGroupCumWeightedMeanAbsDevRatioOn = withGroupCumulativeWeightedMeanAbsDevRatioOn;
+pub const withGroupCumWeightedMeanAbsoluteDeviation = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumWeightedMeanAbsoluteDeviationOn = withGroupCumulativeWeightedMeanAbsDevOn;
+pub const withGroupCumWeightedGiniMeanDiff = withGroupCumulativeWeightedGiniMeanDiff;
+pub const withGroupCumWeightedGiniMeanDiffOn = withGroupCumulativeWeightedGiniMeanDiffOn;
+pub const withGroupCumWeightedGiniCoefficient = withGroupCumulativeWeightedGiniCoefficient;
+pub const withGroupCumWeightedGiniCoefficientOn = withGroupCumulativeWeightedGiniCoefficientOn;
+pub const withGroupCumWeightedGiniCoeff = withGroupCumulativeWeightedGiniCoefficient;
+pub const withGroupCumWeightedGiniCoeffOn = withGroupCumulativeWeightedGiniCoefficientOn;
 pub const withGroupCumWeightedEntropy = withGroupCumulativeWeightedEntropy;
 pub const withGroupCumWeightedEntropyOn = withGroupCumulativeWeightedEntropyOn;
 pub const withGroupCumWeightedGiniImpurity = withGroupCumulativeWeightedGiniImpurity;

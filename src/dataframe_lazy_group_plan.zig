@@ -2037,6 +2037,39 @@ pub fn withGroupCumulativeWeightedEvenness(frame: anytype, key_names: []const []
     return withGroupCumulativeWeightedDistributionCore(frame, key_names, value_name, weight_name, output_name, .evenness);
 }
 
+fn withGroupCumulativeWeightedInequality(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8, comptime op: enum { mean_abs_dev, mean_abs_dev_ratio, gini_mean_diff, gini_coefficient }) DeviceDataError!void {
+    const owned_keys = try cloneNameList(frame.allocator, key_names);
+    errdefer freeNameList(frame.allocator, owned_keys);
+    const owned_value = try frame.allocator.dupe(u8, value_name);
+    errdefer frame.allocator.free(owned_value);
+    const owned_weight = try frame.allocator.dupe(u8, weight_name);
+    errdefer frame.allocator.free(owned_weight);
+    const owned_output = try frame.allocator.dupe(u8, output_name);
+    errdefer frame.allocator.free(owned_output);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .mean_abs_dev => .{ .group_cumulative_weighted_mean_abs_dev = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .mean_abs_dev_ratio => .{ .group_cumulative_weighted_mean_abs_dev_ratio = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .gini_mean_diff => .{ .group_cumulative_weighted_gini_mean_diff = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+        .gini_coefficient => .{ .group_cumulative_weighted_gini_coefficient = .{ .names = owned_keys, .value_name = owned_value, .weight_name = owned_weight, .output_name = owned_output } },
+    });
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsDev(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedInequality(frame, key_names, value_name, weight_name, output_name, .mean_abs_dev);
+}
+
+pub fn withGroupCumulativeWeightedMeanAbsDevRatio(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedInequality(frame, key_names, value_name, weight_name, output_name, .mean_abs_dev_ratio);
+}
+
+pub fn withGroupCumulativeWeightedGiniMeanDiff(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedInequality(frame, key_names, value_name, weight_name, output_name, .gini_mean_diff);
+}
+
+pub fn withGroupCumulativeWeightedGiniCoefficient(frame: anytype, key_names: []const []const u8, value_name: []const u8, weight_name: []const u8, output_name: []const u8) DeviceDataError!void {
+    return withGroupCumulativeWeightedInequality(frame, key_names, value_name, weight_name, output_name, .gini_coefficient);
+}
+
 fn withGroupCumulativeWeightedPairMoment(frame: anytype, key_names: []const []const u8, lhs_name: []const u8, rhs_name: []const u8, weight_name: []const u8, output_name: []const u8, correction: f64, comptime op: enum { dot, cosine_similarity, squared_euclidean_distance, euclidean_distance, manhattan_distance, chebyshev_distance, canberra_distance, bray_curtis_distance, mean_error, mae, mse, rmse, mape, smape, covariance, correlation, beta }) DeviceDataError!void {
     const owned_keys = try cloneNameList(frame.allocator, key_names);
     errdefer freeNameList(frame.allocator, owned_keys);
@@ -2205,6 +2238,14 @@ pub const withGroupCumWeightedModeMargin = withGroupCumulativeWeightedModeMargin
 pub const withGroupCumWeightedModeMarginRatio = withGroupCumulativeWeightedModeMarginRatio;
 pub const withGroupCumulativeWeightedGini = withGroupCumulativeWeightedGiniImpurity;
 pub const withGroupCumulativeWeightedConcentration = withGroupCumulativeWeightedSimpsonConcentration;
+pub const withGroupCumulativeWeightedMeanAbsoluteDeviation = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumulativeWeightedGiniCoeff = withGroupCumulativeWeightedGiniCoefficient;
+pub const withGroupCumWeightedMeanAbsDev = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumWeightedMeanAbsDevRatio = withGroupCumulativeWeightedMeanAbsDevRatio;
+pub const withGroupCumWeightedMeanAbsoluteDeviation = withGroupCumulativeWeightedMeanAbsDev;
+pub const withGroupCumWeightedGiniMeanDiff = withGroupCumulativeWeightedGiniMeanDiff;
+pub const withGroupCumWeightedGiniCoefficient = withGroupCumulativeWeightedGiniCoefficient;
+pub const withGroupCumWeightedGiniCoeff = withGroupCumulativeWeightedGiniCoefficient;
 pub const withGroupCumWeightedEntropy = withGroupCumulativeWeightedEntropy;
 pub const withGroupCumWeightedGiniImpurity = withGroupCumulativeWeightedGiniImpurity;
 pub const withGroupCumWeightedGini = withGroupCumulativeWeightedGiniImpurity;

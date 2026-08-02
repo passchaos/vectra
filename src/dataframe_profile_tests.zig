@@ -3366,6 +3366,8 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedQuantile("bucket", "value", "weight", "bad_weighted_cum_quantile", 0.5));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMode("bucket", "value", "weight", "bad_weighted_cum_mode"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "bad_weighted_cum_entropy"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedMeanAbsDev("bucket", "value", "weight", "bad_weighted_cum_mad"));
+    try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedGiniCoefficient("bucket", "value", "weight", "bad_weighted_cum_gini_coeff"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedGeometricMean("bucket", "value", "weight", "bad_weighted_cum_geometric"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedHarmonicMean("bucket", "value", "weight", "bad_weighted_cum_harmonic"));
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedLogSumExp("bucket", "value", "weight", "bad_weighted_cum_logsumexp"));
@@ -3581,6 +3583,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     const group_cum_weighted_inverse_expected = [_]f64{ 1.0, 1.6, 18.0 / 7.0, 1.0, 2.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_concentration_expected = [_]f64{ 1.0, 0.625, 7.0 / 18.0, 1.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
     const group_cum_weighted_evenness_expected = [_]f64{ 1.0, weighted_entropy_12 / ln2, weighted_entropy_123 / ln3, 1.0, 1.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mean_abs_dev_expected = [_]f64{ 0.0, 3.75, 50.0 / 9.0, 0.0, 5.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_mad_ratio_expected = [_]f64{ 0.0, 3.0 / 14.0, 10.0 / 39.0, 0.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_gini_mean_diff_expected = [_]f64{ 0.0, 10.0, 130.0 / 11.0, 0.0, 10.0, 0.0, std.math.nan(f64), std.math.nan(f64) };
+    const group_cum_weighted_gini_coeff_expected = [_]f64{ 0.0, 2.0 / 7.0, 3.0 / 11.0, 0.0, 0.5, 0.0, std.math.nan(f64), std.math.nan(f64) };
 
     var group_cum_weighted_entropy = try weighted_table.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "value_weighted_cum_entropy");
     defer group_cum_weighted_entropy.deinit();
@@ -3606,6 +3612,22 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     defer group_cum_weighted_evenness.deinit();
     try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_evenness, gpa, "value_weighted_cum_evenness", &group_cum_weighted_evenness_expected, &group_cum_weighted_mode_validity);
 
+    var group_cum_weighted_mean_abs_dev = try weighted_table.withGroupCumulativeWeightedMeanAbsDev("bucket", "value", "weight", "value_weighted_cum_mean_abs_dev");
+    defer group_cum_weighted_mean_abs_dev.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mean_abs_dev, gpa, "value_weighted_cum_mean_abs_dev", &group_cum_weighted_mean_abs_dev_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_mad_ratio = try weighted_table.withGroupCumulativeWeightedMeanAbsDevRatio("bucket", "value", "weight", "value_weighted_cum_mad_ratio");
+    defer group_cum_weighted_mad_ratio.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_mad_ratio, gpa, "value_weighted_cum_mad_ratio", &group_cum_weighted_mad_ratio_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_gini_mean_diff = try weighted_table.withGroupCumulativeWeightedGiniMeanDiff("bucket", "value", "weight", "value_weighted_cum_gini_mean_diff");
+    defer group_cum_weighted_gini_mean_diff.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_gini_mean_diff, gpa, "value_weighted_cum_gini_mean_diff", &group_cum_weighted_gini_mean_diff_expected, &group_cum_weighted_mode_validity);
+
+    var group_cum_weighted_gini_coeff = try weighted_table.withGroupCumulativeWeightedGiniCoefficient("bucket", "value", "weight", "value_weighted_cum_gini_coeff");
+    defer group_cum_weighted_gini_coeff.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(group_cum_weighted_gini_coeff, gpa, "value_weighted_cum_gini_coeff", &group_cum_weighted_gini_coeff_expected, &group_cum_weighted_mode_validity);
+
     var cumulative_weighted_distribution_plan = try DeviceLazyFrame.init(gpa, weighted_table);
     defer cumulative_weighted_distribution_plan.deinit();
     try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedEntropy("bucket", "value", "weight", "value_weighted_cum_entropy_lazy");
@@ -3614,10 +3636,16 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedInverseSimpson("bucket", "value", "weight", "value_weighted_cum_inverse_lazy");
     try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedConcentration("bucket", "value", "weight", "value_weighted_cum_concentration_lazy");
     try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedEvenness("bucket", "value", "weight", "value_weighted_cum_evenness_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedMeanAbsDev("bucket", "value", "weight", "value_weighted_cum_mean_abs_dev_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedMeanAbsDevRatio("bucket", "value", "weight", "value_weighted_cum_mad_ratio_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedGiniMeanDiff("bucket", "value", "weight", "value_weighted_cum_gini_mean_diff_lazy");
+    try cumulative_weighted_distribution_plan.withGroupCumulativeWeightedGiniCoefficient("bucket", "value", "weight", "value_weighted_cum_gini_coeff_lazy");
     const cumulative_weighted_distribution_explained = try cumulative_weighted_distribution_plan.explain(gpa);
     defer gpa.free(cumulative_weighted_distribution_explained);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_entropy([bucket], value=value, weight=weight->value_weighted_cum_entropy_lazy)") != null);
     try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_evenness([bucket], value=value, weight=weight->value_weighted_cum_evenness_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_mean_abs_dev([bucket], value=value, weight=weight->value_weighted_cum_mean_abs_dev_lazy)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cumulative_weighted_distribution_explained, "group_cumulative_weighted_gini_coefficient([bucket], value=value, weight=weight->value_weighted_cum_gini_coeff_lazy)") != null);
     var lazy_cumulative_weighted_distribution = try cumulative_weighted_distribution_plan.collect();
     defer lazy_cumulative_weighted_distribution.deinit();
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_entropy_lazy", &group_cum_weighted_entropy_expected, &group_cum_weighted_mode_validity);
@@ -3626,6 +3654,10 @@ test "device dataframe groupby aggregations on fixed-width columns" {
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_inverse_lazy", &group_cum_weighted_inverse_expected, &group_cum_weighted_mode_validity);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_concentration_lazy", &group_cum_weighted_concentration_expected, &group_cum_weighted_mode_validity);
     try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_evenness_lazy", &group_cum_weighted_evenness_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_mean_abs_dev_lazy", &group_cum_weighted_mean_abs_dev_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_mad_ratio_lazy", &group_cum_weighted_mad_ratio_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_gini_mean_diff_lazy", &group_cum_weighted_gini_mean_diff_expected, &group_cum_weighted_mode_validity);
+    try expectF64ColumnApproxOrNanWithValidity(lazy_cumulative_weighted_distribution, gpa, "value_weighted_cum_gini_coeff_lazy", &group_cum_weighted_gini_coeff_expected, &group_cum_weighted_mode_validity);
 
     try std.testing.expectError(error.InvalidShape, negative_weight_table.withGroupCumulativeWeightedCovariance("bucket", "value", "value", "weight", "bad_weighted_cum_cov", 0.0));
     try std.testing.expectError(error.InvalidShape, weighted_table.withGroupCumulativeWeightedCovariance("bucket", "lhs", "rhs", "weight", "bad_weighted_cum_cov", -1.0));
