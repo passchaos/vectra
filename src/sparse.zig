@@ -815,9 +815,40 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
-            var dense = try self.toDense();
-            defer dense.deinit();
-            return CsrMatrix(T).fromDense(dense);
+            var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
+            errdefer self.allocator.free(row_offsets);
+            @memset(row_offsets, 0);
+            for (self.row_indices) |row| row_offsets[row + 1] += 1;
+            for (1..row_offsets.len) |i| row_offsets[i] += row_offsets[i - 1];
+
+            var col_indices = try self.allocator.alloc(usize, self.values.len);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+            const next = try self.allocator.dupe(usize, row_offsets[0..self.rows]);
+            defer self.allocator.free(next);
+
+            // Fill by row using a mutable copy of the offsets.  Walking CSC
+            // columns in ascending order keeps each CSR row's column indices
+            // sorted without a separate sort pass.
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const row = self.row_indices[pos];
+                    const dst = next[row];
+                    col_indices[dst] = col;
+                    values[dst] = self.values[pos];
+                    next[row] += 1;
+                }
+            }
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
