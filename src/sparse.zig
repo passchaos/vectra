@@ -218,6 +218,38 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn add(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            const total_nnz = self.values.len + rhs.values.len;
+            var row_indices = try self.allocator.alloc(usize, total_nnz);
+            errdefer self.allocator.free(row_indices);
+            var col_indices = try self.allocator.alloc(usize, total_nnz);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, total_nnz);
+            errdefer self.allocator.free(values);
+
+            @memcpy(row_indices[0..self.row_indices.len], self.row_indices);
+            @memcpy(col_indices[0..self.col_indices.len], self.col_indices);
+            @memcpy(values[0..self.values.len], self.values);
+            @memcpy(row_indices[self.row_indices.len..], rhs.row_indices);
+            @memcpy(col_indices[self.col_indices.len..], rhs.col_indices);
+            @memcpy(values[self.values.len..], rhs.values);
+
+            // Canonicalize after concatenation so sparse addition has the same
+            // duplicate-coordinate semantics as dense materialization and the
+            // explicit COO coalescing API.
+            var combined = Self{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+            defer combined.deinit();
+            return combined.coalesced();
+        }
+
         pub fn sum(self: Self) T {
             ensureNumeric(T);
             var total = zero(T);
@@ -697,6 +729,17 @@ pub fn CsrMatrix(comptime T: type) type {
             var canonical = try coo.coalesced();
             defer canonical.deinit();
             return canonical.toCsr();
+        }
+
+        pub fn add(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_coo = try self.toCoo();
+            defer lhs_coo.deinit();
+            var rhs_coo = try rhs.toCoo();
+            defer rhs_coo.deinit();
+            var sum_coo = try lhs_coo.add(rhs_coo);
+            defer sum_coo.deinit();
+            return sum_coo.toCsr();
         }
 
         pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
@@ -1344,6 +1387,17 @@ pub fn CscMatrix(comptime T: type) type {
             return canonical.toCsc();
         }
 
+        pub fn add(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_coo = try self.toCoo();
+            defer lhs_coo.deinit();
+            var rhs_coo = try rhs.toCoo();
+            defer rhs_coo.deinit();
+            var sum_coo = try lhs_coo.add(rhs_coo);
+            defer sum_coo.deinit();
+            return sum_coo.toCsc();
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -1954,6 +2008,47 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+}
+
+test "sparse addition canonicalizes duplicate coordinates" {
+    const gpa = std.testing.allocator;
+    var lhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 3, 1, 2 });
+    defer lhs.deinit();
+    var rhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1, 1 }, &.{ 2, 0, 1, 2 }, &.{ 5, 4, -2, 1 });
+    defer rhs.deinit();
+
+    var coo_sum = try lhs.add(rhs);
+    defer coo_sum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_sum.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_sum.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 0, 9 }, coo_sum.values);
+    var coo_dense = try coo_sum.toDense();
+    defer coo_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 0, 0, 0, 0, 9 }, coo_dense.data);
+
+    var lhs_csr = try lhs.toCsr();
+    defer lhs_csr.deinit();
+    var rhs_csr = try rhs.toCsr();
+    defer rhs_csr.deinit();
+    var csr_sum = try lhs_csr.add(rhs_csr);
+    defer csr_sum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_sum.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 0, 9 }, csr_sum.values);
+
+    var lhs_csc = try lhs.toCsc();
+    defer lhs_csc.deinit();
+    var rhs_csc = try rhs.toCsc();
+    defer rhs_csc.deinit();
+    var csc_sum = try lhs_csc.add(rhs_csc);
+    defer csc_sum.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_sum.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 0, 9 }, csc_sum.values);
+
+    var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
+    defer mismatched.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs.add(mismatched));
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
