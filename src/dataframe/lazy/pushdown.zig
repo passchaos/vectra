@@ -10,7 +10,6 @@ const options_mod = @import("../../dataframe_options.zig");
 
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
-const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
@@ -31,6 +30,7 @@ const addListColumnOutputRequirements = requirements_mod.addListColumnOutputRequ
 const addRowMultiOutputRequirements = requirements_mod.addRowMultiOutputRequirements;
 const addRowSingleOutputRequirements = requirements_mod.addRowSingleOutputRequirements;
 const addRowWeightedPairColumnOutputRequirements = requirements_mod.addRowWeightedPairColumnOutputRequirements;
+const addSourceNameRequirement = requirements_mod.addSourceNameRequirement;
 const addTernaryColumnOutputRequirements = requirements_mod.addTernaryColumnOutputRequirements;
 const addUnaryColumnOutputRequirements = requirements_mod.addUnaryColumnOutputRequirements;
 const addWeightedPairRowSingleOutputRequirements = requirements_mod.addWeightedPairRowSingleOutputRequirements;
@@ -73,9 +73,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .select => |names| {
                 saw_select = true;
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .select_column_indices,
@@ -203,9 +201,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .drop_nulls => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
@@ -213,9 +209,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .drop_all_nulls => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
@@ -223,9 +217,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .filter_all_nulls => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], true);
@@ -233,7 +225,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .filter_nulls_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                     if (range_predicate == null) try setNullPredicate(allocator, &null_predicate, name, true);
                 }
             },
@@ -247,15 +239,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_nans_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_infs => |names| {
                 if (names.len == 0) {
@@ -267,15 +255,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_infs_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_positive_infs => |names| {
                 if (names.len == 0) {
@@ -283,15 +267,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_positive_infs_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_negative_infs => |names| {
                 if (names.len == 0) {
@@ -299,15 +279,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_negative_infs_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_zeros => |names| {
                 if (names.len == 0) {
@@ -315,15 +291,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_zeros_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_positive_zeros => |names| {
                 if (names.len == 0) {
@@ -331,15 +303,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_positive_zeros_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_negative_zeros => |names| {
                 if (names.len == 0) {
@@ -347,15 +315,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_negative_zeros_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_non_zeros => |names| {
                 if (names.len == 0) {
@@ -363,15 +327,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_non_zeros_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_positives => |names| {
                 if (names.len == 0) {
@@ -379,15 +339,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_positives_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_signbits => |names| {
                 if (names.len == 0) {
@@ -395,15 +351,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_signbits_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_negatives => |names| {
                 if (names.len == 0) {
@@ -411,15 +363,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_negatives_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_finites => |names| {
                 if (names.len == 0) {
@@ -427,15 +375,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_finites_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_normals => |names| {
                 if (names.len == 0) {
@@ -443,15 +387,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_normals_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_subnormals => |names| {
                 if (names.len == 0) {
@@ -459,15 +399,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_subnormals_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_non_finites => |names| {
                 if (names.len == 0) {
@@ -479,15 +415,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     break :op_loop;
                 }
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_non_finites_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .with_row_index => |row_index| {
                 try markDerivedName(allocator, &derived_names, &literal_scalars, row_index.name);
@@ -640,109 +572,67 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .cast_column => |cast| {
-                if (!nameInBorrowedList(cast.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, cast.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, cast.name);
             },
             .fill_null_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_nan_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_inf_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_positive_inf_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_negative_inf_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_zero_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_positive_zero_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_negative_zero_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_non_zero_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_positive_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_signbit_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_negative_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_finite_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_normal_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_subnormal_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_non_finite_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .fill_null_forward_column, .fill_null_backward_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .null_if_column => |fill| {
-                if (!nameInBorrowedList(fill.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, fill.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, fill.name);
             },
             .null_if_values_column => |null_if| {
-                if (!nameInBorrowedList(null_if.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, null_if.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, null_if.name);
             },
             .null_if_nan_column, .null_if_inf_column, .null_if_positive_inf_column, .null_if_negative_inf_column, .null_if_zero_column, .null_if_positive_zero_column, .null_if_negative_zero_column, .null_if_non_zero_column, .null_if_positive_column, .null_if_signbit_column, .null_if_negative_column, .null_if_finite_column, .null_if_normal_column, .null_if_subnormal_column, .null_if_non_finite_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .coalesce_columns => |coalesce| {
                 try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, coalesce.output_name, coalesce.primary_name, coalesce.fallback_name);
@@ -864,71 +754,51 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_by_count => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_count_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_rows => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_rows_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_sorted_rows => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.sort_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.sort_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.sort_name);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_sorted_rows_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.sort_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.sort_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.sort_name);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_sorted_rows_columns => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
                 for (group.sort_names) |sort_name| {
-                    if (!nameInBorrowedList(sort_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, sort_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort_name);
                 }
                 projection_blocked = true;
                 saw_select = true;
@@ -936,172 +806,104 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .group_by_sorted_rows_columns_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
                 for (group.sort_names) |sort_name| {
-                    if (!nameInBorrowedList(sort_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, sort_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort_name);
                 }
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_value => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_value_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_weighted => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
-                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_weighted_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
-                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_pair => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
-                }
-                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_pair_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
-                }
-                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_weighted_pair => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
-                }
-                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
-                }
-                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_weighted_pair_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.lhs_name);
-                }
-                if (!nameInBorrowedList(group.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.rhs_name);
-                }
-                if (!nameInBorrowedList(group.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.weight_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_stats => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_stats_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_profile => |group| {
-                if (!nameInBorrowedList(group.key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.key_name);
-                }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_profile_on => |group| {
                 for (group.key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
-                if (!nameInBorrowedList(group.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, group.value_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
             },
@@ -1115,17 +917,13 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 // payload or requesting a right column from the source scan.
                 projection_blocked = true;
                 for (join.left_key_names) |key_name| {
-                    if (!nameInBorrowedList(key_name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, key_name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
                 }
                 break :op_loop;
             },
             .asof_join => |join| {
                 projection_blocked = true;
-                if (!nameInBorrowedList(join.left_key_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, join.left_key_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, join.left_key_name);
                 break :op_loop;
             },
             .concat_rows => {
@@ -1146,28 +944,22 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .distinct_on => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .distinct_on_last => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .distinct_on_none => |names| {
                 for (names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .filter_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                     try mergeRangePredicate(allocator, &range_predicate, name, .{ .bool = .{ .min = true, .max = true } });
                     clearNullPredicate(allocator, &null_predicate);
                 }
@@ -1175,7 +967,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_between_column => |range| {
                 const filter_depends_on_source = !nameInBorrowedList(range.name, derived_names.items);
                 if (filter_depends_on_source) {
-                    try appendOwnedNameUnique(allocator, &required_names, range.name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, range.name);
                 }
                 if (range.keep_inside and filter_depends_on_source) {
                     if (parquetRangePredicateFromBounds(range.lower, range.upper, range.lower_inclusive, range.upper_inclusive)) |predicate| {
@@ -1185,7 +977,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .filter_isin_column => |membership| {
                 if (!nameInBorrowedList(membership.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, membership.input_name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, membership.input_name);
                     if (!membership.invert) {
                         if (literal_scalars.get(membership.test_name)) |scalar| {
                             if (parquetRangePredicateFromScalar(scalar, .eq)) |predicate| {
@@ -1195,13 +987,11 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         }
                     }
                 }
-                if (!nameInBorrowedList(membership.test_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, membership.test_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, membership.test_name);
             },
             .filter_isin_values => |membership| {
                 if (!nameInBorrowedList(membership.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, membership.input_name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, membership.input_name);
                     if (!membership.invert) {
                         if (parquetRangePredicateFromSingletonColumn(membership.values)) |predicate| {
                             try mergeRangePredicate(allocator, &range_predicate, membership.input_name, predicate);
@@ -1212,7 +1002,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .drop_rows_by_mask_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                     try mergeRangePredicate(allocator, &range_predicate, name, .{ .bool = .{ .min = false, .max = false } });
                     clearNullPredicate(allocator, &null_predicate);
                 }
@@ -1222,7 +1012,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
-                if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
+                if (filter_depends_on_source) try addSourceNameRequirement(allocator, &required_names, derived_names.items, filter_op.name);
                 if (filter_depends_on_source) {
                     const maybe_predicate = if (filter_op.keep_matches)
                         parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)
@@ -1235,19 +1025,19 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .sort_by => |sort| {
-                if (!nameInBorrowedList(sort.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, sort.name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort.name);
             },
             .sort_by_columns => |sort| {
                 for (sort.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .top_k => |top| {
-                if (!nameInBorrowedList(top.name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, top.name);
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, top.name);
             },
             .top_k_columns => |top| {
                 for (top.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) try appendOwnedNameUnique(allocator, &required_names, name);
+                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
                 }
             },
             .rank_profile_by,
@@ -1317,29 +1107,19 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .filter_mask, .slice_rows, .slice_rows_signed, .drop_rows, .drop_rows_mode, .drop_rows_signed, .drop_rows_signed_mode, .drop_row_range, .drop_last_rows, .slice_rows_step, .slice_rows_signed_step, .stride_rows, .take_rows, .take_rows_optional, .take_rows_mode, .take_rows_signed, .take_rows_signed_mode, .repeat_rows, .tile_rows, .sample_rows, .sample_rows_fraction, .sample_rows_with_replacement, .sample_rows_fraction_with_replacement, .roll_rows, .shift_rows, .reverse_rows, .head, .tail => {},
             .take_rows_by_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .take_rows_by_column_mode => |take_mode| {
-                if (!nameInBorrowedList(take_mode.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, take_mode.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, take_mode.name);
             },
             .drop_rows_by_column => |name| {
-                if (!nameInBorrowedList(name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
             },
             .drop_rows_by_column_mode => |take_mode| {
-                if (!nameInBorrowedList(take_mode.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, take_mode.name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, take_mode.name);
             },
             .repeat_rows_by => |count_name| {
-                if (!nameInBorrowedList(count_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, count_name);
-                }
+                try addSourceNameRequirement(allocator, &required_names, derived_names.items, count_name);
             },
         }
     }
