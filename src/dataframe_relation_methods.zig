@@ -8,7 +8,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const group_profile_mod = @import("dataframe/group/profile.zig");
 const group_multi_mod = @import("dataframe/group/multi.zig");
-const join_mod = @import("dataframe_join.zig");
+const join_mod = @import("dataframe/join.zig");
 const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
 

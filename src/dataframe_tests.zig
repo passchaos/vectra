@@ -3,6 +3,6 @@ test {
     _ = @import("dataframe_sort_profile_tests.zig");
     _ = @import("dataframe_profile_tests.zig");
     _ = @import("dataframe/lazy/collect_tests.zig");
-    _ = @import("dataframe_join_tests.zig");
+    _ = @import("dataframe/join/tests.zig");
     _ = @import("dataframe_parquet_tests.zig");
 }

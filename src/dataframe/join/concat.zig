@@ -1,9 +1,9 @@
 //! Joined-table column/name materialization helpers.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const array_helpers = @import("dataframe_array.zig");
-const names_mod = @import("dataframe_names.zig");
+const array_mod = @import("../../array.zig");
+const array_helpers = @import("../../dataframe_array.zig");
+const names_mod = @import("../../dataframe_names.zig");
 
 const coalesceJoinKeys = array_helpers.coalesceJoinKeys;
 const initDeviceDataFrameFromOwnedColumns = array_helpers.initDeviceDataFrameFromOwnedColumns;

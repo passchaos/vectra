@@ -1,12 +1,12 @@
 const std = @import("std");
-const array_mod = @import("array.zig");
-const array_helpers = @import("dataframe_array.zig");
-const keys_mod = @import("dataframe_keys.zig");
-const join_concat_mod = @import("dataframe_join_concat.zig");
-const join_indices_mod = @import("dataframe_join_indices.zig");
-const join_filter_mod = @import("dataframe_join_filter.zig");
-const join_validation = @import("dataframe_join_validation.zig");
-const names_mod = @import("dataframe_names.zig");
+const array_mod = @import("../array.zig");
+const array_helpers = @import("../dataframe_array.zig");
+const keys_mod = @import("../dataframe_keys.zig");
+const join_concat_mod = @import("join/concat.zig");
+const join_indices_mod = @import("join/indices.zig");
+const join_filter_mod = @import("join/filter.zig");
+const join_validation = @import("join/validation.zig");
+const names_mod = @import("../dataframe_names.zig");
 
 pub const JoinConcatError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,

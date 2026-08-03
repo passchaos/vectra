@@ -1,7 +1,7 @@
 //! Row-index builders used by eager dataframe joins.
 
 const std = @import("std");
-const keys_mod = @import("dataframe_keys.zig");
+const keys_mod = @import("../../dataframe_keys.zig");
 
 pub const JoinRowIndexPair = struct {
     allocator: std.mem.Allocator,
