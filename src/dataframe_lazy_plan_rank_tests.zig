@@ -5018,6 +5018,80 @@ test "device lazy frame derives row cumulative weighted quantile columns" {
     try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted percentile-shape columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowCumWeightedIDR(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumidr", "b_row_weighted_cumidr" });
+    try plan.withRowPrefixWeightedMidhinge(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummidhinge", "b_row_weighted_cummidhinge" });
+    try plan.withRowCumWeightedTrimean(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumtrimean", "b_row_weighted_cumtrimean" });
+    try plan.withRowPrefixWeightedBowleySkew(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumbowley", "b_row_weighted_cumbowley" });
+    try plan.withRowCumWeightedQCD(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumqcd", "b_row_weighted_cumqcd" });
+    try plan.withRowPrefixWeightedKelleySkew(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumkelley", "b_row_weighted_cumkelley" });
+    try plan.select(&.{
+        "a_row_weighted_cumidr",
+        "b_row_weighted_cumidr",
+        "a_row_weighted_cummidhinge",
+        "b_row_weighted_cummidhinge",
+        "a_row_weighted_cumtrimean",
+        "b_row_weighted_cumtrimean",
+        "a_row_weighted_cumbowley",
+        "b_row_weighted_cumbowley",
+        "a_row_weighted_cumqcd",
+        "b_row_weighted_cumqcd",
+        "a_row_weighted_cumkelley",
+        "b_row_weighted_cumkelley",
+    });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_interdecile_range(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumidr,b_row_weighted_cumidr])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_midhinge(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummidhinge,b_row_weighted_cummidhinge])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_trimean(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumtrimean,b_row_weighted_cumtrimean])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_bowley_skewness(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumbowley,b_row_weighted_cumbowley])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_quartile_coeff_dispersion(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumqcd,b_row_weighted_cumqcd])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_kelley_skewness(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumkelley,b_row_weighted_cumkelley])") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 12), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumidr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumidr", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummidhinge", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummidhinge", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumtrimean", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumtrimean", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumbowley", &.{ std.math.nan(f64), 0.0, 0.0, std.math.nan(f64) }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumbowley", &.{ 0.0, std.math.nan(f64), 0.0, std.math.nan(f64) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumqcd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumqcd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumkelley", &.{ std.math.nan(f64), 0.0, 0.0, std.math.nan(f64) }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumkelley", &.{ 0.0, std.math.nan(f64), 0.0, 1.0 }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedMidhinge(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummidhinge", "extra_row_weighted_cummidhinge" });
+    try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

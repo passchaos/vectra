@@ -805,6 +805,12 @@ diagnostics.
 weighted percentile and median-absolute-deviation diagnostics.
 `withRowCumulativeWeightedTrimmedMean` and
 `withRowCumulativeWeightedWinsorizedMean` add prefix weighted robust means.
+`withRowCumulativeWeightedInterdecileRange`,
+`withRowCumulativeWeightedMidhinge`, `withRowCumulativeWeightedTrimean`,
+`withRowCumulativeWeightedBowleySkewness`,
+`withRowCumulativeWeightedQuartileCoeffDispersion`, and
+`withRowCumulativeWeightedKelleySkewness` add prefix weighted percentile-shape
+diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

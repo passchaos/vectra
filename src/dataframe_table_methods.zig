@@ -4116,6 +4116,61 @@ pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMea
 pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 
+pub fn withRowCumulativeWeightedInterdecileRange(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedInterdecileRange(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMidhinge(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMidhinge(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedTrimean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedTrimean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedBowleySkewness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedBowleySkewness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedQuartileCoeffDispersion(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedQuartileCoeffDispersion(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedKelleySkewness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedKelleySkewness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumulativeWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowPrefixWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowCumWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowPrefixWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowCumulativeWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumulativeWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

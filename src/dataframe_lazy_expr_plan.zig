@@ -4741,6 +4741,78 @@ pub fn withRowWeightedWinsorizedMean(frame: anytype, value_names: []const []cons
     return withRowWeightedRobustMean(frame, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
 }
 
+fn withRowCumulativeWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .interdecile_range => .{ .row_cumulative_weighted_interdecile_range = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .midhinge => .{ .row_cumulative_weighted_midhinge = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .trimean => .{ .row_cumulative_weighted_trimean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .bowley_skewness => .{ .row_cumulative_weighted_bowley_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .quartile_coeff_dispersion => .{ .row_cumulative_weighted_quartile_coeff_dispersion = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .kelley_skewness => .{ .row_cumulative_weighted_kelley_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedInterdecileRange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .interdecile_range);
+}
+
+pub fn withRowCumulativeWeightedMidhinge(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .midhinge);
+}
+
+pub fn withRowCumulativeWeightedTrimean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .trimean);
+}
+
+pub fn withRowCumulativeWeightedBowleySkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .bowley_skewness);
+}
+
+pub fn withRowCumulativeWeightedQuartileCoeffDispersion(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .quartile_coeff_dispersion);
+}
+
+pub fn withRowCumulativeWeightedKelleySkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPercentileShape(frame, value_names, weight_names, output_names, .kelley_skewness);
+}
+
+pub const withRowCumulativeWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumulativeWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowPrefixWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowCumWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowPrefixWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowCumulativeWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumulativeWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+
 fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

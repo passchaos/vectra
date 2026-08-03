@@ -1670,6 +1670,36 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_winsor_table, gpa, "a_row_weighted_cumwinsor", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_winsor_table, gpa, "b_row_weighted_cumwinsor", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
 
+    var row_cum_weighted_idr_table = try validity_table.withRowCumWeightedIDR(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumidr", "b_row_weighted_cumidr" });
+    defer row_cum_weighted_idr_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_idr_table, gpa, "a_row_weighted_cumidr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_idr_table, gpa, "b_row_weighted_cumidr", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_midhinge_table = try validity_table.withRowPrefixWeightedMidhinge(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummidhinge", "b_row_weighted_cummidhinge" });
+    defer row_cum_weighted_midhinge_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_midhinge_table, gpa, "a_row_weighted_cummidhinge", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_midhinge_table, gpa, "b_row_weighted_cummidhinge", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_trimean_table = try validity_table.withRowCumWeightedTrimean(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumtrimean", "b_row_weighted_cumtrimean" });
+    defer row_cum_weighted_trimean_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_trimean_table, gpa, "a_row_weighted_cumtrimean", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_trimean_table, gpa, "b_row_weighted_cumtrimean", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_bowley_table = try validity_table.withRowPrefixWeightedBowleySkew(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumbowley", "b_row_weighted_cumbowley" });
+    defer row_cum_weighted_bowley_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_bowley_table, gpa, "a_row_weighted_cumbowley", &.{ std.math.nan(f64), 0.0, 0.0, std.math.nan(f64) }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_bowley_table, gpa, "b_row_weighted_cumbowley", &.{ 0.0, std.math.nan(f64), 0.0, std.math.nan(f64) }, &.{ false, true, false, true });
+
+    var row_cum_weighted_qcd_table = try validity_table.withRowCumWeightedQCD(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumqcd", "b_row_weighted_cumqcd" });
+    defer row_cum_weighted_qcd_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_qcd_table, gpa, "a_row_weighted_cumqcd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_qcd_table, gpa, "b_row_weighted_cumqcd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_kelley_table = try validity_table.withRowPrefixWeightedKelleySkew(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumkelley", "b_row_weighted_cumkelley" });
+    defer row_cum_weighted_kelley_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_kelley_table, gpa, "a_row_weighted_cumkelley", &.{ std.math.nan(f64), 0.0, 0.0, std.math.nan(f64) }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_kelley_table, gpa, "b_row_weighted_cumkelley", &.{ 0.0, std.math.nan(f64), 0.0, 1.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1693,6 +1723,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.InvalidShape, validity_table.withRowCumulativeWeightedQuantile(&.{"a"}, &.{"wa"}, &.{"a_row_weighted_cumquantile"}, 1.5));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMedian(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummedian", "extra_row_weighted_cummedian" }));
     try std.testing.expectError(error.InvalidShape, validity_table.withRowCumulativeWeightedTrimmedMean(&.{"a"}, &.{"wa"}, &.{"a_row_weighted_cumtrimmed"}, 0.5));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMidhinge(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummidhinge", "extra_row_weighted_cummidhinge" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");

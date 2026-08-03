@@ -6279,13 +6279,140 @@ pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMea
 pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 
+const RowWeightedPercentileShapeOp = enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness };
+
+fn finishRowWeightedPercentileShape(q10: f64, q25: f64, q50: f64, q75: f64, q90: f64, comptime op: RowWeightedPercentileShapeOp) f64 {
+    return switch (op) {
+        .interdecile_range => q90 - q10,
+        .midhinge => (q25 + q75) / 2.0,
+        .trimean => (q25 + 2.0 * q50 + q75) / 4.0,
+        .bowley_skewness => blk: {
+            const denominator = q75 - q25;
+            break :blk if (denominator == 0.0) quietNanF64() else (q75 + q25 - 2.0 * q50) / denominator;
+        },
+        .quartile_coeff_dispersion => blk: {
+            const denominator = q75 + q25;
+            break :blk if (denominator == 0.0) quietNanF64() else (q75 - q25) / denominator;
+        },
+        .kelley_skewness => blk: {
+            const denominator = q90 - q10;
+            break :blk if (denominator == 0.0) quietNanF64() else (q90 + q10 - 2.0 * q50) / denominator;
+        },
+    };
+}
+
+fn withRowCumulativeWeightedPercentileShape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime op: RowWeightedPercentileShapeOp,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+                total_weight += weight;
+                count += 1;
+            }
+            if (!(total_weight > 0.0)) continue;
+
+            const active = scratch[0..count];
+            std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+            const q10 = rowWeightedQuantileFromSorted(active, 0.10, total_weight);
+            const q25 = rowWeightedQuantileFromSorted(active, 0.25, total_weight);
+            const q50 = rowWeightedQuantileFromSorted(active, 0.50, total_weight);
+            const q75 = rowWeightedQuantileFromSorted(active, 0.75, total_weight);
+            const q90 = rowWeightedQuantileFromSorted(active, 0.90, total_weight);
+            cumulative[offset] = finishRowWeightedPercentileShape(q10, q25, q50, q75, q90, op);
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedInterdecileRange(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .interdecile_range);
+}
+
+pub fn withRowCumulativeWeightedMidhinge(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .midhinge);
+}
+
+pub fn withRowCumulativeWeightedTrimean(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .trimean);
+}
+
+pub fn withRowCumulativeWeightedBowleySkewness(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .bowley_skewness);
+}
+
+pub fn withRowCumulativeWeightedQuartileCoeffDispersion(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .quartile_coeff_dispersion);
+}
+
+pub fn withRowCumulativeWeightedKelleySkewness(comptime DeviceDataFrame: type, input: DeviceDataFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPercentileShape(DeviceDataFrame, input, value_names, weight_names, output_names, .kelley_skewness);
+}
+
+pub const withRowCumulativeWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumulativeWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedInterdecileRange = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIdr = withRowCumulativeWeightedInterdecileRange;
+pub const withRowPrefixWeightedIDR = withRowCumulativeWeightedInterdecileRange;
+pub const withRowCumWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowPrefixWeightedMidhinge = withRowCumulativeWeightedMidhinge;
+pub const withRowCumWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowPrefixWeightedTrimean = withRowCumulativeWeightedTrimean;
+pub const withRowCumulativeWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkewness = withRowCumulativeWeightedBowleySkewness;
+pub const withRowPrefixWeightedBowleySkew = withRowCumulativeWeightedBowleySkewness;
+pub const withRowCumulativeWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQuartileCoeffDispersion = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQcd = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowPrefixWeightedQCD = withRowCumulativeWeightedQuartileCoeffDispersion;
+pub const withRowCumulativeWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowCumWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
+pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
+
 fn withRowWeightedPercentileShape(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
     value_names: []const []const u8,
     weight_names: []const []const u8,
     output_name: []const u8,
-    comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness },
+    comptime op: RowWeightedPercentileShapeOp,
 ) DeviceFrameArrayError!DeviceDataFrame {
     var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
     defer flat.deinit();
@@ -6320,23 +6447,7 @@ fn withRowWeightedPercentileShape(
         const q50 = rowWeightedQuantileFromSorted(active, 0.50, total_weight);
         const q75 = rowWeightedQuantileFromSorted(active, 0.75, total_weight);
         const q90 = rowWeightedQuantileFromSorted(active, 0.90, total_weight);
-        values[row] = switch (op) {
-            .interdecile_range => q90 - q10,
-            .midhinge => (q25 + q75) / 2.0,
-            .trimean => (q25 + 2.0 * q50 + q75) / 4.0,
-            .bowley_skewness => blk: {
-                const denominator = q75 - q25;
-                break :blk if (denominator == 0.0) quietNanF64() else (q75 + q25 - 2.0 * q50) / denominator;
-            },
-            .quartile_coeff_dispersion => blk: {
-                const denominator = q75 + q25;
-                break :blk if (denominator == 0.0) quietNanF64() else (q75 - q25) / denominator;
-            },
-            .kelley_skewness => blk: {
-                const denominator = q90 - q10;
-                break :blk if (denominator == 0.0) quietNanF64() else (q90 + q10 - 2.0 * q50) / denominator;
-            },
-        };
+        values[row] = finishRowWeightedPercentileShape(q10, q25, q50, q75, q90, op);
         validity[row] = true;
     }
 
