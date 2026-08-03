@@ -216,7 +216,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         try appendOwnedNameUnique(allocator, &required_names, name);
                     }
                 }
-                if (names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
+                if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
                 }
             },
@@ -230,7 +230,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_nulls_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);
-                    try setNullPredicate(allocator, &null_predicate, name, true);
+                    if (range_predicate == null) try setNullPredicate(allocator, &null_predicate, name, true);
                 }
             },
             .drop_nans => |names| {
@@ -1836,6 +1836,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         parquetRangePredicateFromDroppedScalar(filter_op.scalar, filter_op.op);
                     if (maybe_predicate) |predicate| {
                         try mergeRangePredicate(allocator, &range_predicate, filter_op.name, predicate);
+                        clearNullPredicate(allocator, &null_predicate);
                     }
                 }
             },
@@ -1982,4 +1983,11 @@ fn setNullPredicate(
         .column = try allocator.dupe(u8, column_name),
         .want_nulls = want_nulls,
     };
+}
+
+fn clearNullPredicate(allocator: std.mem.Allocator, current: *?DeviceParquetNullFilter) void {
+    if (current.*) |predicate| {
+        allocator.free(predicate.column);
+        current.* = null;
+    }
 }

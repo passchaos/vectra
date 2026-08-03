@@ -73,6 +73,10 @@ pub fn DeviceParquetScan(
 
         pub fn whereRange(self: *Self, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
             if (self.range_predicate) |old| self.allocator.free(old.column);
+            if (self.null_predicate) |old| {
+                self.allocator.free(old.column);
+                self.null_predicate = null;
+            }
             self.range_predicate = .{
                 .column = try self.allocator.dupe(u8, column),
                 .predicate = predicate,
@@ -81,6 +85,10 @@ pub fn DeviceParquetScan(
 
         pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
             if (self.null_predicate) |old| self.allocator.free(old.column);
+            if (self.range_predicate) |old| {
+                self.allocator.free(old.column);
+                self.range_predicate = null;
+            }
             self.null_predicate = .{
                 .column = try self.allocator.dupe(u8, column),
                 .want_nulls = want_nulls,
