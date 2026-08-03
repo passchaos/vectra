@@ -5197,6 +5197,7 @@ test "device lazy frame derives row cumulative weighted pair support columns" {
     try plan.withRowPrefixWeightedMAE(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummae", "b_row_weighted_cummae" });
     try plan.withRowPrefixWeightedMSE(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummse", "b_row_weighted_cummse" });
     try plan.withRowPrefixWeightedRMSE(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumrmse", "b_row_weighted_cumrmse" });
+    try plan.withRowPrefixWeightedMAPE(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummape", "b_row_weighted_cummape" });
     try plan.select(&.{
         "a_row_weighted_pair_cum_weight_sum",
         "b_row_weighted_pair_cum_weight_sum",
@@ -5228,6 +5229,8 @@ test "device lazy frame derives row cumulative weighted pair support columns" {
         "b_row_weighted_cummse",
         "a_row_weighted_cumrmse",
         "b_row_weighted_cumrmse",
+        "a_row_weighted_cummape",
+        "b_row_weighted_cummape",
     });
 
     const explained = try plan.explain(gpa);
@@ -5247,10 +5250,11 @@ test "device lazy frame derives row cumulative weighted pair support columns" {
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mae(lhs=[a,b], rhs=[wb,wa], weights=[wa,wb]->[a_row_weighted_cummae,b_row_weighted_cummae])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mse(lhs=[a,b], rhs=[wb,wa], weights=[wa,wb]->[a_row_weighted_cummse,b_row_weighted_cummse])") != null);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_rmse(lhs=[a,b], rhs=[wb,wa], weights=[wa,wb]->[a_row_weighted_cumrmse,b_row_weighted_cumrmse])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mape(lhs=[a,b], rhs=[wb,wa], weights=[wa,wb]->[a_row_weighted_cummape,b_row_weighted_cummape])") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 30), result.width());
+    try std.testing.expectEqual(@as(usize, 32), result.width());
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_pair_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_pair_cum_weight_sum", &.{ 0.0, 1.0, 0.0, 5.0 }, &.{ false, true, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_pair_cum_positive_count", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
@@ -5281,6 +5285,8 @@ test "device lazy frame derives row cumulative weighted pair support columns" {
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummse", &.{ 0.0, 324.0, 0.0, 1332.0 / 5.0 }, &.{ false, true, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumrmse", &.{ 1.0, 0.0, 0.0, 3.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumrmse", &.{ 0.0, 18.0, 0.0, std.math.sqrt(@as(f64, 1332.0 / 5.0)) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummape", &.{ 1.0, 0.0, 0.0, 3.0 / 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummape", &.{ 0.0, 9.0 / 10.0, 0.0, 39.0 / 50.0 }, &.{ false, true, false, true });
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
