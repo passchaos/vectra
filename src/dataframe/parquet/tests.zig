@@ -297,6 +297,30 @@ test "device lazy parquet scan pushes between filters as range predicates" {
     try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "bounds=i32[min=null,max=3]") != null);
 
+    var drop_lt_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_lt_scan.deinit();
+    try drop_lt_scan.dropColumnScalar("id", i32, 3, .lt);
+    try drop_lt_scan.select(&.{"sales"});
+
+    const drop_lt_explain = try drop_lt_scan.explain(gpa);
+    defer gpa.free(drop_lt_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_lt_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_lt_explain, "bounds=i32[min=3,max=null]") != null);
+    var drop_lt = try drop_lt_scan.collect();
+    defer drop_lt.deinit();
+    const drop_lt_sales = try (try drop_lt.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(drop_lt_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 5.0, 8.0 }, drop_lt_sales);
+
+    var drop_ge_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_ge_scan.deinit();
+    try drop_ge_scan.dropColumnScalar("id", i32, 3, .ge);
+    try drop_ge_scan.select(&.{"sales"});
+
+    const drop_ge_explain = try drop_ge_scan.explain(gpa);
+    defer gpa.free(drop_ge_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_ge_explain, "bounds=i32[min=null,max=2]") != null);
+
     var scalar_intersection_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer scalar_intersection_scan.deinit();
     try scalar_intersection_scan.filterColumnScalar("id", i32, 1, .gt);

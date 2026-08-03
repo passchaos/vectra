@@ -1819,8 +1819,12 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
                 if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
-                if (filter_op.keep_matches and filter_depends_on_source) {
-                    if (parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)) |predicate| {
+                if (filter_depends_on_source) {
+                    const maybe_predicate = if (filter_op.keep_matches)
+                        parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)
+                    else
+                        parquetRangePredicateFromDroppedScalar(filter_op.scalar, filter_op.op);
+                    if (maybe_predicate) |predicate| {
                         try mergeRangePredicate(allocator, &range_predicate, filter_op.name, predicate);
                     }
                 }
@@ -2066,6 +2070,21 @@ fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompare
         .f32 => |value| if (rangeFromScalarPredicate(f32, value, op)) |range| .{ .f32 = range } else null,
         .f64 => |value| if (rangeFromScalarPredicate(f64, value, op)) |range| .{ .f64 = range } else null,
         .bf16, .c64, .c128 => null,
+    };
+}
+
+fn parquetRangePredicateFromDroppedScalar(scalar: DeviceScalar, op: DeviceColumnCompareOp) ?ParquetRangePredicate {
+    return parquetRangePredicateFromScalar(scalar, invertCompareOp(op));
+}
+
+fn invertCompareOp(op: DeviceColumnCompareOp) DeviceColumnCompareOp {
+    return switch (op) {
+        .eq => .ne,
+        .ne => .eq,
+        .gt => .le,
+        .ge => .lt,
+        .lt => .ge,
+        .le => .gt,
     };
 }
 
