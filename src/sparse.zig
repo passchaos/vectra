@@ -696,6 +696,30 @@ fn sparseSameStructureDiffSummary(comptime T: type, lhs_values: []const T, rhs_v
     };
 }
 
+fn denseDiffSummary(comptime T: type, lhs_values: []const T, rhs_values: []const T) SparseError!SparseDiffSummary {
+    return sparseSameStructureDiffSummary(T, lhs_values, rhs_values);
+}
+
+fn denseDiffSummaryMeetsBounds(
+    comptime T: type,
+    lhs_values: []const T,
+    rhs_values: []const T,
+    max_absolute_diff: f64,
+    max_relative_diff: f64,
+    max_squared_distance: f64,
+    max_frobenius_distance: f64,
+    max_relative_frobenius_distance: f64,
+) SparseError!bool {
+    const summary = try denseDiffSummary(T, lhs_values, rhs_values);
+    return summary.meetsBounds(
+        max_absolute_diff,
+        max_relative_diff,
+        max_squared_distance,
+        max_frobenius_distance,
+        max_relative_frobenius_distance,
+    );
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -1003,6 +1027,41 @@ pub fn CooMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseSameStructureDiffSummary(T, self.values, rhs.values);
+        }
+
+        pub fn diffSummary(self: Self, rhs: Self) SparseError!SparseDiffSummary {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs_dense.data);
+        }
+
+        pub fn diffSummaryMeetsBounds(
+            self: Self,
+            rhs: Self,
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs_dense.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -2456,6 +2515,41 @@ pub fn CsrMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseSameStructureDiffSummary(T, self.values, rhs.values);
+        }
+
+        pub fn diffSummary(self: Self, rhs: Self) SparseError!SparseDiffSummary {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs_dense.data);
+        }
+
+        pub fn diffSummaryMeetsBounds(
+            self: Self,
+            rhs: Self,
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs_dense.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -4118,6 +4212,41 @@ pub fn CscMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseSameStructureDiffSummary(T, self.values, rhs.values);
+        }
+
+        pub fn diffSummary(self: Self, rhs: Self) SparseError!SparseDiffSummary {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs_dense.data);
+        }
+
+        pub fn diffSummaryMeetsBounds(
+            self: Self,
+            rhs: Self,
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs_dense.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -6258,6 +6387,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_diff.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, coo_diff.values);
+    const full_summary = try lhs.diffSummary(rhs);
+    try std.testing.expectApproxEqAbs(@as(f64, 18), full_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), full_summary.max_abs_diff, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), full_summary.max_rel_diff, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 34), full_summary.squared_distance, 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 34)), full_summary.frobeniusDistance(), 1e-12);
+    const full_relative = full_summary.relativeFrobeniusDistance();
+    try std.testing.expect(try lhs.diffSummaryMeetsBounds(rhs, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    try std.testing.expect(!(try lhs.diffSummaryMeetsBounds(rhs, 3.999, 2, 34, @sqrt(@as(f64, 34)), full_relative)));
+    try std.testing.expectError(error.InvalidShape, lhs.diffSummaryMeetsBounds(rhs, 4, std.math.nan(f64), 34, @sqrt(@as(f64, 34)), full_relative));
     var coo_product = try lhs.hadamard(rhs);
     defer coo_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
@@ -6362,6 +6501,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csr_diff.values);
+    const csr_full_summary = try lhs_csr.diffSummary(rhs_csr);
+    try std.testing.expectApproxEqAbs(full_summary.dot, csr_full_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(full_summary.squared_distance, csr_full_summary.squared_distance, 1e-12);
+    try std.testing.expect(try lhs_csr.diffSummaryMeetsBounds(rhs_csr, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     var csr_product = try lhs_csr.multiply(rhs_csr);
     defer csr_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_product.row_offsets);
@@ -6401,6 +6544,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_diff.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csc_diff.values);
+    const csc_full_summary = try lhs_csc.diffSummary(rhs_csc);
+    try std.testing.expectApproxEqAbs(full_summary.dot, csc_full_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(full_summary.squared_distance, csc_full_summary.squared_distance, 1e-12);
+    try std.testing.expect(try lhs_csc.diffSummaryMeetsBounds(rhs_csc, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     var csc_product = try lhs_csc.mul(rhs_csc);
     defer csc_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_product.col_offsets);
@@ -6429,6 +6576,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectError(error.ShapeMismatch, lhs.add(mismatched));
     try std.testing.expectError(error.ShapeMismatch, lhs.sub(mismatched));
     try std.testing.expectError(error.ShapeMismatch, lhs.hadamard(mismatched));
+    try std.testing.expectError(error.ShapeMismatch, lhs.diffSummary(mismatched));
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
