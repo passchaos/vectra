@@ -3,6 +3,7 @@
 const std = @import("std");
 const names_mod = @import("../../dataframe_names.zig");
 const profile_pushdown_mod = @import("pushdown_profile.zig");
+const null_pushdown_mod = @import("pushdown/null.zig");
 const range_pushdown_mod = @import("pushdown/range.zig");
 const options_mod = @import("../../dataframe_options.zig");
 
@@ -13,6 +14,8 @@ const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
 const freeNameList = names_mod.freeNameList;
+const clearNullPredicate = null_pushdown_mod.clearNullPredicate;
+const setNullPredicate = null_pushdown_mod.setNullPredicate;
 const mergeRangePredicate = range_pushdown_mod.mergeRangePredicate;
 const parquetRangePredicateFromBounds = range_pushdown_mod.parquetRangePredicateFromBounds;
 const parquetRangePredicateFromDroppedScalar = range_pushdown_mod.parquetRangePredicateFromDroppedScalar;
@@ -1967,27 +1970,4 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
     range_predicate = null;
     null_predicate = null;
     return out;
-}
-
-fn setNullPredicate(
-    allocator: std.mem.Allocator,
-    current: *?DeviceParquetNullFilter,
-    column_name: []const u8,
-    want_nulls: bool,
-) std.mem.Allocator.Error!void {
-    if (current.*) |existing| {
-        if (existing.want_nulls == want_nulls and std.mem.eql(u8, existing.column, column_name)) return;
-        return;
-    }
-    current.* = .{
-        .column = try allocator.dupe(u8, column_name),
-        .want_nulls = want_nulls,
-    };
-}
-
-fn clearNullPredicate(allocator: std.mem.Allocator, current: *?DeviceParquetNullFilter) void {
-    if (current.*) |predicate| {
-        allocator.free(predicate.column);
-        current.* = null;
-    }
 }
