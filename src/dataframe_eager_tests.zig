@@ -7461,6 +7461,29 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 1), arrow_table.columnIndexByName("units"));
 }
 
+test "device dataframe preserves zero-column row count through boltha arrow" {
+    const gpa = std.testing.allocator;
+
+    var table = try DeviceDataFrame.initEmpty(gpa, 3, .cpu);
+    defer table.deinit();
+
+    var batch = try table.toArrowRecordBatch(gpa);
+    defer batch.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), batch.row_count);
+    try std.testing.expectEqual(@as(usize, 0), batch.columnCount());
+
+    var arrow_table = try table.toArrowTable(gpa);
+    defer arrow_table.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), arrow_table.row_count);
+    try std.testing.expectEqual(@as(usize, 1), arrow_table.batchCount());
+    try std.testing.expectEqual(@as(usize, 0), arrow_table.columnCount());
+
+    var roundtrip = try DeviceDataFrame.fromArrowRecordBatch(gpa, batch, .cpu);
+    defer roundtrip.deinit();
+    try std.testing.expectEqual(@as(usize, 3), roundtrip.height());
+    try std.testing.expectEqual(@as(usize, 0), roundtrip.width());
+}
+
 test "device dataframe eager column expressions and boolean mask filtering" {
     const gpa = std.testing.allocator;
 

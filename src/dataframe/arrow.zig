@@ -139,8 +139,6 @@ pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropE
 /// external consumers. Device-resident columns are downloaded through the column
 /// conversion APIs so one implementation serves CPU, CUDA, and MPS storage.
 pub fn toArrowRecordBatch(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
-    if (frame.columns.len == 0 and frame.rows != 0) return error.TypeUnsupported;
-
     var schema = try toArrowSchema(frame, allocator);
     errdefer schema.deinit(allocator);
 
@@ -155,7 +153,10 @@ pub fn toArrowRecordBatch(frame: anytype, allocator: std.mem.Allocator) ArrowInt
         slot.* = try col.toArrowArray(allocator);
         initialized += 1;
     }
-    return boltha.arrow.RecordBatch.initOwned(schema, columns);
+    // Arrow permits a record batch with no columns and a non-zero row count.
+    // Preserve that row-count metadata here so projecting a dataframe down to
+    // zero columns remains lossless across the Boltha Arrow boundary.
+    return boltha.arrow.RecordBatch.initOwnedWithRowCount(schema, columns, frame.rows);
 }
 
 pub fn toArrowTable(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Table {

@@ -125,6 +125,7 @@ pub fn fromArrowRecordBatch(
     device_value: array_mod.Device,
 ) ArrowInteropError!DeviceDataFrame {
     if (!device_value.isAvailable()) return error.InvalidDevice;
+    if (batch.columns.len == 0) return DeviceDataFrame.initEmpty(allocator, batch.row_count, device_value);
     var defs = try allocator.alloc(DeviceColumnDef, batch.columns.len);
     defer allocator.free(defs);
     var initialized: usize = 0;
