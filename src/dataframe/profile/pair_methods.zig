@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const array_mod = @import("../../array.zig");
-const bool_transition_mod = @import("../../dataframe_bool_transition.zig");
+const bool_transition_mod = @import("../bool_transition.zig");
 const classification_mod = @import("../classification.zig");
 const error_mod = @import("../error.zig");
 const correlation_mod = @import("../../dataframe_correlation.zig");

@@ -1,7 +1,7 @@
 //! Boolean transition metric kernels and output-name helpers.
 
 const std = @import("std");
-const window_metrics_mod = @import("dataframe_bool_transition_window_metrics.zig");
+const window_metrics_mod = @import("window_metrics.zig");
 
 /// Row-level boolean transition events and streaks.
 pub const BoolTransitionProfile = struct {
