@@ -1725,6 +1725,37 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_ratio_table, gpa, "a_row_weighted_cummode_margin_ratio", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_ratio_table, gpa, "b_row_weighted_cummode_margin_ratio", &.{ 0.0, 1.0, 0.0, 3.0 / 5.0 }, &.{ false, true, false, true });
 
+    const weighted_prefix_entropy = -(@as(f64, 4.0 / 5.0) * std.math.log(f64, std.math.e, @as(f64, 4.0 / 5.0)) + @as(f64, 1.0 / 5.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 5.0)));
+    var row_cum_weighted_entropy_table = try validity_table.withRowCumWeightedEntropy(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumentropy", "b_row_weighted_cumentropy" });
+    defer row_cum_weighted_entropy_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_entropy_table, gpa, "a_row_weighted_cumentropy", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_entropy_table, gpa, "b_row_weighted_cumentropy", &.{ 0.0, 0.0, 0.0, weighted_prefix_entropy }, &.{ false, true, false, true });
+
+    var row_cum_weighted_gini_table = try validity_table.withRowPrefixWeightedGini(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumgini", "b_row_weighted_cumgini" });
+    defer row_cum_weighted_gini_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_table, gpa, "a_row_weighted_cumgini", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_table, gpa, "b_row_weighted_cumgini", &.{ 0.0, 0.0, 0.0, 8.0 / 25.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_perplexity_table = try validity_table.withRowCumWeightedPerplexity(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumperplexity", "b_row_weighted_cumperplexity" });
+    defer row_cum_weighted_perplexity_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_perplexity_table, gpa, "a_row_weighted_cumperplexity", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_perplexity_table, gpa, "b_row_weighted_cumperplexity", &.{ 0.0, 1.0, 0.0, std.math.exp(weighted_prefix_entropy) }, &.{ false, true, false, true });
+
+    var row_cum_weighted_inverse_table = try validity_table.withRowPrefixWeightedInverseSimpson(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cuminverse", "b_row_weighted_cuminverse" });
+    defer row_cum_weighted_inverse_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_inverse_table, gpa, "a_row_weighted_cuminverse", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_inverse_table, gpa, "b_row_weighted_cuminverse", &.{ 0.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_concentration_table = try validity_table.withRowCumWeightedConcentration(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumconcentration", "b_row_weighted_cumconcentration" });
+    defer row_cum_weighted_concentration_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_concentration_table, gpa, "a_row_weighted_cumconcentration", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_concentration_table, gpa, "b_row_weighted_cumconcentration", &.{ 0.0, 1.0, 0.0, 17.0 / 25.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_evenness_table = try validity_table.withRowPrefixWeightedEvenness(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumevenness", "b_row_weighted_cumevenness" });
+    defer row_cum_weighted_evenness_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_evenness_table, gpa, "a_row_weighted_cumevenness", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_evenness_table, gpa, "b_row_weighted_cumevenness", &.{ 0.0, 1.0, 0.0, weighted_prefix_entropy / std.math.log(f64, std.math.e, @as(f64, 2.0)) }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1751,6 +1782,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMidhinge(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummidhinge", "extra_row_weighted_cummidhinge" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMode(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode", "extra_row_weighted_cummode" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedModeWeight(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode_weight", "extra_row_weighted_cummode_weight" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedEntropy(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cumentropy", "extra_row_weighted_cumentropy" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");

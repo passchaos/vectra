@@ -5160,6 +5160,81 @@ test "device lazy frame derives row cumulative weighted mode columns" {
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted distribution columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowCumWeightedEntropy(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumentropy", "b_row_weighted_cumentropy" });
+    try plan.withRowPrefixWeightedGini(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumgini", "b_row_weighted_cumgini" });
+    try plan.withRowCumWeightedPerplexity(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumperplexity", "b_row_weighted_cumperplexity" });
+    try plan.withRowPrefixWeightedInverseSimpson(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cuminverse", "b_row_weighted_cuminverse" });
+    try plan.withRowCumWeightedConcentration(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumconcentration", "b_row_weighted_cumconcentration" });
+    try plan.withRowPrefixWeightedEvenness(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumevenness", "b_row_weighted_cumevenness" });
+    try plan.select(&.{
+        "a_row_weighted_cumentropy",
+        "b_row_weighted_cumentropy",
+        "a_row_weighted_cumgini",
+        "b_row_weighted_cumgini",
+        "a_row_weighted_cumperplexity",
+        "b_row_weighted_cumperplexity",
+        "a_row_weighted_cuminverse",
+        "b_row_weighted_cuminverse",
+        "a_row_weighted_cumconcentration",
+        "b_row_weighted_cumconcentration",
+        "a_row_weighted_cumevenness",
+        "b_row_weighted_cumevenness",
+    });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_entropy(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumentropy,b_row_weighted_cumentropy])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_gini_impurity(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumgini,b_row_weighted_cumgini])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_perplexity(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumperplexity,b_row_weighted_cumperplexity])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_inverse_simpson(values=[a,b], weights=[wa,wb]->[a_row_weighted_cuminverse,b_row_weighted_cuminverse])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_simpson_concentration(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumconcentration,b_row_weighted_cumconcentration])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_evenness(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumevenness,b_row_weighted_cumevenness])") != null);
+
+    const weighted_prefix_entropy = -(@as(f64, 4.0 / 5.0) * std.math.log(f64, std.math.e, @as(f64, 4.0 / 5.0)) + @as(f64, 1.0 / 5.0) * std.math.log(f64, std.math.e, @as(f64, 1.0 / 5.0)));
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 12), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumentropy", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumentropy", &.{ 0.0, 0.0, 0.0, weighted_prefix_entropy }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumgini", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumgini", &.{ 0.0, 0.0, 0.0, 8.0 / 25.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumperplexity", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumperplexity", &.{ 0.0, 1.0, 0.0, std.math.exp(weighted_prefix_entropy) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cuminverse", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cuminverse", &.{ 0.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumconcentration", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumconcentration", &.{ 0.0, 1.0, 0.0, 17.0 / 25.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumevenness", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumevenness", &.{ 0.0, 1.0, 0.0, weighted_prefix_entropy / std.math.log(f64, std.math.e, @as(f64, 2.0)) }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedEntropy(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cumentropy", "extra_row_weighted_cumentropy" });
+    try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

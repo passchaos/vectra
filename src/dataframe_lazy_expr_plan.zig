@@ -4866,6 +4866,68 @@ pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
 pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 
+fn withRowCumulativeWeightedDistribution(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime op: enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .entropy => .{ .row_cumulative_weighted_entropy = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .gini_impurity => .{ .row_cumulative_weighted_gini_impurity = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .perplexity => .{ .row_cumulative_weighted_perplexity = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .inverse_simpson => .{ .row_cumulative_weighted_inverse_simpson = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .simpson_concentration => .{ .row_cumulative_weighted_simpson_concentration = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .evenness => .{ .row_cumulative_weighted_evenness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedEntropy(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .entropy);
+}
+
+pub fn withRowCumulativeWeightedGiniImpurity(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .gini_impurity);
+}
+
+pub const withRowCumulativeWeightedGini = withRowCumulativeWeightedGiniImpurity;
+
+pub fn withRowCumulativeWeightedPerplexity(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .perplexity);
+}
+
+pub fn withRowCumulativeWeightedInverseSimpson(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .inverse_simpson);
+}
+
+pub fn withRowCumulativeWeightedSimpsonConcentration(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .simpson_concentration);
+}
+
+pub const withRowCumulativeWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+
+pub fn withRowCumulativeWeightedEvenness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedDistribution(frame, value_names, weight_names, output_names, .evenness);
+}
+
+pub const withRowCumWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowPrefixWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowCumWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowPrefixWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowCumWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowPrefixWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowCumWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
+pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
+
 fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

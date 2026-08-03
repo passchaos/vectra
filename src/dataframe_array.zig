@@ -7057,6 +7057,175 @@ pub fn withRowWeightedModeMargin(
 
 const RowWeightedDistributionReduction = enum { entropy, gini_impurity, perplexity, inverse_simpson, simpson_concentration, evenness };
 
+fn rowWeightedDistributionFromPrefix(
+    flat: RowWeightedFlat,
+    row: usize,
+    limit: usize,
+    comptime reduction: RowWeightedDistributionReduction,
+) ?f64 {
+    var total_weight: f64 = 0.0;
+    for (0..limit) |col_index| {
+        const offset = row * flat.width + col_index;
+        if (flat.validity[offset]) total_weight += flat.weights[offset];
+    }
+    if (!(total_weight > 0.0)) return null;
+
+    var entropy: f64 = 0.0;
+    var sum_prob_sq: f64 = 0.0;
+    var distinct_count: usize = 0;
+    for (0..limit) |col_index| {
+        const offset = row * flat.width + col_index;
+        if (!flat.validity[offset]) continue;
+        const candidate = flat.values[offset];
+
+        var seen = false;
+        for (0..col_index) |previous_index| {
+            const previous_offset = row * flat.width + previous_index;
+            if (!flat.validity[previous_offset]) continue;
+            if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) continue;
+
+        var candidate_weight: f64 = 0.0;
+        for (col_index..limit) |candidate_index| {
+            const candidate_offset = row * flat.width + candidate_index;
+            if (!flat.validity[candidate_offset]) continue;
+            if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
+        }
+        if (!(candidate_weight > 0.0)) continue;
+        const probability = candidate_weight / total_weight;
+        entropy -= probability * std.math.log(f64, std.math.e, probability);
+        sum_prob_sq += probability * probability;
+        distinct_count += 1;
+    }
+
+    return switch (reduction) {
+        .entropy => entropy,
+        .gini_impurity => 1.0 - sum_prob_sq,
+        .perplexity => std.math.exp(entropy),
+        .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
+        .simpson_concentration => sum_prob_sq,
+        .evenness => if (distinct_count <= 1) 1.0 else entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(distinct_count))),
+    };
+}
+
+fn withRowCumulativeWeightedDistributionReduction(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowWeightedDistributionReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            if (rowWeightedDistributionFromPrefix(flat, row, col_index + 1, reduction)) |value| {
+                cumulative[offset] = value;
+                cumulative_validity[offset] = true;
+            }
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedEntropy(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .entropy);
+}
+
+pub fn withRowCumulativeWeightedGiniImpurity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .gini_impurity);
+}
+
+pub const withRowCumulativeWeightedGini = withRowCumulativeWeightedGiniImpurity;
+
+pub fn withRowCumulativeWeightedPerplexity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .perplexity);
+}
+
+pub fn withRowCumulativeWeightedInverseSimpson(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .inverse_simpson);
+}
+
+pub fn withRowCumulativeWeightedSimpsonConcentration(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .simpson_concentration);
+}
+
+pub const withRowCumulativeWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+
+pub fn withRowCumulativeWeightedEvenness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDistributionReduction(DeviceDataFrame, input, value_names, weight_names, output_names, .evenness);
+}
+
+pub const withRowCumWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowPrefixWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowCumWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowPrefixWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowCumWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowPrefixWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowCumWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
+pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
+
 fn withRowWeightedDistributionReduction(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -7076,54 +7245,10 @@ fn withRowWeightedDistributionReduction(
     @memset(validity, false);
 
     for (0..flat.rows) |row| {
-        var total_weight: f64 = 0.0;
-        for (0..flat.width) |col_index| {
-            const offset = row * flat.width + col_index;
-            if (flat.validity[offset]) total_weight += flat.weights[offset];
+        if (rowWeightedDistributionFromPrefix(flat, row, flat.width, reduction)) |value| {
+            values[row] = value;
+            validity[row] = true;
         }
-        if (!(total_weight > 0.0)) continue;
-
-        var entropy: f64 = 0.0;
-        var sum_prob_sq: f64 = 0.0;
-        var distinct_count: usize = 0;
-        for (0..flat.width) |col_index| {
-            const offset = row * flat.width + col_index;
-            if (!flat.validity[offset]) continue;
-            const candidate = flat.values[offset];
-
-            var seen = false;
-            for (0..col_index) |previous_index| {
-                const previous_offset = row * flat.width + previous_index;
-                if (!flat.validity[previous_offset]) continue;
-                if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
-                    seen = true;
-                    break;
-                }
-            }
-            if (seen) continue;
-
-            var candidate_weight: f64 = 0.0;
-            for (col_index..flat.width) |candidate_index| {
-                const candidate_offset = row * flat.width + candidate_index;
-                if (!flat.validity[candidate_offset]) continue;
-                if (rowModeValueEqual(candidate, flat.values[candidate_offset])) candidate_weight += flat.weights[candidate_offset];
-            }
-            if (!(candidate_weight > 0.0)) continue;
-            const probability = candidate_weight / total_weight;
-            entropy -= probability * std.math.log(f64, std.math.e, probability);
-            sum_prob_sq += probability * probability;
-            distinct_count += 1;
-        }
-
-        values[row] = switch (reduction) {
-            .entropy => entropy,
-            .gini_impurity => 1.0 - sum_prob_sq,
-            .perplexity => std.math.exp(entropy),
-            .inverse_simpson => if (sum_prob_sq == 0.0) quietNanF64() else 1.0 / sum_prob_sq,
-            .simpson_concentration => sum_prob_sq,
-            .evenness => if (distinct_count <= 1) 1.0 else entropy / std.math.log(f64, std.math.e, @as(f64, @floatFromInt(distinct_count))),
-        };
-        validity[row] = true;
     }
 
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));

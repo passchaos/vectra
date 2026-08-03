@@ -816,6 +816,12 @@ diagnostics.
 `withRowCumulativeWeightedModeMargin`, and
 `withRowCumulativeWeightedModeMarginRatio` expose the prefix mode dominance
 diagnostics.
+`withRowCumulativeWeightedEntropy`, `withRowCumulativeWeightedGiniImpurity`,
+`withRowCumulativeWeightedPerplexity`,
+`withRowCumulativeWeightedInverseSimpson`,
+`withRowCumulativeWeightedSimpsonConcentration`, and
+`withRowCumulativeWeightedEvenness` add prefix weighted distribution
+diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

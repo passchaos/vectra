@@ -4203,6 +4203,51 @@ pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
 pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 
+pub fn withRowCumulativeWeightedEntropy(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedEntropy(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedGiniImpurity(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedGiniImpurity(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedGini = withRowCumulativeWeightedGiniImpurity;
+
+pub fn withRowCumulativeWeightedPerplexity(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedPerplexity(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedInverseSimpson(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedInverseSimpson(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedSimpsonConcentration(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedSimpsonConcentration(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+
+pub fn withRowCumulativeWeightedEvenness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedEvenness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowPrefixWeightedEntropy = withRowCumulativeWeightedEntropy;
+pub const withRowCumWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+pub const withRowPrefixWeightedGini = withRowCumulativeWeightedGiniImpurity;
+pub const withRowCumWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowPrefixWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+pub const withRowCumWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowPrefixWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+pub const withRowCumWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
+pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

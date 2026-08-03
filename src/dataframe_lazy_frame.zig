@@ -3070,6 +3070,51 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
             pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 
+            pub fn withRowCumulativeWeightedEntropy(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedEntropy(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedGiniImpurity(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedGiniImpurity(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedGini = withRowCumulativeWeightedGiniImpurity;
+
+            pub fn withRowCumulativeWeightedPerplexity(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedPerplexity(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedInverseSimpson(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedInverseSimpson(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedSimpsonConcentration(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSimpsonConcentration(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+
+            pub fn withRowCumulativeWeightedEvenness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedEvenness(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedEntropy = withRowCumulativeWeightedEntropy;
+            pub const withRowPrefixWeightedEntropy = withRowCumulativeWeightedEntropy;
+            pub const withRowCumWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+            pub const withRowCumWeightedGini = withRowCumulativeWeightedGiniImpurity;
+            pub const withRowPrefixWeightedGiniImpurity = withRowCumulativeWeightedGiniImpurity;
+            pub const withRowPrefixWeightedGini = withRowCumulativeWeightedGiniImpurity;
+            pub const withRowCumWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+            pub const withRowPrefixWeightedPerplexity = withRowCumulativeWeightedPerplexity;
+            pub const withRowCumWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+            pub const withRowPrefixWeightedInverseSimpson = withRowCumulativeWeightedInverseSimpson;
+            pub const withRowCumWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+            pub const withRowCumWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+            pub const withRowPrefixWeightedSimpsonConcentration = withRowCumulativeWeightedSimpsonConcentration;
+            pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonConcentration;
+            pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
+            pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
+
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);
             }
