@@ -177,6 +177,23 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn transpose(self: Self) SparseError!Self {
+            const row_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try self.allocator.dupe(T, self.values);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.cols,
+                .cols = self.rows,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -1480,6 +1497,22 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var product = try coo.matmat(rhs);
     defer product.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 32, 22, 44, 29, 58 }, product.data);
+
+    var transposed = try coo.transpose();
+    defer transposed.deinit();
+    try std.testing.expectEqual(@as(usize, 4), transposed.rows);
+    try std.testing.expectEqual(@as(usize, 3), transposed.cols);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, transposed.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, transposed.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, transposed.values);
+    var transposed_dense = try transposed.toDense();
+    defer transposed_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        10, 0, 5,
+        0,  3, 0,
+        2,  0, 0,
+        0,  4, 6,
+    }, transposed_dense.data);
 
     var csr = try coo.toCsr();
     defer csr.deinit();
