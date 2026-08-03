@@ -723,6 +723,14 @@ pub fn CooMatrix(comptime T: type) type {
             return @sqrt(try self.variance(correction));
         }
 
+        pub fn sampleVariance(self: Self) SparseError!f64 {
+            return self.variance(1);
+        }
+
+        pub fn sampleStddev(self: Self) SparseError!f64 {
+            return self.stddev(1);
+        }
+
         pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.cols == 0) return error.EmptyArray;
@@ -746,6 +754,14 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowVariances(1);
+        }
+
+        pub fn rowSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowStddevs(1);
+        }
+
         pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.rows == 0) return error.EmptyArray;
@@ -767,6 +783,14 @@ pub fn CooMatrix(comptime T: type) type {
             const out = try self.columnVariances(correction);
             sqrtArray(out.data);
             return out;
+        }
+
+        pub fn columnSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnVariances(1);
+        }
+
+        pub fn columnSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnStddevs(1);
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -1838,6 +1862,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return @sqrt(try self.variance(correction));
         }
 
+        pub fn sampleVariance(self: Self) SparseError!f64 {
+            return self.variance(1);
+        }
+
+        pub fn sampleStddev(self: Self) SparseError!f64 {
+            return self.stddev(1);
+        }
+
         pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.cols == 0) return error.EmptyArray;
@@ -1863,6 +1895,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowVariances(1);
+        }
+
+        pub fn rowSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowStddevs(1);
+        }
+
         pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.rows == 0) return error.EmptyArray;
@@ -1884,6 +1924,14 @@ pub fn CsrMatrix(comptime T: type) type {
             const out = try self.columnVariances(correction);
             sqrtArray(out.data);
             return out;
+        }
+
+        pub fn columnSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnVariances(1);
+        }
+
+        pub fn columnSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnStddevs(1);
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -2815,6 +2863,14 @@ pub fn CscMatrix(comptime T: type) type {
             return @sqrt(try self.variance(correction));
         }
 
+        pub fn sampleVariance(self: Self) SparseError!f64 {
+            return self.variance(1);
+        }
+
+        pub fn sampleStddev(self: Self) SparseError!f64 {
+            return self.stddev(1);
+        }
+
         pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.rows == 0) return error.EmptyArray;
@@ -2840,6 +2896,14 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnVariances(1);
+        }
+
+        pub fn columnSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.columnStddevs(1);
+        }
+
         pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.cols == 0) return error.EmptyArray;
@@ -2861,6 +2925,14 @@ pub fn CscMatrix(comptime T: type) type {
             const out = try self.rowVariances(correction);
             sqrtArray(out.data);
             return out;
+        }
+
+        pub fn rowSampleVariances(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowVariances(1);
+        }
+
+        pub fn rowSampleStddevs(self: Self) SparseError!array_mod.Array(f64) {
+            return self.rowStddevs(1);
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -3481,12 +3553,16 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try coo.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.stddev(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (55.0 - (11.0 * 11.0) / 9.0) / 8.0), try coo.sampleVariance(), 1e-12);
 
     var row_vars = try coo.rowVariances(0);
     defer row_vars.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    var row_sample_vars = try coo.rowSampleVariances();
+    defer row_sample_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), row_sample_vars.data[0], 1e-12);
     var col_vars = try coo.columnVariances(0);
     defer col_vars.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
@@ -3844,6 +3920,7 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csr.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.stddev(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (55.0 - (11.0 * 11.0) / 9.0) / 8.0), try csr.sampleVariance(), 1e-12);
 
     var row_vars = try csr.rowVariances(0);
     defer row_vars.deinit();
@@ -3858,6 +3935,9 @@ test "csr sparse row and column statistics" {
     var row_stds = try csr.rowStddevs(0);
     defer row_stds.deinit();
     try std.testing.expectApproxEqAbs(@sqrt(14.0 / 9.0), row_stds.data[0], 1e-12);
+    var row_sample_vars = try csr.rowSampleVariances();
+    defer row_sample_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), row_sample_vars.data[0], 1e-12);
 
     var row_means = try csr.rowMeans();
     defer row_means.deinit();
@@ -4089,6 +4169,7 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csc.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.stddev(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, (55.0 - (11.0 * 11.0) / 9.0) / 8.0), try csc.sampleVariance(), 1e-12);
 
     var row_vars = try csc.rowVariances(0);
     defer row_vars.deinit();
@@ -4103,6 +4184,9 @@ test "csc sparse transpose products and row column stats" {
     var col_stds = try csc.columnStddevs(0);
     defer col_stds.deinit();
     try std.testing.expectApproxEqAbs(@sqrt(26.0 / 9.0), col_stds.data[0], 1e-12);
+    var row_sample_vars = try csc.rowSampleVariances();
+    defer row_sample_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), row_sample_vars.data[0], 1e-12);
 
     var row_means = try csc.rowMeans();
     defer row_means.deinit();
