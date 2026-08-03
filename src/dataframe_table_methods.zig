@@ -9,7 +9,7 @@ const keys_mod = @import("dataframe/keys.zig");
 const rank_mod = @import("dataframe_rank.zig");
 const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
-const validity_mod = @import("dataframe_validity_core.zig");
+const validity_mod = @import("dataframe/validity/core.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;

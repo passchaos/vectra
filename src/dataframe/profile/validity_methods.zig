@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const array_mod = @import("../../array.zig");
-const validity_mod = @import("../../dataframe_validity.zig");
+const validity_mod = @import("../validity.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const series_mod = @import("../../series.zig");
 

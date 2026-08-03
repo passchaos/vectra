@@ -3,7 +3,7 @@
 const std = @import("std");
 const array_mod = @import("../../array.zig");
 const numeric_mod = @import("../../dataframe_numeric.zig");
-const validity_mod = @import("../../dataframe_validity_core.zig");
+const validity_mod = @import("../validity/core.zig");
 
 const validityValues = validity_mod.validityValues;
 const groupKeyEqual = numeric_mod.groupKeyEqual;

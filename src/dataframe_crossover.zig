@@ -7,7 +7,7 @@ const metrics_mod = @import("dataframe_crossover_metrics.zig");
 const columns_mod = @import("dataframe_crossover_columns.zig");
 const numeric_mod = @import("dataframe_numeric.zig");
 const options_mod = @import("dataframe_options.zig");
-const validity_mod = @import("dataframe_validity.zig");
+const validity_mod = @import("dataframe/validity.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceCrossoverOptions = options_mod.DeviceCrossoverOptions;

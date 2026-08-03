@@ -7,7 +7,7 @@ const dataframe_device_column_mod = @import("../device_column.zig");
 const metrics_mod = @import("metrics.zig");
 const numeric_mod = @import("../../dataframe_numeric.zig");
 const names_mod = @import("../../dataframe_names.zig");
-const validity_mod = @import("../../dataframe_validity_core.zig");
+const validity_mod = @import("../validity/core.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;

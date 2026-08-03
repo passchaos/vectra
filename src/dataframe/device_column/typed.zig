@@ -12,7 +12,7 @@ const array_helpers_mod = @import("../../dataframe_array_helpers.zig");
 const dataframe_view_mod = @import("../../dataframe_view.zig");
 const numeric_mod = @import("../../dataframe_numeric.zig");
 const options_mod = @import("../../dataframe_options.zig");
-const validity_core_mod = @import("../../dataframe_validity_core.zig");
+const validity_core_mod = @import("../validity/core.zig");
 
 const DeviceDType = array_mod.DType;
 const DeviceColumnView = dataframe_view_mod.DeviceColumnView;

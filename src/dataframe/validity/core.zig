@@ -6,7 +6,7 @@
 //! keep the dependency graph acyclic and the larger facade files small.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
+const array_mod = @import("../../array.zig");
 
 pub fn countNulls(validity_values: []const bool) usize {
     var nulls: usize = 0;

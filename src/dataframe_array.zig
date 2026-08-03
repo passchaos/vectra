@@ -4,7 +4,7 @@ const array_mod = @import("array.zig");
 const array_helpers_mod = @import("dataframe_array_helpers.zig");
 const names_mod = @import("dataframe_names.zig");
 const options_mod = @import("dataframe_options.zig");
-const validity_core_mod = @import("dataframe_validity_core.zig");
+const validity_core_mod = @import("dataframe/validity/core.zig");
 
 const DeviceFrameArrayError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,
