@@ -1156,6 +1156,12 @@ pub fn CooMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn densityInRange(self: Self, min_density: f64, max_density: f64) SparseError!bool {
+            try validateNonNegativeRange(min_density, max_density);
+            const current = try self.density();
+            return current >= min_density and current <= max_density;
+        }
+
         pub fn oneNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var col_sums = try self.allocator.alloc(T, self.cols);
@@ -2712,6 +2718,12 @@ pub fn CsrMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn densityInRange(self: Self, min_density: f64, max_density: f64) SparseError!bool {
+            try validateNonNegativeRange(min_density, max_density);
+            const current = try self.density();
+            return current >= min_density and current <= max_density;
+        }
+
         pub fn oneNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var col_sums = try self.allocator.alloc(T, self.cols);
@@ -4129,6 +4141,12 @@ pub fn CscMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn densityInRange(self: Self, min_density: f64, max_density: f64) SparseError!bool {
+            try validateNonNegativeRange(min_density, max_density);
+            const current = try self.density();
+            return current >= min_density and current <= max_density;
+        }
+
         pub fn oneNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var max_sum = zero(T);
@@ -5191,6 +5209,10 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), try coo.density(), 1e-12);
+    try std.testing.expect(try coo.densityInRange(5.0 / 9.0, 5.0 / 9.0));
+    try std.testing.expect(!(try coo.densityInRange(0, 0.5)));
+    try std.testing.expectError(error.InvalidShape, coo.densityInRange(std.math.nan(f64), 1));
 }
 
 test "sparse stored non-finite diagnostics" {
@@ -5966,6 +5988,9 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+    try std.testing.expect(try csr.densityInRange(5.0 / 9.0, 5.0 / 9.0));
+    try std.testing.expect(!(try csr.densityInRange(0, 0.5)));
+    try std.testing.expectError(error.InvalidShape, csr.densityInRange(0.6, 0.5));
 }
 
 test "csr sparse diagonal trace bandwidth and symmetry" {
@@ -6286,6 +6311,9 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 9.0), try csc.density(), 1e-12);
+    try std.testing.expect(try csc.densityInRange(5.0 / 9.0, 5.0 / 9.0));
+    try std.testing.expect(!(try csc.densityInRange(0, 0.5)));
+    try std.testing.expectError(error.InvalidShape, csc.densityInRange(-0.1, 0.5));
     try std.testing.expectApproxEqAbs(@as(f64, 15), csc.absSum(), 1e-12);
 }
 
