@@ -495,6 +495,72 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleRows(self: Self, row_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (self.values, 0..) |value, i| values[i] = row_scale[self.row_indices[i]] * value;
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (self.values, 0..) |value, i| values[i] = value * col_scale[self.col_indices[i]];
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (self.values, 0..) |value, i| values[i] = row_scale[self.row_indices[i]] * value * col_scale[self.col_indices[i]];
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
         pub fn sum(self: Self) T {
             ensureNumeric(T);
             var total = zero(T);
@@ -1078,6 +1144,78 @@ pub fn CsrMatrix(comptime T: type) type {
             // use `dropZeros()` afterwards when multiplying by zero or when an
             // integer factor creates explicit zeros.
             for (self.values, 0..) |value, i| values[i] = value * alpha;
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleRows(self: Self, row_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| values[pos] = row_scale[row] * self.values[pos];
+            }
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (self.values, 0..) |value, pos| values[pos] = value * col_scale[self.col_indices[pos]];
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    values[pos] = row_scale[row] * self.values[pos] * col_scale[self.col_indices[pos]];
+                }
+            }
 
             return .{
                 .allocator = self.allocator,
@@ -1871,6 +2009,76 @@ pub fn CscMatrix(comptime T: type) type {
             // opt-in so callers can keep structural zeros when they carry
             // semantic meaning.
             for (self.values, 0..) |value, i| values[i] = value * alpha;
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleRows(self: Self, row_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (self.values, 0..) |value, pos| values[pos] = row_scale[self.row_indices[pos]] * value;
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| values[pos] = self.values[pos] * col_scale[col];
+            }
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| values[pos] = row_scale[self.row_indices[pos]] * self.values[pos] * col_scale[col];
+            }
 
             return .{
                 .allocator = self.allocator,
@@ -2703,6 +2911,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_scaled = try coo_pruned.scale(2);
     defer coo_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 18 }, coo_scaled.values);
+    var coo_row_scaled = try coo_pruned.scaleRows(&.{ 2, 3 });
+    defer coo_row_scaled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 27 }, coo_row_scaled.values);
+    var coo_col_scaled = try coo_pruned.scaleColumns(&.{ 4, 5, 6 });
+    defer coo_col_scaled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 20, 54 }, coo_col_scaled.values);
     var coo_neg = try coo_pruned.neg();
     defer coo_neg.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, -9 }, coo_neg.values);
@@ -2736,6 +2950,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_scaled.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_pruned.col_indices, csr_scaled.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 15, 27 }, csr_scaled.values);
+    var csr_rc_scaled = try csr_pruned.scaleRowsAndColumns(&.{ 2, 3 }, &.{ 4, 5, 6 });
+    defer csr_rc_scaled.deinit();
+    try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_rc_scaled.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_pruned.col_indices, csr_rc_scaled.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 40, 162 }, csr_rc_scaled.values);
     var csr_diff = try lhs_csr.sub(rhs_csr);
     defer csr_diff.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
@@ -2769,6 +2988,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer csc_scaled_zero_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 0 }, csc_scaled_zero_pruned.col_offsets);
     try std.testing.expectEqual(@as(usize, 0), csc_scaled_zero_pruned.nnz());
+    var csc_row_scaled = try csc_pruned.scaleRows(&.{ 2, 3 });
+    defer csc_row_scaled.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 10, 27 }, csc_row_scaled.values);
+    try std.testing.expectError(error.ShapeMismatch, csc_pruned.scaleColumns(&.{1}));
     var csc_diff = try lhs_csc.sub(rhs_csc);
     defer csc_diff.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);

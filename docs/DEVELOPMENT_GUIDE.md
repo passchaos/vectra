@@ -158,6 +158,7 @@ Array IO / serialization 当前支持：
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
 - `dropZeros()`：移除显式存储的零值，适合在加法/聚合后压缩结构。
 - `scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
+- `scaleRows/scaleColumns/scaleRowsAndColumns()`：COO 行/列向量缩放，保留当前结构。
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
 - `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：COO 行列统计。
@@ -173,6 +174,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
 - `CsrMatrix.dropZeros()`：移除显式零值并保持 CSR 行压缩结构。
 - `CsrMatrix.scale()`：CSR 标量缩放并保留行压缩结构。
+- `CsrMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSR 行/列向量缩放并保留行压缩结构。
 - `CsrMatrix.neg/negative/sub()`：CSR 符号翻转与同形状减法。
 - `CsrMatrix.hadamard/mul/multiply()`：CSR 同形状逐元素乘法，结果保持 CSR 所有权。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
@@ -192,6 +194,7 @@ CSC 当前支持：
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
 - `CscMatrix.dropZeros()`：移除显式零值并保持 CSC 列压缩结构。
 - `CscMatrix.scale()`：CSC 标量缩放并保留列压缩结构。
+- `CscMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSC 行/列向量缩放并保留列压缩结构。
 - `CscMatrix.neg/negative/sub()`：CSC 符号翻转与同形状减法。
 - `CscMatrix.hadamard/mul/multiply()`：CSC 同形状逐元素乘法，结果保持 CSC 所有权。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
