@@ -176,6 +176,70 @@ pub fn CooMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.row_indices) |row| out.data[row] += 1;
+            return out;
+        }
+
+        pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.col_indices) |col| out.data[col] += 1;
+            return out;
+        }
+
+        pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.row_indices[i]] += value;
+            return out;
+        }
+
+        pub fn columnSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += value;
+            return out;
+        }
+
+        pub fn rowAbsSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.row_indices[i]] += absValue(T, value);
+            return out;
+        }
+
+        pub fn columnAbsSums(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += absValue(T, value);
+            return out;
+        }
+
+        pub fn rowNorms(self: Self) SparseError!array_mod.Array(T) {
+            ensureFloat(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.row_indices[i]] += value * value;
+            for (out.data) |*value| value.* = @sqrt(value.*);
+            return out;
+        }
+
+        pub fn columnNorms(self: Self) SparseError!array_mod.Array(T) {
+            ensureFloat(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += value * value;
+            for (out.data) |*value| value.* = @sqrt(value.*);
+            return out;
+        }
+
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
             errdefer out.deinit();
@@ -1594,6 +1658,50 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var duplicate_csc_dense = try duplicate_csc.toDense();
     defer duplicate_csc_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 5 }, duplicate_csc_dense.data);
+}
+
+test "coo sparse row and column statistics" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 0, -2,
+        0, 3, 0,
+        4, 0, 5,
+    }, &.{ 3, 3 });
+    defer dense.deinit();
+    var coo = try cooFromDense(f64, dense);
+    defer coo.deinit();
+
+    var row_nnz = try coo.rowNnz();
+    defer row_nnz.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
+    var col_nnz = try coo.columnNnz();
+    defer col_nnz.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+
+    var row_sums = try coo.rowSums();
+    defer row_sums.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    var col_sums = try coo.columnSums();
+    defer col_sums.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+
+    var row_abs = try coo.rowAbsSums();
+    defer row_abs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
+    var col_abs = try coo.columnAbsSums();
+    defer col_abs.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 3, 7 }, col_abs.data);
+
+    var row_norms = try coo.rowNorms();
+    defer row_norms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(5.0)), row_norms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), row_norms.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(41.0)), row_norms.data[2], 1e-12);
+    var col_norms = try coo.columnNorms();
+    defer col_norms.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {
