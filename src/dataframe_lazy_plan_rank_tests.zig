@@ -4758,6 +4758,74 @@ test "device lazy frame derives row cumulative weighted extrema columns" {
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted log summary columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowCumWeightedProd(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumprod", "b_row_weighted_cumprod" });
+    try plan.withRowPrefixWeightedGeoMean(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumgeo", "b_row_weighted_cumgeo" });
+    try plan.withRowCumWeightedHarmonicMean(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumharmonic", "b_row_weighted_cumharmonic" });
+    try plan.withRowPrefixWeightedLogSumExp(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumlogsumexp", "b_row_weighted_cumlogsumexp" });
+    try plan.withRowCumWeightedLogmeanexp(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumlogmeanexp", "b_row_weighted_cumlogmeanexp" });
+    try plan.select(&.{
+        "a_row_weighted_cumprod",
+        "b_row_weighted_cumprod",
+        "a_row_weighted_cumgeo",
+        "b_row_weighted_cumgeo",
+        "a_row_weighted_cumharmonic",
+        "b_row_weighted_cumharmonic",
+        "a_row_weighted_cumlogsumexp",
+        "b_row_weighted_cumlogsumexp",
+        "a_row_weighted_cumlogmeanexp",
+        "b_row_weighted_cumlogmeanexp",
+    });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_product(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumprod,b_row_weighted_cumprod])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_geometric_mean(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumgeo,b_row_weighted_cumgeo])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_harmonic_mean(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumharmonic,b_row_weighted_cumharmonic])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_logsumexp(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumlogsumexp,b_row_weighted_cumlogsumexp])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_logmeanexp(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumlogmeanexp,b_row_weighted_cumlogmeanexp])") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 10), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumprod", &.{ 1.0, 0.0, 0.0, 256.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumprod", &.{ 0.0, 20.0, 0.0, std.math.exp(4.0 * std.math.log(f64, std.math.e, @as(f64, 4.0)) + std.math.log(f64, std.math.e, @as(f64, 40.0))) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumgeo", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumgeo", &.{ 0.0, 20.0, 0.0, std.math.exp((4.0 * std.math.log(f64, std.math.e, @as(f64, 4.0)) + std.math.log(f64, std.math.e, @as(f64, 40.0))) / 5.0) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumharmonic", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumharmonic", &.{ 0.0, 20.0, 0.0, 5.0 / (4.0 / 4.0 + 1.0 / 40.0) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumlogsumexp", &.{ 1.0, 0.0, 0.0, 4.0 + std.math.log(f64, std.math.e, @as(f64, 4.0)) }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumlogsumexp", &.{ 0.0, 20.0, 0.0, 40.0 + std.math.log1p(@as(f64, 4.0) * std.math.exp(@as(f64, -36.0))) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumlogmeanexp", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumlogmeanexp", &.{ 0.0, 20.0, 0.0, 40.0 + std.math.log1p(@as(f64, 4.0) * std.math.exp(@as(f64, -36.0))) - std.math.log(f64, std.math.e, @as(f64, 5.0)) }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedProduct(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cumprod", "extra_row_weighted_cumprod" });
+    try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

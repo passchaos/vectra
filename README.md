@@ -788,6 +788,12 @@ aliases append prefix weighted moment and norm diagnostics.
 `withRowCumulativeWeightedRange`, `withRowCumulativeWeightedMidrange`, and
 `withRowCumulativeWeightedRangeCoeff` add prefix weighted extrema/range
 diagnostics for positive-weight valid pairs.
+`withRowCumulativeWeightedProduct`,
+`withRowCumulativeWeightedGeometricMean`,
+`withRowCumulativeWeightedHarmonicMean`,
+`withRowCumulativeWeightedLogSumExp`, and
+`withRowCumulativeWeightedLogMeanExp` add prefix weighted product and stable-log
+summaries.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

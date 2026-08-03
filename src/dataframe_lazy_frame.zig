@@ -2555,6 +2555,52 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
             pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
 
+            pub fn withRowCumulativeWeightedProduct(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedProduct(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedGeometricMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedGeometricMean(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedHarmonicMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedHarmonicMean(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedLogSumExp(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedLogSumExp(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedLogMeanExp(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedLogMeanExp(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedProd = withRowCumulativeWeightedProduct;
+            pub const withRowCumulativeWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+            pub const withRowCumulativeWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+            pub const withRowCumulativeWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+            pub const withRowCumulativeWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+            pub const withRowCumWeightedProduct = withRowCumulativeWeightedProduct;
+            pub const withRowCumWeightedProd = withRowCumulativeWeightedProduct;
+            pub const withRowCumWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+            pub const withRowCumWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+            pub const withRowCumWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+            pub const withRowCumWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+            pub const withRowCumWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+            pub const withRowCumWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+            pub const withRowCumWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+            pub const withRowCumWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+            pub const withRowPrefixWeightedProduct = withRowCumulativeWeightedProduct;
+            pub const withRowPrefixWeightedProd = withRowCumulativeWeightedProduct;
+            pub const withRowPrefixWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+            pub const withRowPrefixWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+            pub const withRowPrefixWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+            pub const withRowPrefixWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+            pub const withRowPrefixWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+            pub const withRowPrefixWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+            pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+            pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+
             pub fn withRowCumulativeWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeWeightedWeightSum(self, value_names, weight_names, output_names);
             }

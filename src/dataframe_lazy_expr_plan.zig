@@ -3873,6 +3873,68 @@ pub const withRowPrefixWeightedMidrange = withRowCumulativeWeightedMidrange;
 pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
 pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
 
+fn withRowCumulativeWeightedLogProduct(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { product, geometric_mean, harmonic_mean, logsumexp, logmeanexp }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .product => .{ .row_cumulative_weighted_product = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .geometric_mean => .{ .row_cumulative_weighted_geometric_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .harmonic_mean => .{ .row_cumulative_weighted_harmonic_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .logsumexp => .{ .row_cumulative_weighted_logsumexp = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .logmeanexp => .{ .row_cumulative_weighted_logmeanexp = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedProduct(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedLogProduct(frame, value_names, weight_names, output_names, .product);
+}
+
+pub fn withRowCumulativeWeightedGeometricMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedLogProduct(frame, value_names, weight_names, output_names, .geometric_mean);
+}
+
+pub fn withRowCumulativeWeightedHarmonicMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedLogProduct(frame, value_names, weight_names, output_names, .harmonic_mean);
+}
+
+pub fn withRowCumulativeWeightedLogSumExp(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedLogProduct(frame, value_names, weight_names, output_names, .logsumexp);
+}
+
+pub fn withRowCumulativeWeightedLogMeanExp(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedLogProduct(frame, value_names, weight_names, output_names, .logmeanexp);
+}
+
+pub const withRowCumulativeWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowCumulativeWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumulativeWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumulativeWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumulativeWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowCumWeightedProduct = withRowCumulativeWeightedProduct;
+pub const withRowCumWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowCumWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowCumWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowPrefixWeightedProduct = withRowCumulativeWeightedProduct;
+pub const withRowPrefixWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowPrefixWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowPrefixWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowPrefixWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowPrefixWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowPrefixWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+pub const withRowPrefixWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

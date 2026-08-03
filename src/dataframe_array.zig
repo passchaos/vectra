@@ -4848,6 +4848,145 @@ pub const withRowWeightedHarmMean = withRowWeightedHarmonicMean;
 pub const withRowWeightedLogsumexp = withRowWeightedLogSumExp;
 pub const withRowWeightedLogmeanexp = withRowWeightedLogMeanExp;
 
+fn withRowCumulativeWeightedLogProduct(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowWeightedLogProductReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var weighted_log_sum: f64 = 0.0;
+        var weighted_reciprocal_sum: f64 = 0.0;
+        var weighted_zero_seen = false;
+        var log_exp_state: RowWeightedLogExpState = .{};
+        var product_state: RowWeightedProductState = .{};
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                const value = flat.values[offset];
+                weight_sum += weight;
+                if (value < 0.0) {
+                    weighted_log_sum = quietNanF64();
+                } else if (value == 0.0 and !std.math.isNan(weighted_log_sum)) {
+                    weighted_zero_seen = true;
+                } else if (!weighted_zero_seen and !std.math.isNan(weighted_log_sum)) {
+                    weighted_log_sum += weight * std.math.log(f64, std.math.e, value);
+                }
+                if (value == 0.0 and !std.math.isNan(weighted_reciprocal_sum)) {
+                    weighted_reciprocal_sum = std.math.inf(f64);
+                } else if (!std.math.isInf(weighted_reciprocal_sum)) {
+                    weighted_reciprocal_sum += weight / value;
+                }
+                log_exp_state.update(value, weight);
+                product_state.update(value, weight);
+            }
+            if (!(weight_sum > 0.0)) continue;
+            cumulative[offset] = switch (reduction) {
+                .product => product_state.finish(weight_sum),
+                .geometric_mean => if (std.math.isNan(weighted_log_sum)) quietNanF64() else if (weighted_zero_seen) 0.0 else std.math.exp(weighted_log_sum / weight_sum),
+                .harmonic_mean => if (std.math.isInf(weighted_reciprocal_sum)) 0.0 else weight_sum / weighted_reciprocal_sum,
+                .logsumexp => log_exp_state.finish(weight_sum, false),
+                .logmeanexp => log_exp_state.finish(weight_sum, true),
+            };
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedProduct(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_names, .product);
+}
+
+pub fn withRowCumulativeWeightedGeometricMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_names, .geometric_mean);
+}
+
+pub fn withRowCumulativeWeightedHarmonicMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_names, .harmonic_mean);
+}
+
+pub fn withRowCumulativeWeightedLogSumExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_names, .logsumexp);
+}
+
+pub fn withRowCumulativeWeightedLogMeanExp(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedLogProduct(DeviceDataFrame, input, value_names, weight_names, output_names, .logmeanexp);
+}
+
+pub const withRowCumulativeWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowCumulativeWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumulativeWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumulativeWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumulativeWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowCumWeightedProduct = withRowCumulativeWeightedProduct;
+pub const withRowCumWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowCumWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowCumWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowCumWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowCumWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowCumWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowPrefixWeightedProduct = withRowCumulativeWeightedProduct;
+pub const withRowPrefixWeightedProd = withRowCumulativeWeightedProduct;
+pub const withRowPrefixWeightedGeometricMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowPrefixWeightedGeoMean = withRowCumulativeWeightedGeometricMean;
+pub const withRowPrefixWeightedHarmonicMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowPrefixWeightedHarmMean = withRowCumulativeWeightedHarmonicMean;
+pub const withRowPrefixWeightedLogSumExp = withRowCumulativeWeightedLogSumExp;
+pub const withRowPrefixWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
+pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
+pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
+
 const RowWeightedDispersion = enum { variance, stddev, sem, cv, fano };
 
 fn withRowWeightedDispersion(
