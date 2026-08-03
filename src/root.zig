@@ -245,6 +245,17 @@ pub fn einsum1(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(input)
     return einsumUnary(subscripts, input);
 }
 
+pub fn einsum3(subscripts: []const u8, a: anytype, b: @TypeOf(a), c: @TypeOf(a)) ArrayError!@TypeOf(a) {
+    try requireSameDevice(a, b);
+    try requireSameDevice(a, c);
+    if (chainedMatmulLikeSubscripts(subscripts, a.shape.len, b.shape.len, c.shape.len)) {
+        var ab = try a.matmul(b);
+        defer ab.deinit();
+        return ab.matmul(c);
+    }
+    return error.InvalidShape;
+}
+
 pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array
@@ -393,6 +404,31 @@ fn parseUnaryEinsumInputLabels(segment: []const u8, expected_rank: usize, out: [
         out[index] = label;
     }
     return segment.len;
+}
+
+fn chainedMatmulLikeSubscripts(subscripts: []const u8, a_rank: usize, b_rank: usize, c_rank: usize) bool {
+    // Bounded three-operand coverage for the common matrix-chain form
+    // `ij,jk,kl->il` and its implicit-output spelling.  It composes through
+    // Array.matmul so backend policy and Axiom lowering stay centralized.
+    if (a_rank != 2 or b_rank != 2 or c_rank != 2) return false;
+    const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
+    const first_comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
+    const second_rel = std.mem.indexOfScalar(u8, subscripts[first_comma + 1 .. arrow], ',') orelse return false;
+    const second_comma = first_comma + 1 + second_rel;
+    if (std.mem.indexOfScalar(u8, subscripts[second_comma + 1 .. arrow], ',') != null) return false;
+    const a_labels = subscripts[0..first_comma];
+    const b_labels = subscripts[first_comma + 1 .. second_comma];
+    const c_labels = subscripts[second_comma + 1 .. arrow];
+    const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
+    if (a_labels.len != 2 or b_labels.len != 2 or c_labels.len != 2) return false;
+    if (out.len != 0 and out.len != 2) return false;
+    if (!allEinsumLabels(a_labels) or !allEinsumLabels(b_labels) or !allEinsumLabels(c_labels) or !allEinsumLabels(out)) return false;
+    if (hasRepeatedLabels(a_labels) or hasRepeatedLabels(b_labels) or hasRepeatedLabels(c_labels) or hasRepeatedLabels(out)) return false;
+    if (a_labels[1] != b_labels[0] or b_labels[1] != c_labels[0]) return false;
+    if (a_labels[0] == b_labels[1] or a_labels[0] == c_labels[0] or a_labels[0] == c_labels[1]) return false;
+    if (c_labels[1] == a_labels[1] or c_labels[1] == b_labels[0] or c_labels[1] == b_labels[1]) return false;
+    if (out.len == 0) return true;
+    return out[0] == a_labels[0] and out[1] == c_labels[1];
 }
 
 fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {

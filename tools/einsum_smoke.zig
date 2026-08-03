@@ -122,6 +122,12 @@ pub fn main(init: std.process.Init) !void {
     defer unary_trace.deinit();
     var unary_trace_implicit = try vx.einsumUnary("ii", square);
     defer unary_trace_implicit.deinit();
+    var chain_rhs = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
+    defer chain_rhs.deinit();
+    var ternary_chain = try vx.einsum3("ij,jk,kl->il", a, b, chain_rhs);
+    defer ternary_chain.deinit();
+    var ternary_chain_implicit = try vx.einsum3("ij,jk,kl", a, b, chain_rhs);
+    defer ternary_chain_implicit.deinit();
 
     const unsupported_rejected = blk: {
         var bad = vx.einsum("ij->ji", a, b) catch |err| {
@@ -174,12 +180,15 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(usize, unary_trace.shape, &.{}) and
         eql(f32, unary_trace.data, &.{5}) and
         eql(f32, unary_trace_implicit.data, &.{5}) and
+        std.mem.eql(usize, ternary_chain.shape, &.{ 2, 2 }) and
+        eql(f32, ternary_chain.data, &.{ 250, 372, 601, 894 }) and
+        eql(f32, ternary_chain_implicit.data, &.{ 250, 372, 601, 894 }) and
         unsupported_rejected;
 
     var stdout_buffer: [1536]u8 = undefined;
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
-        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"implicit_output_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"rank4_batched_matmul_ok\":{},\"unary_ok\":{},\"ellipsis_batched_matmul_ok\":{},\"ellipsis_matvec_ok\":{},\"ellipsis_vecmat_ok\":{},\"ellipsis_dot_ok\":{},\"unsupported_rejected\":{}}}\n",
+        "{{\"kind\":\"vectra_einsum_smoke\",\"ok\":{},\"matmul_ok\":{},\"implicit_output_ok\":{},\"dot_ok\":{},\"outer_ok\":{},\"matvec_ok\":{},\"vecmat_ok\":{},\"reordered_ok\":{},\"generic_contract_ok\":{},\"batched_matmul_ok\":{},\"rank4_batched_matmul_ok\":{},\"unary_ok\":{},\"ternary_chain_ok\":{},\"ellipsis_batched_matmul_ok\":{},\"ellipsis_matvec_ok\":{},\"ellipsis_vecmat_ok\":{},\"ellipsis_dot_ok\":{},\"unsupported_rejected\":{}}}\n",
         .{
             ok,
             eql(f32, mm.data, &.{ 58, 64, 139, 154 }),
@@ -193,6 +202,7 @@ pub fn main(init: std.process.Init) !void {
             eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             eql(f32, rank4_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15, 18, 20, 22, 24, 14, 13, 16, 15 }),
             eql(f32, unary_identity.data, &.{ 1, 2, 3, 4, 5, 6 }) and eql(f32, unary_transpose.data, &.{ 1, 4, 2, 5, 3, 6 }) and eql(f32, unary_row_sum.data, &.{ 6, 15 }) and eql(f32, unary_col_sum.data, &.{ 5, 7, 9 }) and eql(f32, unary_diag.data, &.{ 1, 4 }) and eql(f32, unary_trace.data, &.{5}) and eql(f32, unary_trace_implicit.data, &.{5}),
+            eql(f32, ternary_chain.data, &.{ 250, 372, 601, 894 }) and eql(f32, ternary_chain_implicit.data, &.{ 250, 372, 601, 894 }),
             eql(f32, ellipsis_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             eql(f32, ellipsis_matvec.data, &.{ 50, 110, 11, 15 }),
             eql(f32, ellipsis_vecmat.data, &.{ 10, 20, 2, 2 }),
