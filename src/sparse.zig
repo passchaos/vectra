@@ -362,7 +362,10 @@ pub fn CsrMatrix(comptime T: type) type {
             for (0..self.rows) |r| {
                 const start = self.row_offsets[r];
                 const end = self.row_offsets[r + 1];
-                for (start..end) |pos| out.data[r * self.cols + self.col_indices[pos]] = self.values[pos];
+                for (start..end) |pos| {
+                    const index = r * self.cols + self.col_indices[pos];
+                    out.data[index] = addSparseValue(T, out.data[index], self.values[pos]);
+                }
             }
             return out;
         }
@@ -1014,7 +1017,10 @@ pub fn CscMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
             errdefer out.deinit();
             for (0..self.cols) |c| {
-                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos] * self.cols + c] = self.values[pos];
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| {
+                    const index = self.row_indices[pos] * self.cols + c;
+                    out.data[index] = addSparseValue(T, out.data[index], self.values[pos]);
+                }
             }
             return out;
         }
@@ -1545,6 +1551,18 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var duplicate_dense = try duplicate.toDense();
     defer duplicate_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 5, 4, 0 }, duplicate_dense.data);
+
+    var duplicate_csr = try csrFromCompressed(f64, gpa, 1, 2, &.{ 0, 2 }, &.{ 1, 1 }, &.{ 2.0, 3.0 });
+    defer duplicate_csr.deinit();
+    var duplicate_csr_dense = try duplicate_csr.toDense();
+    defer duplicate_csr_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 5 }, duplicate_csr_dense.data);
+
+    var duplicate_csc = try cscFromCompressed(f64, gpa, 1, 2, &.{ 0, 0, 2 }, &.{ 0, 0 }, &.{ 2.0, 3.0 });
+    defer duplicate_csc.deinit();
+    var duplicate_csc_dense = try duplicate_csc.toDense();
+    defer duplicate_csc_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 5 }, duplicate_csc_dense.data);
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {
