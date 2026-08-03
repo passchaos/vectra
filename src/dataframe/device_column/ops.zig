@@ -1,7 +1,7 @@
 //! Arithmetic and comparison helpers for tagged device columns.
 
-const array_mod = @import("array.zig");
-const options_mod = @import("dataframe_options.zig");
+const array_mod = @import("../../array.zig");
+const options_mod = @import("../../dataframe_options.zig");
 const std = @import("std");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
