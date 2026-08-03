@@ -157,6 +157,19 @@ fn sparseVarianceFromSums(sum: f64, sum_sq: f64, count: usize, correction: f64) 
     return (sum_sq - (sum * sum) / count_float) / (count_float - correction);
 }
 
+fn finalizeVarianceArray(values: []f64, sums: []const f64, count: usize, correction: f64) SparseError!void {
+    if (count == 0) return error.EmptyArray;
+    const count_float = sparseSizeToF64(count);
+    if (correction < 0 or correction >= count_float) return error.InvalidShape;
+    for (values, sums) |*variance_value, sum_value| {
+        variance_value.* = (variance_value.* - (sum_value * sum_value) / count_float) / (count_float - correction);
+    }
+}
+
+fn sqrtArray(values: []f64) void {
+    for (values) |*value| value.* = @sqrt(value.*);
+}
+
 fn diagonalExtent(diagonal_len: usize, offset: isize) SparseError!struct { size: usize, magnitude: usize, upper: bool } {
     const upper = offset >= 0;
     const magnitude: usize = if (upper)
@@ -708,6 +721,52 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn stddev(self: Self, correction: f64) SparseError!f64 {
             return @sqrt(try self.variance(correction));
+        }
+
+        pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.rows);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                const numeric = sparseValueToF64(T, value);
+                sums[row] += numeric;
+                out.data[row] += numeric * numeric;
+            }
+            try finalizeVarianceArray(out.data, sums, self.cols, correction);
+            return out;
+        }
+
+        pub fn rowStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.rowVariances(correction);
+            sqrtArray(out.data);
+            return out;
+        }
+
+        pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.cols);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                const numeric = sparseValueToF64(T, value);
+                sums[col] += numeric;
+                out.data[col] += numeric * numeric;
+            }
+            try finalizeVarianceArray(out.data, sums, self.rows, correction);
+            return out;
+        }
+
+        pub fn columnStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.columnVariances(correction);
+            sqrtArray(out.data);
+            return out;
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -1671,6 +1730,54 @@ pub fn CsrMatrix(comptime T: type) type {
             return @sqrt(try self.variance(correction));
         }
 
+        pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.rows);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    const numeric = sparseValueToF64(T, self.values[pos]);
+                    sums[row] += numeric;
+                    out.data[row] += numeric * numeric;
+                }
+            }
+            try finalizeVarianceArray(out.data, sums, self.cols, correction);
+            return out;
+        }
+
+        pub fn rowStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.rowVariances(correction);
+            sqrtArray(out.data);
+            return out;
+        }
+
+        pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.cols);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                const numeric = sparseValueToF64(T, value);
+                sums[col] += numeric;
+                out.data[col] += numeric * numeric;
+            }
+            try finalizeVarianceArray(out.data, sums, self.rows, correction);
+            return out;
+        }
+
+        pub fn columnStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.columnVariances(correction);
+            sqrtArray(out.data);
+            return out;
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (T == f64) {
@@ -2589,6 +2696,54 @@ pub fn CscMatrix(comptime T: type) type {
             return @sqrt(try self.variance(correction));
         }
 
+        pub fn columnVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.cols);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const numeric = sparseValueToF64(T, self.values[pos]);
+                    sums[col] += numeric;
+                    out.data[col] += numeric * numeric;
+                }
+            }
+            try finalizeVarianceArray(out.data, sums, self.rows, correction);
+            return out;
+        }
+
+        pub fn columnStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.columnVariances(correction);
+            sqrtArray(out.data);
+            return out;
+        }
+
+        pub fn rowVariances(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var sums = try self.allocator.alloc(f64, self.rows);
+            defer self.allocator.free(sums);
+            @memset(sums, 0);
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                const numeric = sparseValueToF64(T, value);
+                sums[row] += numeric;
+                out.data[row] += numeric * numeric;
+            }
+            try finalizeVarianceArray(out.data, sums, self.cols, correction);
+            return out;
+        }
+
+        pub fn rowStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
+            const out = try self.rowVariances(correction);
+            sqrtArray(out.data);
+            return out;
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (comptime T == f64) {
@@ -3023,6 +3178,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectError(error.EmptyArray, csc_identity.minValue());
     try std.testing.expectError(error.EmptyArray, csc_identity.mean());
     try std.testing.expectError(error.EmptyArray, csc_identity.variance(0));
+    try std.testing.expectError(error.EmptyArray, csc_identity.columnVariances(0));
 
     var upper_diag = try cooFromDiagonal(f64, gpa, &.{ 2, 0, 3 }, 2);
     defer upper_diag.deinit();
@@ -3206,6 +3362,17 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try coo.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.stddev(0), 1e-12);
+
+    var row_vars = try coo.rowVariances(0);
+    defer row_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    var col_vars = try coo.columnVariances(0);
+    defer col_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
 
     var row_means = try coo.rowMeans();
     defer row_means.deinit();
@@ -3520,6 +3687,20 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.stddev(0), 1e-12);
 
+    var row_vars = try csr.rowVariances(0);
+    defer row_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    var col_vars = try csr.columnVariances(0);
+    defer col_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
+    var row_stds = try csr.rowStddevs(0);
+    defer row_stds.deinit();
+    try std.testing.expectApproxEqAbs(@sqrt(14.0 / 9.0), row_stds.data[0], 1e-12);
+
     var row_means = try csr.rowMeans();
     defer row_means.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
@@ -3750,6 +3931,20 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csc.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.stddev(0), 1e-12);
+
+    var row_vars = try csc.rowVariances(0);
+    defer row_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    var col_vars = try csc.columnVariances(0);
+    defer col_vars.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
+    var col_stds = try csc.columnStddevs(0);
+    defer col_stds.deinit();
+    try std.testing.expectApproxEqAbs(@sqrt(26.0 / 9.0), col_stds.data[0], 1e-12);
 
     var row_means = try csc.rowMeans();
     defer row_means.deinit();
