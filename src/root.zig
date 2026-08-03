@@ -138,6 +138,9 @@ pub const csrEye = sparse.csrEye;
 pub const csrIdentity = sparse.csrIdentity;
 pub const cscEye = sparse.cscEye;
 pub const cscIdentity = sparse.cscIdentity;
+pub const cooFromDiagonal = sparse.cooFromDiagonal;
+pub const csrFromDiagonal = sparse.csrFromDiagonal;
+pub const cscFromDiagonal = sparse.cscFromDiagonal;
 
 pub const MatrixNormOrder = array_mod.MatrixNormOrder;
 pub const Triangle = array_mod.Triangle;

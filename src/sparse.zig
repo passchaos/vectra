@@ -85,6 +85,16 @@ fn ensureFloat(comptime T: type) void {
     if (@typeInfo(T) != .float) @compileError("sparse norm requires floating-point values");
 }
 
+fn diagonalExtent(diagonal_len: usize, offset: isize) SparseError!struct { size: usize, magnitude: usize, upper: bool } {
+    const upper = offset >= 0;
+    const magnitude: usize = if (upper)
+        @intCast(offset)
+    else
+        @as(usize, @intCast(-(offset + 1))) + 1;
+    const size = std.math.add(usize, diagonal_len, magnitude) catch return error.InvalidShape;
+    return .{ .size = size, .magnitude = magnitude, .upper = upper };
+}
+
 fn toVeyraTriangle(triangle: Triangle) veyra.Triangle {
     return switch (triangle) {
         .lower => .lower,
@@ -149,6 +159,46 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
             return Self.eye(allocator, size, size);
+        }
+
+        pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
+            const extent = try diagonalExtent(diagonal_values.len, offset);
+            var nonzero_count: usize = 0;
+            for (diagonal_values) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+
+            var row_indices = try allocator.alloc(usize, nonzero_count);
+            errdefer allocator.free(row_indices);
+            var col_indices = try allocator.alloc(usize, nonzero_count);
+            errdefer allocator.free(col_indices);
+            var values = try allocator.alloc(T, nonzero_count);
+            errdefer allocator.free(values);
+
+            var write: usize = 0;
+            for (diagonal_values, 0..) |value, i| {
+                if (isNonZero(T, value)) {
+                    if (extent.upper) {
+                        row_indices[write] = i;
+                        col_indices[write] = i + extent.magnitude;
+                    } else {
+                        row_indices[write] = i + extent.magnitude;
+                        col_indices[write] = i;
+                    }
+                    values[write] = value;
+                    write += 1;
+                }
+            }
+            std.debug.assert(write == nonzero_count);
+
+            return .{
+                .allocator = allocator,
+                .rows = extent.size,
+                .cols = extent.size,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn fromSlices(
@@ -831,6 +881,12 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
             return Self.eye(allocator, size, size);
+        }
+
+        pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
+            var coo = try CooMatrix(T).fromDiagonal(allocator, diagonal_values, offset);
+            defer coo.deinit();
+            return coo.toCsr();
         }
 
         pub fn fromCompressedSlices(
@@ -1630,6 +1686,12 @@ pub fn CscMatrix(comptime T: type) type {
             return Self.eye(allocator, size, size);
         }
 
+        pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
+            var coo = try CooMatrix(T).fromDiagonal(allocator, diagonal_values, offset);
+            defer coo.deinit();
+            return coo.toCsc();
+        }
+
         pub fn fromCompressedSlices(
             allocator: std.mem.Allocator,
             rows: usize,
@@ -2299,6 +2361,10 @@ pub fn cooIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) 
     return CooMatrix(T).identity(allocator, size);
 }
 
+pub fn cooFromDiagonal(comptime T: type, allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!CooMatrix(T) {
+    return CooMatrix(T).fromDiagonal(allocator, diagonal_values, offset);
+}
+
 pub fn cooFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CooMatrix(T) {
     return CooMatrix(T).fromDense(input);
 }
@@ -2335,6 +2401,10 @@ pub fn cscIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) 
     return CscMatrix(T).identity(allocator, size);
 }
 
+pub fn cscFromDiagonal(comptime T: type, allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!CscMatrix(T) {
+    return CscMatrix(T).fromDiagonal(allocator, diagonal_values, offset);
+}
+
 pub fn csrFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromDense(input);
 }
@@ -2357,6 +2427,10 @@ pub fn csrEye(comptime T: type, allocator: std.mem.Allocator, rows: usize, cols:
 
 pub fn csrIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).identity(allocator, size);
+}
+
+pub fn csrFromDiagonal(comptime T: type, allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!CsrMatrix(T) {
+    return CsrMatrix(T).fromDiagonal(allocator, diagonal_values, offset);
 }
 
 test "sparse eye and identity constructors" {
@@ -2399,6 +2473,34 @@ test "sparse eye and identity constructors" {
     defer csc_identity.deinit();
     try std.testing.expectEqualSlices(usize, &.{0}, csc_identity.col_offsets);
     try std.testing.expectEqual(@as(usize, 0), csc_identity.nnz());
+
+    var upper_diag = try cooFromDiagonal(f64, gpa, &.{ 2, 0, 3 }, 2);
+    defer upper_diag.deinit();
+    try std.testing.expectEqual(@as(usize, 5), upper_diag.rows);
+    try std.testing.expectEqual(@as(usize, 5), upper_diag.cols);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2 }, upper_diag.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 4 }, upper_diag.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3 }, upper_diag.values);
+    var upper_dense = try upper_diag.toDense();
+    defer upper_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{
+        0, 0, 2, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 3,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+    }, upper_dense.data);
+
+    var lower_csr = try csrFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
+    defer lower_csr.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 2 }, lower_csr.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, lower_csr.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csr.values);
+    var lower_csc = try cscFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
+    defer lower_csc.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 2 }, lower_csc.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, lower_csc.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csc.values);
 }
 
 test "coo sparse dense roundtrip and compressed conversions" {
