@@ -7,6 +7,23 @@ pub const SparseError = array_mod.ArrayError || error{BackendFailure} || std.mem
 pub const Triangle = enum { lower, upper };
 pub const Diagonal = enum { non_unit, unit };
 
+pub const SparseProfile = struct {
+    lower: usize,
+    upper: usize,
+
+    pub fn total(self: SparseProfile) SparseError!usize {
+        return std.math.add(usize, self.lower, self.upper) catch return error.InvalidShape;
+    }
+
+    pub fn meetsBounds(self: SparseProfile, max_lower: usize, max_upper: usize) bool {
+        return self.lower <= max_lower and self.upper <= max_upper;
+    }
+
+    pub fn totalMeetsBound(self: SparseProfile, max_total: usize) SparseError!bool {
+        return (try self.total()) <= max_total;
+    }
+};
+
 fn zero(comptime T: type) T {
     return switch (@typeInfo(T)) {
         .bool => false,
@@ -155,6 +172,88 @@ fn sparseValueSquareToF64(comptime T: type, value: T) f64 {
     const numeric = sparseValueToF64(T, value);
     return numeric * numeric;
 }
+
+fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
+    return if (lower)
+        if (strict) col < row else col <= row
+    else if (strict) col > row else col >= row;
+}
+
+const SparseProfileBuilder = struct {
+    // Profile metrics only need each logical row's left-most lower-triangle
+    // coordinate and right-most upper-triangle coordinate.  Keeping this
+    // scratch state shared across COO/CSR/CSC preserves identical semantics
+    // even when compressed inputs are not sorted or contain duplicate entries.
+    lower_found: []bool,
+    upper_found: []bool,
+    min_cols: []usize,
+    max_cols: []usize,
+
+    fn init(allocator: std.mem.Allocator, rows: usize) SparseError!SparseProfileBuilder {
+        const lower_found = try allocator.alloc(bool, rows);
+        errdefer allocator.free(lower_found);
+        const upper_found = try allocator.alloc(bool, rows);
+        errdefer allocator.free(upper_found);
+        const min_cols = try allocator.alloc(usize, rows);
+        errdefer allocator.free(min_cols);
+        const max_cols = try allocator.alloc(usize, rows);
+        errdefer allocator.free(max_cols);
+
+        @memset(lower_found, false);
+        @memset(upper_found, false);
+        @memset(min_cols, 0);
+        @memset(max_cols, 0);
+
+        return .{
+            .lower_found = lower_found,
+            .upper_found = upper_found,
+            .min_cols = min_cols,
+            .max_cols = max_cols,
+        };
+    }
+
+    fn deinit(self: *SparseProfileBuilder, allocator: std.mem.Allocator) void {
+        allocator.free(self.lower_found);
+        allocator.free(self.upper_found);
+        allocator.free(self.min_cols);
+        allocator.free(self.max_cols);
+        self.* = undefined;
+    }
+
+    fn observe(self: *SparseProfileBuilder, row: usize, col: usize) void {
+        if (col <= row and (!self.lower_found[row] or col < self.min_cols[row])) {
+            self.lower_found[row] = true;
+            self.min_cols[row] = col;
+        }
+        if (col >= row and (!self.upper_found[row] or col > self.max_cols[row])) {
+            self.upper_found[row] = true;
+            self.max_cols[row] = col;
+        }
+    }
+
+    fn lowerProfile(self: SparseProfileBuilder) SparseError!usize {
+        var total_profile: usize = 0;
+        for (self.lower_found, self.min_cols, 0..) |found, min_col, row| {
+            if (found) total_profile = std.math.add(usize, total_profile, row - min_col) catch return error.InvalidShape;
+        }
+        return total_profile;
+    }
+
+    fn upperProfile(self: SparseProfileBuilder) SparseError!usize {
+        var total_profile: usize = 0;
+        for (self.upper_found, self.max_cols, 0..) |found, max_col, row| {
+            if (found) total_profile = std.math.add(usize, total_profile, max_col - row) catch return error.InvalidShape;
+        }
+        return total_profile;
+    }
+
+    fn profile(self: SparseProfileBuilder) SparseError!SparseProfile {
+        return .{
+            .lower = try self.lowerProfile(),
+            .upper = try self.upperProfile(),
+        };
+    }
+};
 
 fn sparseVarianceFromSums(sum: f64, sum_sq: f64, count: usize, correction: f64) SparseError!f64 {
     if (count == 0) return error.EmptyArray;
@@ -1074,6 +1173,48 @@ pub fn CooMatrix(comptime T: type) type {
                 if (distance > bw) bw = distance;
             }
             return bw;
+        }
+
+        pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (self.row_indices, self.col_indices) |row, col| {
+                if (triangularIndexMatches(row, col, strict, true)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn upperNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (self.row_indices, self.col_indices) |row, col| {
+                if (triangularIndexMatches(row, col, strict, false)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn lowerProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (self.row_indices, self.col_indices) |row, col| builder.observe(row, col);
+            return builder.lowerProfile();
+        }
+
+        pub fn upperProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (self.row_indices, self.col_indices) |row, col| builder.observe(row, col);
+            return builder.upperProfile();
+        }
+
+        pub fn profile(self: Self) SparseError!SparseProfile {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (self.row_indices, self.col_indices) |row, col| builder.observe(row, col);
+            return builder.profile();
         }
 
         pub fn structurallySymmetric(self: Self) SparseError!bool {
@@ -2344,6 +2485,58 @@ pub fn CsrMatrix(comptime T: type) type {
             return bw;
         }
 
+        pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (triangularIndexMatches(row, self.col_indices[pos], strict, true)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn upperNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (triangularIndexMatches(row, self.col_indices[pos], strict, false)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn lowerProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| builder.observe(row, self.col_indices[pos]);
+            }
+            return builder.lowerProfile();
+        }
+
+        pub fn upperProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| builder.observe(row, self.col_indices[pos]);
+            }
+            return builder.upperProfile();
+        }
+
+        pub fn profile(self: Self) SparseError!SparseProfile {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| builder.observe(row, self.col_indices[pos]);
+            }
+            return builder.profile();
+        }
+
         pub fn structurallySymmetric(self: Self) SparseError!bool {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.rows) |r| {
@@ -3462,6 +3655,58 @@ pub fn CscMatrix(comptime T: type) type {
             return bw;
         }
 
+        pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (triangularIndexMatches(self.row_indices[pos], col, strict, true)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn upperNnz(self: Self, comptime strict: bool) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (triangularIndexMatches(self.row_indices[pos], col, strict, false)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn lowerProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| builder.observe(self.row_indices[pos], col);
+            }
+            return builder.lowerProfile();
+        }
+
+        pub fn upperProfile(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| builder.observe(self.row_indices[pos], col);
+            }
+            return builder.upperProfile();
+        }
+
+        pub fn profile(self: Self) SparseError!SparseProfile {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
+            defer builder.deinit(self.allocator);
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| builder.observe(self.row_indices[pos], col);
+            }
+            return builder.profile();
+        }
+
         pub fn structurallySymmetric(self: Self) SparseError!bool {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.cols) |c| {
@@ -4052,6 +4297,18 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
+    const symmetric_profile = try symmetric.profile();
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.lower);
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.upper);
+    try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
+    try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
+    try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
     try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
@@ -4070,6 +4327,12 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+
+    var rectangular = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1 }, &.{ 0, 2 }, &.{ 1, 2 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate_diagonal = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1, 1 }, &.{ 0, 0, 0, 1, 1 }, &.{ 1, 2, 3, 4, -4 });
     defer duplicate_diagonal.deinit();
@@ -4325,6 +4588,18 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
+    const symmetric_profile = try symmetric.profile();
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.lower);
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.upper);
+    try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
+    try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
+    try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
@@ -4341,6 +4616,12 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+
+    var rectangular = try csrFromCompressed(f64, gpa, 2, 3, &.{ 0, 1, 2 }, &.{ 0, 2 }, &.{ 1, 2 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
     defer duplicate.deinit();
@@ -4597,8 +4878,26 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
+    try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
+    const symmetric_profile = try symmetric.profile();
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.lower);
+    try std.testing.expectEqual(@as(usize, 2), symmetric_profile.upper);
+    try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
+    try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
+    try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+
+    var rectangular = try cscFromCompressed(f64, gpa, 2, 3, &.{ 0, 1, 1, 2 }, &.{ 0, 1 }, &.{ 1, 2 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
     defer duplicate.deinit();

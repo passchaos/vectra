@@ -162,7 +162,7 @@ Array IO / serialization 当前支持：
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
 - `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项；`matmulSparse()` 支持 COO×COO 稀疏矩阵乘法。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowMeans/columnMeans`、`rowMins/columnMins`、`rowMaxes/columnMaxes`、`rowMinAbs/columnMinAbs`、`rowMaxAbs/columnMaxAbs`（按存储值统计）、`rowVariances/columnVariances`、`rowStddevs/columnStddevs`、`rowSampleVariances/columnSampleVariances`、`rowSampleStddevs/columnSampleStddevs`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`mean/variance/stddev/sampleVariance/sampleStddev/oneNorm/infNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：COO 行列统计、矩阵范数与存储值极值。
-- `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
+- `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/lowerNnz/upperNnz/lowerProfile/upperProfile/profile/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合；profile 返回 `SparseProfile{ .lower, .upper }`。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
 - `csrFromDense` / `csrEye` / `csrIdentity` / `csrFromDiagonal`：从 dense Array/NDArray 生成 CSR 或构造稀疏单位/对角矩阵。
 - `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
@@ -179,7 +179,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.hadamard/mul/multiply()`：CSR 同形状逐元素乘法，结果保持 CSR 所有权。
 - `sum/absSum/mean/variance/stddev/sampleVariance/sampleStddev/frobeniusNorm/density`、`minValue/maxValue/minAbsValue/maxAbsValue`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowMeans/columnMeans`、`rowMins/columnMins`、`rowMaxes/columnMaxes`、`rowMinAbs/columnMinAbs`、`rowMaxAbs/columnMaxAbs`（按存储值统计）、`rowVariances/columnVariances`、`rowStddevs/columnStddevs`、`rowSampleVariances/columnSampleVariances`、`rowSampleStddevs/columnSampleStddevs`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`：CSR 行列统计与矩阵范数，f64 路径优先复用 Veyra。
-- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
+- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/lowerNnz/upperNnz/lowerProfile/upperProfile/profile/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合；profile 返回 `SparseProfile{ .lower, .upper }`。
 - `transposeMatvec/transposeMatmat`：CSR 转置乘法，f64 路径复用 Veyra。
 - `solveTriangular`：CSR sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 
@@ -201,7 +201,7 @@ CSC 当前支持：
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowMeans/columnMeans`、`rowMins/columnMins`、`rowMaxes/columnMaxes`、`rowMinAbs/columnMinAbs`、`rowMaxAbs/columnMaxAbs`（按存储值统计）、`rowVariances/columnVariances`、`rowStddevs/columnStddevs`、`rowSampleVariances/columnSampleVariances`、`rowSampleStddevs/columnSampleStddevs`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`、`density`：CSC 行列统计与矩阵范数。
 - `sum/absSum/mean/variance/stddev/sampleVariance/sampleStddev/frobeniusNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：基础 CSC 统计。
-- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，重复坐标按 dense materialization 语义聚合。
+- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/lowerNnz/upperNnz/lowerProfile/upperProfile/profile/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，重复坐标按 dense materialization 语义聚合；profile 返回 `SparseProfile{ .lower, .upper }`。
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 ## 9. Axiom accelerator backend
 
