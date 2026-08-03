@@ -491,6 +491,30 @@ fn sparseDiagonalDominanceFromCanonicalEntries(
     return true;
 }
 
+fn sparseSameStructure(
+    rows: usize,
+    cols: usize,
+    lhs_major_offsets: []const usize,
+    lhs_minor_indices: []const usize,
+    rhs_rows: usize,
+    rhs_cols: usize,
+    rhs_major_offsets: []const usize,
+    rhs_minor_indices: []const usize,
+) bool {
+    return rows == rhs_rows and
+        cols == rhs_cols and
+        std.mem.eql(usize, lhs_major_offsets, rhs_major_offsets) and
+        std.mem.eql(usize, lhs_minor_indices, rhs_minor_indices);
+}
+
+fn sparseDotSameStructure(comptime T: type, lhs_values: []const T, rhs_values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (lhs_values.len != rhs_values.len) return error.ShapeMismatch;
+    var total = zero(T);
+    for (lhs_values, rhs_values) |lhs, rhs| total += lhs * rhs;
+    return total;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -779,6 +803,19 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn sameStructure(self: Self, rhs: Self) bool {
+            return self.rows == rhs.rows and
+                self.cols == rhs.cols and
+                std.mem.eql(usize, self.row_indices, rhs.row_indices) and
+                std.mem.eql(usize, self.col_indices, rhs.col_indices);
+        }
+
+        pub fn dotSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseDotSameStructure(T, self.values, rhs.values);
         }
 
         pub fn coalesced(self: Self) SparseError!Self {
@@ -2156,6 +2193,16 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
             return veyra.CsrView(T).fromSlices(self.rows, self.cols, self.row_offsets, self.col_indices, self.values) catch return error.BackendFailure;
+        }
+
+        pub fn sameStructure(self: Self, rhs: Self) bool {
+            return sparseSameStructure(self.rows, self.cols, self.row_offsets, self.col_indices, rhs.rows, rhs.cols, rhs.row_offsets, rhs.col_indices);
+        }
+
+        pub fn dotSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseDotSameStructure(T, self.values, rhs.values);
         }
 
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
@@ -3742,6 +3789,16 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
             return veyra.CscView(T).fromSlices(self.rows, self.cols, self.col_offsets, self.row_indices, self.values) catch return error.BackendFailure;
+        }
+
+        pub fn sameStructure(self: Self, rhs: Self) bool {
+            return sparseSameStructure(self.rows, self.cols, self.col_offsets, self.row_indices, rhs.rows, rhs.cols, rhs.col_offsets, rhs.row_indices);
+        }
+
+        pub fn dotSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseDotSameStructure(T, self.values, rhs.values);
         }
 
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
@@ -5827,11 +5884,27 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_product.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, coo_product.values);
+    var dot_rhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 5, 4, -2 });
+    defer dot_rhs.deinit();
+    try std.testing.expect(lhs.sameStructure(dot_rhs));
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs.dotSameStructure(dot_rhs), 1e-12);
+
+    var different_structure = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
+    defer different_structure.deinit();
+    try std.testing.expect(!lhs.sameStructure(different_structure));
+    try std.testing.expectError(error.InvalidShape, lhs.dotSameStructure(different_structure));
+    var different_shape = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
+    defer different_shape.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs.dotSameStructure(different_shape));
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
     var rhs_csr = try rhs.toCsr();
     defer rhs_csr.deinit();
+    var dot_rhs_csr = try dot_rhs.toCsr();
+    defer dot_rhs_csr.deinit();
+    try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
     var csr_sum = try lhs_csr.add(rhs_csr);
     defer csr_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
@@ -5867,6 +5940,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer lhs_csc.deinit();
     var rhs_csc = try rhs.toCsc();
     defer rhs_csc.deinit();
+    var dot_rhs_csc = try dot_rhs.toCsc();
+    defer dot_rhs_csc.deinit();
     var csc_sum = try lhs_csc.add(rhs_csc);
     defer csc_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
@@ -5899,6 +5974,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_product.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_product.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, csc_product.values);
+    try std.testing.expect(lhs_csc.sameStructure(dot_rhs_csc));
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csc.dotSameStructure(dot_rhs_csc), 1e-12);
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
