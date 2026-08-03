@@ -2601,6 +2601,55 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
             pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
 
+            pub fn withRowCumulativeWeightedVariance(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedVariance(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedVar(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedVar(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedStddev(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedStddev(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedStd(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedStd(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedSem(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSem(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedCv(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedCv(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub fn withRowCumulativeWeightedFano(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedFano(self, value_names, weight_names, output_names, correction);
+            }
+
+            pub const withRowCumulativeWeightedSEM = withRowCumulativeWeightedSem;
+            pub const withRowCumulativeWeightedCV = withRowCumulativeWeightedCv;
+            pub const withRowCumWeightedVariance = withRowCumulativeWeightedVariance;
+            pub const withRowCumWeightedVar = withRowCumulativeWeightedVariance;
+            pub const withRowCumWeightedStddev = withRowCumulativeWeightedStddev;
+            pub const withRowCumWeightedStd = withRowCumulativeWeightedStddev;
+            pub const withRowCumWeightedSem = withRowCumulativeWeightedSem;
+            pub const withRowCumWeightedSEM = withRowCumulativeWeightedSem;
+            pub const withRowCumWeightedCv = withRowCumulativeWeightedCv;
+            pub const withRowCumWeightedCV = withRowCumulativeWeightedCv;
+            pub const withRowCumWeightedFano = withRowCumulativeWeightedFano;
+            pub const withRowPrefixWeightedVariance = withRowCumulativeWeightedVariance;
+            pub const withRowPrefixWeightedVar = withRowCumulativeWeightedVariance;
+            pub const withRowPrefixWeightedStddev = withRowCumulativeWeightedStddev;
+            pub const withRowPrefixWeightedStd = withRowCumulativeWeightedStddev;
+            pub const withRowPrefixWeightedSem = withRowCumulativeWeightedSem;
+            pub const withRowPrefixWeightedSEM = withRowCumulativeWeightedSem;
+            pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
+            pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
+            pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
+
             pub fn withRowCumulativeWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeWeightedWeightSum(self, value_names, weight_names, output_names);
             }

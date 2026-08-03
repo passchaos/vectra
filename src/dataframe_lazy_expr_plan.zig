@@ -3935,6 +3935,71 @@ pub const withRowPrefixWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
 pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
 pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
 
+fn withRowCumulativeWeightedDispersion(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64, comptime reduction: enum { variance, stddev, sem, cv, fano }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .variance => .{ .row_cumulative_weighted_variance = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .correction = correction } },
+        .stddev => .{ .row_cumulative_weighted_stddev = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .correction = correction } },
+        .sem => .{ .row_cumulative_weighted_sem = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .correction = correction } },
+        .cv => .{ .row_cumulative_weighted_cv = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .correction = correction } },
+        .fano => .{ .row_cumulative_weighted_fano = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .correction = correction } },
+    });
+}
+
+pub fn withRowCumulativeWeightedVariance(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedDispersion(frame, value_names, weight_names, output_names, correction, .variance);
+}
+
+pub fn withRowCumulativeWeightedVar(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedVariance(frame, value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedStddev(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedDispersion(frame, value_names, weight_names, output_names, correction, .stddev);
+}
+
+pub fn withRowCumulativeWeightedStd(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedStddev(frame, value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedSem(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedDispersion(frame, value_names, weight_names, output_names, correction, .sem);
+}
+
+pub fn withRowCumulativeWeightedCv(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedDispersion(frame, value_names, weight_names, output_names, correction, .cv);
+}
+
+pub fn withRowCumulativeWeightedFano(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedDispersion(frame, value_names, weight_names, output_names, correction, .fano);
+}
+
+pub const withRowCumulativeWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumulativeWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedFano = withRowCumulativeWeightedFano;
+pub const withRowPrefixWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
+
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

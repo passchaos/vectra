@@ -4989,6 +4989,164 @@ pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
 
 const RowWeightedDispersion = enum { variance, stddev, sem, cv, fano };
 
+fn finishRowWeightedDispersion(weighted_sum: f64, weighted_square_sum: f64, weight_sum: f64, correction: f64, comptime reduction: RowWeightedDispersion) f64 {
+    const denominator = weight_sum - correction;
+    var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
+    if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
+    const variance = if (denominator <= 0.0) quietNanF64() else centered_square_sum / denominator;
+    const stddev = std.math.sqrt(variance);
+    const mean = weighted_sum / weight_sum;
+    return switch (reduction) {
+        .variance => variance,
+        .stddev => stddev,
+        .sem => if (denominator <= 0.0) quietNanF64() else std.math.sqrt(variance / weight_sum),
+        .cv => if (mean == 0.0) quietNanF64() else stddev / mean,
+        .fano => if (mean == 0.0) quietNanF64() else variance / mean,
+    };
+}
+
+fn withRowCumulativeWeightedDispersion(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+    comptime reduction: RowWeightedDispersion,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var weighted_sum: f64 = 0.0;
+        var weighted_square_sum: f64 = 0.0;
+        var weight_sum: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                const value = flat.values[offset];
+                weighted_sum += value * weight;
+                weighted_square_sum += value * value * weight;
+                weight_sum += weight;
+            }
+            if (!(weight_sum > 0.0)) continue;
+            cumulative[offset] = finishRowWeightedDispersion(weighted_sum, weighted_square_sum, weight_sum, correction, reduction);
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedVariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_names, correction, .variance);
+}
+
+pub fn withRowCumulativeWeightedVar(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedVariance(DeviceDataFrame, input, value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedStddev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_names, correction, .stddev);
+}
+
+pub fn withRowCumulativeWeightedStd(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedStddev(DeviceDataFrame, input, value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedSem(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_names, correction, .sem);
+}
+
+pub fn withRowCumulativeWeightedCv(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_names, correction, .cv);
+}
+
+pub fn withRowCumulativeWeightedFano(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedDispersion(DeviceDataFrame, input, value_names, weight_names, output_names, correction, .fano);
+}
+
+pub const withRowCumulativeWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumulativeWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedFano = withRowCumulativeWeightedFano;
+pub const withRowPrefixWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
+
 fn withRowWeightedDispersion(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5058,19 +5216,7 @@ fn withRowWeightedDispersion(
             value.* = 0.0;
             continue;
         }
-        const denominator = weight_sum - correction;
-        var centered_square_sum = weighted_square_sum - weighted_sum * weighted_sum / weight_sum;
-        if (centered_square_sum < 0.0 and centered_square_sum > -1e-12) centered_square_sum = 0.0;
-        const variance = if (denominator <= 0.0) quietNanF64() else centered_square_sum / denominator;
-        const stddev = std.math.sqrt(variance);
-        const mean = weighted_sum / weight_sum;
-        value.* = switch (reduction) {
-            .variance => variance,
-            .stddev => stddev,
-            .sem => if (denominator <= 0.0) quietNanF64() else std.math.sqrt(variance / weight_sum),
-            .cv => if (mean == 0.0) quietNanF64() else stddev / mean,
-            .fano => if (mean == 0.0) quietNanF64() else variance / mean,
-        };
+        value.* = finishRowWeightedDispersion(weighted_sum, weighted_square_sum, weight_sum, correction, reduction);
     }
 
     const DeviceColumn = std.meta.Elem(@TypeOf(input.columns));

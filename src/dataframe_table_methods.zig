@@ -3697,6 +3697,55 @@ pub const withRowPrefixWeightedLogsumexp = withRowCumulativeWeightedLogSumExp;
 pub const withRowPrefixWeightedLogMeanExp = withRowCumulativeWeightedLogMeanExp;
 pub const withRowPrefixWeightedLogmeanexp = withRowCumulativeWeightedLogMeanExp;
 
+pub fn withRowCumulativeWeightedVariance(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedVariance(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedVar(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedVar(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedStddev(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedStddev(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedStd(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedStd(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedSem(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedSem(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedCv(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedCv(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub fn withRowCumulativeWeightedFano(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, correction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedFano(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, correction);
+}
+
+pub const withRowCumulativeWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumulativeWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowCumWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowCumWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowCumWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowCumWeightedFano = withRowCumulativeWeightedFano;
+pub const withRowPrefixWeightedVariance = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedVar = withRowCumulativeWeightedVariance;
+pub const withRowPrefixWeightedStddev = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedStd = withRowCumulativeWeightedStddev;
+pub const withRowPrefixWeightedSem = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedSEM = withRowCumulativeWeightedSem;
+pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
+pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
+
 pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }

@@ -4826,6 +4826,74 @@ test "device lazy frame derives row cumulative weighted log summary columns" {
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted dispersion columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowCumWeightedVar(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumvar", "b_row_weighted_cumvar" }, 0.0);
+    try plan.withRowPrefixWeightedStd(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumstd", "b_row_weighted_cumstd" }, 0.0);
+    try plan.withRowCumulativeWeightedSem(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumsem", "b_row_weighted_cumsem" }, 0.0);
+    try plan.withRowCumWeightedCV(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumcv", "b_row_weighted_cumcv" }, 0.0);
+    try plan.withRowPrefixWeightedFano(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumfano", "b_row_weighted_cumfano" }, 0.0);
+    try plan.select(&.{
+        "a_row_weighted_cumvar",
+        "b_row_weighted_cumvar",
+        "a_row_weighted_cumstd",
+        "b_row_weighted_cumstd",
+        "a_row_weighted_cumsem",
+        "b_row_weighted_cumsem",
+        "a_row_weighted_cumcv",
+        "b_row_weighted_cumcv",
+        "a_row_weighted_cumfano",
+        "b_row_weighted_cumfano",
+    });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_variance(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumvar,b_row_weighted_cumvar], correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_stddev(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumstd,b_row_weighted_cumstd], correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_sem(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumsem,b_row_weighted_cumsem], correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_cv(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumcv,b_row_weighted_cumcv], correction=0)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_fano(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumfano,b_row_weighted_cumfano], correction=0)") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 10), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumvar", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumvar", &.{ 0.0, 0.0, 0.0, 207.36 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumstd", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumstd", &.{ 0.0, 0.0, 0.0, 14.4 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumsem", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumsem", &.{ 0.0, 0.0, 0.0, std.math.sqrt(@as(f64, 207.36 / 5.0)) }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumcv", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumcv", &.{ 0.0, 0.0, 0.0, 9.0 / 7.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumfano", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumfano", &.{ 0.0, 0.0, 0.0, 648.0 / 35.0 }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedVariance(&.{"a"}, &.{"wa"}, &.{"a_row_weighted_cumvar"}, -1.0);
+    try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

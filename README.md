@@ -794,6 +794,10 @@ diagnostics for positive-weight valid pairs.
 `withRowCumulativeWeightedLogSumExp`, and
 `withRowCumulativeWeightedLogMeanExp` add prefix weighted product and stable-log
 summaries.
+`withRowCumulativeWeightedVariance`, `withRowCumulativeWeightedStddev`,
+`withRowCumulativeWeightedSem`, `withRowCumulativeWeightedCv`, and
+`withRowCumulativeWeightedFano` add correction-aware prefix weighted dispersion
+diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`
