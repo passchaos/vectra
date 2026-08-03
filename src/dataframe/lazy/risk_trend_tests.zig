@@ -1,0 +1,201 @@
+const std = @import("std");
+const vectra = @import("vectra");
+
+const DeviceLazyFrame = vectra.DeviceLazyFrame;
+const lazyCollectTable = @import("test_helpers.zig").lazyCollectTable;
+
+test "device lazy frame collects drawdown operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var drawdown_plan = try DeviceLazyFrame.init(gpa, table);
+    defer drawdown_plan.deinit();
+    try drawdown_plan.drawdownProfile("sales", "sales", .{ .min_periods = 2 });
+    try drawdown_plan.select(&.{ "sales", "sales_running_peak", "sales_drawdown", "sales_drawdown_pct" });
+    const drawdown_explain = try drawdown_plan.explain(gpa);
+    defer gpa.free(drawdown_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drawdown_explain, "drawdown_profile(sales") != null);
+    var drawdown = try drawdown_plan.collect();
+    defer drawdown.deinit();
+    try std.testing.expectEqual(@as(usize, 4), drawdown.height());
+    try std.testing.expectEqual(@as(usize, 4), drawdown.width());
+    const lazy_peak = try (try drawdown.column("sales_running_peak")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_peak);
+    const lazy_drawdown = try (try drawdown.column("sales_drawdown")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown);
+    const lazy_drawdown_pct = try (try drawdown.column("sales_drawdown_pct")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown_pct);
+    const lazy_drawdown_validity = try (try drawdown.column("sales_drawdown")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_drawdown_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_drawdown_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 3.0), lazy_peak[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0), lazy_peak[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 7.0), lazy_peak[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_drawdown_pct[3], 1e-12);
+}
+
+test "device lazy frame collects rolling drawdown operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var rolling_drawdown_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_drawdown_plan.deinit();
+    try rolling_drawdown_plan.rollingDrawdownProfile("sales", "sales", .{ .window = 2, .min_periods = 1 });
+    try rolling_drawdown_plan.select(&.{ "sales", "sales_rolling_peak", "sales_rolling_drawdown", "sales_rolling_drawdown_pct", "sales_rolling_peak_age" });
+    const rolling_drawdown_explain = try rolling_drawdown_plan.explain(gpa);
+    defer gpa.free(rolling_drawdown_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_drawdown_explain, "rolling_drawdown_profile(sales") != null);
+    var lazy_rolling_drawdown = try rolling_drawdown_plan.collect();
+    defer lazy_rolling_drawdown.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_drawdown.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_rolling_drawdown.width());
+    const lazy_rolling_peak = try (try lazy_rolling_drawdown.column("sales_rolling_peak")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_peak);
+    const lazy_rolling_drawdown_values = try (try lazy_rolling_drawdown.column("sales_rolling_drawdown")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_drawdown_values);
+    const lazy_rolling_drawdown_pct = try (try lazy_rolling_drawdown.column("sales_rolling_drawdown_pct")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_drawdown_pct);
+    const lazy_rolling_peak_age = try (try lazy_rolling_drawdown.column("sales_rolling_peak_age")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_peak_age);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, lazy_rolling_peak);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, lazy_rolling_drawdown_values);
+    try std.testing.expectEqualSlices(f64, &.{ 0.0, 0.0, 0.0, 0.0 }, lazy_rolling_drawdown_pct);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 0, 0, 0 }, lazy_rolling_peak_age);
+}
+
+test "device lazy frame collects extrema operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var extrema_plan = try DeviceLazyFrame.init(gpa, table);
+    defer extrema_plan.deinit();
+    try extrema_plan.extremaProfile("sales", "sales", .{ .min_periods = 1 });
+    try extrema_plan.select(&.{ "sales", "sales_running_low", "sales_running_high", "sales_new_low", "sales_new_high" });
+    const extrema_explain = try extrema_plan.explain(gpa);
+    defer gpa.free(extrema_explain);
+    try std.testing.expect(std.mem.indexOf(u8, extrema_explain, "extrema_profile(sales") != null);
+    var lazy_extrema = try extrema_plan.collect();
+    defer lazy_extrema.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_extrema.height());
+    try std.testing.expectEqual(@as(usize, 5), lazy_extrema.width());
+    const lazy_running_low = try (try lazy_extrema.column("sales_running_low")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_running_low);
+    const lazy_running_high = try (try lazy_extrema.column("sales_running_high")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_running_high);
+    const lazy_new_low = try (try lazy_extrema.column("sales_new_low")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_new_low);
+    const lazy_new_high = try (try lazy_extrema.column("sales_new_high")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_new_high);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 2.0, 2.0, 2.0 }, lazy_running_low);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0, 7.0 }, lazy_running_high);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false }, lazy_new_low);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, lazy_new_high);
+}
+
+test "device lazy frame collects trend operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var trend_plan = try DeviceLazyFrame.init(gpa, table);
+    defer trend_plan.deinit();
+    try trend_plan.trendProfile("sales", "sales", .{ .periods = 1 });
+    try trend_plan.select(&.{ "sales", "sales_trend", "sales_up_streak", "sales_reversal" });
+    const trend_explain = try trend_plan.explain(gpa);
+    defer gpa.free(trend_explain);
+    try std.testing.expect(std.mem.indexOf(u8, trend_explain, "trend_profile(sales") != null);
+    var trend = try trend_plan.collect();
+    defer trend.deinit();
+    try std.testing.expectEqual(@as(usize, 4), trend.height());
+    try std.testing.expectEqual(@as(usize, 4), trend.width());
+    const lazy_trend = try (try trend.column("sales_trend")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_trend);
+    const lazy_up_streak = try (try trend.column("sales_up_streak")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_up_streak);
+    const lazy_reversal = try (try trend.column("sales_reversal")).bool.toOwnedSlice(gpa);
+    defer gpa.free(lazy_reversal);
+    const lazy_trend_validity = try (try trend.column("sales_trend")).i64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_trend_validity);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_trend_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 1, 1 }, lazy_trend);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_up_streak);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false }, lazy_reversal);
+}
+
+test "device lazy frame collects rolling trend operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var rolling_trend_plan = try DeviceLazyFrame.init(gpa, table);
+    defer rolling_trend_plan.deinit();
+    try rolling_trend_plan.rollingTrendProfile("sales", "sales", .{ .periods = 1 }, .{ .window = 2, .min_periods = 1 });
+    try rolling_trend_plan.select(&.{ "sales", "sales_rolling_trend_count", "sales_rolling_up_rate", "sales_rolling_down_rate", "sales_rolling_flat_rate", "sales_rolling_reversal_rate" });
+    const rolling_trend_explain = try rolling_trend_plan.explain(gpa);
+    defer gpa.free(rolling_trend_explain);
+    try std.testing.expect(std.mem.indexOf(u8, rolling_trend_explain, "rolling_trend_profile(sales") != null);
+    var lazy_rolling_trend = try rolling_trend_plan.collect();
+    defer lazy_rolling_trend.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_rolling_trend.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_rolling_trend.width());
+    const lazy_rolling_trend_count = try (try lazy_rolling_trend.column("sales_rolling_trend_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_trend_count);
+    const lazy_rolling_up_rate = try (try lazy_rolling_trend.column("sales_rolling_up_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_up_rate);
+    const lazy_rolling_down_rate = try (try lazy_rolling_trend.column("sales_rolling_down_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_down_rate);
+    const lazy_rolling_flat_rate = try (try lazy_rolling_trend.column("sales_rolling_flat_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_flat_rate);
+    const lazy_rolling_reversal_rate = try (try lazy_rolling_trend.column("sales_rolling_reversal_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_reversal_rate);
+    const lazy_rolling_trend_validity = try (try lazy_rolling_trend.column("sales_rolling_up_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_rolling_trend_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 2 }, lazy_rolling_trend_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_rolling_trend_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_up_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_up_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_rolling_up_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_down_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_flat_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_rolling_reversal_rate[3], 1e-12);
+}
+
+test "device lazy frame collects expanding trend operations" {
+    const gpa = std.testing.allocator;
+    var table = try lazyCollectTable(gpa);
+    defer table.deinit();
+    var expanding_trend_plan = try DeviceLazyFrame.init(gpa, table);
+    defer expanding_trend_plan.deinit();
+    try expanding_trend_plan.expandingTrendProfile("sales", "sales", .{ .periods = 1 }, .{ .min_periods = 1 });
+    try expanding_trend_plan.select(&.{ "sales", "sales_expanding_trend_count", "sales_expanding_up_rate", "sales_expanding_down_rate", "sales_expanding_flat_rate", "sales_expanding_reversal_rate" });
+    const expanding_trend_explain = try expanding_trend_plan.explain(gpa);
+    defer gpa.free(expanding_trend_explain);
+    try std.testing.expect(std.mem.indexOf(u8, expanding_trend_explain, "expanding_trend_profile(sales") != null);
+    var lazy_expanding_trend = try expanding_trend_plan.collect();
+    defer lazy_expanding_trend.deinit();
+    try std.testing.expectEqual(@as(usize, 4), lazy_expanding_trend.height());
+    try std.testing.expectEqual(@as(usize, 6), lazy_expanding_trend.width());
+    const lazy_expanding_trend_count = try (try lazy_expanding_trend.column("sales_expanding_trend_count")).i64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_trend_count);
+    const lazy_expanding_up_rate = try (try lazy_expanding_trend.column("sales_expanding_up_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_up_rate);
+    const lazy_expanding_down_rate = try (try lazy_expanding_trend.column("sales_expanding_down_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_down_rate);
+    const lazy_expanding_flat_rate = try (try lazy_expanding_trend.column("sales_expanding_flat_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_flat_rate);
+    const lazy_expanding_reversal_rate = try (try lazy_expanding_trend.column("sales_expanding_reversal_rate")).f64.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_reversal_rate);
+    const lazy_expanding_trend_validity = try (try lazy_expanding_trend.column("sales_expanding_up_rate")).f64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(lazy_expanding_trend_validity);
+    try std.testing.expectEqualSlices(i64, &.{ 0, 1, 2, 3 }, lazy_expanding_trend_count);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true }, lazy_expanding_trend_validity);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_up_rate[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_up_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0), lazy_expanding_up_rate[3], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_down_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_flat_rate[2], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), lazy_expanding_reversal_rate[3], 1e-12);
+}

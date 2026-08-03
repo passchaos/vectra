@@ -1167,7 +1167,13 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_cum_weighted_smape_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_smape_table, gpa, "a_row_weighted_cumsmape", &.{ 2.0 / 3.0, 0.0, 0.0, 6.0 / 5.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_smape_table, gpa, "b_row_weighted_cumsmape", &.{ 0.0, 18.0 / 11.0, 0.0, 354.0 / 275.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_cov_table = try validity_table.withRowPrefixWeightedCovariance(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumcov", "b_row_weighted_cumcov" }, 0.0);
+    defer row_cum_weighted_cov_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_cov_table, gpa, "a_row_weighted_cumcov", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_cov_table, gpa, "b_row_weighted_cumcov", &.{ 0.0, 0.0, 0.0, 432.0 / 25.0 }, &.{ false, true, false, true });
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedPairWeightSum(&.{"a"}, &.{"wa"}, &.{"wa"}, &.{ "a_row_weighted_pair_cum_weight_sum", "extra_row_weighted_pair_cum_weight_sum" }));
+    try std.testing.expectError(error.InvalidShape, validity_table.withRowCumulativeWeightedCovariance(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumcov", "b_row_weighted_cumcov" }, -1.0));
 
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
     defer row_argmin_table.deinit();

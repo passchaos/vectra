@@ -3678,7 +3678,7 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
-const RowCumulativeWeightedPairMetricReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape };
+const RowCumulativeWeightedPairMetricReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse, mape, smape, covariance };
 
 // Keep the cumulative pair-metric family in one engine so all variants share
 // the same null/current-position validity and positive-weight prefix contract.
@@ -3689,29 +3689,32 @@ fn withRowCumulativeWeightedPairMetric(
     rhs_names: []const []const u8,
     weight_names: []const []const u8,
     output_names: []const []const u8,
+    correction: f64,
     comptime reduction: RowCumulativeWeightedPairMetricReduction,
 ) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(correction) or correction < 0.0) return error.InvalidShape;
     if (lhs_names.len == 0 or lhs_names.len != rhs_names.len or lhs_names.len != weight_names.len) return error.LengthMismatch;
     try validateRowCumulativeWeightedOutputs(output_names, lhs_names.len);
 
     const running_weight_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(running_weight_sums);
-    const needs_quadratic_state = reduction == .squared_euclidean or reduction == .euclidean or reduction == .mse or reduction == .rmse;
+    const needs_square_state = reduction == .squared_euclidean or reduction == .euclidean or reduction == .mse or reduction == .rmse;
+    const needs_cross_state = needs_square_state or reduction == .covariance;
     const needs_abs_error_sum_state = reduction == .manhattan or reduction == .bray_curtis or reduction == .mae;
     const needs_chebyshev_state = reduction == .chebyshev;
     const needs_ratio_sum_state = reduction == .canberra or reduction == .mape or reduction == .smape;
     const needs_bray_curtis_state = reduction == .bray_curtis;
-    const needs_signed_sum_state = reduction == .mean_error;
+    const needs_signed_sum_state = reduction == .mean_error or reduction == .covariance;
 
-    const running_cross_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
+    const running_cross_sums = try input.allocator.alloc(f64, if (needs_cross_state) input.rows else 0);
     defer input.allocator.free(running_cross_sums);
     const running_lhs_sums = try input.allocator.alloc(f64, if (needs_signed_sum_state) input.rows else 0);
     defer input.allocator.free(running_lhs_sums);
     const running_rhs_sums = try input.allocator.alloc(f64, if (needs_signed_sum_state) input.rows else 0);
     defer input.allocator.free(running_rhs_sums);
-    const running_lhs_square_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
+    const running_lhs_square_sums = try input.allocator.alloc(f64, if (needs_square_state) input.rows else 0);
     defer input.allocator.free(running_lhs_square_sums);
-    const running_rhs_square_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
+    const running_rhs_square_sums = try input.allocator.alloc(f64, if (needs_square_state) input.rows else 0);
     defer input.allocator.free(running_rhs_square_sums);
     const running_abs_error_sums = try input.allocator.alloc(f64, if (needs_abs_error_sum_state) input.rows else 0);
     defer input.allocator.free(running_abs_error_sums);
@@ -3789,6 +3792,11 @@ fn withRowCumulativeWeightedPairMetric(
                         running_lhs_sums[row] += weight * lhs;
                         running_rhs_sums[row] += weight * rhs;
                     },
+                    .covariance => {
+                        running_lhs_sums[row] += weight * lhs;
+                        running_rhs_sums[row] += weight * rhs;
+                        running_cross_sums[row] += weight * lhs * rhs;
+                    },
                 }
             }
             if (!(running_weight_sums[row] > 0.0)) continue;
@@ -3806,6 +3814,11 @@ fn withRowCumulativeWeightedPairMetric(
                 .bray_curtis => if (running_bray_denominators[row] == 0.0) quietNanF64() else running_abs_error_sums[row] / running_bray_denominators[row],
                 .mean_error => (running_lhs_sums[row] - running_rhs_sums[row]) / running_weight_sums[row],
                 .mae => running_abs_error_sums[row] / running_weight_sums[row],
+                .covariance => blk: {
+                    const denominator = running_weight_sums[row] - correction;
+                    const cross_centered = running_cross_sums[row] - running_lhs_sums[row] * running_rhs_sums[row] / running_weight_sums[row];
+                    break :blk if (denominator <= 0.0) quietNanF64() else cross_centered / denominator;
+                },
             };
             cumulative_validity[offset] = true;
         }
@@ -3822,7 +3835,7 @@ pub fn withRowCumulativeWeightedSquaredEuclideanDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .squared_euclidean);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .squared_euclidean);
 }
 
 pub const withRowCumulativeWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
@@ -3842,7 +3855,7 @@ pub fn withRowCumulativeWeightedEuclideanDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .euclidean);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .euclidean);
 }
 
 pub const withRowCumulativeWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
@@ -3859,7 +3872,7 @@ pub fn withRowCumulativeWeightedManhattanDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .manhattan);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .manhattan);
 }
 
 pub const withRowCumulativeWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
@@ -3876,7 +3889,7 @@ pub fn withRowCumulativeWeightedChebyshevDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .chebyshev);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .chebyshev);
 }
 
 pub const withRowCumWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
@@ -3890,7 +3903,7 @@ pub fn withRowCumulativeWeightedCanberraDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .canberra);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .canberra);
 }
 
 pub const withRowCumWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
@@ -3904,7 +3917,7 @@ pub fn withRowCumulativeWeightedBrayCurtisDistance(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .bray_curtis);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .bray_curtis);
 }
 
 pub const withRowCumWeightedBrayCurtisDistance = withRowCumulativeWeightedBrayCurtisDistance;
@@ -3918,7 +3931,7 @@ pub fn withRowCumulativeWeightedMeanError(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .mean_error);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .mean_error);
 }
 
 pub const withRowCumulativeWeightedBias = withRowCumulativeWeightedMeanError;
@@ -3935,7 +3948,7 @@ pub fn withRowCumulativeWeightedMae(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .mae);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .mae);
 }
 
 pub const withRowCumulativeWeightedMAE = withRowCumulativeWeightedMae;
@@ -3952,7 +3965,7 @@ pub fn withRowCumulativeWeightedMse(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .mse);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .mse);
 }
 
 pub const withRowCumulativeWeightedMSE = withRowCumulativeWeightedMse;
@@ -3969,7 +3982,7 @@ pub fn withRowCumulativeWeightedRmse(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .rmse);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .rmse);
 }
 
 pub const withRowCumulativeWeightedRMSE = withRowCumulativeWeightedRmse;
@@ -3986,7 +3999,7 @@ pub fn withRowCumulativeWeightedMape(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .mape);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .mape);
 }
 
 pub const withRowCumulativeWeightedMAPE = withRowCumulativeWeightedMape;
@@ -4003,7 +4016,7 @@ pub fn withRowCumulativeWeightedSmape(
     weight_names: []const []const u8,
     output_names: []const []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .smape);
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, 0.0, .smape);
 }
 
 pub const withRowCumulativeWeightedSMAPE = withRowCumulativeWeightedSmape;
@@ -4011,6 +4024,24 @@ pub const withRowCumWeightedSmape = withRowCumulativeWeightedSmape;
 pub const withRowCumWeightedSMAPE = withRowCumulativeWeightedSmape;
 pub const withRowPrefixWeightedSmape = withRowCumulativeWeightedSmape;
 pub const withRowPrefixWeightedSMAPE = withRowCumulativeWeightedSmape;
+
+pub fn withRowCumulativeWeightedCovariance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    correction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPairMetric(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, correction, .covariance);
+}
+
+pub const withRowCumulativeWeightedCov = withRowCumulativeWeightedCovariance;
+pub const withRowCumWeightedCovariance = withRowCumulativeWeightedCovariance;
+pub const withRowCumWeightedCov = withRowCumulativeWeightedCovariance;
+pub const withRowPrefixWeightedCovariance = withRowCumulativeWeightedCovariance;
+pub const withRowPrefixWeightedCov = withRowCumulativeWeightedCovariance;
 
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 
