@@ -15,7 +15,7 @@ const lazy_sort_mod = @import("sort_plan.zig");
 const lazy_op_mod = @import("op.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
-const parquet_scan_mod = @import("../../dataframe_parquet_scan.zig");
+const parquet_scan_mod = @import("../parquet/scan.zig");
 const series_mod = @import("../../series.zig");
 
 const DeviceColumnBinaryOp = options_mod.DeviceColumnBinaryOp;
