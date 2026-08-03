@@ -1545,6 +1545,41 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_l2_table, gpa, "a_row_weighted_cuml2", &.{ 1.0, 0.0, 0.0, 8.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_l2_table, gpa, "b_row_weighted_cuml2", &.{ 0.0, 20.0, 0.0, std.math.sqrt(@as(f64, 1664.0)) }, &.{ false, true, false, true });
 
+    var row_cum_weighted_min_table = try validity_table.withRowCumulativeWeightedMin(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummin", "b_row_weighted_cummin" });
+    defer row_cum_weighted_min_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_min_table, gpa, "a_row_weighted_cummin", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_min_table, gpa, "b_row_weighted_cummin", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_max_table = try validity_table.withRowPrefixWeightedMax(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummax", "b_row_weighted_cummax" });
+    defer row_cum_weighted_max_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_max_table, gpa, "a_row_weighted_cummax", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_max_table, gpa, "b_row_weighted_cummax", &.{ 0.0, 20.0, 0.0, 40.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_max_abs_table = try validity_table.withRowCumWeightedMaxAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummaxabs", "b_row_weighted_cummaxabs" });
+    defer row_cum_weighted_max_abs_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_max_abs_table, gpa, "a_row_weighted_cummaxabs", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_max_abs_table, gpa, "b_row_weighted_cummaxabs", &.{ 0.0, 20.0, 0.0, 40.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_min_abs_table = try validity_table.withRowPrefixWeightedMinAbs(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumminabs", "b_row_weighted_cumminabs" });
+    defer row_cum_weighted_min_abs_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_min_abs_table, gpa, "a_row_weighted_cumminabs", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_min_abs_table, gpa, "b_row_weighted_cumminabs", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_range_table = try validity_table.withRowCumulativeWeightedRange(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumrange", "b_row_weighted_cumrange" });
+    defer row_cum_weighted_range_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_range_table, gpa, "a_row_weighted_cumrange", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_range_table, gpa, "b_row_weighted_cumrange", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_midrange_table = try validity_table.withRowCumWeightedMidrange(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummidrange", "b_row_weighted_cummidrange" });
+    defer row_cum_weighted_midrange_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_midrange_table, gpa, "a_row_weighted_cummidrange", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_midrange_table, gpa, "b_row_weighted_cummidrange", &.{ 0.0, 20.0, 0.0, 22.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_range_coeff_table = try validity_table.withRowPrefixWeightedRangeCoefficient(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumrange_coeff", "b_row_weighted_cumrange_coeff" });
+    defer row_cum_weighted_range_coeff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_range_coeff_table, gpa, "a_row_weighted_cumrange_coeff", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_range_coeff_table, gpa, "b_row_weighted_cumrange_coeff", &.{ 0.0, 0.0, 0.0, 9.0 / 11.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1561,6 +1596,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_effective_n_table, gpa, "b_row_weighted_cum_effective_n", &.{ 0.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ false, true, false, true });
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMean(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummean", "extra_row_weighted_cummean" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMeanSquare(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummeansq", "extra_row_weighted_cummeansq" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedRange(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cumrange", "extra_row_weighted_cumrange" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");

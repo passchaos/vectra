@@ -4349,6 +4349,165 @@ fn finishRowWeightedRange(min_value: f64, max_value: f64, positive_weight_count:
     };
 }
 
+fn withRowCumulativeWeightedExtrema(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowWeightedExtremaReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var min_value: f64 = 0.0;
+        var max_value: f64 = 0.0;
+        var min_abs_value: f64 = 0.0;
+        var max_abs_value: f64 = 0.0;
+        var positive_count: usize = 0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                const value = flat.values[offset];
+                const abs_value = @abs(value);
+                if (positive_count == 0 or std.math.isNan(value) or (!std.math.isNan(min_value) and value < min_value)) {
+                    min_value = value;
+                }
+                if (positive_count == 0 or std.math.isNan(value) or (!std.math.isNan(max_value) and value > max_value)) {
+                    max_value = value;
+                }
+                if (positive_count == 0 or std.math.isNan(abs_value) or (!std.math.isNan(min_abs_value) and abs_value < min_abs_value)) {
+                    min_abs_value = abs_value;
+                }
+                if (positive_count == 0 or std.math.isNan(abs_value) or (!std.math.isNan(max_abs_value) and abs_value > max_abs_value)) {
+                    max_abs_value = abs_value;
+                }
+                positive_count += 1;
+            }
+            if (positive_count == 0) continue;
+            cumulative[offset] = switch (reduction) {
+                .min => min_value,
+                .max => max_value,
+                .max_abs => max_abs_value,
+                .min_abs => min_abs_value,
+                .range, .midrange, .range_coeff => finishRowWeightedRange(min_value, max_value, positive_count, reduction),
+            };
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedMin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .min);
+}
+
+pub fn withRowCumulativeWeightedMax(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .max);
+}
+
+pub fn withRowCumulativeWeightedMaxAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .max_abs);
+}
+
+pub fn withRowCumulativeWeightedMinAbs(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .min_abs);
+}
+
+pub fn withRowCumulativeWeightedRange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .range);
+}
+
+pub fn withRowCumulativeWeightedMidrange(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .midrange);
+}
+
+pub fn withRowCumulativeWeightedRangeCoeff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedExtrema(DeviceDataFrame, input, value_names, weight_names, output_names, .range_coeff);
+}
+
+pub const withRowCumulativeWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumulativeWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumulativeWeightedMaximumAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMaxAbsolute = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMinimumAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedMinAbsolute = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowCumWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowCumWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowPrefixWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowPrefixWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowPrefixWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+
 fn withRowWeightedExtrema(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

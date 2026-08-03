@@ -783,6 +783,11 @@ positive-weight denominator contract.
 `withRowCumulativeWeightedMeanAbs`, `withRowCumulativeWeightedL1Norm`, and
 `withRowCumulativeWeightedL2Norm` plus `withRowCum...`/`withRowPrefix...`
 aliases append prefix weighted moment and norm diagnostics.
+`withRowCumulativeWeightedMin`, `withRowCumulativeWeightedMax`,
+`withRowCumulativeWeightedMaxAbs`, `withRowCumulativeWeightedMinAbs`,
+`withRowCumulativeWeightedRange`, `withRowCumulativeWeightedMidrange`, and
+`withRowCumulativeWeightedRangeCoeff` add prefix weighted extrema/range
+diagnostics for positive-weight valid pairs.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

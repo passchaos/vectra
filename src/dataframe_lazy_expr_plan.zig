@@ -3799,6 +3799,80 @@ pub const withRowCumWeightedL2 = withRowCumulativeWeightedL2Norm;
 pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
 pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
 
+fn withRowCumulativeWeightedExtrema(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { min, max, max_abs, min_abs, range, midrange, range_coeff }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .min => .{ .row_cumulative_weighted_min = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .max => .{ .row_cumulative_weighted_max = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .max_abs => .{ .row_cumulative_weighted_max_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .min_abs => .{ .row_cumulative_weighted_min_abs = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .range => .{ .row_cumulative_weighted_range = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .midrange => .{ .row_cumulative_weighted_midrange = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .range_coeff => .{ .row_cumulative_weighted_range_coeff = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedMin(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .min);
+}
+
+pub fn withRowCumulativeWeightedMax(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .max);
+}
+
+pub fn withRowCumulativeWeightedMaxAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .max_abs);
+}
+
+pub fn withRowCumulativeWeightedMinAbs(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .min_abs);
+}
+
+pub fn withRowCumulativeWeightedRange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .range);
+}
+
+pub fn withRowCumulativeWeightedMidrange(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .midrange);
+}
+
+pub fn withRowCumulativeWeightedRangeCoeff(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedExtrema(frame, value_names, weight_names, output_names, .range_coeff);
+}
+
+pub const withRowCumulativeWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumulativeWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumulativeWeightedMaximumAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMaxAbsolute = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMinimumAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedMinAbsolute = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowCumWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowCumWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowPrefixWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowPrefixWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowPrefixWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

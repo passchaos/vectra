@@ -3595,6 +3595,62 @@ pub const withRowCumWeightedL2 = withRowCumulativeWeightedL2Norm;
 pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
 pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
 
+pub fn withRowCumulativeWeightedMin(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMin(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMax(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMax(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMaxAbs(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMaxAbs(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMinAbs(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMinAbs(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedRange(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedRange(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMidrange(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMidrange(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedRangeCoeff(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedRangeCoeff(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumulativeWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumulativeWeightedMaximumAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMaxAbsolute = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumulativeWeightedMinimumAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedMinAbsolute = withRowCumulativeWeightedMinAbs;
+pub const withRowCumulativeWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowCumWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowCumWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowCumWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowCumWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowCumWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowCumWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowCumWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedMin = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMinimum = withRowCumulativeWeightedMin;
+pub const withRowPrefixWeightedMax = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaximum = withRowCumulativeWeightedMax;
+pub const withRowPrefixWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+pub const withRowPrefixWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+pub const withRowPrefixWeightedRange = withRowCumulativeWeightedRange;
+pub const withRowPrefixWeightedMidrange = withRowCumulativeWeightedMidrange;
+pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+
 pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }

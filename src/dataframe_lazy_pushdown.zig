@@ -1047,7 +1047,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_cumulative_weighted_sum, .row_cumulative_weighted_mean, .row_cumulative_weighted_mean_square, .row_cumulative_weighted_rms, .row_cumulative_weighted_mean_abs, .row_cumulative_weighted_l1_norm, .row_cumulative_weighted_l2_norm, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
+            .row_cumulative_weighted_sum, .row_cumulative_weighted_mean, .row_cumulative_weighted_mean_square, .row_cumulative_weighted_rms, .row_cumulative_weighted_mean_abs, .row_cumulative_weighted_l1_norm, .row_cumulative_weighted_l2_norm, .row_cumulative_weighted_min, .row_cumulative_weighted_max, .row_cumulative_weighted_max_abs, .row_cumulative_weighted_min_abs, .row_cumulative_weighted_range, .row_cumulative_weighted_midrange, .row_cumulative_weighted_range_coeff, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
                 for (row_weighted_outputs.output_names) |output_name| {
                     try appendBorrowedNameUnique(allocator, &derived_names, output_name);
                 }

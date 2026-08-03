@@ -2499,6 +2499,62 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedL2Norm = withRowCumulativeWeightedL2Norm;
             pub const withRowPrefixWeightedL2 = withRowCumulativeWeightedL2Norm;
 
+            pub fn withRowCumulativeWeightedMin(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMin(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedMax(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMax(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedMaxAbs(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMaxAbs(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedMinAbs(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMinAbs(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedRange(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedRange(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedMidrange(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMidrange(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedRangeCoeff(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedRangeCoeff(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedMinimum = withRowCumulativeWeightedMin;
+            pub const withRowCumulativeWeightedMaximum = withRowCumulativeWeightedMax;
+            pub const withRowCumulativeWeightedMaximumAbs = withRowCumulativeWeightedMaxAbs;
+            pub const withRowCumulativeWeightedMaxAbsolute = withRowCumulativeWeightedMaxAbs;
+            pub const withRowCumulativeWeightedMinimumAbs = withRowCumulativeWeightedMinAbs;
+            pub const withRowCumulativeWeightedMinAbsolute = withRowCumulativeWeightedMinAbs;
+            pub const withRowCumulativeWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+            pub const withRowCumWeightedMin = withRowCumulativeWeightedMin;
+            pub const withRowCumWeightedMinimum = withRowCumulativeWeightedMin;
+            pub const withRowCumWeightedMax = withRowCumulativeWeightedMax;
+            pub const withRowCumWeightedMaximum = withRowCumulativeWeightedMax;
+            pub const withRowCumWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+            pub const withRowCumWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+            pub const withRowCumWeightedRange = withRowCumulativeWeightedRange;
+            pub const withRowCumWeightedMidrange = withRowCumulativeWeightedMidrange;
+            pub const withRowCumWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+            pub const withRowCumWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+            pub const withRowPrefixWeightedMin = withRowCumulativeWeightedMin;
+            pub const withRowPrefixWeightedMinimum = withRowCumulativeWeightedMin;
+            pub const withRowPrefixWeightedMax = withRowCumulativeWeightedMax;
+            pub const withRowPrefixWeightedMaximum = withRowCumulativeWeightedMax;
+            pub const withRowPrefixWeightedMaxAbs = withRowCumulativeWeightedMaxAbs;
+            pub const withRowPrefixWeightedMinAbs = withRowCumulativeWeightedMinAbs;
+            pub const withRowPrefixWeightedRange = withRowCumulativeWeightedRange;
+            pub const withRowPrefixWeightedMidrange = withRowCumulativeWeightedMidrange;
+            pub const withRowPrefixWeightedRangeCoeff = withRowCumulativeWeightedRangeCoeff;
+            pub const withRowPrefixWeightedRangeCoefficient = withRowCumulativeWeightedRangeCoeff;
+
             pub fn withRowCumulativeWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeWeightedWeightSum(self, value_names, weight_names, output_names);
             }
