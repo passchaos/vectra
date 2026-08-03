@@ -1373,6 +1373,41 @@ pub fn CooMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var seen = try self.allocator.alloc(bool, self.rows);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            var diagonal_values = try self.allocator.alloc(T, self.rows);
+            defer self.allocator.free(diagonal_values);
+            @memset(diagonal_values, zero(T));
+
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                if (row == self.col_indices[i]) {
+                    diagonal_values[row] = addSparseValue(T, diagonal_values[row], value);
+                    seen[row] = true;
+                }
+            }
+
+            var count: usize = 0;
+            for (seen, diagonal_values) |present, value| {
+                if (present and value <= zero(T)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn nonPositiveDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.nonPositiveDiagonalCount()) <= max_count;
+        }
+
+        pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.nonPositiveDiagonalCount();
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn bandwidth(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var bw: usize = 0;
@@ -2778,6 +2813,28 @@ pub fn CsrMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.rows) |row| {
+                if (self.get(row, row)) |value| {
+                    if (value <= zero(T)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn nonPositiveDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.nonPositiveDiagonalCount()) <= max_count;
+        }
+
+        pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.nonPositiveDiagonalCount();
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn bandwidth(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var bw: usize = 0;
@@ -4050,6 +4107,28 @@ pub fn CscMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var count: usize = 0;
+            for (0..self.rows) |i| {
+                if (self.get(i, i)) |value| {
+                    if (value <= zero(T)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        pub fn nonPositiveDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.nonPositiveDiagonalCount()) <= max_count;
+        }
+
+        pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.nonPositiveDiagonalCount();
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn bandwidth(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var bw: usize = 0;
@@ -4812,6 +4891,47 @@ test "sparse diagonal dominance diagnostics" {
     defer empty.deinit();
     try std.testing.expectError(error.EmptyArray, empty.diagonallyDominant());
     try std.testing.expectError(error.EmptyArray, empty.strictlyDiagonallyDominant());
+}
+
+test "sparse non-positive diagonal diagnostics" {
+    const gpa = std.testing.allocator;
+    var coo = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 1, 2, 2 }, &.{ 0, 1, 2, 2 }, &.{ 3.0, 0.0, 4.0, -5.0 });
+    defer coo.deinit();
+    try std.testing.expectEqual(@as(usize, 2), try coo.nonPositiveDiagonalCount());
+    try std.testing.expect(try coo.nonPositiveDiagonalCountMeetsBound(2));
+    try std.testing.expect(!(try coo.nonPositiveDiagonalCountMeetsBound(1)));
+    try std.testing.expect(try coo.nonPositiveDiagonalCountInRange(2, 2));
+    try std.testing.expect(!(try coo.nonPositiveDiagonalCountInRange(0, 1)));
+    try std.testing.expectError(error.InvalidShape, coo.nonPositiveDiagonalCountInRange(3, 2));
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expectEqual(@as(usize, 2), try csr.nonPositiveDiagonalCount());
+    try std.testing.expect(try csr.nonPositiveDiagonalCountMeetsBound(2));
+    try std.testing.expect(try csr.nonPositiveDiagonalCountInRange(1, 2));
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expectEqual(@as(usize, 2), try csc.nonPositiveDiagonalCount());
+    try std.testing.expect(!(try csc.nonPositiveDiagonalCountMeetsBound(1)));
+    try std.testing.expect(try csc.nonPositiveDiagonalCountInRange(2, 3));
+
+    var missing = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 2 }, &.{ 0, 2 }, &.{ 1.0, 2.0 });
+    defer missing.deinit();
+    try std.testing.expectEqual(@as(usize, 0), try missing.nonPositiveDiagonalCount());
+
+    var rectangular = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1 }, &.{ 0, 2 }, &.{ 1.0, 0.0 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.nonPositiveDiagonalCount());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.nonPositiveDiagonalCountMeetsBound(1));
+    try std.testing.expectError(error.InvalidShape, rectangular.nonPositiveDiagonalCountInRange(2, 1));
+
+    var rectangular_csr = try rectangular.toCsr();
+    defer rectangular_csr.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.nonPositiveDiagonalCount());
+    var rectangular_csc = try rectangular.toCsc();
+    defer rectangular_csc.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.nonPositiveDiagonalCountMeetsBound(1));
 }
 
 test "sparse addition canonicalizes duplicate coordinates" {
