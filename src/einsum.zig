@@ -43,50 +43,11 @@ pub fn einsumUnary(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(in
         diagonal_labels[diagonal_len] = label;
         diagonal_len += 1;
 
-        var axis = diagonal_len;
-        while (axis > 0) {
-            axis -= 1;
-            if (findLabel(plan.out[0..plan.out_len], diagonal_labels[axis]) == null) {
-                const next = try current.sum(@intCast(axis), false);
-                current.deinit();
-                current = next;
-            }
-        }
-
-        var default_out = [_]u8{0} ** max_einsum_rank;
-        var default_out_len: usize = 0;
-        for (diagonal_labels[0..diagonal_len]) |candidate| {
-            if (findLabel(plan.out[0..plan.out_len], candidate) != null) {
-                default_out[default_out_len] = candidate;
-                default_out_len += 1;
-            }
-        }
-        if (plan.out_len == default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], default_out[0..default_out_len])) return current;
-
-        var permutation = [_]usize{0} ** max_einsum_rank;
-        for (plan.out[0..plan.out_len], 0..) |candidate, out_axis| {
-            permutation[out_axis] = findLabel(default_out[0..default_out_len], candidate) orelse return error.InvalidShape;
-        }
-        const permuted = try current.permute(permutation[0..plan.out_len]);
-        current.deinit();
-        return permuted;
+        return reduceAndPermuteOwned(current, diagonal_labels[0..diagonal_len], plan.out[0..plan.out_len]);
     }
 
-    var current = try input.copy();
-    errdefer current.deinit();
-    var axis = plan.input_len;
-    while (axis > 0) {
-        axis -= 1;
-        if (findLabel(plan.out[0..plan.out_len], plan.input[axis]) == null) {
-            const next = try current.sum(@intCast(axis), false);
-            current.deinit();
-            current = next;
-        }
-    }
-    if (plan.outputIsDefault()) return current;
-    const permuted = try current.permute(plan.permuteAxes());
-    current.deinit();
-    return permuted;
+    const current = try input.copy();
+    return reduceAndPermuteOwned(current, plan.input[0..plan.input_len], plan.out[0..plan.out_len]);
 }
 
 pub fn einsum1(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(input) {
@@ -134,19 +95,8 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
     }
     if (batchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
     if (try parseSameLabelBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len)) |shared_plan| {
-        var current = try lhs.mul(rhs);
-        errdefer current.deinit();
-        var axis_index = shared_plan.reduce_len;
-        while (axis_index > 0) {
-            axis_index -= 1;
-            const next = try current.sum(@intCast(shared_plan.reduce_axes[axis_index]), false);
-            current.deinit();
-            current = next;
-        }
-        if (shared_plan.outputIsDefault()) return current;
-        const permuted = try current.permute(shared_plan.permuteAxes());
-        current.deinit();
-        return permuted;
+        const product = try lhs.mul(rhs);
+        return reduceAndPermuteOwned(product, shared_plan.input[0..shared_plan.input_len], shared_plan.out[0..shared_plan.out_len]);
     }
     const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
     if (plan.matmulLike()) return lhs.matmul(rhs);
@@ -168,26 +118,47 @@ fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
     if (!lhs.device.isAvailable()) return error.InvalidDevice;
 }
 
+fn reduceAndPermuteOwned(initial: anytype, source_labels: []const u8, out_labels: []const u8) ArrayError!@TypeOf(initial) {
+    var current = initial;
+    errdefer current.deinit();
+    var axis = source_labels.len;
+    while (axis > 0) {
+        axis -= 1;
+        if (findLabel(out_labels, source_labels[axis]) == null) {
+            const next = try current.sum(@intCast(axis), false);
+            current.deinit();
+            current = next;
+        }
+    }
+
+    var default_out = [_]u8{0} ** max_einsum_rank;
+    var default_out_len: usize = 0;
+    for (source_labels) |label| {
+        if (findLabel(out_labels, label) != null) {
+            default_out[default_out_len] = label;
+            default_out_len += 1;
+        }
+    }
+    if (out_labels.len == default_out_len and std.mem.eql(u8, out_labels, default_out[0..default_out_len])) return current;
+
+    var permutation = [_]usize{0} ** max_einsum_rank;
+    for (out_labels, 0..) |label, out_axis| {
+        permutation[out_axis] = findLabel(default_out[0..default_out_len], label) orelse return error.InvalidShape;
+    }
+    const permuted = try current.permute(permutation[0..out_labels.len]);
+    current.deinit();
+    return permuted;
+}
+
 const UnaryEinsumPlan = struct {
     input: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
     out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
-    default_out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
-    permutation: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
     input_len: usize = 0,
     out_len: usize = 0,
-    default_out_len: usize = 0,
     repeat_label: ?u8 = null,
 
     fn repeatedLabel(plan: UnaryEinsumPlan) ?u8 {
         return plan.repeat_label;
-    }
-
-    fn outputIsDefault(plan: UnaryEinsumPlan) bool {
-        return plan.out_len == plan.default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], plan.default_out[0..plan.default_out_len]);
-    }
-
-    fn permuteAxes(plan: *const UnaryEinsumPlan) []const usize {
-        return plan.permutation[0..plan.out_len];
     }
 };
 
@@ -232,15 +203,6 @@ fn parseUnaryEinsum(subscripts: []const u8, input_rank: usize) ArrayError!UnaryE
         return plan;
     }
 
-    for (plan.input[0..plan.input_len]) |label| {
-        if (out_seen[label]) {
-            plan.default_out[plan.default_out_len] = label;
-            plan.default_out_len += 1;
-        }
-    }
-    for (plan.out[0..plan.out_len], 0..) |label, out_axis| {
-        plan.permutation[out_axis] = findLabel(plan.default_out[0..plan.default_out_len], label) orelse return error.InvalidShape;
-    }
     return plan;
 }
 
@@ -392,21 +354,8 @@ const max_einsum_rank = 16;
 const SameLabelBinaryEinsumPlan = struct {
     input: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
     out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
-    default_out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
-    permutation: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
-    reduce_axes: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
     input_len: usize = 0,
     out_len: usize = 0,
-    default_out_len: usize = 0,
-    reduce_len: usize = 0,
-
-    fn outputIsDefault(plan: SameLabelBinaryEinsumPlan) bool {
-        return plan.out_len == plan.default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], plan.default_out[0..plan.default_out_len]);
-    }
-
-    fn permuteAxes(plan: *const SameLabelBinaryEinsumPlan) []const usize {
-        return plan.permutation[0..plan.out_len];
-    }
 };
 
 fn parseSameLabelBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) ArrayError!?SameLabelBinaryEinsumPlan {
@@ -437,18 +386,6 @@ fn parseSameLabelBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank:
         if (out_seen[label]) return error.InvalidShape;
         if (findLabel(lhs_labels, label) == null) return error.InvalidShape;
         out_seen[label] = true;
-    }
-    for (lhs_labels, 0..) |label, axis| {
-        if (out_seen[label]) {
-            plan.default_out[plan.default_out_len] = label;
-            plan.default_out_len += 1;
-        } else {
-            plan.reduce_axes[plan.reduce_len] = axis;
-            plan.reduce_len += 1;
-        }
-    }
-    for (plan.out[0..plan.out_len], 0..) |label, out_axis| {
-        plan.permutation[out_axis] = findLabel(plan.default_out[0..plan.default_out_len], label) orelse return error.InvalidShape;
     }
     return plan;
 }
