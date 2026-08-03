@@ -436,6 +436,36 @@ pub const DeviceParquetScan = struct {
     pub fn init(_: std.mem.Allocator, _: []const u8, _: array_mod.Device) ParquetInteropError!DeviceParquetScan {
         return error.FeatureUnavailable;
     }
+
+    pub fn deinit(_: *DeviceParquetScan) void {}
+
+    pub fn clone(_: DeviceParquetScan) ParquetInteropError!DeviceParquetScan {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn lazy(_: DeviceParquetScan) ParquetInteropError!DeviceLazyFrame {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn select(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn whereRange(_: *DeviceParquetScan, _: []const u8, _: ParquetRangePredicate) ParquetInteropError!void {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn whereNull(_: *DeviceParquetScan, _: []const u8, _: bool) ParquetInteropError!void {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn collect(_: DeviceParquetScan) ParquetInteropError!DeviceDataFrame {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn explain(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]u8 {
+        return error.FeatureUnavailable;
+    }
 };
 
 pub const DeviceDataFrame = struct {
@@ -458,7 +488,8 @@ pub const DeviceDataFrame = struct {
     pub fn fromParquetBytesPruned(
         _: std.mem.Allocator,
         _: []const u8,
-        _: []const DeviceParquetRangeFilter,
+        _: []const u8,
+        _: ParquetRangePredicate,
         _: array_mod.Device,
     ) ParquetInteropError!DeviceDataFrame {
         return error.FeatureUnavailable;
