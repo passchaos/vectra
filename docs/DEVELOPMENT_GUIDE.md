@@ -196,8 +196,8 @@ CSC 当前支持：
 - `CscMatrix.hadamard/mul/multiply()`：CSC 同形状逐元素乘法，结果保持 CSC 所有权。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
-- `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。
-- `sum/frobeniusNorm`：基础 CSC 统计。
+- `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。
+- `sum/absSum/frobeniusNorm`：基础 CSC 统计。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，重复坐标按 dense materialization 语义聚合。
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 ## 9. Axiom accelerator backend
