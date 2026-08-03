@@ -198,6 +198,50 @@ fn sparseAllFinite(comptime T: type, values: []const T) bool {
     return true;
 }
 
+fn validateSparseValueRange(comptime T: type, min_value: T, max_value: T) SparseError!void {
+    ensureNumeric(T);
+    if (!sparseValueIsFinite(T, min_value) or !sparseValueIsFinite(T, max_value) or min_value > max_value) return error.InvalidShape;
+}
+
+fn sparseValueRangeInRange(comptime T: type, values: []const T, min_value: T, max_value: T) SparseError!bool {
+    try validateSparseValueRange(T, min_value, max_value);
+    if (values.len == 0) return error.EmptyArray;
+    for (values) |value| {
+        if (!(value >= min_value and value <= max_value)) return false;
+    }
+    return true;
+}
+
+fn sparseAbsValueRangeInRange(comptime T: type, values: []const T, min_abs_value: T, max_abs_value: T) SparseError!bool {
+    try validateSparseValueRange(T, min_abs_value, max_abs_value);
+    if (values.len == 0) return error.EmptyArray;
+    for (values) |value| {
+        const magnitude = absValue(T, value);
+        if (!(magnitude >= min_abs_value and magnitude <= max_abs_value)) return false;
+    }
+    return true;
+}
+
+fn sparseStoredValueDynamicRange(comptime T: type, values: []const T) SparseError!f64 {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var min_abs = std.math.inf(f64);
+    var max_abs: f64 = 0;
+    for (values) |value| {
+        if (!sparseValueIsFinite(T, value)) return error.InvalidShape;
+        const magnitude = @abs(sparseValueToF64(T, value));
+        if (magnitude == 0) return error.SingularMatrix;
+        if (magnitude < min_abs) min_abs = magnitude;
+        if (magnitude > max_abs) max_abs = magnitude;
+    }
+    return max_abs / min_abs;
+}
+
+fn sparseStoredValueDynamicRangeMeetsBound(comptime T: type, values: []const T, max_dynamic_range: f64) SparseError!bool {
+    if (!std.math.isFinite(max_dynamic_range) or max_dynamic_range < 0) return error.InvalidShape;
+    return (try sparseStoredValueDynamicRange(T, values)) <= max_dynamic_range;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -832,6 +876,22 @@ pub fn CooMatrix(comptime T: type) type {
                 if (!sparseValueIsFinite(T, value)) out.data[col] += 1;
             }
             return out;
+        }
+
+        pub fn valueRangeInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            return sparseValueRangeInRange(T, self.values, min_value, max_value);
+        }
+
+        pub fn absValueRangeInRange(self: Self, min_abs_value: T, max_abs_value: T) SparseError!bool {
+            return sparseAbsValueRangeInRange(T, self.values, min_abs_value, max_abs_value);
+        }
+
+        pub fn valueDynamicRange(self: Self) SparseError!f64 {
+            return sparseStoredValueDynamicRange(T, self.values);
+        }
+
+        pub fn valueDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            return sparseStoredValueDynamicRangeMeetsBound(T, self.values, max_dynamic_range);
         }
 
         pub fn mean(self: Self) SparseError!f64 {
@@ -2123,6 +2183,22 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn valueRangeInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            return sparseValueRangeInRange(T, self.values, min_value, max_value);
+        }
+
+        pub fn absValueRangeInRange(self: Self, min_abs_value: T, max_abs_value: T) SparseError!bool {
+            return sparseAbsValueRangeInRange(T, self.values, min_abs_value, max_abs_value);
+        }
+
+        pub fn valueDynamicRange(self: Self) SparseError!f64 {
+            return sparseStoredValueDynamicRange(T, self.values);
+        }
+
+        pub fn valueDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            return sparseStoredValueDynamicRangeMeetsBound(T, self.values, max_dynamic_range);
+        }
+
         pub fn mean(self: Self) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -3296,6 +3372,22 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn valueRangeInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            return sparseValueRangeInRange(T, self.values, min_value, max_value);
+        }
+
+        pub fn absValueRangeInRange(self: Self, min_abs_value: T, max_abs_value: T) SparseError!bool {
+            return sparseAbsValueRangeInRange(T, self.values, min_abs_value, max_abs_value);
+        }
+
+        pub fn valueDynamicRange(self: Self) SparseError!f64 {
+            return sparseStoredValueDynamicRange(T, self.values);
+        }
+
+        pub fn valueDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            return sparseStoredValueDynamicRangeMeetsBound(T, self.values, max_dynamic_range);
+        }
+
         pub fn mean(self: Self) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -4304,6 +4396,46 @@ test "sparse stored non-finite diagnostics" {
     defer finite.deinit();
     try std.testing.expectEqual(@as(usize, 0), finite.nonFiniteCount());
     try std.testing.expect(finite.allFinite());
+}
+
+test "sparse stored value range diagnostics" {
+    const gpa = std.testing.allocator;
+    var coo = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 0, 1, 1 }, &.{ 0, 2, 1, 2 }, &.{ -2.0, 4.0, 1.0, 8.0 });
+    defer coo.deinit();
+    try std.testing.expect(try coo.valueRangeInRange(-2, 8));
+    try std.testing.expect(!(try coo.valueRangeInRange(-1, 8)));
+    try std.testing.expect(try coo.absValueRangeInRange(1, 8));
+    try std.testing.expect(!(try coo.absValueRangeInRange(2, 8)));
+    try std.testing.expectApproxEqAbs(@as(f64, 8), try coo.valueDynamicRange(), 1e-12);
+    try std.testing.expect(try coo.valueDynamicRangeMeetsBound(8));
+    try std.testing.expect(!(try coo.valueDynamicRangeMeetsBound(7.999)));
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expect(try csr.valueRangeInRange(-2, 8));
+    try std.testing.expect(!(try csr.valueRangeInRange(-2, 7.9)));
+    try std.testing.expect(try csr.absValueRangeInRange(1, 8));
+    try std.testing.expectApproxEqAbs(@as(f64, 8), try csr.valueDynamicRange(), 1e-12);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expect(try csc.valueRangeInRange(-2, 8));
+    try std.testing.expect(!(try csc.absValueRangeInRange(1.1, 8)));
+    try std.testing.expectApproxEqAbs(@as(f64, 8), try csc.valueDynamicRange(), 1e-12);
+
+    var zero_value = try cooFromSlices(f64, gpa, 1, 1, &.{0}, &.{0}, &.{0.0});
+    defer zero_value.deinit();
+    try std.testing.expectError(error.SingularMatrix, zero_value.valueDynamicRange());
+    try std.testing.expectError(error.SingularMatrix, zero_value.valueDynamicRangeMeetsBound(1));
+
+    var empty = try cooFromSlices(f64, gpa, 1, 1, &.{}, &.{}, &.{});
+    defer empty.deinit();
+    try std.testing.expectError(error.EmptyArray, empty.valueRangeInRange(0, 1));
+    try std.testing.expectError(error.EmptyArray, empty.absValueRangeInRange(0, 1));
+    try std.testing.expectError(error.EmptyArray, empty.valueDynamicRange());
+    try std.testing.expectError(error.InvalidShape, coo.valueRangeInRange(std.math.nan(f64), 1));
+    try std.testing.expectError(error.InvalidShape, coo.absValueRangeInRange(2, 1));
+    try std.testing.expectError(error.InvalidShape, coo.valueDynamicRangeMeetsBound(std.math.inf(f64)));
 }
 
 test "sparse addition canonicalizes duplicate coordinates" {
