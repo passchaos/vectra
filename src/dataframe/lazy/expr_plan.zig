@@ -2398,12 +2398,12 @@ pub fn withColumnFillNullScalar(frame: anytype, output_name: []const u8, input_n
     return fillNullColumnWithScalar(frame, output_name, scalar);
 }
 
-fn fillNullDirectionalColumn(frame: anytype, name: []const u8, comptime direction: enum { forward, backward }) DeviceDataError!void {
+fn fillNullDirectionalColumn(frame: anytype, name: []const u8, comptime direction: enum { forward, reverse }) DeviceDataError!void {
     const owned_name = try frame.allocator.dupe(u8, name);
     errdefer frame.allocator.free(owned_name);
     switch (direction) {
         .forward => try frame.ops.append(frame.allocator, .{ .fill_null_forward_column = owned_name }),
-        .backward => try frame.ops.append(frame.allocator, .{ .fill_null_backward_column = owned_name }),
+        .reverse => try frame.ops.append(frame.allocator, .{ .fill_null_backward_column = owned_name }),
     }
 }
 
@@ -2412,7 +2412,7 @@ pub fn fillNullForwardColumn(frame: anytype, name: []const u8) DeviceDataError!v
 }
 
 pub fn fillNullBackwardColumn(frame: anytype, name: []const u8) DeviceDataError!void {
-    return fillNullDirectionalColumn(frame, name, .backward);
+    return fillNullDirectionalColumn(frame, name, .reverse);
 }
 
 pub fn withColumnFillNullForward(frame: anytype, output_name: []const u8, input_name: []const u8) DeviceDataError!void {

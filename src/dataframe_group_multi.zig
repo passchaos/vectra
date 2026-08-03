@@ -2128,7 +2128,7 @@ fn withGroupFillNullOn(
     key_names: []const []const u8,
     value_name: []const u8,
     output_name: []const u8,
-    comptime backward: bool,
+    comptime reverse_fill: bool,
 ) GroupByOnError!DeviceDataFrame {
     if (key_names.len == 0) return error.LengthMismatch;
     for (key_names) |key_name| _ = try frame.column(key_name);
@@ -2157,7 +2157,7 @@ fn withGroupFillNullOn(
     }
 
     for (group_rows.items) |rows| {
-        if (backward) {
+        if (reverse_fill) {
             var next_valid: ?usize = null;
             var index = rows.items.len;
             while (index > 0) {

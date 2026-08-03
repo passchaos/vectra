@@ -1111,7 +1111,7 @@ pub fn withColumnFillNullScalar(
 
 const FillNullDirection = enum {
     forward,
-    backward,
+    reverse,
 };
 
 fn fillNullDirectionalTyped(
@@ -1141,7 +1141,7 @@ fn fillNullDirectionalTyped(
                 }
             }
         },
-        .backward => {
+        .reverse => {
             var next_valid: ?T = null;
             var index = values.len;
             while (index > 0) {
@@ -1196,7 +1196,7 @@ pub fn fillNullBackwardColumn(
     input: DeviceDataFrame,
     name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillNullDirectionalColumn(DeviceDataFrame, input, name, name, .backward);
+    return fillNullDirectionalColumn(DeviceDataFrame, input, name, name, .reverse);
 }
 
 pub fn withColumnFillNullForward(
@@ -1214,7 +1214,7 @@ pub fn withColumnFillNullBackward(
     output_name: []const u8,
     input_name: []const u8,
 ) DeviceFrameArrayError!DeviceDataFrame {
-    return fillNullDirectionalColumn(DeviceDataFrame, input, output_name, input_name, .backward);
+    return fillNullDirectionalColumn(DeviceDataFrame, input, output_name, input_name, .reverse);
 }
 
 fn nullIfScalarTyped(

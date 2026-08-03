@@ -118,7 +118,7 @@ pub const DeviceRollingOptions = struct {
 };
 
 pub const DeviceLagOptions = struct {
-    /// Number of rows to look backward when deriving lag, diff, and pct-change.
+    /// Number of prior rows to inspect when deriving lag, diff, and pct-change.
     periods: usize = 1,
 };
 
@@ -157,12 +157,12 @@ pub const DeviceExtremaOptions = struct {
 };
 
 pub const DeviceTrendOptions = struct {
-    /// Number of rows to look backward for trend deltas.
+    /// Number of prior rows to inspect for trend deltas.
     periods: usize = 1,
 };
 
 pub const DeviceCrossoverOptions = struct {
-    /// Number of rows to look backward when detecting spread sign crosses.
+    /// Number of prior rows to inspect when detecting spread sign crosses.
     periods: usize = 1,
 };
 
