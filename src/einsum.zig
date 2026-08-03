@@ -216,10 +216,11 @@ fn parseUnaryEinsumInputLabels(segment: []const u8, expected_rank: usize, out: [
 }
 
 fn chainedMatmulLikeSubscripts(subscripts: []const u8, a_rank: usize, b_rank: usize, c_rank: usize) bool {
-    // Bounded three-operand coverage for the common matrix-chain form
-    // `ij,jk,kl->il` and its implicit-output spelling.  It composes through
-    // Array.matmul so backend policy and Axiom lowering stay centralized.
-    if (a_rank != 2 or b_rank != 2 or c_rank != 2) return false;
+    // Bounded three-operand coverage for common matrix-chain forms such as
+    // `ij,jk,kl->il` and shared-prefix batches like
+    // `abij,abjk,abkl->abil`.  It composes through Array.matmul so backend
+    // policy and Axiom N-D batch lowering stay centralized.
+    if (a_rank < 2 or a_rank != b_rank or b_rank != c_rank) return false;
     const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
     const first_comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
     const second_rel = std.mem.indexOfScalar(u8, subscripts[first_comma + 1 .. arrow], ',') orelse return false;
@@ -229,15 +230,24 @@ fn chainedMatmulLikeSubscripts(subscripts: []const u8, a_rank: usize, b_rank: us
     const b_labels = subscripts[first_comma + 1 .. second_comma];
     const c_labels = subscripts[second_comma + 1 .. arrow];
     const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
-    if (a_labels.len != 2 or b_labels.len != 2 or c_labels.len != 2) return false;
-    if (out.len != 0 and out.len != 2) return false;
+    if (a_labels.len != a_rank or b_labels.len != b_rank or c_labels.len != c_rank) return false;
+    if (out.len != 0 and out.len != a_rank) return false;
     if (!allEinsumLabels(a_labels) or !allEinsumLabels(b_labels) or !allEinsumLabels(c_labels) or !allEinsumLabels(out)) return false;
     if (hasRepeatedLabels(a_labels) or hasRepeatedLabels(b_labels) or hasRepeatedLabels(c_labels) or hasRepeatedLabels(out)) return false;
-    if (a_labels[1] != b_labels[0] or b_labels[1] != c_labels[0]) return false;
-    if (a_labels[0] == b_labels[1] or a_labels[0] == c_labels[0] or a_labels[0] == c_labels[1]) return false;
-    if (c_labels[1] == a_labels[1] or c_labels[1] == b_labels[0] or c_labels[1] == b_labels[1]) return false;
+
+    const batch_rank = a_rank - 2;
+    if (!std.mem.eql(u8, a_labels[0..batch_rank], b_labels[0..batch_rank])) return false;
+    if (!std.mem.eql(u8, a_labels[0..batch_rank], c_labels[0..batch_rank])) return false;
+    const a_row = a_labels[batch_rank];
+    const ab_contract = a_labels[batch_rank + 1];
+    const b_col = b_labels[batch_rank + 1];
+    const c_col = c_labels[batch_rank + 1];
+    if (ab_contract != b_labels[batch_rank] or b_col != c_labels[batch_rank]) return false;
+    if (a_row == b_col or a_row == c_col or c_col == ab_contract) return false;
     if (out.len == 0) return true;
-    return out[0] == a_labels[0] and out[1] == c_labels[1];
+    return std.mem.eql(u8, out[0..batch_rank], a_labels[0..batch_rank]) and
+        out[batch_rank] == a_row and
+        out[batch_rank + 1] == c_col;
 }
 
 fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
