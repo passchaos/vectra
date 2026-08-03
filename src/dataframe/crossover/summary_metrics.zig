@@ -1,7 +1,7 @@
 //! Rolling and expanding crossover summary metric kernels.
 
 const std = @import("std");
-const base_mod = @import("dataframe_crossover_metrics.zig");
+const base_mod = @import("metrics.zig");
 
 const validatePairLengths = base_mod.validatePairLengths;
 const fillSpreads = base_mod.fillSpreads;

@@ -1,7 +1,7 @@
 //! Pairwise crossover metric kernels and output-name helpers.
 
 const std = @import("std");
-const summary_metrics_mod = @import("dataframe_crossover_summary_metrics.zig");
+const summary_metrics_mod = @import("summary_metrics.zig");
 
 pub const CrossoverMetrics = struct {
     allocator: std.mem.Allocator,
