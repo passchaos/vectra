@@ -136,67 +136,37 @@ pub fn parquetRangePredicateFromDroppedScalar(scalar: DeviceScalar, op: DeviceCo
 pub fn parquetRangePredicateFromSingletonColumn(column: anytype) ?ParquetRangePredicate {
     if (column.len() != 1) return null;
     return switch (column) {
-        .bool => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .bool = .{ .min = values[0], .max = values[0] } };
-        },
-        .i8 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .i8 = .{ .min = values[0], .max = values[0] } };
-        },
-        .i16 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .i16 = .{ .min = values[0], .max = values[0] } };
-        },
-        .i32 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .i32 = .{ .min = values[0], .max = values[0] } };
-        },
-        .i64 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .i64 = .{ .min = values[0], .max = values[0] } };
-        },
-        .u8 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .u8 = .{ .min = values[0], .max = values[0] } };
-        },
-        .u16 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .u16 = .{ .min = values[0], .max = values[0] } };
-        },
-        .u32 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .u32 = .{ .min = values[0], .max = values[0] } };
-        },
-        .u64 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .u64 = .{ .min = values[0], .max = values[0] } };
-        },
-        .usize => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .usize = .{ .min = values[0], .max = values[0] } };
-        },
-        .isize => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            break :blk .{ .isize = .{ .min = values[0], .max = values[0] } };
-        },
-        .f16 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            if (std.math.isNan(values[0])) break :blk null;
-            break :blk .{ .f16 = .{ .min = values[0], .max = values[0] } };
-        },
-        .f32 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            if (std.math.isNan(values[0])) break :blk null;
-            break :blk .{ .f32 = .{ .min = values[0], .max = values[0] } };
-        },
-        .f64 => |typed| blk: {
-            const values = typed.values.asConstSlice() catch return null;
-            if (std.math.isNan(values[0])) break :blk null;
-            break :blk .{ .f64 = .{ .min = values[0], .max = values[0] } };
-        },
+        .bool => |typed| if (singletonValue(bool, typed)) |value| .{ .bool = exactRange(bool, value) } else null,
+        .i8 => |typed| if (singletonValue(i8, typed)) |value| .{ .i8 = exactRange(i8, value) } else null,
+        .i16 => |typed| if (singletonValue(i16, typed)) |value| .{ .i16 = exactRange(i16, value) } else null,
+        .i32 => |typed| if (singletonValue(i32, typed)) |value| .{ .i32 = exactRange(i32, value) } else null,
+        .i64 => |typed| if (singletonValue(i64, typed)) |value| .{ .i64 = exactRange(i64, value) } else null,
+        .u8 => |typed| if (singletonValue(u8, typed)) |value| .{ .u8 = exactRange(u8, value) } else null,
+        .u16 => |typed| if (singletonValue(u16, typed)) |value| .{ .u16 = exactRange(u16, value) } else null,
+        .u32 => |typed| if (singletonValue(u32, typed)) |value| .{ .u32 = exactRange(u32, value) } else null,
+        .u64 => |typed| if (singletonValue(u64, typed)) |value| .{ .u64 = exactRange(u64, value) } else null,
+        .usize => |typed| if (singletonValue(usize, typed)) |value| .{ .usize = exactRange(usize, value) } else null,
+        .isize => |typed| if (singletonValue(isize, typed)) |value| .{ .isize = exactRange(isize, value) } else null,
+        .f16 => |typed| if (singletonFiniteFloat(f16, typed)) |value| .{ .f16 = exactRange(f16, value) } else null,
+        .f32 => |typed| if (singletonFiniteFloat(f32, typed)) |value| .{ .f32 = exactRange(f32, value) } else null,
+        .f64 => |typed| if (singletonFiniteFloat(f64, typed)) |value| .{ .f64 = exactRange(f64, value) } else null,
         .bf16, .c64, .c128 => null,
     };
+}
+
+fn singletonValue(comptime T: type, column: anytype) ?T {
+    const values = column.values.asConstSlice() catch return null;
+    return values[0];
+}
+
+fn singletonFiniteFloat(comptime T: type, column: anytype) ?T {
+    const value = singletonValue(T, column) orelse return null;
+    if (std.math.isNan(value)) return null;
+    return value;
+}
+
+fn exactRange(comptime T: type, value: T) Range(T) {
+    return .{ .min = value, .max = value };
 }
 
 fn invertCompareOp(op: DeviceColumnCompareOp) DeviceColumnCompareOp {
