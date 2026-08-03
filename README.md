@@ -777,6 +777,8 @@ diagnostics for aligned lhs/rhs/weight row-wise triples.
 same aligned triples.
 `withRowCumulativeWeightedCosineSimilarity` (`withRowCumulativeWeightedCosine`
 aliases) appends prefix weighted cosine similarity for aligned triples.
+`withRowCumulativeWeightedSquaredEuclideanDistance` and its squared-distance
+aliases append prefix weighted squared Euclidean distance for aligned triples.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and

@@ -1107,6 +1107,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_cum_weighted_cosine_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_cosine_table, gpa, "a_row_weighted_cumcosine", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_cosine_table, gpa, "b_row_weighted_cumcosine", &.{ 0.0, 1.0, 0.0, 104.0 / std.math.sqrt(@as(f64, 1664.0 * 65.0)) }, &.{ false, true, false, true });
+
+    var row_cum_weighted_sqdist_table = try validity_table.withRowPrefixWeightedSquaredEuclideanDistance(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumsqdist", "b_row_weighted_cumsqdist" });
+    defer row_cum_weighted_sqdist_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sqdist_table, gpa, "a_row_weighted_cumsqdist", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_sqdist_table, gpa, "b_row_weighted_cumsqdist", &.{ 0.0, 361.0, 0.0, 1521.0 }, &.{ false, true, false, true });
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedPairWeightSum(&.{"a"}, &.{"wa"}, &.{"wa"}, &.{ "a_row_weighted_pair_cum_weight_sum", "extra_row_weighted_pair_cum_weight_sum" }));
 
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");

@@ -3743,6 +3743,27 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
+pub fn withRowCumulativeWeightedSquaredEuclideanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
+    errdefer freeNameList(frame.allocator, owned_lhs);
+    const owned_rhs = try cloneNameList(frame.allocator, rhs_names);
+    errdefer freeNameList(frame.allocator, owned_rhs);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, .{ .row_cumulative_weighted_squared_euclidean_distance = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } });
+}
+
+pub const withRowCumulativeWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumulativeWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+
 pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
 }

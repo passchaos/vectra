@@ -3512,6 +3512,19 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
+pub fn withRowCumulativeWeightedSquaredEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedSquaredEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumulativeWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowCumWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+pub const withRowPrefixWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

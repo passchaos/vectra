@@ -2464,6 +2464,19 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
             pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
+            pub fn withRowCumulativeWeightedSquaredEuclideanDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSquaredEuclideanDistance(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowCumulativeWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowCumWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowCumWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowCumWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowPrefixWeightedSquaredEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowPrefixWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+            pub const withRowPrefixWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }
