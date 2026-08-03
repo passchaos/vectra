@@ -277,6 +277,26 @@ test "device lazy parquet scan pushes between filters as range predicates" {
     defer gpa.free(exclusive_sales);
     try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, exclusive_sales);
 
+    var scalar_gt_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer scalar_gt_scan.deinit();
+    try scalar_gt_scan.filterColumnScalar("id", i32, 1, .gt);
+    try scalar_gt_scan.select(&.{"sales"});
+
+    const scalar_gt_explain = try scalar_gt_scan.explain(gpa);
+    defer gpa.free(scalar_gt_explain);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_gt_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_gt_explain, "bounds=i32[min=2,max=null]") != null);
+
+    var scalar_lt_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer scalar_lt_scan.deinit();
+    try scalar_lt_scan.filterColumnScalar("id", i32, 4, .lt);
+    try scalar_lt_scan.select(&.{"sales"});
+
+    const scalar_lt_explain = try scalar_lt_scan.explain(gpa);
+    defer gpa.free(scalar_lt_explain);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "bounds=i32[min=null,max=3]") != null);
+
     var outside_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer outside_scan.deinit();
     try outside_scan.filterOutsideColumn("sales", f64, 3.0, 5.0);

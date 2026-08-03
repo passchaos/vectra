@@ -2035,13 +2035,14 @@ fn validFloatBounds(comptime T: type, lower: T, upper: T) bool {
 }
 
 fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareOp) ?Range(T) {
-    if (comptime @typeInfo(T) == .float) {
-        if (std.math.isNan(value)) return null;
-    }
+    const type_info = comptime @typeInfo(T);
+    if (type_info == .float and std.math.isNan(value)) return null;
     return switch (op) {
         .eq => .{ .min = value, .max = value },
-        .gt, .ge => .{ .min = value },
-        .lt, .le => .{ .max = value },
+        .gt => if (type_info == .int) .{ .min = nextInteger(T, value) orelse return null } else .{ .min = value },
+        .ge => .{ .min = value },
+        .lt => if (type_info == .int) .{ .max = previousInteger(T, value) orelse return null } else .{ .max = value },
+        .le => .{ .max = value },
         .ne => null,
     };
 }
