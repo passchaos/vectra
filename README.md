@@ -799,6 +799,8 @@ prefix weighted mean squared error for aligned triples.
 appends prefix weighted root mean squared error for aligned triples.
 `withRowCumulativeWeightedMape` (`withRowCumulativeWeightedMAPE` aliases)
 appends prefix weighted mean absolute percentage error for aligned triples.
+`withRowCumulativeWeightedSmape` (`withRowCumulativeWeightedSMAPE` aliases)
+appends prefix weighted symmetric mean absolute percentage error.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and

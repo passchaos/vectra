@@ -2568,6 +2568,16 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedMape = withRowCumulativeWeightedMape;
             pub const withRowPrefixWeightedMAPE = withRowCumulativeWeightedMape;
 
+            pub fn withRowCumulativeWeightedSmape(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSmape(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedSMAPE = withRowCumulativeWeightedSmape;
+            pub const withRowCumWeightedSmape = withRowCumulativeWeightedSmape;
+            pub const withRowCumWeightedSMAPE = withRowCumulativeWeightedSmape;
+            pub const withRowPrefixWeightedSmape = withRowCumulativeWeightedSmape;
+            pub const withRowPrefixWeightedSMAPE = withRowCumulativeWeightedSmape;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }

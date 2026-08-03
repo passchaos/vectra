@@ -356,6 +356,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_weighted_mse: Payloads.RowWeightedPairColumnOutputs,
         row_cumulative_weighted_rmse: Payloads.RowWeightedPairColumnOutputs,
         row_cumulative_weighted_mape: Payloads.RowWeightedPairColumnOutputs,
+        row_cumulative_weighted_smape: Payloads.RowWeightedPairColumnOutputs,
         row_weighted_mean: Payloads.RowWeightedMean,
         row_weighted_sum: Payloads.RowWeightedMean,
         row_cumulative_weighted_sum: Payloads.RowWeightedColumnOutputs,

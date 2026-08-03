@@ -1177,7 +1177,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse, .row_cumulative_weighted_mape => |row_weighted| {
+            .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse, .row_cumulative_weighted_mape, .row_cumulative_weighted_smape => |row_weighted| {
                 for (row_weighted.output_names) |output_name| {
                     try appendBorrowedNameUnique(allocator, &derived_names, output_name);
                 }
