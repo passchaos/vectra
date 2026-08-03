@@ -102,14 +102,18 @@ pub fn main(init: std.process.Init) !void {
         approx(promoted_complex.data[1].im, -3.0, 1e-6);
     var promoted_real_scalar = try real_values.addScalarPromote(f64, 0.5);
     defer promoted_real_scalar.deinit();
-    var promoted_real_rsub = try real_values.rsubScalarPromote(f64, 20.0);
+    var promoted_real_rsub = try vx.rsubScalarPromote(real_values, f64, 20.0);
     defer promoted_real_rsub.deinit();
-    var promoted_real_rdiv = try real_values.rdivScalarPromote(f64, 20.0);
+    var promoted_real_rdiv = try vx.scalarDivPromote(real_values, f64, 20.0);
     defer promoted_real_rdiv.deinit();
     var promoted_complex_scalar = try real_values.addScalarPromote(vx.Complex64, .{ .re = 1.0, .im = -1.0 });
     defer promoted_complex_scalar.deinit();
-    var promoted_complex_rsub = try real_values.rsubScalarPromote(vx.Complex64, .{ .re = 1.0, .im = -1.0 });
+    var promoted_complex_rsub = try vx.rsubScalarPromote(real_values, vx.Complex64, .{ .re = 1.0, .im = -1.0 });
     defer promoted_complex_rsub.deinit();
+    var top_level_rsub = try vx.rsubScalar(real_values, 20.0);
+    defer top_level_rsub.deinit();
+    var top_level_rdiv = try vx.scalarDiv(real_values, 20.0);
+    defer top_level_rdiv.deinit();
     const scalar_promote_ok =
         int_scalar_promote_ok and
         bool_scalar_promote_ok and
@@ -120,6 +124,8 @@ pub fn main(init: std.process.Init) !void {
         eql(f64, promoted_real_rsub.data, &.{ 15.0, 10.0 }) and
         @TypeOf(promoted_real_rdiv).dtype == .f64 and
         eql(f64, promoted_real_rdiv.data, &.{ 4.0, 2.0 }) and
+        eql(f32, top_level_rsub.data, &.{ 15.0, 10.0 }) and
+        eql(f32, top_level_rdiv.data, &.{ 4.0, 2.0 }) and
         @TypeOf(promoted_complex_scalar).dtype == .c64 and
         approx(promoted_complex_scalar.data[0].re, 6.0, 1e-6) and
         approx(promoted_complex_scalar.data[0].im, -1.0, 1e-6) and
@@ -137,7 +143,7 @@ pub fn main(init: std.process.Init) !void {
     var stdout = std.Io.File.stdout().writerStreaming(init.io, &stdout_buffer);
     try stdout.interface.print(
         "{{\"kind\":\"vectra_dtype_promotion_smoke\",\"ok\":{},\"matrix_ok\":{},\"metadata_ok\":{},\"int_promote_ok\":{},\"scalar_promote_ok\":{},\"half_promote_ok\":{},\"bf16_promote_ok\":{},\"complex_promote_ok\":{},\"cases\":{d},\"matrix_cases\":{d}}}\n",
-        .{ ok, matrix_ok, metadata_ok, int_promote_ok, scalar_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 22, dtype_order.len * dtype_order.len },
+        .{ ok, matrix_ok, metadata_ok, int_promote_ok, scalar_promote_ok, half_promote_ok, bf16_promote_ok, complex_promote_ok, 24, dtype_order.len * dtype_order.len },
     );
     try stdout.interface.flush();
     if (!ok) std.process.exit(1);

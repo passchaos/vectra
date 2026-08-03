@@ -251,8 +251,68 @@ pub fn sum(input: anytype, axis_opt: ?isize, keepdims: bool) ArrayError!@TypeOf(
     return input.sum(axis_opt, keepdims);
 }
 
+pub fn addScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.addScalar(scalar);
+}
+
+pub fn subScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.subScalar(scalar);
+}
+
 pub fn mulScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
     return input.mulScalar(scalar);
+}
+
+pub fn divScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.divScalar(scalar);
+}
+
+pub fn rsubScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.rsubScalar(scalar);
+}
+
+pub fn rdivScalar(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.rdivScalar(scalar);
+}
+
+pub fn scalarSub(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.scalarSub(scalar);
+}
+
+pub fn scalarDiv(input: anytype, scalar: @TypeOf(input).Scalar) ArrayError!@TypeOf(input) {
+    return input.scalarDiv(scalar);
+}
+
+pub fn addScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.addScalarPromote(U, scalar);
+}
+
+pub fn subScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.subScalarPromote(U, scalar);
+}
+
+pub fn mulScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.mulScalarPromote(U, scalar);
+}
+
+pub fn divScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.divScalarPromote(U, scalar);
+}
+
+pub fn rsubScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.rsubScalarPromote(U, scalar);
+}
+
+pub fn rdivScalarPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.rdivScalarPromote(U, scalar);
+}
+
+pub fn scalarSubPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.scalarSubPromote(U, scalar);
+}
+
+pub fn scalarDivPromote(input: anytype, comptime U: type, scalar: U) ArrayError!Array(promoteType(@TypeOf(input).Scalar, U)) {
+    return input.scalarDivPromote(U, scalar);
 }
 
 test "top-level ops respect device dispatch" {
