@@ -155,6 +155,10 @@ pub fn parquetRangePredicateFromSingletonColumn(column: anytype) ?ParquetRangePr
 }
 
 fn singletonValue(comptime T: type, column: anytype) ?T {
+    if (column.validity) |validity| {
+        const validity_values = validity.asConstSlice() catch return null;
+        if (!validity_values[0]) return null;
+    }
     const values = column.values.asConstSlice() catch return null;
     return values[0];
 }

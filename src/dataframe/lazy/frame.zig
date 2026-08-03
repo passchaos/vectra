@@ -925,10 +925,18 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.filterIsInValuesColumn(self, input_name, value_column);
             }
 
+            pub fn filterIsInValuesColumn(self: *DeviceLazyFrame, input_name: []const u8, values: DeviceColumn) DeviceDataError!void {
+                return lazy_expr_mod.filterIsInValuesColumn(self, input_name, values);
+            }
+
             pub fn filterNotInValues(self: *DeviceLazyFrame, input_name: []const u8, comptime T: type, values: []const T) DeviceDataError!void {
                 var value_column = try DeviceColumn.fromSlice(T, self.allocator, values, self.sourceDevice());
                 defer value_column.deinit();
                 return lazy_expr_mod.filterNotInValuesColumn(self, input_name, value_column);
+            }
+
+            pub fn filterNotInValuesColumn(self: *DeviceLazyFrame, input_name: []const u8, values: DeviceColumn) DeviceDataError!void {
+                return lazy_expr_mod.filterNotInValuesColumn(self, input_name, values);
             }
 
             pub const filterIsinValues = filterIsInValues;

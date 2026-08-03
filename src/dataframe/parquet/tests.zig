@@ -500,6 +500,18 @@ test "device lazy parquet scan pushes singleton isin values as range predicates"
     defer gpa.free(multi_explain);
     try std.testing.expect(std.mem.indexOf(u8, multi_explain, "scan_pushdown: projection=[sales,id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, multi_explain, "range=sales") == null);
+
+    var null_candidate = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{3.0}, &.{false}, .cpu);
+    defer null_candidate.deinit();
+    var null_candidate_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer null_candidate_scan.deinit();
+    try null_candidate_scan.filterIsInValuesColumn("sales", null_candidate);
+    try null_candidate_scan.select(&.{"id"});
+
+    const null_candidate_explain = try null_candidate_scan.explain(gpa);
+    defer gpa.free(null_candidate_explain);
+    try std.testing.expect(std.mem.indexOf(u8, null_candidate_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, null_candidate_explain, "range=sales") == null);
 }
 
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {
