@@ -103,6 +103,25 @@ fn formatRowWeightedColumnOutputsQuantilePayload(writer: *std.Io.Writer, comptim
     try writer.print("], q={d})", .{row_weighted.q});
 }
 
+fn formatRowWeightedColumnOutputsFractionPayload(writer: *std.Io.Writer, comptime op_name: []const u8, comptime fraction_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}(values=[", .{op_name});
+    for (row_weighted.value_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], weights=[", .{});
+    for (row_weighted.weight_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("]->[", .{});
+    for (row_weighted.output_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], {s}={d})", .{ fraction_name, row_weighted.q });
+}
+
 fn formatRowWeightedPairPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
     try writer.print("{s}(lhs=[", .{op_name});
     for (row_weighted.lhs_names, 0..) |name, i| {
@@ -775,6 +794,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_median => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_median", row_weighted),
         .row_cumulative_weighted_iqr => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_iqr", row_weighted),
         .row_cumulative_weighted_mad => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_mad", row_weighted),
+        .row_cumulative_weighted_trimmed_mean => |row_weighted| try formatRowWeightedColumnOutputsFractionPayload(writer, "row_cumulative_weighted_trimmed_mean", "trim_fraction", row_weighted),
+        .row_cumulative_weighted_winsorized_mean => |row_weighted| try formatRowWeightedColumnOutputsFractionPayload(writer, "row_cumulative_weighted_winsorized_mean", "winsor_fraction", row_weighted),
         .row_cumulative_weighted_weight_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_weight_sum", row_weighted),
         .row_cumulative_weighted_positive_count => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_positive_count", row_weighted),
         .row_cumulative_weighted_effective_n => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_effective_n", row_weighted),

@@ -2956,6 +2956,14 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowCumulativeWeightedMad(self, value_names, weight_names, output_names);
             }
 
+            pub fn withRowCumulativeWeightedTrimmedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, trim_fraction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedTrimmedMean(self, value_names, weight_names, output_names, trim_fraction);
+            }
+
+            pub fn withRowCumulativeWeightedWinsorizedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, winsor_fraction: f64) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedWinsorizedMean(self, value_names, weight_names, output_names, winsor_fraction);
+            }
+
             pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
             pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
             pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -2970,6 +2978,10 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
             pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
             pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
+            pub const withRowCumWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+            pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+            pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+            pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);

@@ -6201,6 +6201,84 @@ pub fn withRowWeightedWinsorizedMean(
     return withRowWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_name, winsor_fraction, .winsorized_mean);
 }
 
+fn withRowCumulativeWeightedRobustMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    fraction: f64,
+    comptime op: enum { trimmed_mean, winsorized_mean },
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(fraction) or fraction < 0.0 or fraction >= 0.5) return error.InvalidShape;
+
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+                total_weight += weight;
+                count += 1;
+            }
+            if (!(total_weight > 0.0)) continue;
+
+            const active = scratch[0..count];
+            std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+            cumulative[offset] = switch (op) {
+                .trimmed_mean => rowWeightedTrimmedMeanFromSorted(active, total_weight, fraction),
+                .winsorized_mean => rowWeightedWinsorizedMeanFromSorted(active, total_weight, fraction),
+            };
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedTrimmedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    trim_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_names, trim_fraction, .trimmed_mean);
+}
+
+pub fn withRowCumulativeWeightedWinsorizedMean(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    winsor_fraction: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedRobustMean(DeviceDataFrame, input, value_names, weight_names, output_names, winsor_fraction, .winsorized_mean);
+}
+
+pub const withRowCumWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+
 fn withRowWeightedPercentileShape(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

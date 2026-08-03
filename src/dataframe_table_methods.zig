@@ -4103,6 +4103,19 @@ pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
 pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
 pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
 
+pub fn withRowCumulativeWeightedTrimmedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, trim_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedTrimmedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, trim_fraction);
+}
+
+pub fn withRowCumulativeWeightedWinsorizedMean(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, winsor_fraction: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedWinsorizedMean(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, winsor_fraction);
+}
+
+pub const withRowCumWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

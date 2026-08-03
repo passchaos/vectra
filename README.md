@@ -803,6 +803,8 @@ diagnostics.
 `withRowCumulativeWeightedQuantile`, `withRowCumulativeWeightedMedian`,
 `withRowCumulativeWeightedIqr`, and `withRowCumulativeWeightedMad` add prefix
 weighted percentile and median-absolute-deviation diagnostics.
+`withRowCumulativeWeightedTrimmedMean` and
+`withRowCumulativeWeightedWinsorizedMean` add prefix weighted robust means.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

@@ -638,7 +638,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_weighted.weight_names);
             freeNameList(allocator, row_weighted.output_names);
         },
-        .row_cumulative_weighted_quantile => |row_weighted| {
+        .row_cumulative_weighted_quantile, .row_cumulative_weighted_trimmed_mean, .row_cumulative_weighted_winsorized_mean => |row_weighted| {
             freeNameList(allocator, row_weighted.value_names);
             freeNameList(allocator, row_weighted.weight_names);
             freeNameList(allocator, row_weighted.output_names);

@@ -372,6 +372,8 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_weighted_median: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_iqr: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_mad: Payloads.RowWeightedColumnOutputs,
+        row_cumulative_weighted_trimmed_mean: Payloads.RowWeightedColumnOutputsQuantile,
+        row_cumulative_weighted_winsorized_mean: Payloads.RowWeightedColumnOutputsQuantile,
         row_cumulative_weighted_weight_sum: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_positive_count: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_effective_n: Payloads.RowWeightedColumnOutputs,

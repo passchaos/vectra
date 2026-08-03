@@ -4562,7 +4562,7 @@ pub fn withRowWeightedBeta(frame: anytype, lhs_names: []const []const u8, rhs_na
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
 }
 
-fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, q: f64, comptime op: enum { quantile, median, iqr, mad }) DeviceDataError!void {
+fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, q: f64, comptime op: enum { quantile, median, iqr, mad, trimmed_mean, winsorized_mean }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);
     const owned_weights = try cloneNameList(frame.allocator, weight_names);
@@ -4574,6 +4574,8 @@ fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []
         .median => .{ .row_cumulative_weighted_median = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
         .iqr => .{ .row_cumulative_weighted_iqr = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
         .mad => .{ .row_cumulative_weighted_mad = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .trimmed_mean => .{ .row_cumulative_weighted_trimmed_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .q = q } },
+        .winsorized_mean => .{ .row_cumulative_weighted_winsorized_mean = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .q = q } },
     });
 }
 
@@ -4593,6 +4595,14 @@ pub fn withRowCumulativeWeightedMad(frame: anytype, value_names: []const []const
     return withRowCumulativeWeightedQuantileCore(frame, value_names, weight_names, output_names, 0.5, .mad);
 }
 
+pub fn withRowCumulativeWeightedTrimmedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, trim_fraction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedQuantileCore(frame, value_names, weight_names, output_names, trim_fraction, .trimmed_mean);
+}
+
+pub fn withRowCumulativeWeightedWinsorizedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, winsor_fraction: f64) DeviceDataError!void {
+    return withRowCumulativeWeightedQuantileCore(frame, value_names, weight_names, output_names, winsor_fraction, .winsorized_mean);
+}
+
 pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -4607,6 +4617,10 @@ pub const withRowCumWeightedMad = withRowCumulativeWeightedMad;
 pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
 pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
 pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowPrefixWeightedTrimmedMean = withRowCumulativeWeightedTrimmedMean;
+pub const withRowCumWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
+pub const withRowPrefixWeightedWinsorizedMean = withRowCumulativeWeightedWinsorizedMean;
 
 pub fn withRowWeightedQuantile(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
