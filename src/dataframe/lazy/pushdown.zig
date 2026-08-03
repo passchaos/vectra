@@ -73,6 +73,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
     errdefer freeOwnedNameItems(allocator, required_names.items);
     var derived_names: std.ArrayList([]const u8) = .empty;
     defer derived_names.deinit(allocator);
+    var literal_scalars = std.StringHashMap(options_mod.DeviceScalar).init(allocator);
+    defer literal_scalars.deinit();
 
     var saw_select = false;
     var projection_blocked = false;
@@ -864,6 +866,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .with_column_literal => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try literal_scalars.put(expr.name, expr.scalar);
             },
             inline .with_column_literal_at, .with_column_literal_before, .with_column_literal_after => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
@@ -1824,6 +1827,14 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_isin_column => |membership| {
                 if (!nameInBorrowedList(membership.input_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, membership.input_name);
+                    if (!membership.invert) {
+                        if (literal_scalars.get(membership.test_name)) |scalar| {
+                            if (parquetRangePredicateFromScalar(scalar, .eq)) |predicate| {
+                                try mergeRangePredicate(allocator, &range_predicate, membership.input_name, predicate);
+                                clearNullPredicate(allocator, &null_predicate);
+                            }
+                        }
+                    }
                 }
                 if (!nameInBorrowedList(membership.test_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, membership.test_name);
