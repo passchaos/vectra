@@ -173,6 +173,31 @@ fn sparseValueSquareToF64(comptime T: type, value: T) f64 {
     return numeric * numeric;
 }
 
+fn sparseValueIsFinite(comptime T: type, value: T) bool {
+    if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
+    return switch (@typeInfo(T)) {
+        .bool, .int => true,
+        .float => std.math.isFinite(value),
+        else => @compileError("sparse finite diagnostics require bool, integer, or floating-point values"),
+    };
+}
+
+fn sparseNonFiniteCount(comptime T: type, values: []const T) usize {
+    var count: usize = 0;
+    for (values) |value| {
+        if (!sparseValueIsFinite(T, value)) count += 1;
+    }
+    return count;
+}
+
+fn sparseAllFinite(comptime T: type, values: []const T) bool {
+    for (values) |value| {
+        if (!sparseValueIsFinite(T, value)) return false;
+    }
+    return true;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -781,6 +806,32 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn maxAbsValue(self: Self) SparseError!T {
             return maxStoredAbsValue(T, self.values);
+        }
+
+        pub fn nonFiniteCount(self: Self) usize {
+            return sparseNonFiniteCount(T, self.values);
+        }
+
+        pub fn allFinite(self: Self) bool {
+            return sparseAllFinite(T, self.values);
+        }
+
+        pub fn rowNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (!sparseValueIsFinite(T, value)) out.data[row] += 1;
+            }
+            return out;
+        }
+
+        pub fn columnNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (!sparseValueIsFinite(T, value)) out.data[col] += 1;
+            }
+            return out;
         }
 
         pub fn mean(self: Self) SparseError!f64 {
@@ -2044,6 +2095,34 @@ pub fn CsrMatrix(comptime T: type) type {
             return maxStoredAbsValue(T, self.values);
         }
 
+        pub fn nonFiniteCount(self: Self) usize {
+            return sparseNonFiniteCount(T, self.values);
+        }
+
+        pub fn allFinite(self: Self) bool {
+            return sparseAllFinite(T, self.values);
+        }
+
+        pub fn rowNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (!sparseValueIsFinite(T, self.values[pos])) out.data[row] += 1;
+                }
+            }
+            return out;
+        }
+
+        pub fn columnNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (!sparseValueIsFinite(T, value)) out.data[col] += 1;
+            }
+            return out;
+        }
+
         pub fn mean(self: Self) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -3189,6 +3268,34 @@ pub fn CscMatrix(comptime T: type) type {
             return maxStoredAbsValue(T, self.values);
         }
 
+        pub fn nonFiniteCount(self: Self) usize {
+            return sparseNonFiniteCount(T, self.values);
+        }
+
+        pub fn allFinite(self: Self) bool {
+            return sparseAllFinite(T, self.values);
+        }
+
+        pub fn columnNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (!sparseValueIsFinite(T, self.values[pos])) out.data[col] += 1;
+                }
+            }
+            return out;
+        }
+
+        pub fn rowNonFiniteCounts(self: Self) SparseError!array_mod.Array(usize) {
+            var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (!sparseValueIsFinite(T, value)) out.data[row] += 1;
+            }
+            return out;
+        }
+
         pub fn mean(self: Self) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -4155,6 +4262,48 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+}
+
+test "sparse stored non-finite diagnostics" {
+    const gpa = std.testing.allocator;
+    var coo = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 0, 1, 2, 2 }, &.{ 0, 2, 1, 0, 2 }, &.{ 1.0, std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64), 5.0 });
+    defer coo.deinit();
+    try std.testing.expectEqual(@as(usize, 3), coo.nonFiniteCount());
+    try std.testing.expect(!coo.allFinite());
+
+    var coo_rows = try coo.rowNonFiniteCounts();
+    defer coo_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, coo_rows.data);
+    var coo_cols = try coo.columnNonFiniteCounts();
+    defer coo_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, coo_cols.data);
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expectEqual(@as(usize, 3), csr.nonFiniteCount());
+    try std.testing.expect(!csr.allFinite());
+    var csr_rows = try csr.rowNonFiniteCounts();
+    defer csr_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csr_rows.data);
+    var csr_cols = try csr.columnNonFiniteCounts();
+    defer csr_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csr_cols.data);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expectEqual(@as(usize, 3), csc.nonFiniteCount());
+    try std.testing.expect(!csc.allFinite());
+    var csc_rows = try csc.rowNonFiniteCounts();
+    defer csc_rows.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csc_rows.data);
+    var csc_cols = try csc.columnNonFiniteCounts();
+    defer csc_cols.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csc_cols.data);
+
+    var finite = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 1, 0 }, &.{ 2.0, 3.0 });
+    defer finite.deinit();
+    try std.testing.expectEqual(@as(usize, 0), finite.nonFiniteCount());
+    try std.testing.expect(finite.allFinite());
 }
 
 test "sparse addition canonicalizes duplicate coordinates" {
