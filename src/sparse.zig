@@ -143,6 +143,20 @@ fn sparseElementCount(rows: usize, cols: usize) SparseError!usize {
     return std.math.mul(usize, rows, cols) catch return error.InvalidShape;
 }
 
+fn sparseValueSquareToF64(comptime T: type, value: T) f64 {
+    const numeric = sparseValueToF64(T, value);
+    return numeric * numeric;
+}
+
+fn sparseVarianceFromSums(sum: f64, sum_sq: f64, count: usize, correction: f64) SparseError!f64 {
+    if (count == 0) return error.EmptyArray;
+    const count_float = sparseSizeToF64(count);
+    if (correction < 0 or correction >= count_float) return error.InvalidShape;
+    // Sparse matrices have implicit zeros.  `sum_sq` only needs stored values,
+    // but the divisor and mean are over the full dense logical shape.
+    return (sum_sq - (sum * sum) / count_float) / (count_float - correction);
+}
+
 fn diagonalExtent(diagonal_len: usize, offset: isize) SparseError!struct { size: usize, magnitude: usize, upper: bool } {
     const upper = offset >= 0;
     const magnitude: usize = if (upper)
@@ -678,6 +692,22 @@ pub fn CooMatrix(comptime T: type) type {
             const divisor = sparseSizeToF64(self.rows);
             for (out.data) |*value| value.* /= divisor;
             return out;
+        }
+
+        pub fn variance(self: Self, correction: f64) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            var sum_value: f64 = 0;
+            var sum_sq: f64 = 0;
+            for (self.values) |value| {
+                sum_value += sparseValueToF64(T, value);
+                sum_sq += sparseValueSquareToF64(T, value);
+            }
+            return sparseVarianceFromSums(sum_value, sum_sq, count, correction);
+        }
+
+        pub fn stddev(self: Self, correction: f64) SparseError!f64 {
+            return @sqrt(try self.variance(correction));
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -1625,6 +1655,22 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn variance(self: Self, correction: f64) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            var sum_value: f64 = 0;
+            var sum_sq: f64 = 0;
+            for (self.values) |value| {
+                sum_value += sparseValueToF64(T, value);
+                sum_sq += sparseValueSquareToF64(T, value);
+            }
+            return sparseVarianceFromSums(sum_value, sum_sq, count, correction);
+        }
+
+        pub fn stddev(self: Self, correction: f64) SparseError!f64 {
+            return @sqrt(try self.variance(correction));
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (T == f64) {
@@ -2527,6 +2573,22 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn variance(self: Self, correction: f64) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            var sum_value: f64 = 0;
+            var sum_sq: f64 = 0;
+            for (self.values) |value| {
+                sum_value += sparseValueToF64(T, value);
+                sum_sq += sparseValueSquareToF64(T, value);
+            }
+            return sparseVarianceFromSums(sum_value, sum_sq, count, correction);
+        }
+
+        pub fn stddev(self: Self, correction: f64) SparseError!f64 {
+            return @sqrt(try self.variance(correction));
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (comptime T == f64) {
@@ -2960,6 +3022,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqual(@as(usize, 0), csc_identity.nnz());
     try std.testing.expectError(error.EmptyArray, csc_identity.minValue());
     try std.testing.expectError(error.EmptyArray, csc_identity.mean());
+    try std.testing.expectError(error.EmptyArray, csc_identity.variance(0));
 
     var upper_diag = try cooFromDiagonal(f64, gpa, &.{ 2, 0, 3 }, 2);
     defer upper_diag.deinit();
@@ -3141,6 +3204,8 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try coo.mean(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.variance(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.stddev(0), 1e-12);
 
     var row_means = try coo.rowMeans();
     defer row_means.deinit();
@@ -3452,6 +3517,8 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csr.mean(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.variance(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.stddev(0), 1e-12);
 
     var row_means = try csr.rowMeans();
     defer row_means.deinit();
@@ -3681,6 +3748,8 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csc.mean(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.variance(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.stddev(0), 1e-12);
 
     var row_means = try csc.rowMeans();
     defer row_means.deinit();
