@@ -1595,6 +1595,15 @@ pub fn CooMatrix(comptime T: type) type {
             return bw;
         }
 
+        pub fn bandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (self.row_indices, self.col_indices) |row, col| {
+                const distance = if (row > col) row - col else col - row;
+                if (distance > max_bandwidth) return false;
+            }
+            return true;
+        }
+
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -3179,6 +3188,18 @@ pub fn CsrMatrix(comptime T: type) type {
             return bw;
         }
 
+        pub fn bandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.rows) |r| {
+                for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| {
+                    const c = self.col_indices[pos];
+                    const distance = if (r > c) r - c else c - r;
+                    if (distance > max_bandwidth) return false;
+                }
+            }
+            return true;
+        }
+
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -4627,6 +4648,18 @@ pub fn CscMatrix(comptime T: type) type {
             return bw;
         }
 
+        pub fn bandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.cols) |c| {
+                for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| {
+                    const r = self.row_indices[pos];
+                    const distance = if (r > c) r - c else c - r;
+                    if (distance > max_bandwidth) return false;
+                }
+            }
+            return true;
+        }
+
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -5687,6 +5720,8 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
+    try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
@@ -5738,6 +5773,7 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
@@ -6011,6 +6047,8 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
+    try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
@@ -6060,6 +6098,7 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
@@ -6334,6 +6373,8 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
+    try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
@@ -6369,6 +6410,7 @@ test "csc sparse diagnostics and triangular solve" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
