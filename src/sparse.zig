@@ -266,6 +266,55 @@ fn sparseDiagonalDynamicRangeMeetsBoundFromValues(comptime T: type, values: []co
     return (try sparseDiagonalDynamicRangeFromValues(T, values)) <= max_dynamic_range;
 }
 
+fn sparseDiagonalDominanceFromCanonicalEntries(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+    values: []const T,
+    comptime strict: bool,
+) SparseError!bool {
+    ensureNumeric(T);
+    if (rows != cols) return error.NonMatrixArray;
+    if (rows == 0) return error.EmptyArray;
+
+    var diagonal_seen = try allocator.alloc(bool, rows);
+    defer allocator.free(diagonal_seen);
+    @memset(diagonal_seen, false);
+    var diagonal_abs = try allocator.alloc(f64, rows);
+    defer allocator.free(diagonal_abs);
+    @memset(diagonal_abs, 0);
+    var off_diagonal_abs_sums = try allocator.alloc(f64, rows);
+    defer allocator.free(off_diagonal_abs_sums);
+    @memset(off_diagonal_abs_sums, 0);
+
+    // Callers pass canonicalized structural entries so duplicate coordinates
+    // have already been summed. This keeps dominance checks aligned with
+    // Vectra's dense materialization semantics instead of counting duplicate
+    // off-diagonal magnitudes before cancellation.
+    for (values, row_indices, col_indices) |value, row, col| {
+        const magnitude = sparseValueToF64(T, absValue(T, value));
+        if (row == col) {
+            diagonal_seen[row] = true;
+            diagonal_abs[row] = magnitude;
+        } else {
+            off_diagonal_abs_sums[row] += magnitude;
+        }
+    }
+
+    for (diagonal_seen, diagonal_abs, off_diagonal_abs_sums) |seen, diag, offdiag| {
+        if (!seen) return false;
+        if (strict) {
+            if (!(diag > offdiag)) return false;
+        } else {
+            if (!(diag >= offdiag)) return false;
+        }
+    }
+    return true;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -1374,6 +1423,36 @@ pub fn CooMatrix(comptime T: type) type {
             defer builder.deinit(self.allocator);
             for (self.row_indices, self.col_indices) |row, col| builder.observe(row, col);
             return builder.profile();
+        }
+
+        pub fn diagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                canonical.row_indices,
+                canonical.col_indices,
+                canonical.values,
+                false,
+            );
+        }
+
+        pub fn strictlyDiagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                canonical.row_indices,
+                canonical.col_indices,
+                canonical.values,
+                true,
+            );
         }
 
         pub fn structurallySymmetric(self: Self) SparseError!bool {
@@ -2764,6 +2843,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return builder.profile();
         }
 
+        pub fn diagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                false,
+            );
+        }
+
+        pub fn strictlyDiagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                true,
+            );
+        }
+
         pub fn structurallySymmetric(self: Self) SparseError!bool {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.rows) |r| {
@@ -4002,6 +4115,40 @@ pub fn CscMatrix(comptime T: type) type {
             return builder.profile();
         }
 
+        pub fn diagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                false,
+            );
+        }
+
+        pub fn strictlyDiagonallyDominant(self: Self) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                true,
+            );
+        }
+
         pub fn structurallySymmetric(self: Self) SparseError!bool {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.cols) |c| {
@@ -4591,6 +4738,80 @@ test "sparse diagonal absolute diagnostics" {
     try std.testing.expectError(error.EmptyArray, empty.minAbsDiagonal());
     try std.testing.expectError(error.EmptyArray, empty.diagonalDynamicRange());
     try std.testing.expectError(error.InvalidShape, coo.diagonalDynamicRangeMeetsBound(std.math.nan(f64)));
+}
+
+test "sparse diagonal dominance diagnostics" {
+    const gpa = std.testing.allocator;
+    var strict_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        4, 1, 0,
+        1, 5, 2,
+        0, 2, 6,
+    }, &.{ 3, 3 });
+    defer strict_dense.deinit();
+    var strict_coo = try cooFromDense(f64, strict_dense);
+    defer strict_coo.deinit();
+    try std.testing.expect(try strict_coo.diagonallyDominant());
+    try std.testing.expect(try strict_coo.strictlyDiagonallyDominant());
+
+    var strict_csr = try strict_coo.toCsr();
+    defer strict_csr.deinit();
+    try std.testing.expect(try strict_csr.diagonallyDominant());
+    try std.testing.expect(try strict_csr.strictlyDiagonallyDominant());
+
+    var strict_csc = try strict_coo.toCsc();
+    defer strict_csc.deinit();
+    try std.testing.expect(try strict_csc.diagonallyDominant());
+    try std.testing.expect(try strict_csc.strictlyDiagonallyDominant());
+
+    var weak_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 1,
+        0, 2,
+    }, &.{ 2, 2 });
+    defer weak_dense.deinit();
+    var weak = try csrFromDense(f64, weak_dense);
+    defer weak.deinit();
+    try std.testing.expect(try weak.diagonallyDominant());
+    try std.testing.expect(!(try weak.strictlyDiagonallyDominant()));
+
+    var non_dominant_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,
+        0, 1,
+    }, &.{ 2, 2 });
+    defer non_dominant_dense.deinit();
+    var non_dominant = try cscFromDense(f64, non_dominant_dense);
+    defer non_dominant.deinit();
+    try std.testing.expect(!(try non_dominant.diagonallyDominant()));
+    try std.testing.expect(!(try non_dominant.strictlyDiagonallyDominant()));
+
+    var missing = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 0 }, &.{ 3.0, 1.0, 1.0 });
+    defer missing.deinit();
+    try std.testing.expect(!(try missing.diagonallyDominant()));
+    try std.testing.expect(!(try missing.strictlyDiagonallyDominant()));
+
+    var duplicate_cancel = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 0, 1 }, &.{ 0, 1, 1, 1 }, &.{ 1.0, 5.0, -5.0, 1.0 });
+    defer duplicate_cancel.deinit();
+    try std.testing.expect(try duplicate_cancel.diagonallyDominant());
+    try std.testing.expect(try duplicate_cancel.strictlyDiagonallyDominant());
+
+    var rectangular = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1 }, &.{ 0, 2 }, &.{ 1.0, 2.0 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.diagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.strictlyDiagonallyDominant());
+
+    var rectangular_csr = try rectangular.toCsr();
+    defer rectangular_csr.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.diagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.strictlyDiagonallyDominant());
+
+    var rectangular_csc = try rectangular.toCsc();
+    defer rectangular_csc.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.diagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.strictlyDiagonallyDominant());
+
+    var empty = try cooFromSlices(f64, gpa, 0, 0, &.{}, &.{}, &.{});
+    defer empty.deinit();
+    try std.testing.expectError(error.EmptyArray, empty.diagonallyDominant());
+    try std.testing.expectError(error.EmptyArray, empty.strictlyDiagonallyDominant());
 }
 
 test "sparse addition canonicalizes duplicate coordinates" {
