@@ -601,6 +601,32 @@ test "device lazy parquet scan pushes literal isin columns as range predicates" 
     defer gpa.free(binary_overwrite_explain);
     try std.testing.expect(std.mem.indexOf(u8, binary_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, binary_overwrite_explain, "range=sales") == null);
+
+    var inplace_scalar_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer inplace_scalar_scan.deinit();
+    try inplace_scalar_scan.withColumnScalar("sales", "sales", f64, 1.0, .add);
+    try inplace_scalar_scan.select(&.{"sales"});
+    const inplace_scalar_explain = try inplace_scalar_scan.explain(gpa);
+    defer gpa.free(inplace_scalar_explain);
+    try std.testing.expect(std.mem.indexOf(u8, inplace_scalar_explain, "scan_pushdown: projection=[sales]") != null);
+    var inplace_scalar = try inplace_scalar_scan.collect();
+    defer inplace_scalar.deinit();
+    const inplace_scalar_sales = try (try inplace_scalar.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inplace_scalar_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 4.0, 6.0 }, inplace_scalar_sales);
+
+    var inplace_binary_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer inplace_binary_scan.deinit();
+    try inplace_binary_scan.withColumnBinary("sales", "sales", "sales", .add);
+    try inplace_binary_scan.select(&.{"sales"});
+    const inplace_binary_explain = try inplace_binary_scan.explain(gpa);
+    defer gpa.free(inplace_binary_explain);
+    try std.testing.expect(std.mem.indexOf(u8, inplace_binary_explain, "scan_pushdown: projection=[sales]") != null);
+    var inplace_binary = try inplace_binary_scan.collect();
+    defer inplace_binary.deinit();
+    const inplace_binary_sales = try (try inplace_binary.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inplace_binary_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0 }, inplace_binary_sales);
 }
 
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {

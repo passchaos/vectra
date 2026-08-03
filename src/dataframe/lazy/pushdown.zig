@@ -66,6 +66,62 @@ fn markDerivedName(
     _ = literal_scalars.remove(name);
 }
 
+fn addSourceNameRequirement(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: []const []const u8,
+    name: []const u8,
+) std.mem.Allocator.Error!void {
+    if (!nameInBorrowedList(name, derived_names)) {
+        try appendOwnedNameUnique(allocator, required_names, name);
+    }
+}
+
+fn addUnaryColumnOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    output_name: []const u8,
+    input_name: []const u8,
+) std.mem.Allocator.Error!void {
+    // Dependencies are evaluated before the output is marked as derived so an
+    // in-place expression such as withColumnAbs("x", "x") still projects the
+    // source column needed to compute the replacement.
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, input_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+}
+
+fn addBinaryColumnOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    output_name: []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+) std.mem.Allocator.Error!void {
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, lhs_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, rhs_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+}
+
+fn addTernaryColumnOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    output_name: []const u8,
+    first_name: []const u8,
+    second_name: []const u8,
+    third_name: []const u8,
+) std.mem.Allocator.Error!void {
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, first_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, second_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, third_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+}
+
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
     projection: ?[][]const u8 = null,
@@ -571,312 +627,89 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .with_column_log2,
             .with_column_log10,
             => |expr| {
-                try markDerivedName(allocator, &derived_names, &literal_scalars, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
-            .with_column_leaky_relu => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_pow_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_floor_div_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_mod_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_remainder_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_log_add_exp_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_log_add_exp2_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_xlogy_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_fmax_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_fmin_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_hypot_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_atan2_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_next_after_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_copysign_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_heaviside_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_ldexp_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_threshold => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_hardtanh => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_between => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_maximum_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_minimum_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_clip_min => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_clip_max => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_hardshrink => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_softshrink => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_elu => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-            },
-            .with_column_celu => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+            inline .with_column_leaky_relu,
+            .with_column_pow_scalar,
+            .with_column_floor_div_scalar,
+            .with_column_mod_scalar,
+            .with_column_remainder_scalar,
+            .with_column_log_add_exp_scalar,
+            .with_column_log_add_exp2_scalar,
+            .with_column_xlogy_scalar,
+            .with_column_fmax_scalar,
+            .with_column_fmin_scalar,
+            .with_column_hypot_scalar,
+            .with_column_atan2_scalar,
+            .with_column_next_after_scalar,
+            .with_column_copysign_scalar,
+            .with_column_heaviside_scalar,
+            .with_column_ldexp_scalar,
+            .with_column_threshold,
+            .with_column_hardtanh,
+            .with_column_between,
+            .with_column_maximum_scalar,
+            .with_column_minimum_scalar,
+            .with_column_clip_min,
+            .with_column_clip_max,
+            .with_column_hardshrink,
+            .with_column_softshrink,
+            .with_column_elu,
+            .with_column_celu,
+            .with_column_scalar,
+            => |expr| {
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_binary => |expr| {
-                try markDerivedName(allocator, &derived_names, &literal_scalars, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-            },
-            .with_column_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                _ = literal_scalars.remove(expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_lerp_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_addcmul_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.base_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.base_name);
-                }
-                if (!nameInBorrowedList(expr.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                }
-                if (!nameInBorrowedList(expr.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-                }
+                try addTernaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.base_name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_addcdiv_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.base_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.base_name);
-                }
-                if (!nameInBorrowedList(expr.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                }
-                if (!nameInBorrowedList(expr.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-                }
+                try addTernaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.base_name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_clip_array => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                }
-                if (!nameInBorrowedList(expr.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-                }
+                try addTernaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_where => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                }
-                if (!nameInBorrowedList(expr.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-                }
+                try addTernaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_where_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.mask_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.mask_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.mask_name);
             },
             .with_column_isin => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.test_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.test_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.test_name);
             },
             .with_column_isin_values => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_masked_put_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.mask_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.mask_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.mask_name);
             },
             .with_column_put_flat_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_put_flat => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
-                if (!nameInBorrowedList(expr.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.value_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name, expr.value_name);
             },
             .with_column_put_flat_scalar_mode => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_put_flat_scalar_signed => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_isclose_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_logical => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                if (!nameInBorrowedList(expr.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                }
-                if (!nameInBorrowedList(expr.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_logical_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .with_column_literal => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
