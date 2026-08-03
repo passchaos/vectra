@@ -9,7 +9,7 @@ const correlation_mod = @import("../correlation.zig");
 const linear_fit_mod = @import("../linear_fit.zig");
 const crossover_mod = @import("../crossover.zig");
 const bucket_mod = @import("../../dataframe_bucket.zig");
-const ema_mod = @import("../../dataframe_ema.zig");
+const ema_mod = @import("../ema.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const series_mod = @import("../../series.zig");
 
