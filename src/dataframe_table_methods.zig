@@ -3746,6 +3746,25 @@ pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
 pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
 pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
 
+pub fn withRowCumulativeWeightedSkewness(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedSkewness(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedKurtosis(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedKurtosis(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumulativeWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedKurt = withRowCumulativeWeightedKurtosis;
+
 pub fn withRowCumulativeWeightedWeightSum(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowCumulativeWeightedWeightSum(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }

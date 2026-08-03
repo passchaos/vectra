@@ -3389,6 +3389,8 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_cumulative_weighted_sem => |row_weighted| try cloneRowWeightedColumnOutputsDispersion(Self, allocator, row_weighted, "row_cumulative_weighted_sem"),
         .row_cumulative_weighted_cv => |row_weighted| try cloneRowWeightedColumnOutputsDispersion(Self, allocator, row_weighted, "row_cumulative_weighted_cv"),
         .row_cumulative_weighted_fano => |row_weighted| try cloneRowWeightedColumnOutputsDispersion(Self, allocator, row_weighted, "row_cumulative_weighted_fano"),
+        .row_cumulative_weighted_skewness => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_skewness"),
+        .row_cumulative_weighted_kurtosis => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_kurtosis"),
         .row_cumulative_weighted_weight_sum => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_weight_sum"),
         .row_cumulative_weighted_positive_count => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_positive_count"),
         .row_cumulative_weighted_effective_n => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_effective_n"),

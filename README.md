@@ -798,6 +798,8 @@ summaries.
 `withRowCumulativeWeightedSem`, `withRowCumulativeWeightedCv`, and
 `withRowCumulativeWeightedFano` add correction-aware prefix weighted dispersion
 diagnostics.
+`withRowCumulativeWeightedSkewness` and
+`withRowCumulativeWeightedKurtosis` add prefix weighted shape diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

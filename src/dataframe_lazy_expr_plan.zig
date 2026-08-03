@@ -4000,6 +4000,38 @@ pub const withRowPrefixWeightedCv = withRowCumulativeWeightedCv;
 pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
 pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
 
+fn withRowCumulativeWeightedShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { skewness, kurtosis }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .skewness => .{ .row_cumulative_weighted_skewness = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .kurtosis => .{ .row_cumulative_weighted_kurtosis = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedSkewness(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedShape(frame, value_names, weight_names, output_names, .skewness);
+}
+
+pub fn withRowCumulativeWeightedKurtosis(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedShape(frame, value_names, weight_names, output_names, .kurtosis);
+}
+
+pub const withRowCumulativeWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumulativeWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedKurt = withRowCumulativeWeightedKurtosis;
+
 fn withRowCumulativeWeightedSupport(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

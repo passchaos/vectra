@@ -2650,6 +2650,25 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedCV = withRowCumulativeWeightedCv;
             pub const withRowPrefixWeightedFano = withRowCumulativeWeightedFano;
 
+            pub fn withRowCumulativeWeightedSkewness(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedSkewness(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedKurtosis(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedKurtosis(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedSkew = withRowCumulativeWeightedSkewness;
+            pub const withRowCumulativeWeightedKurt = withRowCumulativeWeightedKurtosis;
+            pub const withRowCumWeightedSkewness = withRowCumulativeWeightedSkewness;
+            pub const withRowCumWeightedSkew = withRowCumulativeWeightedSkewness;
+            pub const withRowCumWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+            pub const withRowCumWeightedKurt = withRowCumulativeWeightedKurtosis;
+            pub const withRowPrefixWeightedSkewness = withRowCumulativeWeightedSkewness;
+            pub const withRowPrefixWeightedSkew = withRowCumulativeWeightedSkewness;
+            pub const withRowPrefixWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+            pub const withRowPrefixWeightedKurt = withRowCumulativeWeightedKurtosis;
+
             pub fn withRowCumulativeWeightedWeightSum(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowCumulativeWeightedWeightSum(self, value_names, weight_names, output_names);
             }

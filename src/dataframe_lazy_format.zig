@@ -750,6 +750,8 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_sem => |row_weighted| try formatRowWeightedColumnOutputsDispersionPayload(writer, "row_cumulative_weighted_sem", row_weighted),
         .row_cumulative_weighted_cv => |row_weighted| try formatRowWeightedColumnOutputsDispersionPayload(writer, "row_cumulative_weighted_cv", row_weighted),
         .row_cumulative_weighted_fano => |row_weighted| try formatRowWeightedColumnOutputsDispersionPayload(writer, "row_cumulative_weighted_fano", row_weighted),
+        .row_cumulative_weighted_skewness => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_skewness", row_weighted),
+        .row_cumulative_weighted_kurtosis => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_kurtosis", row_weighted),
         .row_cumulative_weighted_weight_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_weight_sum", row_weighted),
         .row_cumulative_weighted_positive_count => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_positive_count", row_weighted),
         .row_cumulative_weighted_effective_n => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_effective_n", row_weighted),

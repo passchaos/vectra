@@ -761,6 +761,8 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_weighted_sem => |row_weighted| try current.withRowCumulativeWeightedSem(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names, row_weighted.correction),
             .row_cumulative_weighted_cv => |row_weighted| try current.withRowCumulativeWeightedCv(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names, row_weighted.correction),
             .row_cumulative_weighted_fano => |row_weighted| try current.withRowCumulativeWeightedFano(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names, row_weighted.correction),
+            .row_cumulative_weighted_skewness => |row_weighted| try current.withRowCumulativeWeightedSkewness(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),
+            .row_cumulative_weighted_kurtosis => |row_weighted| try current.withRowCumulativeWeightedKurtosis(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_weight_sum => |row_weighted| try current.withRowCumulativeWeightedWeightSum(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_positive_count => |row_weighted| try current.withRowCumulativeWeightedPositiveCount(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_effective_n => |row_weighted| try current.withRowCumulativeWeightedEffectiveN(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),

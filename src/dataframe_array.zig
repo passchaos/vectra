@@ -5307,6 +5307,103 @@ pub const withRowWeightedCV = withRowWeightedCv;
 
 const RowWeightedShapeReduction = enum { skewness, kurtosis };
 
+fn finishRowWeightedShape(weight_sum: f64, centered2_raw: f64, centered3: f64, centered4: f64, comptime reduction: RowWeightedShapeReduction) f64 {
+    var centered2 = centered2_raw;
+    if (centered2 < 0.0 and centered2 > -1e-12) centered2 = 0.0;
+    if (centered2 == 0.0) return quietNanF64();
+    return switch (reduction) {
+        .skewness => std.math.sqrt(weight_sum) * centered3 / std.math.pow(f64, centered2, 1.5),
+        .kurtosis => weight_sum * centered4 / (centered2 * centered2) - 3.0,
+    };
+}
+
+fn finishRowWeightedShapeFromRaw(weight_sum: f64, sum1: f64, sum2: f64, sum3: f64, sum4: f64, comptime reduction: RowWeightedShapeReduction) f64 {
+    const mean = sum1 / weight_sum;
+    const mean2 = mean * mean;
+    const centered2 = sum2 - sum1 * sum1 / weight_sum;
+    const centered3 = sum3 - 3.0 * mean * sum2 + 3.0 * mean2 * sum1 - mean2 * mean * weight_sum;
+    const centered4 = sum4 - 4.0 * mean * sum3 + 6.0 * mean2 * sum2 - 4.0 * mean2 * mean * sum1 + mean2 * mean2 * weight_sum;
+    return finishRowWeightedShape(weight_sum, centered2, centered3, centered4, reduction);
+}
+
+fn withRowCumulativeWeightedShape(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowWeightedShapeReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        var weight_sum: f64 = 0.0;
+        var sum1: f64 = 0.0;
+        var sum2: f64 = 0.0;
+        var sum3: f64 = 0.0;
+        var sum4: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                const value = flat.values[offset];
+                const value2 = value * value;
+                weight_sum += weight;
+                sum1 += value * weight;
+                sum2 += value2 * weight;
+                sum3 += value2 * value * weight;
+                sum4 += value2 * value2 * weight;
+            }
+            if (!(weight_sum > 0.0)) continue;
+            cumulative[offset] = finishRowWeightedShapeFromRaw(weight_sum, sum1, sum2, sum3, sum4, reduction);
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedSkewness(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedShape(DeviceDataFrame, input, value_names, weight_names, output_names, .skewness);
+}
+
+pub fn withRowCumulativeWeightedKurtosis(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedShape(DeviceDataFrame, input, value_names, weight_names, output_names, .kurtosis);
+}
+
+pub const withRowCumulativeWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumulativeWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowCumWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowCumWeightedKurt = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedSkewness = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedSkew = withRowCumulativeWeightedSkewness;
+pub const withRowPrefixWeightedKurtosis = withRowCumulativeWeightedKurtosis;
+pub const withRowPrefixWeightedKurt = withRowCumulativeWeightedKurtosis;
+
 fn withRowWeightedShape(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -5354,10 +5451,7 @@ fn withRowWeightedShape(
             centered4 += weight * centered_sq * centered_sq;
         }
 
-        values[row] = if (centered2 == 0.0) quietNanF64() else switch (reduction) {
-            .skewness => std.math.sqrt(weight_sum) * centered3 / std.math.pow(f64, centered2, 1.5),
-            .kurtosis => weight_sum * centered4 / (centered2 * centered2) - 3.0,
-        };
+        values[row] = finishRowWeightedShape(weight_sum, centered2, centered3, centered4, reduction);
         validity[row] = true;
     }
 
