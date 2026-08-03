@@ -281,6 +281,65 @@ fn sparseCountSpreadMeetsBound(counts: []const usize, max_spread: usize) bool {
     return sparseCountSpread(counts) <= max_spread;
 }
 
+fn sparseColumnIntersectionBandwidthFromCoo(
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+) SparseError!usize {
+    if (cols == 0) return 0;
+    var row_seen = try allocator.alloc(bool, rows);
+    defer allocator.free(row_seen);
+
+    var bandwidth: usize = 0;
+    for (0..cols) |left_col| {
+        @memset(row_seen, false);
+        for (row_indices, col_indices) |row, col| {
+            if (col == left_col) row_seen[row] = true;
+        }
+
+        for ((left_col + 1)..cols) |right_col| {
+            for (row_indices, col_indices) |row, col| {
+                if (col == right_col and row_seen[row]) {
+                    const distance = right_col - left_col;
+                    if (distance > bandwidth) bandwidth = distance;
+                    break;
+                }
+            }
+        }
+    }
+    return bandwidth;
+}
+
+fn sparseColumnIntersectionBandwidthMeetsBoundFromCoo(
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+    max_bandwidth: usize,
+) SparseError!bool {
+    if (cols == 0) return true;
+    var row_seen = try allocator.alloc(bool, rows);
+    defer allocator.free(row_seen);
+
+    for (0..cols) |left_col| {
+        @memset(row_seen, false);
+        for (row_indices, col_indices) |row, col| {
+            if (col == left_col) row_seen[row] = true;
+        }
+
+        for ((left_col + 1)..cols) |right_col| {
+            if (right_col - left_col <= max_bandwidth) continue;
+            for (row_indices, col_indices) |row, col| {
+                if (col == right_col and row_seen[row]) return false;
+            }
+        }
+    }
+    return true;
+}
+
 fn sparseElementCount(rows: usize, cols: usize) SparseError!usize {
     return std.math.mul(usize, rows, cols) catch return error.InvalidShape;
 }
@@ -1676,6 +1735,14 @@ pub fn CooMatrix(comptime T: type) type {
                 if (distance > max_bandwidth) return false;
             }
             return true;
+        }
+
+        pub fn columnIntersectionBandwidth(self: Self) SparseError!usize {
+            return sparseColumnIntersectionBandwidthFromCoo(self.allocator, self.rows, self.cols, self.row_indices, self.col_indices);
+        }
+
+        pub fn columnIntersectionBandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            return sparseColumnIntersectionBandwidthMeetsBoundFromCoo(self.allocator, self.rows, self.cols, self.row_indices, self.col_indices, max_bandwidth);
         }
 
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
@@ -3290,6 +3357,18 @@ pub fn CsrMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn columnIntersectionBandwidth(self: Self) SparseError!usize {
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            return coo.columnIntersectionBandwidth();
+        }
+
+        pub fn columnIntersectionBandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            return coo.columnIntersectionBandwidthMeetsBound(max_bandwidth);
+        }
+
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -4766,6 +4845,18 @@ pub fn CscMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn columnIntersectionBandwidth(self: Self) SparseError!usize {
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            return coo.columnIntersectionBandwidth();
+        }
+
+        pub fn columnIntersectionBandwidthMeetsBound(self: Self, max_bandwidth: usize) SparseError!bool {
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            return coo.columnIntersectionBandwidthMeetsBound(max_bandwidth);
+        }
+
         pub fn lowerNnz(self: Self, comptime strict: bool) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -5836,6 +5927,9 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.columnIntersectionBandwidth());
+    try std.testing.expect(try symmetric.columnIntersectionBandwidthMeetsBound(2));
+    try std.testing.expect(!(try symmetric.columnIntersectionBandwidthMeetsBound(1)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
@@ -6167,6 +6261,9 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.columnIntersectionBandwidth());
+    try std.testing.expect(try symmetric.columnIntersectionBandwidthMeetsBound(2));
+    try std.testing.expect(!(try symmetric.columnIntersectionBandwidthMeetsBound(1)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
@@ -6497,6 +6594,9 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
+    try std.testing.expectEqual(@as(usize, 2), try symmetric.columnIntersectionBandwidth());
+    try std.testing.expect(try symmetric.columnIntersectionBandwidthMeetsBound(2));
+    try std.testing.expect(!(try symmetric.columnIntersectionBandwidthMeetsBound(1)));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.lowerNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
