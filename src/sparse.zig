@@ -240,6 +240,115 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn get(self: Self, row: usize, col: usize) ?T {
+            if (row >= self.rows or col >= self.cols) return null;
+            var found = false;
+            var total = zero(T);
+            for (self.values, 0..) |value, i| {
+                if (self.row_indices[i] == row and self.col_indices[i] == col) {
+                    total = addSparseValue(T, total, value);
+                    found = true;
+                }
+            }
+            return if (found) total else null;
+        }
+
+        fn hasEntry(self: Self, row: usize, col: usize) bool {
+            if (row >= self.rows or col >= self.cols) return false;
+            for (self.row_indices, self.col_indices) |entry_row, entry_col| {
+                if (entry_row == row and entry_col == col) return true;
+            }
+            return false;
+        }
+
+        pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                if (row == self.col_indices[i]) out.data[row] = addSparseValue(T, out.data[row], value);
+            }
+            return out;
+        }
+
+        pub fn trace(self: Self) SparseError!T {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var total = zero(T);
+            for (self.values, 0..) |value, i| {
+                if (self.row_indices[i] == self.col_indices[i]) total += value;
+            }
+            return total;
+        }
+
+        pub fn missingDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var seen = try self.allocator.alloc(bool, self.rows);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            for (self.row_indices, self.col_indices) |row, col| {
+                if (row == col) seen[row] = true;
+            }
+            var count: usize = 0;
+            for (seen) |present| {
+                if (!present) count += 1;
+            }
+            return count;
+        }
+
+        pub fn zeroDiagonalCount(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var seen = try self.allocator.alloc(bool, self.rows);
+            defer self.allocator.free(seen);
+            @memset(seen, false);
+            var diagonal_values = try self.allocator.alloc(T, self.rows);
+            defer self.allocator.free(diagonal_values);
+            @memset(diagonal_values, zero(T));
+
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                if (row == self.col_indices[i]) {
+                    diagonal_values[row] = addSparseValue(T, diagonal_values[row], value);
+                    seen[row] = true;
+                }
+            }
+            var count: usize = 0;
+            for (seen, diagonal_values) |present, value| {
+                if (present and value == zero(T)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn bandwidth(self: Self) SparseError!usize {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            var bw: usize = 0;
+            for (self.row_indices, self.col_indices) |row, col| {
+                const distance = if (row > col) row - col else col - row;
+                if (distance > bw) bw = distance;
+            }
+            return bw;
+        }
+
+        pub fn structurallySymmetric(self: Self) SparseError!bool {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (self.row_indices, self.col_indices) |row, col| {
+                if (!self.hasEntry(col, row)) return false;
+            }
+            return true;
+        }
+
+        pub fn numericallySymmetric(self: Self, tolerance: T) SparseError!bool {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (self.row_indices, self.col_indices) |row, col| {
+                const value = self.get(row, col) orelse return false;
+                const mirror = self.get(col, row) orelse return false;
+                if (absValue(T, value - mirror) > tolerance) return false;
+            }
+            return true;
+        }
+
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
             errdefer out.deinit();
@@ -1702,6 +1811,61 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
+}
+
+test "coo sparse diagnostics and duplicate coordinate access" {
+    const gpa = std.testing.allocator;
+    var symmetric_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        4, 1, 0,
+        1, 5, 2,
+        0, 2, 6,
+    }, &.{ 3, 3 });
+    defer symmetric_dense.deinit();
+    var symmetric = try cooFromDense(f64, symmetric_dense);
+    defer symmetric.deinit();
+
+    var diagonal = try symmetric.diagonal();
+    defer diagonal.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
+    try std.testing.expect(try symmetric.structurallySymmetric());
+    try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
+    try std.testing.expect(symmetric.get(0, 2) == null);
+
+    var nonsym_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2, 0,
+        0, 0, 3,
+        0, 0, 4,
+    }, &.{ 3, 3 });
+    defer nonsym_dense.deinit();
+    var nonsym = try cooFromDense(f64, nonsym_dense);
+    defer nonsym.deinit();
+    try std.testing.expectEqual(@as(usize, 1), try nonsym.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 0), try nonsym.zeroDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
+    try std.testing.expect(!(try nonsym.structurallySymmetric()));
+    try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+
+    var duplicate_diagonal = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1, 1 }, &.{ 0, 0, 0, 1, 1 }, &.{ 1, 2, 3, 4, -4 });
+    defer duplicate_diagonal.deinit();
+    var duplicate_diag = try duplicate_diagonal.diagonal();
+    defer duplicate_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 0 }, duplicate_diag.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try duplicate_diagonal.trace(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try duplicate_diagonal.missingDiagonalCount());
+    try std.testing.expectEqual(@as(usize, 1), try duplicate_diagonal.zeroDiagonalCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 3), duplicate_diagonal.get(0, 0).?, 1e-12);
+    try std.testing.expect(!(try duplicate_diagonal.structurallySymmetric()));
+
+    var duplicate_symmetric = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1 }, &.{ 1, 1, 0, 0 }, &.{ 1, 2, 1.5, 1.5 });
+    defer duplicate_symmetric.deinit();
+    try std.testing.expectEqual(@as(usize, 2), try duplicate_symmetric.missingDiagonalCount());
+    try std.testing.expect(try duplicate_symmetric.structurallySymmetric());
+    try std.testing.expect(try duplicate_symmetric.numericallySymmetric(1e-12));
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {
