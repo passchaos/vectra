@@ -687,6 +687,18 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
+        pub fn coalesced(self: Self) SparseError!Self {
+            // Reuse COO canonicalization so CSR/CSC/COO all share one
+            // duplicate-coordinate policy: sort by full matrix coordinates and
+            // aggregate repeated entries without implicitly dropping explicit
+            // structural zeros.
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            var canonical = try coo.coalesced();
+            defer canonical.deinit();
+            return canonical.toCsr();
+        }
+
         pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
             var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
             errdefer self.allocator.free(col_offsets);
@@ -1320,6 +1332,16 @@ pub fn CscMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn coalesced(self: Self) SparseError!Self {
+            // Keep compressed-format canonicalization semantically identical to
+            // COO coalescing while still returning CSC ownership to callers.
+            var coo = try self.toCoo();
+            defer coo.deinit();
+            var canonical = try coo.coalesced();
+            defer canonical.deinit();
+            return canonical.toCsc();
         }
 
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
@@ -2151,6 +2173,15 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
     try std.testing.expect(try duplicate.structurallySymmetric());
     try std.testing.expect(try duplicate.numericallySymmetric(1e-12));
+
+    var duplicate_coalesced = try duplicate.coalesced();
+    defer duplicate_coalesced.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4 }, duplicate_coalesced.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0, 1 }, duplicate_coalesced.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced.values);
+    var duplicate_coalesced_dense = try duplicate_coalesced.toDense();
+    defer duplicate_coalesced_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced_dense.data);
 }
 
 test "csr sparse transpose products and triangular solves" {
@@ -2329,6 +2360,15 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
     try std.testing.expect(try duplicate.structurallySymmetric());
     try std.testing.expect(try duplicate.numericallySymmetric(1e-12));
+
+    var duplicate_coalesced = try duplicate.coalesced();
+    defer duplicate_coalesced.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4 }, duplicate_coalesced.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0, 1 }, duplicate_coalesced.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced.values);
+    var duplicate_coalesced_dense = try duplicate_coalesced.toDense();
+    defer duplicate_coalesced_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced_dense.data);
 
     var lower_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         2,  0, 0,

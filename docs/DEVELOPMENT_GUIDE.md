@@ -164,6 +164,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.matvec()`：f64 路径复用 `veyra.csrMatvec`，其它 numeric dtype 保留泛型回退。
 - `CsrMatrix.matmat()`：f64 路径复用 `veyra.csrMatmat`。
 - `CsrMatrix.transpose()` / `toCsc()` / `toCoo()`：CSR 转置与 CSC/COO 转换。
+- `CsrMatrix.coalesced()`：返回每行列索引有序、重复坐标已聚合的 CSR 副本。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：CSR 行列统计，f64 路径优先复用 Veyra。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
@@ -177,6 +178,7 @@ CSC 当前支持：
 - `CscMatrix(T)`：Vectra 自有 CSC 所有权包装。
 - `cscFromDense` / `cscFromCompressed`：构建 CSC。
 - `CscMatrix.toDense()` / `toCsr()` / `toCoo()`：dense/CSR/COO 转换。
+- `CscMatrix.coalesced()`：返回每列行索引有序、重复坐标已聚合的 CSC 副本。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。
