@@ -31,6 +31,7 @@ const addRowMultiOutputRequirements = requirements_mod.addRowMultiOutputRequirem
 const addRowSingleOutputRequirements = requirements_mod.addRowSingleOutputRequirements;
 const addRowWeightedPairColumnOutputRequirements = requirements_mod.addRowWeightedPairColumnOutputRequirements;
 const addSourceNameRequirement = requirements_mod.addSourceNameRequirement;
+const addSourceNameRequirements = requirements_mod.addSourceNameRequirements;
 const addTernaryColumnOutputRequirements = requirements_mod.addTernaryColumnOutputRequirements;
 const addUnaryColumnOutputRequirements = requirements_mod.addUnaryColumnOutputRequirements;
 const addWeightedPairRowSingleOutputRequirements = requirements_mod.addWeightedPairRowSingleOutputRequirements;
@@ -72,9 +73,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
         switch (op) {
             .select => |names| {
                 saw_select = true;
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .select_column_indices,
             .select_column_range,
@@ -200,25 +199,19 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .drop_nulls => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
                 }
             },
             .drop_all_nulls => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
                 }
             },
             .filter_all_nulls => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
                 if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
                     try setNullPredicate(allocator, &null_predicate, names[0], true);
                 }
@@ -238,9 +231,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_nans_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -254,9 +245,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_infs_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -266,9 +255,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_positive_infs_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -278,9 +265,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_negative_infs_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -290,9 +275,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_zeros_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -302,9 +285,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_positive_zeros_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -314,9 +295,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_negative_zeros_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -326,9 +305,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_non_zeros_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -338,9 +315,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_positives_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -350,9 +325,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_signbits_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -362,9 +335,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_negatives_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -374,9 +345,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_finites_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -386,9 +355,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_normals_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -398,9 +365,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_subnormals_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -414,9 +379,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     projection_blocked = true;
                     break :op_loop;
                 }
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_non_finites_column => |name| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
@@ -759,9 +722,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_count_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 saw_select = true;
                 break :op_loop;
             },
@@ -772,9 +733,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_rows_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
@@ -787,9 +746,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_sorted_rows_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.sort_name);
                 projection_blocked = true;
                 saw_select = true;
@@ -797,20 +754,14 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             },
             .group_by_sorted_rows_columns => |group| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.key_name);
-                for (group.sort_names) |sort_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.sort_names);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
             },
             .group_by_sorted_rows_columns_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
-                for (group.sort_names) |sort_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.sort_names);
                 projection_blocked = true;
                 saw_select = true;
                 break :op_loop;
@@ -822,9 +773,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_value_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
@@ -837,9 +786,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_weighted_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
                 saw_select = true;
@@ -853,9 +800,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_pair_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
                 saw_select = true;
@@ -870,9 +815,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_weighted_pair_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.lhs_name);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.rhs_name);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.weight_name);
@@ -886,9 +829,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_stats_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
@@ -900,9 +841,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 break :op_loop;
             },
             .group_by_profile_on => |group| {
-                for (group.key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, group.key_names);
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, group.value_name);
                 saw_select = true;
                 break :op_loop;
@@ -916,9 +855,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 // pushdown for the left source rather than risk dropping a left
                 // payload or requesting a right column from the source scan.
                 projection_blocked = true;
-                for (join.left_key_names) |key_name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, key_name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, join.left_key_names);
                 break :op_loop;
             },
             .asof_join => |join| {
@@ -943,19 +880,13 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 projection_blocked = true;
             },
             .distinct_on => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .distinct_on_last => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .distinct_on_none => |names| {
-                for (names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, names);
             },
             .filter_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
@@ -1028,17 +959,13 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, sort.name);
             },
             .sort_by_columns => |sort| {
-                for (sort.names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, sort.names);
             },
             .top_k => |top| {
                 try addSourceNameRequirement(allocator, &required_names, derived_names.items, top.name);
             },
             .top_k_columns => |top| {
-                for (top.names) |name| {
-                    try addSourceNameRequirement(allocator, &required_names, derived_names.items, name);
-                }
+                try addSourceNameRequirements(allocator, &required_names, derived_names.items, top.names);
             },
             .rank_profile_by,
             .rolling_profile,

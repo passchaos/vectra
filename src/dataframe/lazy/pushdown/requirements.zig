@@ -72,6 +72,17 @@ pub fn addSourceNameRequirement(
     }
 }
 
+pub fn addSourceNameRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: []const []const u8,
+    names: []const []const u8,
+) std.mem.Allocator.Error!void {
+    for (names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names, name);
+    }
+}
+
 pub fn addUnaryColumnOutputRequirements(
     allocator: std.mem.Allocator,
     required_names: *std.ArrayList([]const u8),
