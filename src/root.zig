@@ -132,6 +132,12 @@ pub const cscFromDense = sparse.cscFromDense;
 pub const cscFromCompressed = sparse.cscFromCompressed;
 pub const cooFromDense = sparse.cooFromDense;
 pub const cooFromSlices = sparse.cooFromSlices;
+pub const cooEye = sparse.cooEye;
+pub const cooIdentity = sparse.cooIdentity;
+pub const csrEye = sparse.csrEye;
+pub const csrIdentity = sparse.csrIdentity;
+pub const cscEye = sparse.cscEye;
+pub const cscIdentity = sparse.cscIdentity;
 
 pub const MatrixNormOrder = array_mod.MatrixNormOrder;
 pub const Triangle = array_mod.Triangle;

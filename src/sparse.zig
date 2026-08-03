@@ -123,6 +123,34 @@ pub fn CooMatrix(comptime T: type) type {
             return lhs_row < rhs_row or (lhs_row == rhs_row and lhs_col < rhs_col);
         }
 
+        pub fn eye(allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!Self {
+            const diag_len = @min(rows, cols);
+            var row_indices = try allocator.alloc(usize, diag_len);
+            errdefer allocator.free(row_indices);
+            var col_indices = try allocator.alloc(usize, diag_len);
+            errdefer allocator.free(col_indices);
+            var values = try allocator.alloc(T, diag_len);
+            errdefer allocator.free(values);
+
+            for (0..diag_len) |i| {
+                row_indices[i] = i;
+                col_indices[i] = i;
+                values[i] = oneValue(T);
+            }
+            return .{
+                .allocator = allocator,
+                .rows = rows,
+                .cols = cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
+            return Self.eye(allocator, size, size);
+        }
+
         pub fn fromSlices(
             allocator: std.mem.Allocator,
             rows: usize,
@@ -770,6 +798,40 @@ pub fn CsrMatrix(comptime T: type) type {
         row_offsets: []usize,
         col_indices: []usize,
         values: []T,
+
+        pub fn eye(allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!Self {
+            const diag_len = @min(rows, cols);
+            var row_offsets = try allocator.alloc(usize, rows + 1);
+            errdefer allocator.free(row_offsets);
+            var col_indices = try allocator.alloc(usize, diag_len);
+            errdefer allocator.free(col_indices);
+            var values = try allocator.alloc(T, diag_len);
+            errdefer allocator.free(values);
+
+            var write: usize = 0;
+            row_offsets[0] = 0;
+            for (0..rows) |row| {
+                if (row < cols) {
+                    col_indices[write] = row;
+                    values[write] = oneValue(T);
+                    write += 1;
+                }
+                row_offsets[row + 1] = write;
+            }
+            std.debug.assert(write == diag_len);
+            return .{
+                .allocator = allocator,
+                .rows = rows,
+                .cols = cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
+            return Self.eye(allocator, size, size);
+        }
 
         pub fn fromCompressedSlices(
             allocator: std.mem.Allocator,
@@ -1534,6 +1596,40 @@ pub fn CscMatrix(comptime T: type) type {
         row_indices: []usize,
         values: []T,
 
+        pub fn eye(allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!Self {
+            const diag_len = @min(rows, cols);
+            var col_offsets = try allocator.alloc(usize, cols + 1);
+            errdefer allocator.free(col_offsets);
+            var row_indices = try allocator.alloc(usize, diag_len);
+            errdefer allocator.free(row_indices);
+            var values = try allocator.alloc(T, diag_len);
+            errdefer allocator.free(values);
+
+            var write: usize = 0;
+            col_offsets[0] = 0;
+            for (0..cols) |col| {
+                if (col < rows) {
+                    row_indices[write] = col;
+                    values[write] = oneValue(T);
+                    write += 1;
+                }
+                col_offsets[col + 1] = write;
+            }
+            std.debug.assert(write == diag_len);
+            return .{
+                .allocator = allocator,
+                .rows = rows,
+                .cols = cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
+            return Self.eye(allocator, size, size);
+        }
+
         pub fn fromCompressedSlices(
             allocator: std.mem.Allocator,
             rows: usize,
@@ -2195,6 +2291,14 @@ pub fn cscFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!Csc
     return CscMatrix(T).fromDense(input);
 }
 
+pub fn cooEye(comptime T: type, allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!CooMatrix(T) {
+    return CooMatrix(T).eye(allocator, rows, cols);
+}
+
+pub fn cooIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) SparseError!CooMatrix(T) {
+    return CooMatrix(T).identity(allocator, size);
+}
+
 pub fn cooFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CooMatrix(T) {
     return CooMatrix(T).fromDense(input);
 }
@@ -2223,6 +2327,14 @@ pub fn cscFromCompressed(
     return CscMatrix(T).fromCompressedSlices(allocator, rows, cols, col_offsets, row_indices, values);
 }
 
+pub fn cscEye(comptime T: type, allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!CscMatrix(T) {
+    return CscMatrix(T).eye(allocator, rows, cols);
+}
+
+pub fn cscIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) SparseError!CscMatrix(T) {
+    return CscMatrix(T).identity(allocator, size);
+}
+
 pub fn csrFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromDense(input);
 }
@@ -2237,6 +2349,56 @@ pub fn csrFromCompressed(
     values: []const T,
 ) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromCompressedSlices(allocator, rows, cols, row_offsets, col_indices, values);
+}
+
+pub fn csrEye(comptime T: type, allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!CsrMatrix(T) {
+    return CsrMatrix(T).eye(allocator, rows, cols);
+}
+
+pub fn csrIdentity(comptime T: type, allocator: std.mem.Allocator, size: usize) SparseError!CsrMatrix(T) {
+    return CsrMatrix(T).identity(allocator, size);
+}
+
+test "sparse eye and identity constructors" {
+    const gpa = std.testing.allocator;
+
+    var coo_eye = try cooEye(f64, gpa, 2, 4);
+    defer coo_eye.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coo_eye.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coo_eye.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1 }, coo_eye.values);
+    var coo_eye_dense = try coo_eye.toDense();
+    defer coo_eye_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 0, 1, 0, 0 }, coo_eye_dense.data);
+
+    var coo_identity = try cooIdentity(i32, gpa, 3);
+    defer coo_identity.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_identity.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_identity.col_indices);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 1, 1 }, coo_identity.values);
+
+    var csr_eye = try csrEye(f64, gpa, 4, 2);
+    defer csr_eye.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 2, 2 }, csr_eye.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, csr_eye.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1 }, csr_eye.values);
+    var csr_eye_dense = try csr_eye.toDense();
+    defer csr_eye_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 1, 0, 0, 0, 0 }, csr_eye_dense.data);
+
+    var csc_eye = try cscEye(f64, gpa, 2, 4);
+    defer csc_eye.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 2, 2 }, csc_eye.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, csc_eye.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 1 }, csc_eye.values);
+    var csc_eye_dense = try csc_eye.toDense();
+    defer csc_eye_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 0, 1, 0, 0 }, csc_eye_dense.data);
+
+    var csc_identity = try cscIdentity(f64, gpa, 0);
+    defer csc_identity.deinit();
+    try std.testing.expectEqualSlices(usize, &.{0}, csc_identity.col_offsets);
+    try std.testing.expectEqual(@as(usize, 0), csc_identity.nnz());
 }
 
 test "coo sparse dense roundtrip and compressed conversions" {

@@ -153,7 +153,7 @@ Array IO / serialization 当前支持：
 当前已开始接入 SciPy-like sparse 能力，优先复用 `../veyra.sparse`：
 
 - `CooMatrix(T)`：Vectra 自有 COO 所有权包装，支持 dense/CSR/CSC 转换、转置、直接/转置 matvec/matmat、基础统计和行列统计。
-- `cooFromDense` / `cooFromSlices`：构建 COO。
+- `cooFromDense` / `cooFromSlices` / `cooEye` / `cooIdentity`：构建 COO。
 - `coalesced()`：返回按 `(row, col)` 排序且重复坐标已聚合的 COO 副本，便于生成规范化 sparse 结构。
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
 - `dropZeros()`：移除显式存储的零值，适合在加法/聚合后压缩结构。
@@ -163,7 +163,7 @@ Array IO / serialization 当前支持：
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：COO 行列统计。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
-- `csrFromDense`：从 dense Array/NDArray 生成 CSR。
+- `csrFromDense` / `csrEye` / `csrIdentity`：从 dense Array/NDArray 生成 CSR 或构造稀疏单位矩阵。
 - `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
 - `CsrMatrix.toDense()`：CSR 转回 dense Array。
 - `CsrMatrix.matvec()`：f64 路径复用 `veyra.csrMatvec`，其它 numeric dtype 保留泛型回退。
@@ -186,7 +186,7 @@ Array IO / serialization 当前支持：
 CSC 当前支持：
 
 - `CscMatrix(T)`：Vectra 自有 CSC 所有权包装。
-- `cscFromDense` / `cscFromCompressed`：构建 CSC。
+- `cscFromDense` / `cscFromCompressed` / `cscEye` / `cscIdentity`：构建 CSC 或稀疏单位矩阵。
 - `CscMatrix.toDense()` / `toCsr()` / `toCoo()`：dense/CSR/COO 转换。
 - `CscMatrix.coalesced()`：返回每列行索引有序、重复坐标已聚合的 CSC 副本。
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
