@@ -588,6 +588,32 @@ pub fn CooMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn oneNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var col_sums = try self.allocator.alloc(T, self.cols);
+            defer self.allocator.free(col_sums);
+            @memset(col_sums, zero(T));
+            for (self.values, self.col_indices) |value, col| col_sums[col] += absValue(T, value);
+            var max_sum = zero(T);
+            for (col_sums) |sum_value| {
+                if (sum_value > max_sum) max_sum = sum_value;
+            }
+            return max_sum;
+        }
+
+        pub fn infNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var row_sums = try self.allocator.alloc(T, self.rows);
+            defer self.allocator.free(row_sums);
+            @memset(row_sums, zero(T));
+            for (self.values, self.row_indices) |value, row| row_sums[row] += absValue(T, value);
+            var max_sum = zero(T);
+            for (row_sums) |sum_value| {
+                if (sum_value > max_sum) max_sum = sum_value;
+            }
+            return max_sum;
+        }
+
         pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
@@ -1466,6 +1492,30 @@ pub fn CsrMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn oneNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var col_sums = try self.allocator.alloc(T, self.cols);
+            defer self.allocator.free(col_sums);
+            @memset(col_sums, zero(T));
+            for (self.values, self.col_indices) |value, col| col_sums[col] += absValue(T, value);
+            var max_sum = zero(T);
+            for (col_sums) |sum_value| {
+                if (sum_value > max_sum) max_sum = sum_value;
+            }
+            return max_sum;
+        }
+
+        pub fn infNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var max_sum = zero(T);
+            for (0..self.rows) |row| {
+                var row_sum = zero(T);
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| row_sum += absValue(T, self.values[pos]);
+                if (row_sum > max_sum) max_sum = row_sum;
+            }
+            return max_sum;
+        }
+
         pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
@@ -2295,6 +2345,30 @@ pub fn CscMatrix(comptime T: type) type {
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
 
+        pub fn oneNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var max_sum = zero(T);
+            for (0..self.cols) |col| {
+                var col_sum = zero(T);
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| col_sum += absValue(T, self.values[pos]);
+                if (col_sum > max_sum) max_sum = col_sum;
+            }
+            return max_sum;
+        }
+
+        pub fn infNorm(self: Self) SparseError!T {
+            ensureNumeric(T);
+            var row_sums = try self.allocator.alloc(T, self.rows);
+            defer self.allocator.free(row_sums);
+            @memset(row_sums, zero(T));
+            for (self.values, self.row_indices) |value, row| row_sums[row] += absValue(T, value);
+            var max_sum = zero(T);
+            for (row_sums) |sum_value| {
+                if (sum_value > max_sum) max_sum = sum_value;
+            }
+            return max_sum;
+        }
+
         pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
@@ -2729,6 +2803,8 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.absSum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), coo.frobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try coo.oneNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), try coo.infNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try coo.density(), 1e-12);
 
     var dense_roundtrip = try coo.toDense();
@@ -3133,6 +3209,8 @@ test "csr sparse matmat transpose and statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.sum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.absSum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(14.0)), csr.frobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.oneNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.infNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.density(), 1e-12);
 }
 
@@ -3332,6 +3410,8 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     try std.testing.expectEqualSlices(f64, dense.data, csr_dense.data);
     try std.testing.expectApproxEqAbs(@as(f64, 30), csc.sum(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), csc.frobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try csc.oneNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), try csc.infNorm(), 1e-12);
 }
 
 test "csc sparse transpose products and row column stats" {
