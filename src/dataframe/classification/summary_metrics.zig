@@ -1,7 +1,7 @@
 //! Rolling and expanding classification summary metric kernels.
 
 const std = @import("std");
-const base_mod = @import("dataframe_classification_metrics.zig");
+const base_mod = @import("metrics.zig");
 
 const validatePairLengths = base_mod.validatePairLengths;
 const rowValid = base_mod.rowValid;
