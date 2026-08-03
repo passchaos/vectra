@@ -822,6 +822,11 @@ diagnostics.
 `withRowCumulativeWeightedSimpsonConcentration`, and
 `withRowCumulativeWeightedEvenness` add prefix weighted distribution
 diagnostics.
+`withRowCumulativeWeightedMeanAbsDev`,
+`withRowCumulativeWeightedMeanAbsDevRatio`,
+`withRowCumulativeWeightedGiniMeanDiff`, and
+`withRowCumulativeWeightedGiniCoefficient` add prefix weighted inequality
+diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

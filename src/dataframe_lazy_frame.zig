@@ -3115,6 +3115,40 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
             pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
 
+            pub fn withRowCumulativeWeightedMeanAbsDev(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMeanAbsDev(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedMeanAbsDevRatio(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMeanAbsDevRatio(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedGiniMeanDiff(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedGiniMeanDiff(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedGiniCoefficient(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedGiniCoefficient(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+            pub const withRowCumulativeWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+            pub const withRowCumulativeWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+            pub const withRowCumWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+            pub const withRowCumWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+            pub const withRowCumWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+            pub const withRowCumWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+            pub const withRowCumWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+            pub const withRowCumWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+            pub const withRowCumWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+            pub const withRowPrefixWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+            pub const withRowPrefixWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+            pub const withRowPrefixWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+            pub const withRowPrefixWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+            pub const withRowPrefixWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+            pub const withRowPrefixWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+            pub const withRowPrefixWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);
             }

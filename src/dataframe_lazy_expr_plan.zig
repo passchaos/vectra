@@ -4928,6 +4928,55 @@ pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonC
 pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
 pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
 
+fn withRowCumulativeWeightedInequality(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { mean_abs_dev, mean_abs_dev_ratio, gini_mean_diff, gini_coefficient }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .mean_abs_dev => .{ .row_cumulative_weighted_mean_abs_dev = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .mean_abs_dev_ratio => .{ .row_cumulative_weighted_mean_abs_dev_ratio = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .gini_mean_diff => .{ .row_cumulative_weighted_gini_mean_diff = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .gini_coefficient => .{ .row_cumulative_weighted_gini_coefficient = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedMeanAbsDev(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedInequality(frame, value_names, weight_names, output_names, .mean_abs_dev);
+}
+
+pub fn withRowCumulativeWeightedMeanAbsDevRatio(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedInequality(frame, value_names, weight_names, output_names, .mean_abs_dev_ratio);
+}
+
+pub fn withRowCumulativeWeightedGiniMeanDiff(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedInequality(frame, value_names, weight_names, output_names, .gini_mean_diff);
+}
+
+pub fn withRowCumulativeWeightedGiniCoefficient(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedInequality(frame, value_names, weight_names, output_names, .gini_coefficient);
+}
+
+pub const withRowCumulativeWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumulativeWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumulativeWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowCumWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowPrefixWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+
 fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

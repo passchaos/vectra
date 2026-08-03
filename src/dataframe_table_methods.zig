@@ -4248,6 +4248,40 @@ pub const withRowPrefixWeightedConcentration = withRowCumulativeWeightedSimpsonC
 pub const withRowCumWeightedEvenness = withRowCumulativeWeightedEvenness;
 pub const withRowPrefixWeightedEvenness = withRowCumulativeWeightedEvenness;
 
+pub fn withRowCumulativeWeightedMeanAbsDev(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMeanAbsDev(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedMeanAbsDevRatio(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMeanAbsDevRatio(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedGiniMeanDiff(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedGiniMeanDiff(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedGiniCoefficient(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedGiniCoefficient(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumulativeWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumulativeWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowCumWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowPrefixWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

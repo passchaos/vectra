@@ -7370,6 +7370,116 @@ fn rowWeightedInequalityStats(active: []const RowWeightedValue, total_weight: f6
     };
 }
 
+fn finishRowWeightedInequality(stats: RowWeightedInequalityStats, comptime reduction: RowWeightedInequalityReduction) f64 {
+    return switch (reduction) {
+        .mean_abs_dev => stats.mean_abs_dev,
+        .mean_abs_dev_ratio => if (stats.mean == 0.0) quietNanF64() else stats.mean_abs_dev / @abs(stats.mean),
+        .gini_mean_diff => stats.mean_diff,
+        .gini_coefficient => if (stats.mean == 0.0) quietNanF64() else stats.mean_diff / (2.0 * @abs(stats.mean)),
+    };
+}
+
+fn withRowCumulativeWeightedInequality(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowWeightedInequalityReduction,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            const weight = flat.weights[offset];
+            if (weight > 0.0) {
+                scratch[count] = .{ .value = flat.values[offset], .weight = weight };
+                total_weight += weight;
+                count += 1;
+            }
+            if (!(total_weight > 0.0)) continue;
+            const stats = rowWeightedInequalityStats(scratch[0..count], total_weight);
+            cumulative[offset] = finishRowWeightedInequality(stats, reduction);
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedMeanAbsDev(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_names, .mean_abs_dev);
+}
+
+pub fn withRowCumulativeWeightedMeanAbsDevRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_names, .mean_abs_dev_ratio);
+}
+
+pub fn withRowCumulativeWeightedGiniMeanDiff(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_names, .gini_mean_diff);
+}
+
+pub fn withRowCumulativeWeightedGiniCoefficient(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedInequality(DeviceDataFrame, input, value_names, weight_names, output_names, .gini_coefficient);
+}
+
+pub const withRowCumulativeWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumulativeWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumulativeWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowCumWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowCumWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowCumWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowCumWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedMeanAbsDev = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMeanAbsDevRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedMeanAbsoluteDeviation = withRowCumulativeWeightedMeanAbsDev;
+pub const withRowPrefixWeightedMadRatio = withRowCumulativeWeightedMeanAbsDevRatio;
+pub const withRowPrefixWeightedGiniMeanDiff = withRowCumulativeWeightedGiniMeanDiff;
+pub const withRowPrefixWeightedGiniCoefficient = withRowCumulativeWeightedGiniCoefficient;
+pub const withRowPrefixWeightedGiniCoeff = withRowCumulativeWeightedGiniCoefficient;
+
 fn withRowWeightedInequality(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -7405,12 +7515,7 @@ fn withRowWeightedInequality(
         if (count == 0 or !(total_weight > 0.0)) continue;
 
         const stats = rowWeightedInequalityStats(scratch[0..count], total_weight);
-        values[row] = switch (reduction) {
-            .mean_abs_dev => stats.mean_abs_dev,
-            .mean_abs_dev_ratio => if (stats.mean == 0.0) quietNanF64() else stats.mean_abs_dev / @abs(stats.mean),
-            .gini_mean_diff => stats.mean_diff,
-            .gini_coefficient => if (stats.mean == 0.0) quietNanF64() else stats.mean_diff / (2.0 * @abs(stats.mean)),
-        };
+        values[row] = finishRowWeightedInequality(stats, reduction);
         validity[row] = true;
     }
 

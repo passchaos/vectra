@@ -1756,6 +1756,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_evenness_table, gpa, "a_row_weighted_cumevenness", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_evenness_table, gpa, "b_row_weighted_cumevenness", &.{ 0.0, 1.0, 0.0, weighted_prefix_entropy / std.math.log(f64, std.math.e, @as(f64, 2.0)) }, &.{ false, true, false, true });
 
+    var row_cum_weighted_mean_abs_dev_table = try validity_table.withRowCumWeightedMeanAbsDev(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_mean_abs_dev", "b_row_weighted_cum_mean_abs_dev" });
+    defer row_cum_weighted_mean_abs_dev_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mean_abs_dev_table, gpa, "a_row_weighted_cum_mean_abs_dev", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mean_abs_dev_table, gpa, "b_row_weighted_cum_mean_abs_dev", &.{ 0.0, 0.0, 0.0, 288.0 / 25.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_mad_ratio_table = try validity_table.withRowPrefixWeightedMadRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_mad_ratio", "b_row_weighted_cum_mad_ratio" });
+    defer row_cum_weighted_mad_ratio_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mad_ratio_table, gpa, "a_row_weighted_cum_mad_ratio", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mad_ratio_table, gpa, "b_row_weighted_cum_mad_ratio", &.{ 0.0, 0.0, 0.0, 36.0 / 35.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_gini_mean_diff_table = try validity_table.withRowCumWeightedGiniMeanDiff(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_gini_mean_diff", "b_row_weighted_cum_gini_mean_diff" });
+    defer row_cum_weighted_gini_mean_diff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_mean_diff_table, gpa, "a_row_weighted_cum_gini_mean_diff", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_mean_diff_table, gpa, "b_row_weighted_cum_gini_mean_diff", &.{ 0.0, 0.0, 0.0, 36.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_gini_coeff_table = try validity_table.withRowPrefixWeightedGiniCoeff(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_gini_coeff", "b_row_weighted_cum_gini_coeff" });
+    defer row_cum_weighted_gini_coeff_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_coeff_table, gpa, "a_row_weighted_cum_gini_coeff", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_gini_coeff_table, gpa, "b_row_weighted_cum_gini_coeff", &.{ 0.0, 0.0, 0.0, 45.0 / 28.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1783,6 +1803,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMode(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode", "extra_row_weighted_cummode" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedModeWeight(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode_weight", "extra_row_weighted_cummode_weight" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedEntropy(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cumentropy", "extra_row_weighted_cumentropy" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMeanAbsDev(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_mean_abs_dev", "extra_row_weighted_cum_mean_abs_dev" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");
