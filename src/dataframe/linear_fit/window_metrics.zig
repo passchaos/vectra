@@ -1,7 +1,7 @@
 //! Rolling and expanding linear fit metric kernels.
 
 const std = @import("std");
-const base_mod = @import("dataframe_linear_fit_metrics.zig");
+const base_mod = @import("metrics.zig");
 
 const FitParams = base_mod.FitParams;
 const validatePairLengths = base_mod.validatePairLengths;

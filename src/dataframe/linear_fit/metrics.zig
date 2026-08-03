@@ -1,7 +1,7 @@
 //! Linear regression metric kernels and output-name helpers.
 
 const std = @import("std");
-const window_metrics_mod = @import("dataframe_linear_fit_window_metrics.zig");
+const window_metrics_mod = @import("window_metrics.zig");
 
 pub const LinearFitMetrics = struct {
     allocator: std.mem.Allocator,
