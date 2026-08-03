@@ -71,6 +71,11 @@ fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
 pub fn CooMatrix(comptime T: type) type {
     return struct {
         const Self = @This();
+        const Entry = struct {
+            row: usize,
+            col: usize,
+            value: T,
+        };
 
         allocator: std.mem.Allocator,
         rows: usize,
@@ -78,6 +83,10 @@ pub fn CooMatrix(comptime T: type) type {
         row_indices: []usize,
         col_indices: []usize,
         values: []T,
+
+        fn entryLessThan(_: void, lhs: Entry, rhs: Entry) bool {
+            return lhs.row < rhs.row or (lhs.row == rhs.row and lhs.col < rhs.col);
+        }
 
         pub fn fromSlices(
             allocator: std.mem.Allocator,
@@ -147,6 +156,53 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn coalesced(self: Self) SparseError!Self {
+            const entries = try self.allocator.alloc(Entry, self.values.len);
+            defer self.allocator.free(entries);
+            for (entries, 0..) |*entry, i| {
+                entry.* = .{
+                    .row = self.row_indices[i],
+                    .col = self.col_indices[i],
+                    .value = self.values[i],
+                };
+            }
+            std.sort.insertion(Entry, entries, {}, entryLessThan);
+
+            var unique_count: usize = 0;
+            for (entries, 0..) |entry, i| {
+                if (i == 0 or entry.row != entries[i - 1].row or entry.col != entries[i - 1].col) unique_count += 1;
+            }
+
+            var row_indices = try self.allocator.alloc(usize, unique_count);
+            errdefer self.allocator.free(row_indices);
+            var col_indices = try self.allocator.alloc(usize, unique_count);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, unique_count);
+            errdefer self.allocator.free(values);
+
+            var write: usize = 0;
+            for (entries) |entry| {
+                if (write > 0 and row_indices[write - 1] == entry.row and col_indices[write - 1] == entry.col) {
+                    values[write - 1] = addSparseValue(T, values[write - 1], entry.value);
+                } else {
+                    row_indices[write] = entry.row;
+                    col_indices[write] = entry.col;
+                    values[write] = entry.value;
+                    write += 1;
+                }
+            }
+            std.debug.assert(write == unique_count);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn sum(self: Self) T {
@@ -1855,6 +1911,18 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var duplicate_dense = try duplicate.toDense();
     defer duplicate_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 5, 4, 0 }, duplicate_dense.data);
+
+    var unsorted_duplicate = try cooFromSlices(f64, gpa, 2, 2, &.{ 1, 0, 1, 0 }, &.{ 0, 1, 0, 1 }, &.{ 1.0, 2.0, 3.0, 4.0 });
+    defer unsorted_duplicate.deinit();
+    var coalesced = try unsorted_duplicate.coalesced();
+    defer coalesced.deinit();
+    try std.testing.expectEqual(@as(usize, 2), coalesced.nnz());
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coalesced.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 0 }, coalesced.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 6, 4 }, coalesced.values);
+    var coalesced_dense = try coalesced.toDense();
+    defer coalesced_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 6, 4, 0 }, coalesced_dense.data);
 
     var duplicate_csr = try csrFromCompressed(f64, gpa, 1, 2, &.{ 0, 2 }, &.{ 1, 1 }, &.{ 2.0, 3.0 });
     defer duplicate_csr.deinit();
