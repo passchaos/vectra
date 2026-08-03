@@ -79,7 +79,7 @@ not to prove every NumPy/PyTorch overload or edge-case behavior.
   need expansion.
 - `einsum`/general contraction syntax: Vectra now has a bounded binary
   explicit-subscript `einsum-smoke` for common contractions, implicit output
-  inference, and output reordering, including the common batched matmul forms
+  inference, and output reordering, including single-operand transpose/reduction/diagonal/trace forms and the common batched matmul forms
   `bij,bjk->bik`, rank-N shared-prefix forms such as `abij,abjk->abik`, `...ij,...jk->...ik`, `...ij,...j->...i`,
   `...i,...ij->...j`, and `...i,...i->...`, but full NumPy-compatible syntax
   (general ellipsis, repeated labels, more than two operands, and optimized

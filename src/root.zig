@@ -210,6 +210,41 @@ pub fn matmulAddSqrt(lhs: anytype, rhs: @TypeOf(lhs), addend: @TypeOf(lhs)) Arra
     return lhs.matmulAddSqrt(rhs, addend);
 }
 
+pub fn einsumUnary(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(input) {
+    if (!input.device.isAvailable()) return error.InvalidDevice;
+    const plan = try parseUnaryEinsum(subscripts, input.shape.len);
+    if (plan.repeatedLabel()) |label| {
+        if (input.shape.len != 2) return error.InvalidShape;
+        if (plan.out_len == 1 and plan.out[0] == label) return input.diagonal(0);
+        if (plan.out_len == 0) {
+            var diag = try input.diagonal(0);
+            defer diag.deinit();
+            return diag.sum(null, false);
+        }
+        return error.InvalidShape;
+    }
+
+    var current = try input.copy();
+    errdefer current.deinit();
+    var axis = plan.input_len;
+    while (axis > 0) {
+        axis -= 1;
+        if (findLabel(plan.out[0..plan.out_len], plan.input[axis]) == null) {
+            const next = try current.sum(@intCast(axis), false);
+            current.deinit();
+            current = next;
+        }
+    }
+    if (plan.outputIsDefault()) return current;
+    const permuted = try current.permute(plan.permuteAxes());
+    current.deinit();
+    return permuted;
+}
+
+pub fn einsum1(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(input) {
+    return einsumUnary(subscripts, input);
+}
+
 pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!@TypeOf(lhs) {
     try requireSameDevice(lhs, rhs);
     // Bounded NumPy/PyTorch-style front-end syntax over existing Array
@@ -272,6 +307,92 @@ pub fn tryMatmulAddTarget(target: DialectBackend, lhs: anytype, rhs: @TypeOf(lhs
 fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
     if (!lhs.device.sameDevice(rhs.device)) return error.InvalidDevice;
     if (!lhs.device.isAvailable()) return error.InvalidDevice;
+}
+
+const UnaryEinsumPlan = struct {
+    input: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    default_out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    permutation: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
+    input_len: usize = 0,
+    out_len: usize = 0,
+    default_out_len: usize = 0,
+    repeat_label: ?u8 = null,
+
+    fn repeatedLabel(plan: UnaryEinsumPlan) ?u8 {
+        return plan.repeat_label;
+    }
+
+    fn outputIsDefault(plan: UnaryEinsumPlan) bool {
+        return plan.out_len == plan.default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], plan.default_out[0..plan.default_out_len]);
+    }
+
+    fn permuteAxes(plan: *const UnaryEinsumPlan) []const usize {
+        return plan.permutation[0..plan.out_len];
+    }
+};
+
+fn parseUnaryEinsum(subscripts: []const u8, input_rank: usize) ArrayError!UnaryEinsumPlan {
+    if (input_rank > max_einsum_rank) return error.InvalidShape;
+    if (std.mem.indexOf(u8, subscripts, "...") != null) return error.InvalidShape;
+    const explicit_output = std.mem.indexOf(u8, subscripts, "->");
+    const arrow = explicit_output orelse subscripts.len;
+    if (std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') != null) return error.InvalidShape;
+    if (explicit_output != null and std.mem.indexOf(u8, subscripts[arrow + 2 ..], "->") != null) return error.InvalidShape;
+
+    var plan: UnaryEinsumPlan = .{};
+    plan.input_len = try parseUnaryEinsumInputLabels(subscripts[0..arrow], input_rank, plan.input[0..]);
+    var counts = [_]u8{0} ** 256;
+    for (plan.input[0..plan.input_len]) |label| counts[label] += 1;
+    for (counts, 0..) |count, label_index| {
+        if (count > 2) return error.InvalidShape;
+        if (count == 2) {
+            if (plan.repeat_label != null) return error.InvalidShape;
+            plan.repeat_label = @intCast(label_index);
+        }
+    }
+
+    if (explicit_output) |_| {
+        plan.out_len = try parseEinsumLabels(subscripts[arrow + 2 ..], null, plan.out[0..]);
+    } else {
+        for (plan.input[0..plan.input_len]) |label| {
+            if (counts[label] == 1) {
+                plan.out[plan.out_len] = label;
+                plan.out_len += 1;
+            }
+        }
+    }
+
+    var out_seen = [_]bool{false} ** 256;
+    for (plan.out[0..plan.out_len]) |label| {
+        if (out_seen[label]) return error.InvalidShape;
+        if (counts[label] == 0) return error.InvalidShape;
+        if (counts[label] == 2 and !(plan.out_len == 1 and plan.out[0] == label)) return error.InvalidShape;
+        out_seen[label] = true;
+    }
+    if (plan.repeat_label != null) {
+        return plan;
+    }
+
+    for (plan.input[0..plan.input_len]) |label| {
+        if (out_seen[label]) {
+            plan.default_out[plan.default_out_len] = label;
+            plan.default_out_len += 1;
+        }
+    }
+    for (plan.out[0..plan.out_len], 0..) |label, out_axis| {
+        plan.permutation[out_axis] = findLabel(plan.default_out[0..plan.default_out_len], label) orelse return error.InvalidShape;
+    }
+    return plan;
+}
+
+fn parseUnaryEinsumInputLabels(segment: []const u8, expected_rank: usize, out: []u8) ArrayError!usize {
+    if (segment.len != expected_rank or segment.len > out.len) return error.InvalidShape;
+    for (segment, 0..) |label, index| {
+        if (!std.ascii.isAlphabetic(label)) return error.InvalidShape;
+        out[index] = label;
+    }
+    return segment.len;
 }
 
 fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
