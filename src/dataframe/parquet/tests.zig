@@ -54,6 +54,76 @@ test "device dataframe round-trips through boltha parquet" {
     try std.testing.expectEqualSlices(bool, &.{ true, false, true }, active_values);
 }
 
+test "device dataframe round-trips Vectra extension dtypes through boltha parquet" {
+    const gpa = std.testing.allocator;
+    const BF16 = vectra.BFloat16;
+    const C64 = vectra.Complex64;
+    const C128 = vectra.Complex128;
+
+    var quality = try DeviceColumn.fromSliceWithValidity(
+        BF16,
+        gpa,
+        &.{ BF16.fromF32(1.5), BF16.fromF32(-2.25), BF16.fromF32(4.0) },
+        &.{ true, false, true },
+        .cpu,
+    );
+    defer quality.deinit();
+    var z32 = try DeviceColumn.fromSliceWithValidity(
+        C64,
+        gpa,
+        &.{ C64.init(1.0, -2.0), C64.init(9.0, 9.0), C64.init(3.5, 4.5) },
+        &.{ true, false, true },
+        .cpu,
+    );
+    defer z32.deinit();
+    var z64 = try DeviceColumn.fromSlice(C128, gpa, &.{ C128.init(1.25, -0.5), C128.init(-2.0, 8.0), C128.init(0.0, 3.0) }, .cpu);
+    defer z64.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "quality", .data = quality },
+        .{ .name = "z32", .data = z32 },
+        .{ .name = "z64", .data = z64 },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var restored = try DeviceDataFrame.fromParquetBytes(gpa, bytes, .cpu);
+    defer restored.deinit();
+    try std.testing.expectEqual(DeviceDType.bf16, try restored.columnDType("quality"));
+    try std.testing.expectEqual(DeviceDType.c64, try restored.columnDType("z32"));
+    try std.testing.expectEqual(DeviceDType.c128, try restored.columnDType("z64"));
+
+    const restored_quality = try (try restored.column("quality")).bf16.toOwnedSlice(gpa);
+    defer gpa.free(restored_quality);
+    const restored_quality_validity = try (try restored.column("quality")).bf16.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(restored_quality_validity);
+    try std.testing.expectEqual(BF16.fromF32(1.5).bits, restored_quality[0].bits);
+    try std.testing.expectEqual(BF16.fromF32(0.0).bits, restored_quality[1].bits);
+    try std.testing.expectEqual(BF16.fromF32(4.0).bits, restored_quality[2].bits);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, restored_quality_validity);
+
+    const restored_z32 = try (try restored.column("z32")).c64.toOwnedSlice(gpa);
+    defer gpa.free(restored_z32);
+    const restored_z32_validity = try (try restored.column("z32")).c64.validity.?.toOwnedSlice(gpa);
+    defer gpa.free(restored_z32_validity);
+    try std.testing.expectEqual(@as(f32, 1.0), restored_z32[0].re);
+    try std.testing.expectEqual(@as(f32, -2.0), restored_z32[0].im);
+    try std.testing.expectEqual(@as(f32, 0.0), restored_z32[1].re);
+    try std.testing.expectEqual(@as(f32, 0.0), restored_z32[1].im);
+    try std.testing.expectEqual(@as(f32, 3.5), restored_z32[2].re);
+    try std.testing.expectEqual(@as(f32, 4.5), restored_z32[2].im);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, restored_z32_validity);
+
+    const restored_z64 = try (try restored.column("z64")).c128.toOwnedSlice(gpa);
+    defer gpa.free(restored_z64);
+    try std.testing.expectEqual(@as(f64, 1.25), restored_z64[0].re);
+    try std.testing.expectEqual(@as(f64, -0.5), restored_z64[0].im);
+    try std.testing.expectEqual(@as(f64, -2.0), restored_z64[1].re);
+    try std.testing.expectEqual(@as(f64, 8.0), restored_z64[1].im);
+}
+
 test "device dataframe reads boltha parquet with range pruning" {
     const gpa = std.testing.allocator;
 
