@@ -1805,6 +1805,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);
+                    try mergeRangePredicate(allocator, &range_predicate, name, .{ .bool = .{ .min = true, .max = true } });
+                    clearNullPredicate(allocator, &null_predicate);
                 }
             },
             .filter_between_column => |range| {
@@ -1834,6 +1836,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .drop_rows_by_mask_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);
+                    try mergeRangePredicate(allocator, &range_predicate, name, .{ .bool = .{ .min = false, .max = false } });
+                    clearNullPredicate(allocator, &null_predicate);
                 }
             },
             .where_indices_column => |predicate| {
