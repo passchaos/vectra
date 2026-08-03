@@ -166,7 +166,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.transpose()` / `toCsc()` / `toCoo()`：CSR 转置与 CSC/COO 转换。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：CSR 行列统计，f64 路径优先复用 Veyra。
-- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，f64 路径优先复用 Veyra。
+- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
 - `transposeMatvec/transposeMatmat`：CSR 转置乘法，f64 路径复用 Veyra。
 - `solveTriangular`：CSR sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 
@@ -181,7 +181,7 @@ CSC 当前支持：
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。
 - `sum/frobeniusNorm`：基础 CSC 统计。
-- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，f64 路径优先复用 Veyra。
+- `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，重复坐标按 dense materialization 语义聚合。
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 ## 9. Axiom accelerator backend
 
