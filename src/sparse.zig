@@ -149,6 +149,33 @@ pub fn CooMatrix(comptime T: type) type {
             return self.values.len;
         }
 
+        pub fn sum(self: Self) T {
+            ensureNumeric(T);
+            var total = zero(T);
+            for (self.values) |value| total = addSparseValue(T, total, value);
+            return total;
+        }
+
+        pub fn absSum(self: Self) T {
+            ensureNumeric(T);
+            var total = zero(T);
+            for (self.values) |value| total += absValue(T, value);
+            return total;
+        }
+
+        pub fn frobeniusNorm(self: Self) T {
+            ensureFloat(T);
+            var total = zero(T);
+            for (self.values) |value| total += value * value;
+            return @sqrt(total);
+        }
+
+        pub fn density(self: Self) SparseError!f64 {
+            const total = self.rows * self.cols;
+            if (total == 0) return 0;
+            return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
+        }
+
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
             errdefer out.deinit();
@@ -1490,6 +1517,10 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, coo.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, coo.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, coo.values);
+    try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 30), coo.absSum(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), coo.frobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), try coo.density(), 1e-12);
 
     var dense_roundtrip = try coo.toDense();
     defer dense_roundtrip.deinit();
