@@ -162,6 +162,43 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
+            var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
+            errdefer self.allocator.free(col_offsets);
+            @memset(col_offsets, 0);
+            for (self.col_indices) |col| col_offsets[col + 1] += 1;
+            for (1..col_offsets.len) |i| col_offsets[i] += col_offsets[i - 1];
+
+            var row_indices = try self.allocator.alloc(usize, self.values.len);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+            const next = try self.allocator.dupe(usize, col_offsets[0..self.cols]);
+            defer self.allocator.free(next);
+
+            // Fill by column using a mutable copy of the offsets.  Preserving
+            // the CSR row traversal order keeps each CSC column's row indices
+            // sorted without requiring a post-pass sort.
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    const col = self.col_indices[pos];
+                    const dst = next[col];
+                    row_indices[dst] = row;
+                    values[dst] = self.values[pos];
+                    next[col] += 1;
+                }
+            }
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
         pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.cols) return error.ShapeMismatch;
@@ -1199,6 +1236,15 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var dense2 = try csr.toDense();
     defer dense2.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, dense2.data);
+
+    var csc = try csr.toCsc();
+    defer csc.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+    var csc_dense = try csc.toDense();
+    defer csc_dense.deinit();
+    try std.testing.expectEqualSlices(f64, dense.data, csc_dense.data);
 
     var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
     defer x.deinit();
