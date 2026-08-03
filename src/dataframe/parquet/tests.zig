@@ -558,6 +558,16 @@ test "device lazy parquet scan pushes literal isin columns as range predicates" 
     defer gpa.free(literal_notin_explain);
     try std.testing.expect(std.mem.indexOf(u8, literal_notin_explain, "scan_pushdown: projection=[sales,id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, literal_notin_explain, "range=sales") == null);
+
+    var positioned_literal_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer positioned_literal_scan.deinit();
+    try positioned_literal_scan.withColumnLiteralAt("needle", f64, 3.0, 0);
+    try positioned_literal_scan.filterIsInColumn("sales", "needle");
+    try positioned_literal_scan.select(&.{"id"});
+    const positioned_literal_explain = try positioned_literal_scan.explain(gpa);
+    defer gpa.free(positioned_literal_explain);
+    try std.testing.expect(std.mem.indexOf(u8, positioned_literal_explain, "scan_pushdown: none") != null);
+    try std.testing.expect(std.mem.indexOf(u8, positioned_literal_explain, "with_column_literal_at(needle=scalar:f64, index=0)") != null);
 }
 
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {
