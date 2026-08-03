@@ -1,7 +1,7 @@
 //! Risk-profile metric kernels and output-name helpers.
 
 const std = @import("std");
-const rolling_metrics_mod = @import("dataframe_risk_rolling_metrics.zig");
+const rolling_metrics_mod = @import("rolling_metrics.zig");
 
 pub const DrawdownMetrics = struct {
     allocator: std.mem.Allocator,

@@ -1,12 +1,12 @@
 //! DeviceColumn builders for risk profile metrics.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_device_column_mod = @import("dataframe/device_column.zig");
-const risk_metrics_mod = @import("dataframe_risk_metrics.zig");
-const numeric_mod = @import("dataframe_numeric.zig");
-const options_mod = @import("dataframe_options.zig");
-const validity_mod = @import("dataframe/validity.zig");
+const array_mod = @import("../../array.zig");
+const dataframe_device_column_mod = @import("../device_column.zig");
+const risk_metrics_mod = @import("metrics.zig");
+const numeric_mod = @import("../../dataframe_numeric.zig");
+const options_mod = @import("../../dataframe_options.zig");
+const validity_mod = @import("../validity.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;

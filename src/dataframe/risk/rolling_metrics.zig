@@ -1,7 +1,7 @@
 //! Rolling drawdown metric kernels.
 
 const std = @import("std");
-const base_mod = @import("dataframe_risk_metrics.zig");
+const base_mod = @import("metrics.zig");
 
 const validateLength = base_mod.validateLength;
 const rowValid = base_mod.rowValid;

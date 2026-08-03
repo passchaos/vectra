@@ -1,10 +1,10 @@
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const names_mod = @import("dataframe_names.zig");
-const risk_columns_mod = @import("dataframe_risk_columns.zig");
-const risk_metrics_mod = @import("dataframe_risk_metrics.zig");
-const options_mod = @import("dataframe_options.zig");
+const array_mod = @import("../array.zig");
+const dataframe_array_mod = @import("../dataframe_array.zig");
+const names_mod = @import("../dataframe_names.zig");
+const risk_columns_mod = @import("risk/columns.zig");
+const risk_metrics_mod = @import("risk/metrics.zig");
+const options_mod = @import("../dataframe_options.zig");
 
 const DeviceRollingOptions = options_mod.DeviceRollingOptions;
 const DeviceDrawdownOptions = options_mod.DeviceDrawdownOptions;
