@@ -116,6 +116,20 @@ fn minStoredValue(comptime T: type, values: []const T) SparseError!T {
     return result;
 }
 
+fn minStoredValueIndex(comptime T: type, values: []const T) SparseError!usize {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result_index: usize = 0;
+    var result = values[0];
+    for (values[1..], 1..) |value, index| {
+        if (value < result) {
+            result = value;
+            result_index = index;
+        }
+    }
+    return result_index;
+}
+
 fn maxStoredValue(comptime T: type, values: []const T) SparseError!T {
     ensureNumeric(T);
     if (values.len == 0) return error.EmptyArray;
@@ -124,6 +138,20 @@ fn maxStoredValue(comptime T: type, values: []const T) SparseError!T {
         if (value > result) result = value;
     }
     return result;
+}
+
+fn maxStoredValueIndex(comptime T: type, values: []const T) SparseError!usize {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result_index: usize = 0;
+    var result = values[0];
+    for (values[1..], 1..) |value, index| {
+        if (value > result) {
+            result = value;
+            result_index = index;
+        }
+    }
+    return result_index;
 }
 
 fn minStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
@@ -137,6 +165,21 @@ fn minStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
     return result;
 }
 
+fn minStoredAbsValueIndex(comptime T: type, values: []const T) SparseError!usize {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result_index: usize = 0;
+    var result = absValue(T, values[0]);
+    for (values[1..], 1..) |value, index| {
+        const magnitude = absValue(T, value);
+        if (magnitude < result) {
+            result = magnitude;
+            result_index = index;
+        }
+    }
+    return result_index;
+}
+
 fn maxStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
     ensureNumeric(T);
     if (values.len == 0) return error.EmptyArray;
@@ -146,6 +189,21 @@ fn maxStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
         if (magnitude > result) result = magnitude;
     }
     return result;
+}
+
+fn maxStoredAbsValueIndex(comptime T: type, values: []const T) SparseError!usize {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result_index: usize = 0;
+    var result = absValue(T, values[0]);
+    for (values[1..], 1..) |value, index| {
+        const magnitude = absValue(T, value);
+        if (magnitude > result) {
+            result = magnitude;
+            result_index = index;
+        }
+    }
+    return result_index;
 }
 
 fn ensureFloat(comptime T: type) void {
@@ -972,16 +1030,32 @@ pub fn CooMatrix(comptime T: type) type {
             return minStoredValue(T, self.values);
         }
 
+        pub fn minValueIndex(self: Self) SparseError!usize {
+            return minStoredValueIndex(T, self.values);
+        }
+
         pub fn maxValue(self: Self) SparseError!T {
             return maxStoredValue(T, self.values);
+        }
+
+        pub fn maxValueIndex(self: Self) SparseError!usize {
+            return maxStoredValueIndex(T, self.values);
         }
 
         pub fn minAbsValue(self: Self) SparseError!T {
             return minStoredAbsValue(T, self.values);
         }
 
+        pub fn minAbsValueIndex(self: Self) SparseError!usize {
+            return minStoredAbsValueIndex(T, self.values);
+        }
+
         pub fn maxAbsValue(self: Self) SparseError!T {
             return maxStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValueIndex(self: Self) SparseError!usize {
+            return maxStoredAbsValueIndex(T, self.values);
         }
 
         pub fn nonFiniteCount(self: Self) usize {
@@ -2529,16 +2603,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return minStoredValue(T, self.values);
         }
 
+        pub fn minValueIndex(self: Self) SparseError!usize {
+            return minStoredValueIndex(T, self.values);
+        }
+
         pub fn maxValue(self: Self) SparseError!T {
             return maxStoredValue(T, self.values);
+        }
+
+        pub fn maxValueIndex(self: Self) SparseError!usize {
+            return maxStoredValueIndex(T, self.values);
         }
 
         pub fn minAbsValue(self: Self) SparseError!T {
             return minStoredAbsValue(T, self.values);
         }
 
+        pub fn minAbsValueIndex(self: Self) SparseError!usize {
+            return minStoredAbsValueIndex(T, self.values);
+        }
+
         pub fn maxAbsValue(self: Self) SparseError!T {
             return maxStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValueIndex(self: Self) SparseError!usize {
+            return maxStoredAbsValueIndex(T, self.values);
         }
 
         pub fn nonFiniteCount(self: Self) usize {
@@ -3964,16 +4054,32 @@ pub fn CscMatrix(comptime T: type) type {
             return minStoredValue(T, self.values);
         }
 
+        pub fn minValueIndex(self: Self) SparseError!usize {
+            return minStoredValueIndex(T, self.values);
+        }
+
         pub fn maxValue(self: Self) SparseError!T {
             return maxStoredValue(T, self.values);
+        }
+
+        pub fn maxValueIndex(self: Self) SparseError!usize {
+            return maxStoredValueIndex(T, self.values);
         }
 
         pub fn minAbsValue(self: Self) SparseError!T {
             return minStoredAbsValue(T, self.values);
         }
 
+        pub fn minAbsValueIndex(self: Self) SparseError!usize {
+            return minStoredAbsValueIndex(T, self.values);
+        }
+
         pub fn maxAbsValue(self: Self) SparseError!T {
             return maxStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValueIndex(self: Self) SparseError!usize {
+            return maxStoredAbsValueIndex(T, self.values);
         }
 
         pub fn nonFiniteCount(self: Self) usize {
@@ -5143,9 +5249,13 @@ test "coo sparse row and column statistics" {
     defer coo.deinit();
 
     try std.testing.expectApproxEqAbs(@as(f64, -2), try coo.minValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), try coo.minValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try coo.maxValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.minAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try coo.minAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try coo.maxAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try coo.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try coo.stddev(0), 1e-12);
@@ -5398,6 +5508,10 @@ test "sparse stored value range diagnostics" {
 
     var empty = try cooFromSlices(f64, gpa, 1, 1, &.{}, &.{}, &.{});
     defer empty.deinit();
+    try std.testing.expectError(error.EmptyArray, empty.minValueIndex());
+    try std.testing.expectError(error.EmptyArray, empty.maxValueIndex());
+    try std.testing.expectError(error.EmptyArray, empty.minAbsValueIndex());
+    try std.testing.expectError(error.EmptyArray, empty.maxAbsValueIndex());
     try std.testing.expectError(error.EmptyArray, empty.valueRangeInRange(0, 1));
     try std.testing.expectError(error.EmptyArray, empty.absValueRangeInRange(0, 1));
     try std.testing.expectError(error.EmptyArray, empty.valueDynamicRange());
@@ -5922,9 +6036,13 @@ test "csr sparse row and column statistics" {
     defer csr.deinit();
 
     try std.testing.expectApproxEqAbs(@as(f64, -2), try csr.minValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), try csr.minValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try csr.maxValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.minAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try csr.minAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try csr.maxAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csr.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csr.stddev(0), 1e-12);
@@ -6250,9 +6368,13 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectEqualSlices(f64, &.{ 21, 26, 9, 12, 23, 26 }, tm.data);
 
     try std.testing.expectApproxEqAbs(@as(f64, -2), try csc.minValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 3), try csc.minValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try csc.maxValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.minAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try csc.minAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxAbsValue(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 4), try csc.maxAbsValueIndex());
     try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csc.mean(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.variance(0), 1e-12);
     try std.testing.expectApproxEqAbs(@sqrt(55.0 / 9.0 - (11.0 / 9.0) * (11.0 / 9.0)), try csc.stddev(0), 1e-12);
