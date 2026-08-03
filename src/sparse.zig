@@ -549,6 +549,61 @@ fn sparseDiagonalDominanceFromCanonicalEntries(
     return true;
 }
 
+fn sparseDiagonalDominanceMarginFromCanonicalEntries(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+    values: []const T,
+) SparseError!f64 {
+    ensureNumeric(T);
+    if (rows != cols) return error.NonMatrixArray;
+    if (rows == 0) return error.EmptyArray;
+
+    var diagonal_seen = try allocator.alloc(bool, rows);
+    defer allocator.free(diagonal_seen);
+    @memset(diagonal_seen, false);
+    var diagonal_abs = try allocator.alloc(f64, rows);
+    defer allocator.free(diagonal_abs);
+    @memset(diagonal_abs, 0);
+    var off_diagonal_abs_sums = try allocator.alloc(f64, rows);
+    defer allocator.free(off_diagonal_abs_sums);
+    @memset(off_diagonal_abs_sums, 0);
+
+    for (values, row_indices, col_indices) |value, row, col| {
+        const magnitude = sparseValueToF64(T, absValue(T, value));
+        if (row == col) {
+            diagonal_seen[row] = true;
+            diagonal_abs[row] = magnitude;
+        } else {
+            off_diagonal_abs_sums[row] += magnitude;
+        }
+    }
+
+    var margin = std.math.inf(f64);
+    for (diagonal_seen, diagonal_abs, off_diagonal_abs_sums) |seen, diag, offdiag| {
+        const row_margin = if (seen) diag - offdiag else -offdiag;
+        if (row_margin < margin) margin = row_margin;
+    }
+    return margin;
+}
+
+fn sparseDiagonalDominanceMarginMeetsBoundFromCanonicalEntries(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+    values: []const T,
+    min_margin: f64,
+) SparseError!bool {
+    if (!std.math.isFinite(min_margin)) return error.InvalidShape;
+    return (try sparseDiagonalDominanceMarginFromCanonicalEntries(T, allocator, rows, cols, row_indices, col_indices, values)) >= min_margin;
+}
+
 fn sparseSameStructure(
     rows: usize,
     cols: usize,
@@ -2180,6 +2235,35 @@ pub fn CooMatrix(comptime T: type) type {
                 canonical.col_indices,
                 canonical.values,
                 false,
+            );
+        }
+
+        pub fn diagonalDominanceMargin(self: Self) SparseError!f64 {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            return sparseDiagonalDominanceMarginFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                canonical.row_indices,
+                canonical.col_indices,
+                canonical.values,
+            );
+        }
+
+        pub fn diagonalDominanceMarginMeetsBound(self: Self, min_margin: f64) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            return sparseDiagonalDominanceMarginMeetsBoundFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                canonical.row_indices,
+                canonical.col_indices,
+                canonical.values,
+                min_margin,
             );
         }
 
@@ -3930,6 +4014,39 @@ pub fn CsrMatrix(comptime T: type) type {
             );
         }
 
+        pub fn diagonalDominanceMargin(self: Self) SparseError!f64 {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceMarginFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+            );
+        }
+
+        pub fn diagonalDominanceMarginMeetsBound(self: Self, min_margin: f64) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceMarginMeetsBoundFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                min_margin,
+            );
+        }
+
         pub fn strictlyDiagonallyDominant(self: Self) SparseError!bool {
             var canonical = try self.coalesced();
             defer canonical.deinit();
@@ -5529,6 +5646,39 @@ pub fn CscMatrix(comptime T: type) type {
             );
         }
 
+        pub fn diagonalDominanceMargin(self: Self) SparseError!f64 {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceMarginFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+            );
+        }
+
+        pub fn diagonalDominanceMarginMeetsBound(self: Self, min_margin: f64) SparseError!bool {
+            var canonical = try self.coalesced();
+            defer canonical.deinit();
+            var coo = try canonical.toCoo();
+            defer coo.deinit();
+            return sparseDiagonalDominanceMarginMeetsBoundFromCanonicalEntries(
+                T,
+                self.allocator,
+                canonical.rows,
+                canonical.cols,
+                coo.row_indices,
+                coo.col_indices,
+                coo.values,
+                min_margin,
+            );
+        }
+
         pub fn strictlyDiagonallyDominant(self: Self) SparseError!bool {
             var canonical = try self.coalesced();
             defer canonical.deinit();
@@ -6247,16 +6397,24 @@ test "sparse diagonal dominance diagnostics" {
     defer strict_coo.deinit();
     try std.testing.expect(try strict_coo.diagonallyDominant());
     try std.testing.expect(try strict_coo.strictlyDiagonallyDominant());
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try strict_coo.diagonalDominanceMargin(), 1e-12);
+    try std.testing.expect(try strict_coo.diagonalDominanceMarginMeetsBound(2));
+    try std.testing.expect(!(try strict_coo.diagonalDominanceMarginMeetsBound(2.001)));
+    try std.testing.expectError(error.InvalidShape, strict_coo.diagonalDominanceMarginMeetsBound(std.math.nan(f64)));
 
     var strict_csr = try strict_coo.toCsr();
     defer strict_csr.deinit();
     try std.testing.expect(try strict_csr.diagonallyDominant());
     try std.testing.expect(try strict_csr.strictlyDiagonallyDominant());
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try strict_csr.diagonalDominanceMargin(), 1e-12);
+    try std.testing.expect(try strict_csr.diagonalDominanceMarginMeetsBound(2));
 
     var strict_csc = try strict_coo.toCsc();
     defer strict_csc.deinit();
     try std.testing.expect(try strict_csc.diagonallyDominant());
     try std.testing.expect(try strict_csc.strictlyDiagonallyDominant());
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try strict_csc.diagonalDominanceMargin(), 1e-12);
+    try std.testing.expect(try strict_csc.diagonalDominanceMarginMeetsBound(2));
 
     var weak_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 1,
@@ -6267,6 +6425,9 @@ test "sparse diagonal dominance diagnostics" {
     defer weak.deinit();
     try std.testing.expect(try weak.diagonallyDominant());
     try std.testing.expect(!(try weak.strictlyDiagonallyDominant()));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try weak.diagonalDominanceMargin(), 1e-12);
+    try std.testing.expect(try weak.diagonalDominanceMarginMeetsBound(0));
+    try std.testing.expect(!(try weak.diagonalDominanceMarginMeetsBound(1e-12)));
 
     var non_dominant_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
@@ -6277,11 +6438,15 @@ test "sparse diagonal dominance diagnostics" {
     defer non_dominant.deinit();
     try std.testing.expect(!(try non_dominant.diagonallyDominant()));
     try std.testing.expect(!(try non_dominant.strictlyDiagonallyDominant()));
+    try std.testing.expectApproxEqAbs(@as(f64, -1), try non_dominant.diagonalDominanceMargin(), 1e-12);
+    try std.testing.expect(try non_dominant.diagonalDominanceMarginMeetsBound(-1));
+    try std.testing.expect(!(try non_dominant.diagonalDominanceMarginMeetsBound(-0.999)));
 
     var missing = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 0 }, &.{ 3.0, 1.0, 1.0 });
     defer missing.deinit();
     try std.testing.expect(!(try missing.diagonallyDominant()));
     try std.testing.expect(!(try missing.strictlyDiagonallyDominant()));
+    try std.testing.expectApproxEqAbs(@as(f64, -1), try missing.diagonalDominanceMargin(), 1e-12);
 
     var duplicate_cancel = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 0, 1 }, &.{ 0, 1, 1, 1 }, &.{ 1.0, 5.0, -5.0, 1.0 });
     defer duplicate_cancel.deinit();
@@ -6292,21 +6457,26 @@ test "sparse diagonal dominance diagnostics" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.diagonallyDominant());
     try std.testing.expectError(error.NonMatrixArray, rectangular.strictlyDiagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.diagonalDominanceMargin());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.diagonalDominanceMarginMeetsBound(0));
 
     var rectangular_csr = try rectangular.toCsr();
     defer rectangular_csr.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular_csr.diagonallyDominant());
     try std.testing.expectError(error.NonMatrixArray, rectangular_csr.strictlyDiagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.diagonalDominanceMargin());
 
     var rectangular_csc = try rectangular.toCsc();
     defer rectangular_csc.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular_csc.diagonallyDominant());
     try std.testing.expectError(error.NonMatrixArray, rectangular_csc.strictlyDiagonallyDominant());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.diagonalDominanceMarginMeetsBound(0));
 
     var empty = try cooFromSlices(f64, gpa, 0, 0, &.{}, &.{}, &.{});
     defer empty.deinit();
     try std.testing.expectError(error.EmptyArray, empty.diagonallyDominant());
     try std.testing.expectError(error.EmptyArray, empty.strictlyDiagonallyDominant());
+    try std.testing.expectError(error.EmptyArray, empty.diagonalDominanceMargin());
 }
 
 test "sparse non-positive diagonal diagnostics" {
