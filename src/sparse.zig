@@ -21,6 +21,13 @@ fn oneValue(comptime T: type) T {
     };
 }
 
+fn addSparseValue(comptime T: type, lhs: T, rhs: T) T {
+    return switch (@typeInfo(T)) {
+        .bool => lhs or rhs,
+        else => lhs + rhs,
+    };
+}
+
 fn isNonZero(comptime T: type, value: T) bool {
     return switch (@typeInfo(T)) {
         .bool => value,
@@ -146,7 +153,8 @@ pub fn CooMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
             errdefer out.deinit();
             for (self.values, 0..) |value, i| {
-                out.data[self.row_indices[i] * self.cols + self.col_indices[i]] = value;
+                const index = self.row_indices[i] * self.cols + self.col_indices[i];
+                out.data[index] = addSparseValue(T, out.data[index], value);
             }
             return out;
         }
@@ -1531,6 +1539,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var manual_dense = try manual.toDense();
     defer manual_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0, 4, 5, 0, 6 }, manual_dense.data);
+
+    var duplicate = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 1, 1, 0 }, &.{ 2.0, 3.0, 4.0 });
+    defer duplicate.deinit();
+    var duplicate_dense = try duplicate.toDense();
+    defer duplicate_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 5, 4, 0 }, duplicate_dense.data);
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {
