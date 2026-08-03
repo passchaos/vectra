@@ -275,22 +275,29 @@ fn requireSameDevice(lhs: anytype, rhs: @TypeOf(lhs)) ArrayError!void {
 }
 
 fn batchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
-    if (lhs_rank != 3 or rhs_rank != 3) return false;
+    // Fast-path explicit shared-prefix batched matmul spellings such as
+    // `bij,bjk->bik` and `abij,abjk->abik`.  Routing these through `matmul`
+    // preserves Axiom-backed N-D batch handling instead of falling back to the
+    // generic contraction path, whose current binary parser intentionally does
+    // not yet model shared non-contracted labels.
+    if (lhs_rank < 3 or lhs_rank != rhs_rank) return false;
     const arrow = std.mem.indexOf(u8, subscripts, "->") orelse subscripts.len;
     const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return false;
     const lhs = subscripts[0..comma];
     const rhs = subscripts[comma + 1 .. arrow];
     const out = if (arrow == subscripts.len) "" else subscripts[arrow + 2 ..];
-    if (lhs.len != 3 or rhs.len != 3) return false;
-    if (out.len != 0 and out.len != 3) return false;
+    if (lhs.len != lhs_rank or rhs.len != rhs_rank) return false;
+    if (out.len != 0 and out.len != lhs_rank) return false;
     if (!allEinsumLabels(lhs) or !allEinsumLabels(rhs) or !allEinsumLabels(out)) return false;
     if (hasRepeatedLabels(lhs) or hasRepeatedLabels(rhs) or hasRepeatedLabels(out)) return false;
-    if (out.len == 0) return lhs[0] == rhs[0] and lhs[2] == rhs[1];
-    return lhs[0] == rhs[0] and
-        lhs[0] == out[0] and
-        lhs[1] == out[1] and
-        rhs[2] == out[2] and
-        lhs[2] == rhs[1];
+
+    const batch_rank = lhs_rank - 2;
+    if (!std.mem.eql(u8, lhs[0..batch_rank], rhs[0..batch_rank])) return false;
+    if (lhs[lhs_rank - 1] != rhs[rhs_rank - 2]) return false;
+    if (out.len == 0) return true;
+    return std.mem.eql(u8, out[0..batch_rank], lhs[0..batch_rank]) and
+        out[batch_rank] == lhs[lhs_rank - 2] and
+        out[batch_rank + 1] == rhs[rhs_rank - 1];
 }
 
 fn ellipsisBatchedMatmulLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) bool {
