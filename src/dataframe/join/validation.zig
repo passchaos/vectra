@@ -1,6 +1,6 @@
 //! Join key validation helpers.
 
-const keys_mod = @import("../../dataframe_keys.zig");
+const keys_mod = @import("../keys.zig");
 
 pub fn validateSingleJoinKeys(left: anytype, right: anytype, left_key_name: []const u8, right_key_name: []const u8) keys_mod.KeyMatchError!void {
     if (!left.device.sameDevice(right.device)) return error.InvalidDevice;

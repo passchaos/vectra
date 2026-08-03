@@ -1,9 +1,9 @@
 //! Single-key/asof row-index builders for dataframe joins.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const asof_join_mod = @import("dataframe_keys_asof_join.zig");
-const equi_typed_mod = @import("dataframe_keys_equi_join_typed.zig");
+const array_mod = @import("../../array.zig");
+const asof_join_mod = @import("asof_join.zig");
+const equi_typed_mod = @import("equi_join_typed.zig");
 
 pub const KeyMatchError = std.mem.Allocator.Error || std.Io.Writer.Error || array_mod.ArrayError || error{
     LengthMismatch,

@@ -1,9 +1,9 @@
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const numeric_mod = @import("dataframe_numeric.zig");
-const validity_mod = @import("dataframe_validity.zig");
-const single_join_mod = @import("dataframe_keys_single_join.zig");
+const array_mod = @import("../array.zig");
+const dataframe_array_mod = @import("../dataframe_array.zig");
+const numeric_mod = @import("../dataframe_numeric.zig");
+const validity_mod = @import("../dataframe_validity.zig");
+const single_join_mod = @import("keys/single_join.zig");
 
 const validityValues = validity_mod.validityValues;
 const columnsRowsEqual = dataframe_array_mod.columnsRowsEqual;

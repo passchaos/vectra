@@ -5,7 +5,7 @@ const array_helpers = @import("../../dataframe_array.zig");
 const join_concat_mod = @import("concat.zig");
 const join_indices_mod = @import("indices.zig");
 const join_validation = @import("validation.zig");
-const keys_mod = @import("../../dataframe_keys.zig");
+const keys_mod = @import("../keys.zig");
 
 const concatJoinedTables = join_concat_mod.concatJoinedTables;
 const semiAntiJoinRowIndices = join_indices_mod.semiAntiJoinRowIndices;
