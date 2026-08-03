@@ -1607,6 +1607,26 @@ pub fn CooMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn lowerNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.lowerNnz(strict)) <= max_count;
+        }
+
+        pub fn upperNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.upperNnz(strict)) <= max_count;
+        }
+
+        pub fn lowerNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.lowerNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
+        pub fn upperNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.upperNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn lowerProfile(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
@@ -3151,6 +3171,26 @@ pub fn CsrMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn lowerNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.lowerNnz(strict)) <= max_count;
+        }
+
+        pub fn upperNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.upperNnz(strict)) <= max_count;
+        }
+
+        pub fn lowerNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.lowerNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
+        pub fn upperNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.upperNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn lowerProfile(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
@@ -4555,6 +4595,26 @@ pub fn CscMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn lowerNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.lowerNnz(strict)) <= max_count;
+        }
+
+        pub fn upperNnzMeetsBound(self: Self, comptime strict: bool, max_count: usize) SparseError!bool {
+            return (try self.upperNnz(strict)) <= max_count;
+        }
+
+        pub fn lowerNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.lowerNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
+        pub fn upperNnzInRange(self: Self, comptime strict: bool, min_count: usize, max_count: usize) SparseError!bool {
+            if (min_count > max_count) return error.InvalidShape;
+            const count = try self.upperNnz(strict);
+            return count >= min_count and count <= max_count;
+        }
+
         pub fn lowerProfile(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var builder = try SparseProfileBuilder.init(self.allocator, self.rows);
@@ -5555,6 +5615,14 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expect(try symmetric.lowerNnzMeetsBound(false, 5));
+    try std.testing.expect(!(try symmetric.lowerNnzMeetsBound(false, 4)));
+    try std.testing.expect(try symmetric.upperNnzMeetsBound(true, 2));
+    try std.testing.expect(!(try symmetric.upperNnzMeetsBound(true, 1)));
+    try std.testing.expect(try symmetric.lowerNnzInRange(false, 5, 5));
+    try std.testing.expect(try symmetric.upperNnzInRange(true, 0, 2));
+    try std.testing.expect(!(try symmetric.lowerNnzInRange(true, 3, 5)));
+    try std.testing.expectError(error.InvalidShape, symmetric.upperNnzInRange(false, 6, 5));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
     const symmetric_profile = try symmetric.profile();
@@ -5586,6 +5654,8 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate_diagonal = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1, 1 }, &.{ 0, 0, 0, 1, 1 }, &.{ 1, 2, 3, 4, -4 });
@@ -5856,6 +5926,14 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expect(try symmetric.lowerNnzMeetsBound(false, 5));
+    try std.testing.expect(!(try symmetric.lowerNnzMeetsBound(false, 4)));
+    try std.testing.expect(try symmetric.upperNnzMeetsBound(true, 2));
+    try std.testing.expect(!(try symmetric.upperNnzMeetsBound(true, 1)));
+    try std.testing.expect(try symmetric.lowerNnzInRange(false, 5, 5));
+    try std.testing.expect(try symmetric.upperNnzInRange(true, 0, 2));
+    try std.testing.expect(!(try symmetric.lowerNnzInRange(true, 3, 5)));
+    try std.testing.expectError(error.InvalidShape, symmetric.upperNnzInRange(false, 6, 5));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
     const symmetric_profile = try symmetric.profile();
@@ -5885,6 +5963,8 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
@@ -6156,6 +6236,14 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerNnz(true));
     try std.testing.expectEqual(@as(usize, 5), try symmetric.upperNnz(false));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperNnz(true));
+    try std.testing.expect(try symmetric.lowerNnzMeetsBound(false, 5));
+    try std.testing.expect(!(try symmetric.lowerNnzMeetsBound(false, 4)));
+    try std.testing.expect(try symmetric.upperNnzMeetsBound(true, 2));
+    try std.testing.expect(!(try symmetric.upperNnzMeetsBound(true, 1)));
+    try std.testing.expect(try symmetric.lowerNnzInRange(false, 5, 5));
+    try std.testing.expect(try symmetric.upperNnzInRange(true, 0, 2));
+    try std.testing.expect(!(try symmetric.lowerNnzInRange(true, 3, 5)));
+    try std.testing.expectError(error.InvalidShape, symmetric.upperNnzInRange(false, 6, 5));
     try std.testing.expectEqual(@as(usize, 2), try symmetric.lowerProfile());
     try std.testing.expectEqual(@as(usize, 2), try symmetric.upperProfile());
     const symmetric_profile = try symmetric.profile();
@@ -6171,6 +6259,8 @@ test "csc sparse diagnostics and triangular solve" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
 
     var duplicate = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
