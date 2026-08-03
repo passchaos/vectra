@@ -811,6 +811,7 @@ weighted percentile and median-absolute-deviation diagnostics.
 `withRowCumulativeWeightedQuartileCoeffDispersion`, and
 `withRowCumulativeWeightedKelleySkewness` add prefix weighted percentile-shape
 diagnostics.
+`withRowCumulativeWeightedMode` adds prefix weighted stable-first mode.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

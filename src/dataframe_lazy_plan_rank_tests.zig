@@ -5092,6 +5092,47 @@ test "device lazy frame derives row cumulative weighted percentile-shape columns
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted mode columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowPrefixWeightedMode(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode", "b_row_weighted_cummode" });
+    try plan.select(&.{ "a_row_weighted_cummode", "b_row_weighted_cummode" });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode,b_row_weighted_cummode])") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedMode(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode", "extra_row_weighted_cummode" });
+    try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

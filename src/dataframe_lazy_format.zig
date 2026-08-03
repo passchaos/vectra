@@ -802,6 +802,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_bowley_skewness => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_bowley_skewness", row_weighted),
         .row_cumulative_weighted_quartile_coeff_dispersion => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_quartile_coeff_dispersion", row_weighted),
         .row_cumulative_weighted_kelley_skewness => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_kelley_skewness", row_weighted),
+        .row_cumulative_weighted_mode => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_mode", row_weighted),
         .row_cumulative_weighted_weight_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_weight_sum", row_weighted),
         .row_cumulative_weighted_positive_count => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_positive_count", row_weighted),
         .row_cumulative_weighted_effective_n => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_effective_n", row_weighted),

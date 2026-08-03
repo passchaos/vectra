@@ -3038,6 +3038,13 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
             pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
 
+            pub fn withRowCumulativeWeightedMode(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMode(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
+            pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
+
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);
             }

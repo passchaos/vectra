@@ -3423,6 +3423,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_cumulative_weighted_bowley_skewness => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_bowley_skewness"),
         .row_cumulative_weighted_quartile_coeff_dispersion => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_quartile_coeff_dispersion"),
         .row_cumulative_weighted_kelley_skewness => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_kelley_skewness"),
+        .row_cumulative_weighted_mode => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_mode"),
         .row_cumulative_weighted_weight_sum => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_weight_sum"),
         .row_cumulative_weighted_positive_count => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_positive_count"),
         .row_cumulative_weighted_effective_n => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_effective_n"),

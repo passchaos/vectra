@@ -4813,6 +4813,19 @@ pub const withRowCumWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness
 pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
 pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
 
+pub fn withRowCumulativeWeightedMode(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, .{ .row_cumulative_weighted_mode = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } });
+}
+
+pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
+pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
+
 fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

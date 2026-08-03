@@ -4171,6 +4171,13 @@ pub const withRowCumWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness
 pub const withRowPrefixWeightedKelleySkewness = withRowCumulativeWeightedKelleySkewness;
 pub const withRowPrefixWeightedKelleySkew = withRowCumulativeWeightedKelleySkewness;
 
+pub fn withRowCumulativeWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
+pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

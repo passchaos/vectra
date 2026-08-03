@@ -380,6 +380,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_weighted_bowley_skewness: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_quartile_coeff_dispersion: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_kelley_skewness: Payloads.RowWeightedColumnOutputs,
+        row_cumulative_weighted_mode: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_weight_sum: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_positive_count: Payloads.RowWeightedColumnOutputs,
         row_cumulative_weighted_effective_n: Payloads.RowWeightedColumnOutputs,
