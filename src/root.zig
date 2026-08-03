@@ -214,14 +214,62 @@ pub fn einsumUnary(subscripts: []const u8, input: anytype) ArrayError!@TypeOf(in
     if (!input.device.isAvailable()) return error.InvalidDevice;
     const plan = try parseUnaryEinsum(subscripts, input.shape.len);
     if (plan.repeatedLabel()) |label| {
-        if (input.shape.len != 2) return error.InvalidShape;
-        if (plan.out_len == 1 and plan.out[0] == label) return input.diagonal(0);
-        if (plan.out_len == 0) {
-            var diag = try input.diagonal(0);
-            defer diag.deinit();
-            return diag.sum(null, false);
+        var first_axis: ?usize = null;
+        var second_axis: ?usize = null;
+        for (plan.input[0..plan.input_len], 0..) |candidate, axis| {
+            if (candidate != label) continue;
+            if (first_axis == null) {
+                first_axis = axis;
+            } else {
+                second_axis = axis;
+                break;
+            }
         }
-        return error.InvalidShape;
+        const axis1 = first_axis orelse return error.InvalidShape;
+        const axis2 = second_axis orelse return error.InvalidShape;
+        var current = try input.diagonalAxes(0, @intCast(axis1), @intCast(axis2));
+        errdefer current.deinit();
+
+        var diagonal_labels = [_]u8{0} ** max_einsum_rank;
+        var diagonal_len: usize = 0;
+        var counts = [_]u8{0} ** 256;
+        for (plan.input[0..plan.input_len]) |candidate| counts[candidate] += 1;
+        for (plan.input[0..plan.input_len]) |candidate| {
+            if (counts[candidate] == 1) {
+                diagonal_labels[diagonal_len] = candidate;
+                diagonal_len += 1;
+            }
+        }
+        diagonal_labels[diagonal_len] = label;
+        diagonal_len += 1;
+
+        var axis = diagonal_len;
+        while (axis > 0) {
+            axis -= 1;
+            if (findLabel(plan.out[0..plan.out_len], diagonal_labels[axis]) == null) {
+                const next = try current.sum(@intCast(axis), false);
+                current.deinit();
+                current = next;
+            }
+        }
+
+        var default_out = [_]u8{0} ** max_einsum_rank;
+        var default_out_len: usize = 0;
+        for (diagonal_labels[0..diagonal_len]) |candidate| {
+            if (findLabel(plan.out[0..plan.out_len], candidate) != null) {
+                default_out[default_out_len] = candidate;
+                default_out_len += 1;
+            }
+        }
+        if (plan.out_len == default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], default_out[0..default_out_len])) return current;
+
+        var permutation = [_]usize{0} ** max_einsum_rank;
+        for (plan.out[0..plan.out_len], 0..) |candidate, out_axis| {
+            permutation[out_axis] = findLabel(default_out[0..default_out_len], candidate) orelse return error.InvalidShape;
+        }
+        const permuted = try current.permute(permutation[0..plan.out_len]);
+        current.deinit();
+        return permuted;
     }
 
     var current = try input.copy();
@@ -393,7 +441,6 @@ fn parseUnaryEinsum(subscripts: []const u8, input_rank: usize) ArrayError!UnaryE
     for (plan.out[0..plan.out_len]) |label| {
         if (out_seen[label]) return error.InvalidShape;
         if (counts[label] == 0) return error.InvalidShape;
-        if (counts[label] == 2 and !(plan.out_len == 1 and plan.out[0] == label)) return error.InvalidShape;
         out_seen[label] = true;
     }
     if (plan.repeat_label != null) {

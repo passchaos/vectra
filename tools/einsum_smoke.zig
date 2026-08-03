@@ -122,6 +122,16 @@ pub fn main(init: std.process.Init) !void {
     defer unary_trace.deinit();
     var unary_trace_implicit = try vx.einsumUnary("ii", square);
     defer unary_trace_implicit.deinit();
+    var batched_square = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, &.{ 2, 2, 2 });
+    defer batched_square.deinit();
+    var batched_diag = try vx.einsumUnary("bii->bi", batched_square);
+    defer batched_diag.deinit();
+    var batched_diag_reordered = try vx.einsumUnary("bii->ib", batched_square);
+    defer batched_diag_reordered.deinit();
+    var batched_trace = try vx.einsumUnary("bii->b", batched_square);
+    defer batched_trace.deinit();
+    var batched_trace_implicit = try vx.einsumUnary("bii", batched_square);
+    defer batched_trace_implicit.deinit();
     var chain_rhs = try vx.Array(f32).fromSlice(allocator, &.{ 1, 2, 3, 4 }, &.{ 2, 2 });
     defer chain_rhs.deinit();
     var ternary_chain = try vx.einsum3("ij,jk,kl->il", a, b, chain_rhs);
@@ -188,6 +198,12 @@ pub fn main(init: std.process.Init) !void {
         std.mem.eql(usize, unary_trace.shape, &.{}) and
         eql(f32, unary_trace.data, &.{5}) and
         eql(f32, unary_trace_implicit.data, &.{5}) and
+        std.mem.eql(usize, batched_diag.shape, &.{ 2, 2 }) and
+        eql(f32, batched_diag.data, &.{ 1, 4, 5, 8 }) and
+        std.mem.eql(usize, batched_diag_reordered.shape, &.{ 2, 2 }) and
+        eql(f32, batched_diag_reordered.data, &.{ 1, 5, 4, 8 }) and
+        eql(f32, batched_trace.data, &.{ 5, 13 }) and
+        eql(f32, batched_trace_implicit.data, &.{ 5, 13 }) and
         std.mem.eql(usize, ternary_chain.shape, &.{ 2, 2 }) and
         eql(f32, ternary_chain.data, &.{ 250, 372, 601, 894 }) and
         eql(f32, ternary_chain_implicit.data, &.{ 250, 372, 601, 894 }) and
@@ -214,7 +230,7 @@ pub fn main(init: std.process.Init) !void {
             eql(f32, generic_contract.data, &.{ 22, 28, 49, 64, 76, 100, 103, 136 }),
             eql(f32, batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),
             eql(f32, rank4_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15, 18, 20, 22, 24, 14, 13, 16, 15 }),
-            eql(f32, unary_identity.data, &.{ 1, 2, 3, 4, 5, 6 }) and eql(f32, unary_transpose.data, &.{ 1, 4, 2, 5, 3, 6 }) and eql(f32, unary_row_sum.data, &.{ 6, 15 }) and eql(f32, unary_col_sum.data, &.{ 5, 7, 9 }) and eql(f32, unary_diag.data, &.{ 1, 4 }) and eql(f32, unary_trace.data, &.{5}) and eql(f32, unary_trace_implicit.data, &.{5}),
+            eql(f32, unary_identity.data, &.{ 1, 2, 3, 4, 5, 6 }) and eql(f32, unary_transpose.data, &.{ 1, 4, 2, 5, 3, 6 }) and eql(f32, unary_row_sum.data, &.{ 6, 15 }) and eql(f32, unary_col_sum.data, &.{ 5, 7, 9 }) and eql(f32, unary_diag.data, &.{ 1, 4 }) and eql(f32, unary_trace.data, &.{5}) and eql(f32, unary_trace_implicit.data, &.{5}) and eql(f32, batched_diag.data, &.{ 1, 4, 5, 8 }) and eql(f32, batched_diag_reordered.data, &.{ 1, 5, 4, 8 }) and eql(f32, batched_trace.data, &.{ 5, 13 }) and eql(f32, batched_trace_implicit.data, &.{ 5, 13 }),
             eql(f32, ternary_chain.data, &.{ 250, 372, 601, 894 }) and eql(f32, ternary_chain_implicit.data, &.{ 250, 372, 601, 894 }),
             eql(f32, same_label_elementwise.data, &.{ 1, 4, 9, 16, 25, 36 }) and eql(f32, same_label_rows.data, &.{ 14, 77 }) and eql(f32, same_label_all.data, &.{91}) and eql(f32, same_label_reordered.data, &.{ 1, 16, 4, 25, 9, 36 }),
             eql(f32, ellipsis_batched.data, &.{ 1, 2, 3, 4, 11, 11, 15, 15 }),

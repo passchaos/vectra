@@ -77,7 +77,7 @@ KNOWN_GAPS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "einsum_and_general_contraction_syntax",
-        "reason": "A bounded einsum-smoke exists for common binary contractions, output reordering, implicit output inference, and common unary transpose/reduction/diagonal/trace forms, same-label binary elementwise/reduction forms, a three-operand matrix-chain form, plus explicit shared-prefix and ellipsis batched matmul, matvec, vecmat, and batched-dot spellings; full NumPy einsum syntax is not covered yet.",
+        "reason": "A bounded einsum-smoke exists for common binary contractions, output reordering, implicit output inference, and common unary transpose/reduction/diagonal/trace forms including batched diagonals, same-label binary elementwise/reduction forms, a three-operand matrix-chain form, plus explicit shared-prefix and ellipsis batched matmul, matvec, vecmat, and batched-dot spellings; full NumPy einsum syntax is not covered yet.",
         "target_layer": "vectra_axiom",
     },
     {
