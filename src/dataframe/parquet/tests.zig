@@ -297,6 +297,32 @@ test "device lazy parquet scan pushes between filters as range predicates" {
     try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, scalar_lt_explain, "bounds=i32[min=null,max=3]") != null);
 
+    var scalar_intersection_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer scalar_intersection_scan.deinit();
+    try scalar_intersection_scan.filterColumnScalar("id", i32, 1, .gt);
+    try scalar_intersection_scan.filterColumnScalar("id", i32, 4, .lt);
+    try scalar_intersection_scan.select(&.{"sales"});
+
+    const scalar_intersection_explain = try scalar_intersection_scan.explain(gpa);
+    defer gpa.free(scalar_intersection_explain);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_intersection_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, scalar_intersection_explain, "bounds=i32[min=2,max=3]") != null);
+    var scalar_intersection = try scalar_intersection_scan.collect();
+    defer scalar_intersection.deinit();
+    const scalar_intersection_sales = try (try scalar_intersection.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(scalar_intersection_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, scalar_intersection_sales);
+
+    var mixed_intersection_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer mixed_intersection_scan.deinit();
+    try mixed_intersection_scan.filterColumnScalar("id", i32, 1, .gt);
+    try mixed_intersection_scan.filterBetweenColumn("id", i32, 1, 3);
+    try mixed_intersection_scan.select(&.{"sales"});
+
+    const mixed_intersection_explain = try mixed_intersection_scan.explain(gpa);
+    defer gpa.free(mixed_intersection_explain);
+    try std.testing.expect(std.mem.indexOf(u8, mixed_intersection_explain, "bounds=i32[min=2,max=3]") != null);
+
     var outside_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer outside_scan.deinit();
     try outside_scan.filterOutsideColumn("sales", f64, 3.0, 5.0);

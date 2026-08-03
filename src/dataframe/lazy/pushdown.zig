@@ -1786,12 +1786,9 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 if (filter_depends_on_source) {
                     try appendOwnedNameUnique(allocator, &required_names, range.name);
                 }
-                if (range.keep_inside and filter_depends_on_source and range_predicate == null) {
+                if (range.keep_inside and filter_depends_on_source) {
                     if (parquetRangePredicateFromBounds(range.lower, range.upper, range.lower_inclusive, range.upper_inclusive)) |predicate| {
-                        range_predicate = .{
-                            .column = try allocator.dupe(u8, range.name),
-                            .predicate = predicate,
-                        };
+                        try mergeRangePredicate(allocator, &range_predicate, range.name, predicate);
                     }
                 }
             },
@@ -1822,12 +1819,9 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
                 if (filter_depends_on_source) try appendOwnedNameUnique(allocator, &required_names, filter_op.name);
-                if (filter_op.keep_matches and filter_depends_on_source and range_predicate == null) {
+                if (filter_op.keep_matches and filter_depends_on_source) {
                     if (parquetRangePredicateFromScalar(filter_op.scalar, filter_op.op)) |predicate| {
-                        range_predicate = .{
-                            .column = try allocator.dupe(u8, filter_op.name),
-                            .predicate = predicate,
-                        };
+                        try mergeRangePredicate(allocator, &range_predicate, filter_op.name, predicate);
                     }
                 }
             },
@@ -1956,6 +1950,96 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
     };
     range_predicate = null;
     return out;
+}
+
+fn mergeRangePredicate(
+    allocator: std.mem.Allocator,
+    current: *?DeviceParquetRangeFilter,
+    column_name: []const u8,
+    predicate: ParquetRangePredicate,
+) std.mem.Allocator.Error!void {
+    if (current.*) |*existing| {
+        if (!std.mem.eql(u8, existing.column, column_name)) return;
+        if (intersectRangePredicates(existing.predicate, predicate)) |merged| {
+            existing.predicate = merged;
+        }
+        return;
+    }
+    current.* = .{
+        .column = try allocator.dupe(u8, column_name),
+        .predicate = predicate,
+    };
+}
+
+fn intersectRangePredicates(left: ParquetRangePredicate, right: ParquetRangePredicate) ?ParquetRangePredicate {
+    if (std.meta.activeTag(left) != std.meta.activeTag(right)) return null;
+    return switch (left) {
+        .bool => |range| .{ .bool = intersectBoolRange(range, right.bool) orelse return null },
+        .i8 => |range| .{ .i8 = intersectRange(i8, range, right.i8) orelse return null },
+        .i16 => |range| .{ .i16 = intersectRange(i16, range, right.i16) orelse return null },
+        .i32 => |range| .{ .i32 = intersectRange(i32, range, right.i32) orelse return null },
+        .i64 => |range| .{ .i64 = intersectRange(i64, range, right.i64) orelse return null },
+        .u8 => |range| .{ .u8 = intersectRange(u8, range, right.u8) orelse return null },
+        .u16 => |range| .{ .u16 = intersectRange(u16, range, right.u16) orelse return null },
+        .u32 => |range| .{ .u32 = intersectRange(u32, range, right.u32) orelse return null },
+        .u64 => |range| .{ .u64 = intersectRange(u64, range, right.u64) orelse return null },
+        .usize => |range| .{ .usize = intersectRange(usize, range, right.usize) orelse return null },
+        .isize => |range| .{ .isize = intersectRange(isize, range, right.isize) orelse return null },
+        .f16 => |range| .{ .f16 = intersectRange(f16, range, right.f16) orelse return null },
+        .f32 => |range| .{ .f32 = intersectRange(f32, range, right.f32) orelse return null },
+        .f64 => |range| .{ .f64 = intersectRange(f64, range, right.f64) orelse return null },
+        .bf16, .c64, .c128 => null,
+    };
+}
+
+fn intersectBoolRange(left: Range(bool), right: Range(bool)) ?Range(bool) {
+    const min_value = maxOptionalBool(left.min, right.min);
+    const max_value = minOptionalBool(left.max, right.max);
+    if (min_value == true and max_value == false) return null;
+    return .{ .min = min_value, .max = max_value };
+}
+
+fn intersectRange(comptime T: type, left: Range(T), right: Range(T)) ?Range(T) {
+    const min_value = maxOptional(T, left.min, right.min);
+    const max_value = minOptional(T, left.max, right.max);
+    if (min_value) |min_unwrapped| {
+        if (max_value) |max_unwrapped| {
+            if (min_unwrapped > max_unwrapped) return null;
+        }
+    }
+    return .{ .min = min_value, .max = max_value };
+}
+
+fn maxOptionalBool(left: ?bool, right: ?bool) ?bool {
+    if (left) |left_value| {
+        if (right) |right_value| return left_value or right_value;
+        return left_value;
+    }
+    return right;
+}
+
+fn minOptionalBool(left: ?bool, right: ?bool) ?bool {
+    if (left) |left_value| {
+        if (right) |right_value| return left_value and right_value;
+        return left_value;
+    }
+    return right;
+}
+
+fn maxOptional(comptime T: type, left: ?T, right: ?T) ?T {
+    if (left) |left_value| {
+        if (right) |right_value| return if (left_value >= right_value) left_value else right_value;
+        return left_value;
+    }
+    return right;
+}
+
+fn minOptional(comptime T: type, left: ?T, right: ?T) ?T {
+    if (left) |left_value| {
+        if (right) |right_value| return if (left_value <= right_value) left_value else right_value;
+        return left_value;
+    }
+    return right;
 }
 
 fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompareOp) ?ParquetRangePredicate {
