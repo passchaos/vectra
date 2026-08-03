@@ -184,7 +184,7 @@ test "device parquet scan pushes range predicate and projection into collect" {
 
     var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
     defer id.deinit();
-    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    var sales = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 2.0, 0.0, 5.0 }, &.{ true, false, true }, .cpu);
     defer sales.deinit();
     var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true }, .cpu);
     defer active.deinit();
@@ -231,6 +231,28 @@ test "device parquet scan pushes range predicate and projection into collect" {
     defer gpa.free(null_replacement_explain);
     try std.testing.expect(std.mem.indexOf(u8, null_replacement_explain, "null=sales:non_null") != null);
     try std.testing.expect(std.mem.indexOf(u8, null_replacement_explain, "range=id") == null);
+
+    var non_null_result = try replacement_scan.collect();
+    defer non_null_result.deinit();
+    const non_null_ids = try (try non_null_result.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(non_null_ids);
+    // Direct Boltha table pruning is row-group level. This one-row-group file
+    // contains at least one non-null sales value, so the scan keeps the full
+    // group. Lazy collect applies row-level filters after scan pushdown.
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, non_null_ids);
+
+    var null_scan = try DeviceParquetScan.init(gpa, bytes, .cpu);
+    defer null_scan.deinit();
+    try null_scan.whereNull("sales", true);
+    try null_scan.select(&.{"id"});
+    const null_explain = try null_scan.explain(gpa);
+    defer gpa.free(null_explain);
+    try std.testing.expect(std.mem.indexOf(u8, null_explain, "null=sales:only") != null);
+    var null_result = try null_scan.collect();
+    defer null_result.deinit();
+    const null_ids = try (try null_result.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(null_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 2, 3 }, null_ids);
 }
 
 test "device lazy parquet scan pushes between filters as range predicates" {
