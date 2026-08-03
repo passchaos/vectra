@@ -1,23 +1,23 @@
 //! Eager name-output/trend profile method wrappers.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const threshold_mod = @import("dataframe_threshold.zig");
-const bool_profile_mod = @import("dataframe_bool_profile.zig");
-const clip_mod = @import("dataframe_clip.zig");
-const risk_mod = @import("dataframe_risk.zig");
-const standardize_mod = @import("dataframe_standardize.zig");
-const robust_mod = @import("dataframe_robust.zig");
-const trend_methods_mod = @import("dataframe_profile_trend_methods.zig");
-const shift_mod = @import("dataframe_shift.zig");
-const quantile_mod = @import("dataframe_quantile.zig");
-const rank_mod = @import("dataframe_rank.zig");
-const stats_profile_mod = @import("dataframe_stats_profile.zig");
-const moment_mod = @import("dataframe_moment.zig");
-const normalize_mod = @import("dataframe_normalize.zig");
-const range_mod = @import("dataframe_range.zig");
-const options_mod = @import("dataframe_options.zig");
-const series_mod = @import("series.zig");
+const array_mod = @import("../../array.zig");
+const threshold_mod = @import("../../dataframe_threshold.zig");
+const bool_profile_mod = @import("../../dataframe_bool_profile.zig");
+const clip_mod = @import("../../dataframe_clip.zig");
+const risk_mod = @import("../../dataframe_risk.zig");
+const standardize_mod = @import("../../dataframe_standardize.zig");
+const robust_mod = @import("../../dataframe_robust.zig");
+const trend_methods_mod = @import("trend_methods.zig");
+const shift_mod = @import("../../dataframe_shift.zig");
+const quantile_mod = @import("../../dataframe_quantile.zig");
+const rank_mod = @import("../../dataframe_rank.zig");
+const stats_profile_mod = @import("../../dataframe_stats_profile.zig");
+const moment_mod = @import("../../dataframe_moment.zig");
+const normalize_mod = @import("../../dataframe_normalize.zig");
+const range_mod = @import("../../dataframe_range.zig");
+const options_mod = @import("../../dataframe_options.zig");
+const series_mod = @import("../../series.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceRollingOptions = options_mod.DeviceRollingOptions;

@@ -1,12 +1,12 @@
 //! Eager trend/change/sign profile method wrappers.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const trend_mod = @import("dataframe_trend.zig");
-const change_mod = @import("dataframe_change.zig");
-const sign_mod = @import("dataframe_sign.zig");
-const options_mod = @import("dataframe_options.zig");
-const series_mod = @import("series.zig");
+const array_mod = @import("../../array.zig");
+const trend_mod = @import("../../dataframe_trend.zig");
+const change_mod = @import("../../dataframe_change.zig");
+const sign_mod = @import("../../dataframe_sign.zig");
+const options_mod = @import("../../dataframe_options.zig");
+const series_mod = @import("../../series.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceRollingOptions = options_mod.DeviceRollingOptions;

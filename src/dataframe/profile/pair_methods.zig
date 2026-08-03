@@ -1,17 +1,17 @@
 //! Eager pair/advanced DeviceDataFrame profile method wrappers.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const bool_transition_mod = @import("dataframe_bool_transition.zig");
-const classification_mod = @import("dataframe_classification.zig");
-const error_mod = @import("dataframe_error.zig");
-const correlation_mod = @import("dataframe_correlation.zig");
-const linear_fit_mod = @import("dataframe_linear_fit.zig");
-const crossover_mod = @import("dataframe_crossover.zig");
-const bucket_mod = @import("dataframe_bucket.zig");
-const ema_mod = @import("dataframe_ema.zig");
-const options_mod = @import("dataframe_options.zig");
-const series_mod = @import("series.zig");
+const array_mod = @import("../../array.zig");
+const bool_transition_mod = @import("../../dataframe_bool_transition.zig");
+const classification_mod = @import("../../dataframe_classification.zig");
+const error_mod = @import("../../dataframe_error.zig");
+const correlation_mod = @import("../../dataframe_correlation.zig");
+const linear_fit_mod = @import("../../dataframe_linear_fit.zig");
+const crossover_mod = @import("../../dataframe_crossover.zig");
+const bucket_mod = @import("../../dataframe_bucket.zig");
+const ema_mod = @import("../../dataframe_ema.zig");
+const options_mod = @import("../../dataframe_options.zig");
+const series_mod = @import("../../series.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceRollingOptions = options_mod.DeviceRollingOptions;

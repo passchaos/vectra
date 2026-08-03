@@ -4,9 +4,9 @@
 //! them outside `dataframe.zig` keeps the public facade small while preserving
 //! `frame.rollingProfile(...)` style method syntax through aliases.
 
-const validity_methods_mod = @import("dataframe_profile_validity_methods.zig");
-const name_methods_mod = @import("dataframe_profile_name_methods.zig");
-const pair_methods_mod = @import("dataframe_profile_pair_methods.zig");
+const validity_methods_mod = @import("profile/validity_methods.zig");
+const name_methods_mod = @import("profile/name_methods.zig");
+const pair_methods_mod = @import("profile/pair_methods.zig");
 
 pub const rollingProfile = name_methods_mod.rollingProfile;
 pub const rollingMomentProfile = name_methods_mod.rollingMomentProfile;
