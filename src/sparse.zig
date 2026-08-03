@@ -74,6 +74,14 @@ fn absDifference(comptime T: type, lhs: T, rhs: T) T {
     };
 }
 
+fn valueLess(comptime T: type, lhs: T, rhs: T) bool {
+    return lhs < rhs;
+}
+
+fn valueGreater(comptime T: type, lhs: T, rhs: T) bool {
+    return lhs > rhs;
+}
+
 fn ensureNumeric(comptime T: type) void {
     switch (@typeInfo(T)) {
         .int, .float => {},
@@ -859,6 +867,46 @@ pub fn CooMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += value;
+            return out;
+        }
+
+        pub fn rowMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (valueLess(T, value, out.data[row])) out.data[row] = value;
+            }
+            return out;
+        }
+
+        pub fn rowMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (valueGreater(T, value, out.data[row])) out.data[row] = value;
+            }
+            return out;
+        }
+
+        pub fn columnMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (valueLess(T, value, out.data[col])) out.data[col] = value;
+            }
+            return out;
+        }
+
+        pub fn columnMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (valueGreater(T, value, out.data[col])) out.data[col] = value;
+            }
             return out;
         }
 
@@ -2031,6 +2079,52 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
+        pub fn rowMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (valueLess(T, value, out.data[row])) out.data[row] = value;
+                }
+            }
+            return out;
+        }
+
+        pub fn rowMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (valueGreater(T, value, out.data[row])) out.data[row] = value;
+                }
+            }
+            return out;
+        }
+
+        pub fn columnMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (valueLess(T, value, out.data[col])) out.data[col] = value;
+            }
+            return out;
+        }
+
+        pub fn columnMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| {
+                if (valueGreater(T, value, out.data[col])) out.data[col] = value;
+            }
+            return out;
+        }
+
         pub fn rowAbsSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.rowAbsSumsF64();
@@ -3032,6 +3126,52 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
+        pub fn columnMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (valueLess(T, value, out.data[col])) out.data[col] = value;
+                }
+            }
+            return out;
+        }
+
+        pub fn columnMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (valueGreater(T, value, out.data[col])) out.data[col] = value;
+                }
+            }
+            return out;
+        }
+
+        pub fn rowMins(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (valueLess(T, value, out.data[row])) out.data[row] = value;
+            }
+            return out;
+        }
+
+        pub fn rowMaxes(self: Self) SparseError!array_mod.Array(T) {
+            ensureNumeric(T);
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| {
+                if (valueGreater(T, value, out.data[row])) out.data[row] = value;
+            }
+            return out;
+        }
+
         pub fn columnAbsSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.columnAbsSumsF64();
@@ -3580,6 +3720,19 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
 
+    var row_mins = try coo.rowMins();
+    defer row_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0 }, row_mins.data);
+    var row_maxes = try coo.rowMaxes();
+    defer row_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, row_maxes.data);
+    var col_mins = try coo.columnMins();
+    defer col_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, -2 }, col_mins.data);
+    var col_maxes = try coo.columnMaxes();
+    defer col_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_maxes.data);
+
     var row_nnz = try coo.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
@@ -3950,6 +4103,19 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
 
+    var row_mins = try csr.rowMins();
+    defer row_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0 }, row_mins.data);
+    var row_maxes = try csr.rowMaxes();
+    defer row_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, row_maxes.data);
+    var col_mins = try csr.columnMins();
+    defer col_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, -2 }, col_mins.data);
+    var col_maxes = try csr.columnMaxes();
+    defer col_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_maxes.data);
+
     var row_nnz = try csr.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
@@ -4198,6 +4364,19 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+
+    var row_mins = try csc.rowMins();
+    defer row_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 0, 0 }, row_mins.data);
+    var row_maxes = try csc.rowMaxes();
+    defer row_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 5 }, row_maxes.data);
+    var col_mins = try csc.columnMins();
+    defer col_mins.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, -2 }, col_mins.data);
+    var col_maxes = try csc.columnMaxes();
+    defer col_maxes.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_maxes.data);
 
     var row_nnz = try csc.rowNnz();
     defer row_nnz.deinit();
