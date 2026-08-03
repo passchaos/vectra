@@ -128,6 +128,7 @@ pub const CscMatrix = sparse.CscMatrix;
 pub const CooMatrix = sparse.CooMatrix;
 pub const SparseError = sparse.SparseError;
 pub const SparseProfile = sparse.SparseProfile;
+pub const SparseDiffSummary = sparse.SparseDiffSummary;
 pub const csrFromDense = sparse.csrFromDense;
 pub const csrFromCompressed = sparse.csrFromCompressed;
 pub const cscFromDense = sparse.cscFromDense;
