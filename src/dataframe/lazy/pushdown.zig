@@ -1782,8 +1782,17 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .filter_between_column => |range| {
-                if (!nameInBorrowedList(range.name, derived_names.items)) {
+                const filter_depends_on_source = !nameInBorrowedList(range.name, derived_names.items);
+                if (filter_depends_on_source) {
                     try appendOwnedNameUnique(allocator, &required_names, range.name);
+                }
+                if (range.keep_inside and filter_depends_on_source and range_predicate == null) {
+                    if (parquetRangePredicateFromBounds(range.lower, range.upper)) |predicate| {
+                        range_predicate = .{
+                            .column = try allocator.dupe(u8, range.name),
+                            .predicate = predicate,
+                        };
+                    }
                 }
             },
             .filter_isin_column => |membership| {
@@ -1974,6 +1983,31 @@ fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompare
         .f64 => |value| if (rangeFromScalarPredicate(f64, value, op)) |range| .{ .f64 = range } else null,
         .bf16, .c64, .c128 => null,
     };
+}
+
+fn parquetRangePredicateFromBounds(lower: DeviceScalar, upper: DeviceScalar) ?ParquetRangePredicate {
+    if (std.meta.activeTag(lower) != std.meta.activeTag(upper)) return null;
+    return switch (lower) {
+        .bool => |value| if (!value or upper.bool) .{ .bool = .{ .min = value, .max = upper.bool } } else null,
+        .i8 => |value| if (value <= upper.i8) .{ .i8 = .{ .min = value, .max = upper.i8 } } else null,
+        .i16 => |value| if (value <= upper.i16) .{ .i16 = .{ .min = value, .max = upper.i16 } } else null,
+        .i32 => |value| if (value <= upper.i32) .{ .i32 = .{ .min = value, .max = upper.i32 } } else null,
+        .i64 => |value| if (value <= upper.i64) .{ .i64 = .{ .min = value, .max = upper.i64 } } else null,
+        .u8 => |value| if (value <= upper.u8) .{ .u8 = .{ .min = value, .max = upper.u8 } } else null,
+        .u16 => |value| if (value <= upper.u16) .{ .u16 = .{ .min = value, .max = upper.u16 } } else null,
+        .u32 => |value| if (value <= upper.u32) .{ .u32 = .{ .min = value, .max = upper.u32 } } else null,
+        .u64 => |value| if (value <= upper.u64) .{ .u64 = .{ .min = value, .max = upper.u64 } } else null,
+        .usize => |value| if (value <= upper.usize) .{ .usize = .{ .min = value, .max = upper.usize } } else null,
+        .isize => |value| if (value <= upper.isize) .{ .isize = .{ .min = value, .max = upper.isize } } else null,
+        .f16 => |value| if (validFloatBounds(f16, value, upper.f16)) .{ .f16 = .{ .min = value, .max = upper.f16 } } else null,
+        .f32 => |value| if (validFloatBounds(f32, value, upper.f32)) .{ .f32 = .{ .min = value, .max = upper.f32 } } else null,
+        .f64 => |value| if (validFloatBounds(f64, value, upper.f64)) .{ .f64 = .{ .min = value, .max = upper.f64 } } else null,
+        .bf16, .c64, .c128 => null,
+    };
+}
+
+fn validFloatBounds(comptime T: type, lower: T, upper: T) bool {
+    return !std.math.isNan(lower) and !std.math.isNan(upper) and lower <= upper;
 }
 
 fn rangeFromScalarPredicate(comptime T: type, value: T, op: DeviceColumnCompareOp) ?Range(T) {

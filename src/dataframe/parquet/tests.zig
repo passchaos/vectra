@@ -148,6 +148,65 @@ test "device parquet scan pushes range predicate and projection into collect" {
     try std.testing.expectEqual(@as(?usize, null), result.columnIndex("active"));
 }
 
+test "device lazy parquet scan pushes between filters as range predicates" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3, 4 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 3.0, 5.0, 8.0 }, .cpu);
+    defer sales.deinit();
+    var active = try DeviceColumn.fromSlice(bool, gpa, &.{ true, false, true, false }, .cpu);
+    defer active.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+        .{ .name = "active", .data = active },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var between_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer between_scan.deinit();
+    try between_scan.filterBetweenColumn("sales", f64, 3.0, 5.0);
+    try between_scan.select(&.{"id"});
+
+    const between_explain = try between_scan.explain(gpa);
+    defer gpa.free(between_explain);
+    try std.testing.expect(std.mem.indexOf(u8, between_explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, between_explain, "filter_between_column(sales, lower:f64, upper:f64") != null);
+
+    var between = try between_scan.collect();
+    defer between.deinit();
+    try std.testing.expectEqual(@as(usize, 2), between.height());
+    try std.testing.expectEqual(@as(usize, 1), between.width());
+    try std.testing.expectEqual(@as(?usize, null), between.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, null), between.columnIndex("active"));
+    const between_ids = try (try between.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(between_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 2, 3 }, between_ids);
+
+    var outside_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer outside_scan.deinit();
+    try outside_scan.filterOutsideColumn("sales", f64, 3.0, 5.0);
+    try outside_scan.select(&.{"id"});
+
+    const outside_explain = try outside_scan.explain(gpa);
+    defer gpa.free(outside_explain);
+    // Outside filters are a disjoint range union, so the planner only pushes
+    // the column projection and lets the eager dataframe filter enforce rows.
+    try std.testing.expect(std.mem.indexOf(u8, outside_explain, "scan_pushdown: projection=[sales,id]") != null);
+
+    var outside = try outside_scan.collect();
+    defer outside.deinit();
+    try std.testing.expectEqual(@as(usize, 2), outside.height());
+    const outside_ids = try (try outside.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(outside_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 4 }, outside_ids);
+}
+
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {
     const gpa = std.testing.allocator;
 
