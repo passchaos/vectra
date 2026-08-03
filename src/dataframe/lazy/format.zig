@@ -18,7 +18,33 @@ pub fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: anytype) std.Io.
         try writer.print("]", .{});
         printed = true;
     }
+    if (pushdown.range_predicate) |predicate| {
+        if (printed) try writer.print(", ", .{});
+        try writer.print("bounds=", .{});
+        try formatRangePredicateBounds(writer, predicate.predicate);
+        printed = true;
+    }
     if (!printed) try writer.print("none", .{});
+}
+
+fn formatRangePredicateBounds(writer: *std.Io.Writer, predicate: anytype) std.Io.Writer.Error!void {
+    switch (predicate) {
+        inline else => |range, tag| {
+            try writer.print("{s}[min=", .{@tagName(tag)});
+            try formatOptionalValue(writer, range.min);
+            try writer.print(",max=", .{});
+            try formatOptionalValue(writer, range.max);
+            try writer.print("]", .{});
+        },
+    }
+}
+
+fn formatOptionalValue(writer: *std.Io.Writer, value: anytype) std.Io.Writer.Error!void {
+    if (value) |unwrapped| {
+        try writer.print("{any}", .{unwrapped});
+    } else {
+        try writer.print("null", .{});
+    }
 }
 
 fn formatGroupWeightedPairShift(writer: *std.Io.Writer, comptime op_name: []const u8, shift: anytype) std.Io.Writer.Error!void {

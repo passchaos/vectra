@@ -1787,7 +1787,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try appendOwnedNameUnique(allocator, &required_names, range.name);
                 }
                 if (range.keep_inside and filter_depends_on_source and range_predicate == null) {
-                    if (parquetRangePredicateFromBounds(range.lower, range.upper)) |predicate| {
+                    if (parquetRangePredicateFromBounds(range.lower, range.upper, range.lower_inclusive, range.upper_inclusive)) |predicate| {
                         range_predicate = .{
                             .column = try allocator.dupe(u8, range.name),
                             .predicate = predicate,
@@ -1985,25 +1985,49 @@ fn parquetRangePredicateFromScalar(scalar: DeviceScalar, op: DeviceColumnCompare
     };
 }
 
-fn parquetRangePredicateFromBounds(lower: DeviceScalar, upper: DeviceScalar) ?ParquetRangePredicate {
+fn parquetRangePredicateFromBounds(lower: DeviceScalar, upper: DeviceScalar, lower_inclusive: bool, upper_inclusive: bool) ?ParquetRangePredicate {
     if (std.meta.activeTag(lower) != std.meta.activeTag(upper)) return null;
     return switch (lower) {
-        .bool => |value| if (!value or upper.bool) .{ .bool = .{ .min = value, .max = upper.bool } } else null,
-        .i8 => |value| if (value <= upper.i8) .{ .i8 = .{ .min = value, .max = upper.i8 } } else null,
-        .i16 => |value| if (value <= upper.i16) .{ .i16 = .{ .min = value, .max = upper.i16 } } else null,
-        .i32 => |value| if (value <= upper.i32) .{ .i32 = .{ .min = value, .max = upper.i32 } } else null,
-        .i64 => |value| if (value <= upper.i64) .{ .i64 = .{ .min = value, .max = upper.i64 } } else null,
-        .u8 => |value| if (value <= upper.u8) .{ .u8 = .{ .min = value, .max = upper.u8 } } else null,
-        .u16 => |value| if (value <= upper.u16) .{ .u16 = .{ .min = value, .max = upper.u16 } } else null,
-        .u32 => |value| if (value <= upper.u32) .{ .u32 = .{ .min = value, .max = upper.u32 } } else null,
-        .u64 => |value| if (value <= upper.u64) .{ .u64 = .{ .min = value, .max = upper.u64 } } else null,
-        .usize => |value| if (value <= upper.usize) .{ .usize = .{ .min = value, .max = upper.usize } } else null,
-        .isize => |value| if (value <= upper.isize) .{ .isize = .{ .min = value, .max = upper.isize } } else null,
+        .bool => |value| if (rangeFromBoolBounds(value, upper.bool, lower_inclusive, upper_inclusive)) |range| .{ .bool = range } else null,
+        .i8 => |value| if (rangeFromIntegerBounds(i8, value, upper.i8, lower_inclusive, upper_inclusive)) |range| .{ .i8 = range } else null,
+        .i16 => |value| if (rangeFromIntegerBounds(i16, value, upper.i16, lower_inclusive, upper_inclusive)) |range| .{ .i16 = range } else null,
+        .i32 => |value| if (rangeFromIntegerBounds(i32, value, upper.i32, lower_inclusive, upper_inclusive)) |range| .{ .i32 = range } else null,
+        .i64 => |value| if (rangeFromIntegerBounds(i64, value, upper.i64, lower_inclusive, upper_inclusive)) |range| .{ .i64 = range } else null,
+        .u8 => |value| if (rangeFromIntegerBounds(u8, value, upper.u8, lower_inclusive, upper_inclusive)) |range| .{ .u8 = range } else null,
+        .u16 => |value| if (rangeFromIntegerBounds(u16, value, upper.u16, lower_inclusive, upper_inclusive)) |range| .{ .u16 = range } else null,
+        .u32 => |value| if (rangeFromIntegerBounds(u32, value, upper.u32, lower_inclusive, upper_inclusive)) |range| .{ .u32 = range } else null,
+        .u64 => |value| if (rangeFromIntegerBounds(u64, value, upper.u64, lower_inclusive, upper_inclusive)) |range| .{ .u64 = range } else null,
+        .usize => |value| if (rangeFromIntegerBounds(usize, value, upper.usize, lower_inclusive, upper_inclusive)) |range| .{ .usize = range } else null,
+        .isize => |value| if (rangeFromIntegerBounds(isize, value, upper.isize, lower_inclusive, upper_inclusive)) |range| .{ .isize = range } else null,
         .f16 => |value| if (validFloatBounds(f16, value, upper.f16)) .{ .f16 = .{ .min = value, .max = upper.f16 } } else null,
         .f32 => |value| if (validFloatBounds(f32, value, upper.f32)) .{ .f32 = .{ .min = value, .max = upper.f32 } } else null,
         .f64 => |value| if (validFloatBounds(f64, value, upper.f64)) .{ .f64 = .{ .min = value, .max = upper.f64 } } else null,
         .bf16, .c64, .c128 => null,
     };
+}
+
+fn rangeFromBoolBounds(lower: bool, upper: bool, lower_inclusive: bool, upper_inclusive: bool) ?Range(bool) {
+    const min_value = if (lower_inclusive) lower else if (!lower) true else return null;
+    const max_value = if (upper_inclusive) upper else if (upper) false else return null;
+    if (min_value and !max_value) return null;
+    return .{ .min = min_value, .max = max_value };
+}
+
+fn rangeFromIntegerBounds(comptime T: type, lower: T, upper: T, lower_inclusive: bool, upper_inclusive: bool) ?Range(T) {
+    const min_value = if (lower_inclusive) lower else nextInteger(T, lower) orelse return null;
+    const max_value = if (upper_inclusive) upper else previousInteger(T, upper) orelse return null;
+    if (min_value > max_value) return null;
+    return .{ .min = min_value, .max = max_value };
+}
+
+fn nextInteger(comptime T: type, value: T) ?T {
+    if (value == std.math.maxInt(T)) return null;
+    return value + 1;
+}
+
+fn previousInteger(comptime T: type, value: T) ?T {
+    if (value == std.math.minInt(T)) return null;
+    return value - 1;
 }
 
 fn validFloatBounds(comptime T: type, lower: T, upper: T) bool {

@@ -246,6 +246,7 @@ test "device lazy parquet scan pushes between filters as range predicates" {
     const between_explain = try between_scan.explain(gpa);
     defer gpa.free(between_explain);
     try std.testing.expect(std.mem.indexOf(u8, between_explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, between_explain, "bounds=f64[min=3,max=5]") != null);
     try std.testing.expect(std.mem.indexOf(u8, between_explain, "filter_between_column(sales, lower:f64, upper:f64") != null);
 
     var between = try between_scan.collect();
@@ -257,6 +258,24 @@ test "device lazy parquet scan pushes between filters as range predicates" {
     const between_ids = try (try between.column("id")).i32.toOwnedSlice(gpa);
     defer gpa.free(between_ids);
     try std.testing.expectEqualSlices(i32, &.{ 2, 3 }, between_ids);
+
+    var exclusive_id_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer exclusive_id_scan.deinit();
+    try exclusive_id_scan.filterBetweenColumnClosed("id", i32, 1, 4, false, false);
+    try exclusive_id_scan.select(&.{"sales"});
+
+    const exclusive_id_explain = try exclusive_id_scan.explain(gpa);
+    defer gpa.free(exclusive_id_explain);
+    try std.testing.expect(std.mem.indexOf(u8, exclusive_id_explain, "scan_pushdown: range=id, projection=[id,sales]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, exclusive_id_explain, "bounds=i32[min=2,max=3]") != null);
+
+    var exclusive_id = try exclusive_id_scan.collect();
+    defer exclusive_id.deinit();
+    try std.testing.expectEqual(@as(usize, 2), exclusive_id.height());
+    try std.testing.expectEqual(@as(?usize, null), exclusive_id.columnIndex("id"));
+    const exclusive_sales = try (try exclusive_id.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(exclusive_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 3.0, 5.0 }, exclusive_sales);
 
     var outside_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer outside_scan.deinit();
