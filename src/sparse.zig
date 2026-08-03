@@ -28,6 +28,13 @@ fn addSparseValue(comptime T: type, lhs: T, rhs: T) T {
     };
 }
 
+fn mulSparseValue(comptime T: type, lhs: T, rhs: T) T {
+    return switch (@typeInfo(T)) {
+        .bool => lhs and rhs,
+        else => lhs * rhs,
+    };
+}
+
 fn negSparseValue(comptime T: type, value: T) T {
     return switch (@typeInfo(T)) {
         .float => -value,
@@ -110,6 +117,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         fn entryLessThan(_: void, lhs: Entry, rhs: Entry) bool {
             return lhs.row < rhs.row or (lhs.row == rhs.row and lhs.col < rhs.col);
+        }
+
+        fn coordLess(lhs_row: usize, lhs_col: usize, rhs_row: usize, rhs_col: usize) bool {
+            return lhs_row < rhs_row or (lhs_row == rhs_row and lhs_col < rhs_col);
         }
 
         pub fn fromSlices(
@@ -309,6 +320,80 @@ pub fn CooMatrix(comptime T: type) type {
             var neg_rhs = try rhs.neg();
             defer neg_rhs.deinit();
             return self.add(neg_rhs);
+        }
+
+        pub fn hadamard(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_canonical = try self.coalesced();
+            defer lhs_canonical.deinit();
+            var rhs_canonical = try rhs.coalesced();
+            defer rhs_canonical.deinit();
+
+            var count: usize = 0;
+            var lhs_pos: usize = 0;
+            var rhs_pos: usize = 0;
+            while (lhs_pos < lhs_canonical.values.len and rhs_pos < rhs_canonical.values.len) {
+                const lhs_row = lhs_canonical.row_indices[lhs_pos];
+                const lhs_col = lhs_canonical.col_indices[lhs_pos];
+                const rhs_row = rhs_canonical.row_indices[rhs_pos];
+                const rhs_col = rhs_canonical.col_indices[rhs_pos];
+                if (lhs_row == rhs_row and lhs_col == rhs_col) {
+                    count += 1;
+                    lhs_pos += 1;
+                    rhs_pos += 1;
+                } else if (coordLess(lhs_row, lhs_col, rhs_row, rhs_col)) {
+                    lhs_pos += 1;
+                } else {
+                    rhs_pos += 1;
+                }
+            }
+
+            var row_indices = try self.allocator.alloc(usize, count);
+            errdefer self.allocator.free(row_indices);
+            var col_indices = try self.allocator.alloc(usize, count);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, count);
+            errdefer self.allocator.free(values);
+
+            lhs_pos = 0;
+            rhs_pos = 0;
+            var write: usize = 0;
+            while (lhs_pos < lhs_canonical.values.len and rhs_pos < rhs_canonical.values.len) {
+                const lhs_row = lhs_canonical.row_indices[lhs_pos];
+                const lhs_col = lhs_canonical.col_indices[lhs_pos];
+                const rhs_row = rhs_canonical.row_indices[rhs_pos];
+                const rhs_col = rhs_canonical.col_indices[rhs_pos];
+                if (lhs_row == rhs_row and lhs_col == rhs_col) {
+                    row_indices[write] = lhs_row;
+                    col_indices[write] = lhs_col;
+                    values[write] = mulSparseValue(T, lhs_canonical.values[lhs_pos], rhs_canonical.values[rhs_pos]);
+                    write += 1;
+                    lhs_pos += 1;
+                    rhs_pos += 1;
+                } else if (coordLess(lhs_row, lhs_col, rhs_row, rhs_col)) {
+                    lhs_pos += 1;
+                } else {
+                    rhs_pos += 1;
+                }
+            }
+            std.debug.assert(write == count);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn mul(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
+        }
+
+        pub fn multiply(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
         }
 
         pub fn scale(self: Self, alpha: T) SparseError!Self {
@@ -900,6 +985,25 @@ pub fn CsrMatrix(comptime T: type) type {
             var neg_rhs = try rhs.neg();
             defer neg_rhs.deinit();
             return self.add(neg_rhs);
+        }
+
+        pub fn hadamard(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_coo = try self.toCoo();
+            defer lhs_coo.deinit();
+            var rhs_coo = try rhs.toCoo();
+            defer rhs_coo.deinit();
+            var product_coo = try lhs_coo.hadamard(rhs_coo);
+            defer product_coo.deinit();
+            return product_coo.toCsr();
+        }
+
+        pub fn mul(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
+        }
+
+        pub fn multiply(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
         }
 
         pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
@@ -1636,6 +1740,25 @@ pub fn CscMatrix(comptime T: type) type {
             return self.add(neg_rhs);
         }
 
+        pub fn hadamard(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_coo = try self.toCoo();
+            defer lhs_coo.deinit();
+            var rhs_coo = try rhs.toCoo();
+            defer rhs_coo.deinit();
+            var product_coo = try lhs_coo.hadamard(rhs_coo);
+            defer product_coo.deinit();
+            return product_coo.toCsc();
+        }
+
+        pub fn mul(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
+        }
+
+        pub fn multiply(self: Self, rhs: Self) SparseError!Self {
+            return self.hadamard(rhs);
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -2279,6 +2402,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_diff.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, coo_diff.values);
+    var coo_product = try lhs.hadamard(rhs);
+    defer coo_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_product.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, coo_product.values);
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
@@ -2304,6 +2432,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csr_diff.values);
+    var csr_product = try lhs_csr.multiply(rhs_csr);
+    defer csr_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_product.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_product.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, csr_product.values);
 
     var lhs_csc = try lhs.toCsc();
     defer lhs_csc.deinit();
@@ -2332,11 +2465,17 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_diff.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csc_diff.values);
+    var csc_product = try lhs_csc.mul(rhs_csc);
+    defer csc_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_product.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_product.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, csc_product.values);
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.add(mismatched));
     try std.testing.expectError(error.ShapeMismatch, lhs.sub(mismatched));
+    try std.testing.expectError(error.ShapeMismatch, lhs.hadamard(mismatched));
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
