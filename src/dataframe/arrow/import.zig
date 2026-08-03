@@ -9,8 +9,8 @@ const arrow_columns_mod = @import("columns.zig");
 pub const DataFrameInitError = std.mem.Allocator.Error || std.Io.Writer.Error || error{ LengthMismatch, ColumnNotFound, TypeMismatch, InvalidCsv, EmptyDataFrame, UnsupportedType, InvalidDevice };
 pub const ArrowInteropError = DataFrameInitError || array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 
-const emptyDeviceColumnFromArrowType = arrow_columns_mod.emptyDeviceColumnFromArrowType;
-const deviceColumnFromArrowArray = arrow_columns_mod.deviceColumnFromArrowArray;
+const emptyDeviceColumnFromArrowField = arrow_columns_mod.emptyDeviceColumnFromArrowField;
+const deviceColumnFromArrowFieldArray = arrow_columns_mod.deviceColumnFromArrowFieldArray;
 
 pub fn emptyFromArrowSchema(
     comptime DeviceDataFrame: type,
@@ -31,7 +31,7 @@ pub fn emptyFromArrowSchema(
     for (schema.fields, 0..) |field, i| {
         defs[i] = .{
             .name = field.name,
-            .data = try emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
+            .data = try emptyDeviceColumnFromArrowField(DeviceColumn, allocator, field, device_value),
         };
         initialized += 1;
     }
@@ -60,7 +60,7 @@ pub fn emptyFromArrowSchemaProjection(
         const field = schema.fields[column_index];
         defs[i] = .{
             .name = field.name,
-            .data = try emptyDeviceColumnFromArrowType(DeviceColumn, allocator, field.data_type, device_value),
+            .data = try emptyDeviceColumnFromArrowField(DeviceColumn, allocator, field, device_value),
         };
         initialized += 1;
     }
@@ -135,7 +135,7 @@ pub fn fromArrowRecordBatch(
     for (batch.schema.fields, batch.columns, 0..) |field, arrow_column, i| {
         defs[i] = .{
             .name = field.name,
-            .data = try deviceColumnFromArrowArray(DeviceColumn, allocator, arrow_column, device_value),
+            .data = try deviceColumnFromArrowFieldArray(DeviceColumn, allocator, field, arrow_column, device_value),
         };
         initialized += 1;
     }
@@ -164,7 +164,7 @@ pub fn fromArrowRecordBatchProjection(
         const column_index = batch.schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
         defs[i] = .{
             .name = batch.schema.fields[column_index].name,
-            .data = try deviceColumnFromArrowArray(DeviceColumn, allocator, batch.columns[column_index], device_value),
+            .data = try deviceColumnFromArrowFieldArray(DeviceColumn, allocator, batch.schema.fields[column_index], batch.columns[column_index], device_value),
         };
         initialized += 1;
     }

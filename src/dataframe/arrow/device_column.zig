@@ -12,6 +12,7 @@ const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataTyp
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
 const boolColumnToArrow = dataframe_arrow_mod.boolColumnToArrow;
 const indexColumnToArrow = dataframe_arrow_mod.indexColumnToArrow;
+const extensionColumnToArrow = dataframe_arrow_mod.extensionColumnToArrow;
 
 fn columnValue(self: anytype) switch (@typeInfo(@TypeOf(self))) {
     .pointer => |ptr| ptr.child,
@@ -43,6 +44,8 @@ pub fn toArrowArray(self: anytype, allocator: std.mem.Allocator) ArrowInteropErr
         .f64 => |typed| try primitiveColumnToArrow(f64, "float64", typed, allocator),
         .usize => |typed| try indexColumnToArrow(usize, typed, allocator),
         .isize => |typed| try indexColumnToArrow(isize, typed, allocator),
-        .bf16, .c64, .c128 => error.TypeUnsupported,
+        .bf16 => |typed| try extensionColumnToArrow(array_mod.BFloat16, typed, allocator),
+        .c64 => |typed| try extensionColumnToArrow(array_mod.Complex64, typed, allocator),
+        .c128 => |typed| try extensionColumnToArrow(array_mod.Complex128, typed, allocator),
     };
 }

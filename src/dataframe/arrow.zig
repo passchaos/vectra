@@ -4,6 +4,7 @@ const boltha = @import("boltha");
 const numeric_mod = @import("../dataframe_numeric.zig");
 const dataframe_array_mod = @import("../dataframe_array.zig");
 const arrow_columns_mod = @import("arrow/columns.zig");
+const arrow_extensions_mod = @import("arrow/extensions.zig");
 const arrow_import_mod = @import("arrow/import.zig");
 
 pub const DataFrameInitError = std.mem.Allocator.Error || std.Io.Writer.Error || error{ LengthMismatch, ColumnNotFound, TypeMismatch, InvalidCsv, EmptyDataFrame, UnsupportedType, InvalidDevice };
@@ -25,12 +26,31 @@ pub fn deviceDTypeToArrowDataType(dtype: array_mod.DType) ArrowInteropError!bolt
         .f16 => .{ .floating_point = .half },
         .f32 => .{ .floating_point = .single },
         .f64 => .{ .floating_point = .double },
-        // Boltha already models Arrow primitive/fixed/nested types. Vectra's
-        // BFloat16 and complex values need explicit logical-extension metadata
-        // before they can be exported without losing semantics, so keep them
-        // rejected rather than pretending they are plain fixed-size binaries.
-        .bf16, .c64, .c128 => error.TypeUnsupported,
+        // Arrow has no built-in BFloat16 or complex scalar type. Vectra stores
+        // these as fixed-size binary arrays and attaches extension metadata at
+        // the Field level in `toArrowField`.
+        .bf16 => .{ .fixed_size_binary = 2 },
+        .c64 => .{ .fixed_size_binary = 8 },
+        .c128 => .{ .fixed_size_binary = 16 },
     };
+}
+
+pub fn deviceDTypeToArrowField(allocator: std.mem.Allocator, name: []const u8, dtype: array_mod.DType, nullable: bool) ArrowInteropError!boltha.arrow.Field {
+    const data_type = try deviceDTypeToArrowDataType(dtype);
+    if (arrow_extensions_mod.forDType(dtype)) |spec| {
+        var metadata: [2]boltha.arrow.KeyValue = undefined;
+        metadata[0] = try boltha.arrow.KeyValue.init(allocator, boltha.arrow.extensionTypeNameKey, spec.name);
+        metadata[1] = boltha.arrow.KeyValue.init(allocator, boltha.arrow.extensionTypeMetadataKey, spec.metadata) catch |err| {
+            metadata[0].deinit(allocator);
+            return err;
+        };
+        defer {
+            metadata[0].deinit(allocator);
+            metadata[1].deinit(allocator);
+        }
+        return boltha.arrow.Field.initWithMetadata(allocator, name, data_type, nullable, &metadata);
+    }
+    return boltha.arrow.Field.init(allocator, name, data_type, nullable);
 }
 
 pub fn readBolthaTableWithBoolRangePruning(
@@ -97,10 +117,13 @@ pub fn emptyBolthaTableForParquetBytes(allocator: std.mem.Allocator, bytes: []co
 pub const primitiveColumnToArrow = arrow_columns_mod.primitiveColumnToArrow;
 pub const boolColumnToArrow = arrow_columns_mod.boolColumnToArrow;
 pub const indexColumnToArrow = arrow_columns_mod.indexColumnToArrow;
+pub const extensionColumnToArrow = arrow_columns_mod.extensionColumnToArrow;
 pub const primitiveDeviceColumnFromArrow = arrow_columns_mod.primitiveDeviceColumnFromArrow;
 pub const boolDeviceColumnFromArrow = arrow_columns_mod.boolDeviceColumnFromArrow;
 pub const deviceColumnFromArrowArray = arrow_columns_mod.deviceColumnFromArrowArray;
+pub const deviceColumnFromArrowFieldArray = arrow_columns_mod.deviceColumnFromArrowFieldArray;
 pub const emptyDeviceColumnFromArrowType = arrow_columns_mod.emptyDeviceColumnFromArrowType;
+pub const emptyDeviceColumnFromArrowField = arrow_columns_mod.emptyDeviceColumnFromArrowField;
 
 pub const emptyFromArrowSchema = arrow_import_mod.emptyFromArrowSchema;
 pub const emptyFromArrowSchemaProjection = arrow_import_mod.emptyFromArrowSchemaProjection;
@@ -122,12 +145,7 @@ pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropE
     }
 
     for (frame.names, frame.columns, 0..) |name, col, i| {
-        fields[i] = try boltha.arrow.Field.init(
-            allocator,
-            name,
-            try col.arrowDataType(),
-            col.nullable(),
-        );
+        fields[i] = try deviceDTypeToArrowField(allocator, name, col.dtype(), col.nullable());
         initialized += 1;
     }
     return boltha.arrow.Schema.init(allocator, fields);
