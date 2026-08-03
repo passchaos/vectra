@@ -8,6 +8,7 @@
 const std = @import("std");
 const array_mod = @import("../../array.zig");
 const dataframe_arrow_mod = @import("../arrow.zig");
+const lazy_format_mod = @import("../lazy.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const series_mod = @import("../../series.zig");
@@ -117,16 +118,8 @@ pub fn DeviceParquetScan(
             var aw: std.Io.Writer.Allocating = .init(allocator);
             errdefer aw.deinit();
             try aw.writer.print("DeviceParquetScan(bytes={d}, device={s}", .{ self.bytes.len, self.device.backendName() });
-            if (self.range_predicate) |predicate| try aw.writer.print(", range={s}", .{predicate.column});
-            if (self.null_predicate) |predicate| try aw.writer.print(", null={s}:{s}", .{ predicate.column, if (predicate.want_nulls) "only" else "non_null" });
-            if (self.projection) |names| {
-                try aw.writer.print(", projection=[", .{});
-                for (names, 0..) |name, i| {
-                    if (i != 0) try aw.writer.print(",", .{});
-                    try aw.writer.print("{s}", .{name});
-                }
-                try aw.writer.print("]", .{});
-            }
+            try aw.writer.print(", pushdown=", .{});
+            try lazy_format_mod.formatLazyScanPushdown(&aw.writer, self);
             try aw.writer.print(")\n", .{});
             return aw.toOwnedSlice();
         }

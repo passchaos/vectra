@@ -206,6 +206,7 @@ test "device parquet scan pushes range predicate and projection into collect" {
 
     const explain = try scan.explain(gpa);
     defer gpa.free(explain);
+    try std.testing.expect(std.mem.indexOf(u8, explain, "pushdown=range=id, projection=[id,sales], bounds=i32[min=2,max=3]") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "range=id") != null);
     try std.testing.expect(std.mem.indexOf(u8, explain, "projection=[id,sales]") != null);
 
@@ -223,12 +224,14 @@ test "device parquet scan pushes range predicate and projection into collect" {
     try replacement_scan.whereRange("id", .{ .i32 = .{ .min = 2 } });
     const range_replacement_explain = try replacement_scan.explain(gpa);
     defer gpa.free(range_replacement_explain);
+    try std.testing.expect(std.mem.indexOf(u8, range_replacement_explain, "pushdown=range=id, bounds=i32[min=2,max=null]") != null);
     try std.testing.expect(std.mem.indexOf(u8, range_replacement_explain, "range=id") != null);
     try std.testing.expect(std.mem.indexOf(u8, range_replacement_explain, "null=sales") == null);
 
     try replacement_scan.whereNull("sales", false);
     const null_replacement_explain = try replacement_scan.explain(gpa);
     defer gpa.free(null_replacement_explain);
+    try std.testing.expect(std.mem.indexOf(u8, null_replacement_explain, "pushdown=null=sales:non_null") != null);
     try std.testing.expect(std.mem.indexOf(u8, null_replacement_explain, "null=sales:non_null") != null);
     try std.testing.expect(std.mem.indexOf(u8, null_replacement_explain, "range=id") == null);
 
@@ -247,6 +250,7 @@ test "device parquet scan pushes range predicate and projection into collect" {
     try null_scan.select(&.{"id"});
     const null_explain = try null_scan.explain(gpa);
     defer gpa.free(null_explain);
+    try std.testing.expect(std.mem.indexOf(u8, null_explain, "pushdown=null=sales:only, projection=[id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, null_explain, "null=sales:only") != null);
     var null_result = try null_scan.collect();
     defer null_result.deinit();
