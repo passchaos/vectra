@@ -454,6 +454,50 @@ test "device lazy parquet scan pushes source boolean masks as range predicates" 
     try std.testing.expectEqualSlices(i32, &.{2}, dropped_ids);
 }
 
+test "device lazy parquet scan pushes singleton isin values as range predicates" {
+    const gpa = std.testing.allocator;
+
+    var id = try DeviceColumn.fromSlice(i32, gpa, &.{ 1, 2, 3 }, .cpu);
+    defer id.deinit();
+    var sales = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 3.0, 5.0 }, .cpu);
+    defer sales.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "id", .data = id },
+        .{ .name = "sales", .data = sales },
+    });
+    defer table.deinit();
+
+    const bytes = try table.toParquetBytes(gpa);
+    defer gpa.free(bytes);
+
+    var singleton_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer singleton_scan.deinit();
+    try singleton_scan.filterIsInValues("sales", f64, &.{3.0});
+    try singleton_scan.select(&.{"id"});
+
+    const singleton_explain = try singleton_scan.explain(gpa);
+    defer gpa.free(singleton_explain);
+    try std.testing.expect(std.mem.indexOf(u8, singleton_explain, "scan_pushdown: range=sales, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, singleton_explain, "bounds=f64[min=3,max=3]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, singleton_explain, "filter_isin_values(sales, values_dtype=f64, values_len=1, invert=false)") != null);
+
+    var singleton = try singleton_scan.collect();
+    defer singleton.deinit();
+    const singleton_ids = try (try singleton.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(singleton_ids);
+    try std.testing.expectEqualSlices(i32, &.{2}, singleton_ids);
+
+    var multi_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer multi_scan.deinit();
+    try multi_scan.filterIsInValues("sales", f64, &.{ 3.0, 5.0 });
+    try multi_scan.select(&.{"id"});
+    const multi_explain = try multi_scan.explain(gpa);
+    defer gpa.free(multi_explain);
+    try std.testing.expect(std.mem.indexOf(u8, multi_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, multi_explain, "range=sales") == null);
+}
+
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {
     const gpa = std.testing.allocator;
 

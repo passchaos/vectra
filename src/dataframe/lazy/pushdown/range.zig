@@ -133,6 +133,72 @@ pub fn parquetRangePredicateFromDroppedScalar(scalar: DeviceScalar, op: DeviceCo
     return parquetRangePredicateFromScalar(scalar, invertCompareOp(op));
 }
 
+pub fn parquetRangePredicateFromSingletonColumn(column: anytype) ?ParquetRangePredicate {
+    if (column.len() != 1) return null;
+    return switch (column) {
+        .bool => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .bool = .{ .min = values[0], .max = values[0] } };
+        },
+        .i8 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .i8 = .{ .min = values[0], .max = values[0] } };
+        },
+        .i16 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .i16 = .{ .min = values[0], .max = values[0] } };
+        },
+        .i32 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .i32 = .{ .min = values[0], .max = values[0] } };
+        },
+        .i64 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .i64 = .{ .min = values[0], .max = values[0] } };
+        },
+        .u8 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .u8 = .{ .min = values[0], .max = values[0] } };
+        },
+        .u16 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .u16 = .{ .min = values[0], .max = values[0] } };
+        },
+        .u32 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .u32 = .{ .min = values[0], .max = values[0] } };
+        },
+        .u64 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .u64 = .{ .min = values[0], .max = values[0] } };
+        },
+        .usize => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .usize = .{ .min = values[0], .max = values[0] } };
+        },
+        .isize => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            break :blk .{ .isize = .{ .min = values[0], .max = values[0] } };
+        },
+        .f16 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            if (std.math.isNan(values[0])) break :blk null;
+            break :blk .{ .f16 = .{ .min = values[0], .max = values[0] } };
+        },
+        .f32 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            if (std.math.isNan(values[0])) break :blk null;
+            break :blk .{ .f32 = .{ .min = values[0], .max = values[0] } };
+        },
+        .f64 => |typed| blk: {
+            const values = typed.values.asConstSlice() catch return null;
+            if (std.math.isNan(values[0])) break :blk null;
+            break :blk .{ .f64 = .{ .min = values[0], .max = values[0] } };
+        },
+        .bf16, .c64, .c128 => null,
+    };
+}
+
 fn invertCompareOp(op: DeviceColumnCompareOp) DeviceColumnCompareOp {
     return switch (op) {
         .eq => .ne,

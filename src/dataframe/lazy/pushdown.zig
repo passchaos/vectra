@@ -19,6 +19,7 @@ const setNullPredicate = null_pushdown_mod.setNullPredicate;
 const mergeRangePredicate = range_pushdown_mod.mergeRangePredicate;
 const parquetRangePredicateFromBounds = range_pushdown_mod.parquetRangePredicateFromBounds;
 const parquetRangePredicateFromDroppedScalar = range_pushdown_mod.parquetRangePredicateFromDroppedScalar;
+const parquetRangePredicateFromSingletonColumn = range_pushdown_mod.parquetRangePredicateFromSingletonColumn;
 const parquetRangePredicateFromScalar = range_pushdown_mod.parquetRangePredicateFromScalar;
 
 fn addRowWeightedPairColumnOutputRequirements(
@@ -1831,6 +1832,12 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_isin_values => |membership| {
                 if (!nameInBorrowedList(membership.input_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, membership.input_name);
+                    if (!membership.invert) {
+                        if (parquetRangePredicateFromSingletonColumn(membership.values)) |predicate| {
+                            try mergeRangePredicate(allocator, &range_predicate, membership.input_name, predicate);
+                            clearNullPredicate(allocator, &null_predicate);
+                        }
+                    }
                 }
             },
             .drop_rows_by_mask_column => |name| {
