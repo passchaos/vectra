@@ -190,6 +190,39 @@ fn sparseCountFractionInRange(count: usize, divisor: usize, min_fraction: f64, m
     return fraction >= min_fraction and fraction <= max_fraction;
 }
 
+fn sparseMinCount(counts: []const usize) usize {
+    if (counts.len == 0) return 0;
+    var result = counts[0];
+    for (counts[1..]) |count| {
+        if (count < result) result = count;
+    }
+    return result;
+}
+
+fn sparseMaxCount(counts: []const usize) usize {
+    var result: usize = 0;
+    for (counts) |count| {
+        if (count > result) result = count;
+    }
+    return result;
+}
+
+fn sparseCountRangeInRange(counts: []const usize, min_count: usize, max_count: usize) SparseError!bool {
+    if (min_count > max_count) return error.InvalidShape;
+    for (counts) |count| {
+        if (count < min_count or count > max_count) return false;
+    }
+    return true;
+}
+
+fn sparseCountSpread(counts: []const usize) usize {
+    return sparseMaxCount(counts) - sparseMinCount(counts);
+}
+
+fn sparseCountSpreadMeetsBound(counts: []const usize, max_spread: usize) bool {
+    return sparseCountSpread(counts) <= max_spread;
+}
+
 fn sparseElementCount(rows: usize, cols: usize) SparseError!usize {
     return std.math.mul(usize, rows, cols) catch return error.InvalidShape;
 }
@@ -1213,6 +1246,66 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn emptyColumnFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
             return sparseCountFractionInRange(try self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
+        }
+
+        pub fn minRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn minColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn rowNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn columnNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn rowNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn columnNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn rowNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
+        }
+
+        pub fn columnNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
         }
 
         pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
@@ -2669,6 +2762,66 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseCountFractionInRange(try self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
         }
 
+        pub fn minRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn minColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn rowNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn columnNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn rowNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn columnNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn rowNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
+        }
+
+        pub fn columnNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
+        }
+
         pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.rowSumsF64();
@@ -3988,6 +4141,66 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseCountFractionInRange(self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
         }
 
+        pub fn minRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxRowNnz(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn minColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMinCount(counts.data);
+        }
+
+        pub fn maxColumnNnz(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseMaxCount(counts.data);
+        }
+
+        pub fn rowNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn columnNnzRangeInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountRangeInRange(counts.data, min_count, max_count);
+        }
+
+        pub fn rowNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn columnNnzSpread(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpread(counts.data);
+        }
+
+        pub fn rowNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
+        }
+
+        pub fn columnNnzSpreadMeetsBound(self: Self, max_spread: usize) SparseError!bool {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            return sparseCountSpreadMeetsBound(counts.data, max_spread);
+        }
+
         pub fn columnSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.columnSumsF64();
@@ -4925,6 +5138,17 @@ test "sparse occupancy diagnostics" {
     try std.testing.expect(try coo.emptyRowFractionInRange(0.3, 0.4));
     try std.testing.expect(!(try coo.emptyColumnFractionInRange(0, 0.49)));
     try std.testing.expectError(error.InvalidShape, coo.emptyRowFractionInRange(std.math.nan(f64), 1));
+    try std.testing.expectEqual(@as(usize, 0), try coo.minRowNnz());
+    try std.testing.expectEqual(@as(usize, 2), try coo.maxRowNnz());
+    try std.testing.expectEqual(@as(usize, 0), try coo.minColumnNnz());
+    try std.testing.expectEqual(@as(usize, 2), try coo.maxColumnNnz());
+    try std.testing.expect(try coo.rowNnzRangeInRange(0, 2));
+    try std.testing.expect(!(try coo.columnNnzRangeInRange(1, 2)));
+    try std.testing.expectError(error.InvalidShape, coo.rowNnzRangeInRange(2, 1));
+    try std.testing.expectEqual(@as(usize, 2), try coo.rowNnzSpread());
+    try std.testing.expectEqual(@as(usize, 2), try coo.columnNnzSpread());
+    try std.testing.expect(try coo.rowNnzSpreadMeetsBound(2));
+    try std.testing.expect(!(try coo.columnNnzSpreadMeetsBound(1)));
 
     var csr = try coo.toCsr();
     defer csr.deinit();
@@ -4934,6 +5158,13 @@ test "sparse occupancy diagnostics" {
     try std.testing.expectEqual(@as(usize, 2), try csr.emptyColumnCount());
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csr.emptyRowFraction(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.emptyColumnFraction(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try csr.minRowNnz());
+    try std.testing.expectEqual(@as(usize, 2), try csr.maxRowNnz());
+    try std.testing.expectEqual(@as(usize, 0), try csr.minColumnNnz());
+    try std.testing.expectEqual(@as(usize, 2), try csr.maxColumnNnz());
+    try std.testing.expect(try csr.rowNnzRangeInRange(0, 2));
+    try std.testing.expectEqual(@as(usize, 2), try csr.rowNnzSpread());
+    try std.testing.expect(!(try csr.columnNnzSpreadMeetsBound(1)));
 
     var csc = try coo.toCsc();
     defer csc.deinit();
@@ -4943,16 +5174,27 @@ test "sparse occupancy diagnostics" {
     try std.testing.expectEqual(@as(usize, 2), csc.emptyColumnCount());
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csc.emptyRowFraction(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csc.emptyColumnFraction(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 0), try csc.minRowNnz());
+    try std.testing.expectEqual(@as(usize, 2), try csc.maxRowNnz());
+    try std.testing.expectEqual(@as(usize, 0), try csc.minColumnNnz());
+    try std.testing.expectEqual(@as(usize, 2), try csc.maxColumnNnz());
+    try std.testing.expect(try csc.columnNnzRangeInRange(0, 2));
+    try std.testing.expectEqual(@as(usize, 2), try csc.columnNnzSpread());
+    try std.testing.expect(try csc.rowNnzSpreadMeetsBound(2));
 
     var zero_rows = try cooFromSlices(f64, gpa, 0, 2, &.{}, &.{}, &.{});
     defer zero_rows.deinit();
     try std.testing.expectError(error.EmptyArray, zero_rows.averageRowNnz());
     try std.testing.expectError(error.EmptyArray, zero_rows.emptyRowFraction());
+    try std.testing.expectEqual(@as(usize, 0), try zero_rows.minRowNnz());
+    try std.testing.expectEqual(@as(usize, 0), try zero_rows.rowNnzSpread());
 
     var zero_cols = try cooFromSlices(f64, gpa, 2, 0, &.{}, &.{}, &.{});
     defer zero_cols.deinit();
     try std.testing.expectError(error.EmptyArray, zero_cols.averageColumnNnz());
     try std.testing.expectError(error.EmptyArray, zero_cols.emptyColumnFraction());
+    try std.testing.expectEqual(@as(usize, 0), try zero_cols.minColumnNnz());
+    try std.testing.expectEqual(@as(usize, 0), try zero_cols.columnNnzSpread());
 }
 
 test "sparse stored value range diagnostics" {
