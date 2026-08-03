@@ -156,6 +156,7 @@ Array IO / serialization 当前支持：
 - `cooFromDense` / `cooFromSlices`：构建 COO。
 - `coalesced()`：返回按 `(row, col)` 排序且重复坐标已聚合的 COO 副本，便于生成规范化 sparse 结构。
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
+- `dropZeros()`：移除显式存储的零值，适合在加法/聚合后压缩结构。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：COO 行列统计。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
@@ -167,6 +168,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.transpose()` / `toCsc()` / `toCoo()`：CSR 转置与 CSC/COO 转换。
 - `CsrMatrix.coalesced()`：返回每行列索引有序、重复坐标已聚合的 CSR 副本。
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
+- `CsrMatrix.dropZeros()`：移除显式零值并保持 CSR 行压缩结构。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：CSR 行列统计，f64 路径优先复用 Veyra。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
@@ -182,6 +184,7 @@ CSC 当前支持：
 - `CscMatrix.toDense()` / `toCsr()` / `toCoo()`：dense/CSR/COO 转换。
 - `CscMatrix.coalesced()`：返回每列行索引有序、重复坐标已聚合的 CSC 副本。
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
+- `CscMatrix.dropZeros()`：移除显式零值并保持 CSC 列压缩结构。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。

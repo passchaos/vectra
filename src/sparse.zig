@@ -250,6 +250,40 @@ pub fn CooMatrix(comptime T: type) type {
             return combined.coalesced();
         }
 
+        pub fn dropZeros(self: Self) SparseError!Self {
+            var nonzero_count: usize = 0;
+            for (self.values) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+
+            var row_indices = try self.allocator.alloc(usize, nonzero_count);
+            errdefer self.allocator.free(row_indices);
+            var col_indices = try self.allocator.alloc(usize, nonzero_count);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, nonzero_count);
+            errdefer self.allocator.free(values);
+
+            var write: usize = 0;
+            for (self.values, 0..) |value, i| {
+                if (isNonZero(T, value)) {
+                    row_indices[write] = self.row_indices[i];
+                    col_indices[write] = self.col_indices[i];
+                    values[write] = value;
+                    write += 1;
+                }
+            }
+            std.debug.assert(write == nonzero_count);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
         pub fn sum(self: Self) T {
             ensureNumeric(T);
             var total = zero(T);
@@ -740,6 +774,44 @@ pub fn CsrMatrix(comptime T: type) type {
             var sum_coo = try lhs_coo.add(rhs_coo);
             defer sum_coo.deinit();
             return sum_coo.toCsr();
+        }
+
+        pub fn dropZeros(self: Self) SparseError!Self {
+            var nonzero_count: usize = 0;
+            for (self.values) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+
+            var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
+            errdefer self.allocator.free(row_offsets);
+            var col_indices = try self.allocator.alloc(usize, nonzero_count);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, nonzero_count);
+            errdefer self.allocator.free(values);
+
+            var write: usize = 0;
+            row_offsets[0] = 0;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (isNonZero(T, value)) {
+                        col_indices[write] = self.col_indices[pos];
+                        values[write] = value;
+                        write += 1;
+                    }
+                }
+                row_offsets[row + 1] = write;
+            }
+            std.debug.assert(write == nonzero_count);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
@@ -1398,6 +1470,44 @@ pub fn CscMatrix(comptime T: type) type {
             return sum_coo.toCsc();
         }
 
+        pub fn dropZeros(self: Self) SparseError!Self {
+            var nonzero_count: usize = 0;
+            for (self.values) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+
+            var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
+            errdefer self.allocator.free(col_offsets);
+            var row_indices = try self.allocator.alloc(usize, nonzero_count);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, nonzero_count);
+            errdefer self.allocator.free(values);
+
+            var write: usize = 0;
+            col_offsets[0] = 0;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const value = self.values[pos];
+                    if (isNonZero(T, value)) {
+                        row_indices[write] = self.row_indices[pos];
+                        values[write] = value;
+                        write += 1;
+                    }
+                }
+                col_offsets[col + 1] = write;
+            }
+            std.debug.assert(write == nonzero_count);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -2025,6 +2135,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_dense = try coo_sum.toDense();
     defer coo_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 0, 0, 0, 0, 9 }, coo_dense.data);
+    var coo_pruned = try coo_sum.dropZeros();
+    defer coo_pruned.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coo_pruned.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2 }, coo_pruned.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, coo_pruned.values);
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
@@ -2035,6 +2150,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_sum.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 5, 0, 9 }, csr_sum.values);
+    var csr_pruned = try csr_sum.dropZeros();
+    defer csr_pruned.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_pruned.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2 }, csr_pruned.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, csr_pruned.values);
 
     var lhs_csc = try lhs.toCsc();
     defer lhs_csc.deinit();
@@ -2045,6 +2165,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_sum.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 5, 0, 9 }, csc_sum.values);
+    var csc_pruned = try csc_sum.dropZeros();
+    defer csc_pruned.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1, 2 }, csc_pruned.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, csc_pruned.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, csc_pruned.values);
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
