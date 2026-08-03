@@ -1655,6 +1655,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_iqr_table, gpa, "a_row_weighted_cumiqr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_iqr_table, gpa, "b_row_weighted_cumiqr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ false, true, false, true });
 
+    var row_cum_weighted_mad_table = try validity_table.withRowPrefixWeightedMAD(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummad", "b_row_weighted_cummad" });
+    defer row_cum_weighted_mad_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mad_table, gpa, "a_row_weighted_cummad", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mad_table, gpa, "b_row_weighted_cummad", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });

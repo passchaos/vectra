@@ -6381,6 +6381,55 @@ pub fn withRowCumulativeWeightedIqr(
     return withRowCumulativeWeightedQuantileCore(DeviceDataFrame, input, value_names, weight_names, output_names, 0.75, 0.25);
 }
 
+pub fn withRowCumulativeWeightedMad(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    const deviations = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(deviations);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            scratch[count] = .{ .value = flat.values[offset], .weight = flat.weights[offset] };
+            total_weight += flat.weights[offset];
+            count += 1;
+            if (!(total_weight > 0.0)) continue;
+
+            const active = scratch[0..count];
+            std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+            const center = rowWeightedQuantileFromSorted(active, 0.5, total_weight);
+            for (active, deviations[0..count]) |item, *deviation| {
+                deviation.* = .{ .value = @abs(item.value - center), .weight = item.weight };
+            }
+            const active_deviations = deviations[0..count];
+            std.sort.insertion(RowWeightedValue, active_deviations, {}, rowWeightedValueLess);
+            cumulative[offset] = rowWeightedQuantileFromSorted(active_deviations, 0.5, total_weight);
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
 pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -6390,6 +6439,11 @@ pub const withRowCumWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowCumulativeWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
 
 pub fn withRowWeightedMode(
     comptime DeviceDataFrame: type,

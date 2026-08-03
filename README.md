@@ -800,8 +800,9 @@ summaries.
 diagnostics.
 `withRowCumulativeWeightedSkewness` and
 `withRowCumulativeWeightedKurtosis` add prefix weighted shape diagnostics.
-`withRowCumulativeWeightedQuantile`, `withRowCumulativeWeightedMedian`, and
-`withRowCumulativeWeightedIqr` add prefix weighted percentile diagnostics.
+`withRowCumulativeWeightedQuantile`, `withRowCumulativeWeightedMedian`,
+`withRowCumulativeWeightedIqr`, and `withRowCumulativeWeightedMad` add prefix
+weighted percentile and median-absolute-deviation diagnostics.
 `withRowCumulativeWeightedWeightSum`,
 `withRowCumulativeWeightedPositiveCount`, and
 `withRowCumulativeWeightedEffectiveN`/`withRowCumulativeWeightedEffectiveCount`

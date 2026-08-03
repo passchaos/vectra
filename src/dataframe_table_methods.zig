@@ -4084,6 +4084,10 @@ pub fn withRowCumulativeWeightedIqr(self: anytype, value_names: []const []const 
     return dataframe_array_mod.withRowCumulativeWeightedIqr(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
 }
 
+pub fn withRowCumulativeWeightedMad(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMad(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
 pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -4093,6 +4097,11 @@ pub const withRowCumWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowCumulativeWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
 
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);

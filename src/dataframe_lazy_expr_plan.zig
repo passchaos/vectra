@@ -4562,7 +4562,7 @@ pub fn withRowWeightedBeta(frame: anytype, lhs_names: []const []const u8, rhs_na
     return withRowWeightedPair(frame, lhs_names, rhs_names, weight_names, output_name, correction, .beta);
 }
 
-fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, q: f64, comptime op: enum { quantile, median, iqr }) DeviceDataError!void {
+fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, q: f64, comptime op: enum { quantile, median, iqr, mad }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);
     const owned_weights = try cloneNameList(frame.allocator, weight_names);
@@ -4573,6 +4573,7 @@ fn withRowCumulativeWeightedQuantileCore(frame: anytype, value_names: []const []
         .quantile => .{ .row_cumulative_weighted_quantile = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs, .q = q } },
         .median => .{ .row_cumulative_weighted_median = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
         .iqr => .{ .row_cumulative_weighted_iqr = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .mad => .{ .row_cumulative_weighted_mad = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
     });
 }
 
@@ -4588,6 +4589,10 @@ pub fn withRowCumulativeWeightedIqr(frame: anytype, value_names: []const []const
     return withRowCumulativeWeightedQuantileCore(frame, value_names, weight_names, output_names, 0.5, .iqr);
 }
 
+pub fn withRowCumulativeWeightedMad(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedQuantileCore(frame, value_names, weight_names, output_names, 0.5, .mad);
+}
+
 pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
 pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -4597,6 +4602,11 @@ pub const withRowCumWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
 pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowCumulativeWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
+pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
 
 pub fn withRowWeightedQuantile(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);

@@ -2952,6 +2952,10 @@ pub fn DeviceLazyTypes(
                 return lazy_expr_mod.withRowCumulativeWeightedIqr(self, value_names, weight_names, output_names);
             }
 
+            pub fn withRowCumulativeWeightedMad(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedMad(self, value_names, weight_names, output_names);
+            }
+
             pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
             pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
             pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
@@ -2961,6 +2965,11 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
             pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
             pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+            pub const withRowCumulativeWeightedMAD = withRowCumulativeWeightedMad;
+            pub const withRowCumWeightedMad = withRowCumulativeWeightedMad;
+            pub const withRowCumWeightedMAD = withRowCumulativeWeightedMad;
+            pub const withRowPrefixWeightedMad = withRowCumulativeWeightedMad;
+            pub const withRowPrefixWeightedMAD = withRowCumulativeWeightedMad;
 
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);

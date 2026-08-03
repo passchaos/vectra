@@ -774,6 +774,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_quantile => |row_weighted| try formatRowWeightedColumnOutputsQuantilePayload(writer, "row_cumulative_weighted_quantile", row_weighted),
         .row_cumulative_weighted_median => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_median", row_weighted),
         .row_cumulative_weighted_iqr => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_iqr", row_weighted),
+        .row_cumulative_weighted_mad => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_mad", row_weighted),
         .row_cumulative_weighted_weight_sum => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_weight_sum", row_weighted),
         .row_cumulative_weighted_positive_count => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_positive_count", row_weighted),
         .row_cumulative_weighted_effective_n => |row_weighted| try formatRowWeightedColumnOutputsPayload(writer, "row_cumulative_weighted_effective_n", row_weighted),
