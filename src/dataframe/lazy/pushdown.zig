@@ -53,6 +53,19 @@ fn addRowWeightedPairColumnOutputRequirements(
     }
 }
 
+fn markDerivedName(
+    allocator: std.mem.Allocator,
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    name: []const u8,
+) std.mem.Allocator.Error!void {
+    try appendBorrowedNameUnique(allocator, derived_names, name);
+    // A later derived expression may intentionally replace a prior literal
+    // column with the same name.  Keep literal-based scan pushdown tied to the
+    // currently visible lazy value rather than a stale earlier literal.
+    _ = literal_scalars.remove(name);
+}
+
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
     projection: ?[][]const u8 = null,
@@ -558,7 +571,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .with_column_log2,
             .with_column_log10,
             => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
+                try markDerivedName(allocator, &derived_names, &literal_scalars, expr.name);
                 if (!nameInBorrowedList(expr.input_name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
                 }
