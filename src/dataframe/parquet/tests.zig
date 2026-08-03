@@ -1254,6 +1254,38 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     try std.testing.expect(std.mem.indexOf(u8, fill_non_finite_explain, "scan_pushdown: projection=[sales]") != null);
     try std.testing.expect(std.mem.indexOf(u8, fill_non_finite_explain, "fill_non_finite_column(sales=scalar:f64)") != null);
 
+    var drop_nulls_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_nulls_scan.deinit();
+    try drop_nulls_scan.dropNullsColumn("sales");
+    try drop_nulls_scan.select(&.{"id"});
+
+    const drop_nulls_explain = try drop_nulls_scan.explain(gpa);
+    defer gpa.free(drop_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nulls_explain, "scan_pushdown: null=sales:non_null, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_nulls_explain, "drop_nulls[sales]") != null);
+
+    var drop_nulls = try drop_nulls_scan.collect();
+    defer drop_nulls.deinit();
+    const drop_null_ids = try (try drop_nulls.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(drop_null_ids);
+    try std.testing.expectEqualSlices(i32, &.{ 1, 3 }, drop_null_ids);
+
+    var filter_nulls_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_nulls_scan.deinit();
+    try filter_nulls_scan.filterNullsColumn("sales");
+    try filter_nulls_scan.select(&.{"id"});
+
+    const filter_nulls_explain = try filter_nulls_scan.explain(gpa);
+    defer gpa.free(filter_nulls_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_nulls_explain, "scan_pushdown: null=sales:only, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_nulls_explain, "filter_nulls_column(sales)") != null);
+
+    var filter_nulls = try filter_nulls_scan.collect();
+    defer filter_nulls.deinit();
+    const filter_null_ids = try (try filter_nulls.column("id")).i32.toOwnedSlice(gpa);
+    defer gpa.free(filter_null_ids);
+    try std.testing.expectEqualSlices(i32, &.{2}, filter_null_ids);
+
     var drop_nan_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer drop_nan_scan.deinit();
     try drop_nan_scan.dropNaNsColumn("sales");

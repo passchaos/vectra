@@ -227,3 +227,8 @@ pub const DeviceParquetRangeFilter = struct {
     column: []const u8,
     predicate: ParquetRangePredicate,
 };
+
+pub const DeviceParquetNullFilter = struct {
+    column: []const u8,
+    want_nulls: bool,
+};

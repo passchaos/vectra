@@ -79,6 +79,7 @@ pub const DeviceLazyWeightedPairGroupByAggregation = dataframe_mod.DeviceLazyWei
 pub const DeviceLazyJoinKind = dataframe_mod.DeviceLazyJoinKind;
 pub const DeviceParquetScan = dataframe_mod.DeviceParquetScan;
 pub const DeviceParquetRangeFilter = dataframe_mod.DeviceParquetRangeFilter;
+pub const DeviceParquetNullFilter = dataframe_mod.DeviceParquetNullFilter;
 pub const ParquetRangePredicate = dataframe_mod.ParquetRangePredicate;
 pub const DeviceDataFrameView = dataframe_mod.DeviceDataFrameView;
 pub const DeviceColumn = dataframe_mod.DeviceColumn;

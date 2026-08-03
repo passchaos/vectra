@@ -6,6 +6,7 @@ const profile_pushdown_mod = @import("pushdown_profile.zig");
 const range_pushdown_mod = @import("pushdown/range.zig");
 const options_mod = @import("../../dataframe_options.zig");
 
+const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 const appendOwnedNameUnique = names_mod.appendOwnedNameUnique;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
@@ -52,10 +53,12 @@ pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
     projection: ?[][]const u8 = null,
     range_predicate: ?DeviceParquetRangeFilter = null,
+    null_predicate: ?DeviceParquetNullFilter = null,
 
     pub fn deinit(self: *LazyScanPushdown) void {
         if (self.projection) |names| freeNameList(self.allocator, names);
         if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
+        if (self.null_predicate) |predicate| self.allocator.free(predicate.column);
         self.* = undefined;
     }
 };
@@ -71,6 +74,8 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
     var projection_blocked = false;
     var range_predicate: ?DeviceParquetRangeFilter = null;
     errdefer if (range_predicate) |predicate| allocator.free(predicate.column);
+    var null_predicate: ?DeviceParquetNullFilter = null;
+    errdefer if (null_predicate) |predicate| allocator.free(predicate.column);
 
     op_loop: for (ops) |op| {
         switch (op) {
@@ -211,6 +216,9 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                         try appendOwnedNameUnique(allocator, &required_names, name);
                     }
                 }
+                if (names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
+                    try setNullPredicate(allocator, &null_predicate, names[0], false);
+                }
             },
             .drop_all_nulls, .filter_all_nulls => |names| {
                 for (names) |name| {
@@ -222,6 +230,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .filter_nulls_column => |name| {
                 if (!nameInBorrowedList(name, derived_names.items)) {
                     try appendOwnedNameUnique(allocator, &required_names, name);
+                    try setNullPredicate(allocator, &null_predicate, name, true);
                 }
             },
             .drop_nans => |names| {
@@ -1952,7 +1961,25 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
         .allocator = allocator,
         .projection = projection,
         .range_predicate = range_predicate,
+        .null_predicate = null_predicate,
     };
     range_predicate = null;
+    null_predicate = null;
     return out;
+}
+
+fn setNullPredicate(
+    allocator: std.mem.Allocator,
+    current: *?DeviceParquetNullFilter,
+    column_name: []const u8,
+    want_nulls: bool,
+) std.mem.Allocator.Error!void {
+    if (current.*) |existing| {
+        if (existing.want_nulls == want_nulls and std.mem.eql(u8, existing.column, column_name)) return;
+        return;
+    }
+    current.* = .{
+        .column = try allocator.dupe(u8, column_name),
+        .want_nulls = want_nulls,
+    };
 }

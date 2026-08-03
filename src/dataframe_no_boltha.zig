@@ -48,6 +48,7 @@ pub const DeviceAsofOptions = options_mod.DeviceAsofOptions;
 pub const Range = options_mod.Range;
 pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+pub const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 
 pub const DeviceColumnView = struct {
     dtype: DeviceDType,

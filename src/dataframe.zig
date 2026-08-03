@@ -64,6 +64,7 @@ pub const DeviceRollingRankOptions = options_mod.DeviceRollingRankOptions;
 pub const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
 pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+pub const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 pub const Range = options_mod.Range;
 
 pub const DeviceColumnView = dataframe_view_mod.DeviceColumnView;

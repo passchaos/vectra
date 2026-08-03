@@ -8,6 +8,11 @@ pub fn formatLazyScanPushdown(writer: *std.Io.Writer, pushdown: anytype) std.Io.
         try writer.print("range={s}", .{predicate.column});
         printed = true;
     }
+    if (pushdown.null_predicate) |predicate| {
+        if (printed) try writer.print(", ", .{});
+        try writer.print("null={s}:{s}", .{ predicate.column, if (predicate.want_nulls) "only" else "non_null" });
+        printed = true;
+    }
     if (pushdown.projection) |names| {
         if (printed) try writer.print(", ", .{});
         try writer.print("projection=[", .{});

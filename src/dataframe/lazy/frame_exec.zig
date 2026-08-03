@@ -2324,6 +2324,9 @@ fn collectSource(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, se
             if (pushdown.range_predicate) |predicate| {
                 try scan_plan.whereRange(predicate.column, predicate.predicate);
             }
+            if (pushdown.null_predicate) |predicate| {
+                try scan_plan.whereNull(predicate.column, predicate.want_nulls);
+            }
             if (pushdown.projection) |names| {
                 try scan_plan.select(names);
             }

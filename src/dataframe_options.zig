@@ -251,6 +251,11 @@ pub const DeviceParquetRangeFilter = struct {
     predicate: ParquetRangePredicate,
 };
 
+pub const DeviceParquetNullFilter = struct {
+    column: []const u8,
+    want_nulls: bool,
+};
+
 pub fn Range(comptime T: type) type {
     return struct {
         min: ?T = null,

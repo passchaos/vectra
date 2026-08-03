@@ -16,6 +16,7 @@ const boltha = @import("boltha");
 const cloneNameList = names_mod.cloneNameList;
 const freeNameList = names_mod.freeNameList;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
+const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
@@ -32,6 +33,7 @@ pub fn DeviceParquetScan(
         device: array_mod.Device,
         projection: ?[][]const u8 = null,
         range_predicate: ?DeviceParquetRangeFilter = null,
+        null_predicate: ?DeviceParquetNullFilter = null,
 
         const Self = @This();
 
@@ -47,6 +49,7 @@ pub fn DeviceParquetScan(
             self.allocator.free(self.bytes);
             if (self.projection) |names| freeNameList(self.allocator, names);
             if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
+            if (self.null_predicate) |predicate| self.allocator.free(predicate.column);
             self.* = undefined;
         }
 
@@ -55,6 +58,7 @@ pub fn DeviceParquetScan(
             errdefer cloned.deinit();
             if (self.projection) |names| try cloned.select(names);
             if (self.range_predicate) |predicate| try cloned.whereRange(predicate.column, predicate.predicate);
+            if (self.null_predicate) |predicate| try cloned.whereNull(predicate.column, predicate.want_nulls);
             return cloned;
         }
 
@@ -75,9 +79,22 @@ pub fn DeviceParquetScan(
             };
         }
 
+        pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
+            if (self.null_predicate) |old| self.allocator.free(old.column);
+            self.null_predicate = .{
+                .column = try self.allocator.dupe(u8, column),
+                .want_nulls = want_nulls,
+            };
+        }
+
         pub fn collect(self: Self) ParquetInteropError!DeviceDataFrame {
             var table = if (self.range_predicate) |predicate|
                 try dataframe_arrow_mod.readBolthaTableWithRangePruning(self.allocator, self.bytes, predicate.column, predicate.predicate)
+            else if (self.null_predicate) |predicate|
+                if (predicate.want_nulls)
+                    try boltha.parquet.readTableWithNullPruning(self.allocator, self.bytes, predicate.column)
+                else
+                    try boltha.parquet.readTableWithNonNullPruning(self.allocator, self.bytes, predicate.column)
             else
                 try boltha.parquet.readTable(self.allocator, self.bytes);
             defer table.deinit(self.allocator);
@@ -93,6 +110,7 @@ pub fn DeviceParquetScan(
             errdefer aw.deinit();
             try aw.writer.print("DeviceParquetScan(bytes={d}, device={s}", .{ self.bytes.len, self.device.backendName() });
             if (self.range_predicate) |predicate| try aw.writer.print(", range={s}", .{predicate.column});
+            if (self.null_predicate) |predicate| try aw.writer.print(", null={s}:{s}", .{ predicate.column, if (predicate.want_nulls) "only" else "non_null" });
             if (self.projection) |names| {
                 try aw.writer.print(", projection=[", .{});
                 for (names, 0..) |name, i| {
