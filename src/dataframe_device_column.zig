@@ -1,6 +1,6 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
-const column_arrow_mod = @import("dataframe_device_column_arrow.zig");
+const column_arrow_mod = @import("dataframe/arrow/device_column.zig");
 const column_ops_mod = @import("dataframe_device_column_ops.zig");
 const column_sort_mod = @import("dataframe_device_column_sort.zig");
 const dataframe_typed_column_mod = @import("dataframe_device_typed_column.zig");

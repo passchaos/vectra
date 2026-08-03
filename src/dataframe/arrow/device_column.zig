@@ -1,10 +1,10 @@
 //! Arrow export helpers for tagged device columns.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
+const array_mod = @import("../../array.zig");
 const boltha = @import("boltha");
-const dataframe_arrow_mod = @import("dataframe_arrow.zig");
-const series_mod = @import("series.zig");
+const dataframe_arrow_mod = @import("../arrow.zig");
+const series_mod = @import("../../series.zig");
 
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const ArrowInteropError = DeviceDataError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;

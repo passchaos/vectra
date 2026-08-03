@@ -5,7 +5,7 @@
 
 const std = @import("std");
 const array_mod = @import("../../array.zig");
-const dataframe_arrow_mod = @import("../../dataframe_arrow.zig");
+const dataframe_arrow_mod = @import("../arrow.zig");
 const lazy_mod = @import("../lazy.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const series_mod = @import("../../series.zig");

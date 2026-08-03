@@ -12,7 +12,7 @@ const boltha = @import("boltha");
 const profile_methods_mod = @import("dataframe_profile_methods.zig");
 const relation_methods_mod = @import("dataframe_relation_methods.zig");
 const table_methods_mod = @import("dataframe_table_methods.zig");
-const arrow_methods_mod = @import("dataframe_arrow_methods.zig");
+const arrow_methods_mod = @import("dataframe/arrow/methods.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;

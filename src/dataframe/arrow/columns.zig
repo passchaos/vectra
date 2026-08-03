@@ -1,10 +1,10 @@
 //! Column-level Arrow conversion helpers for device dataframe interop.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
+const array_mod = @import("../../array.zig");
 const boltha = @import("boltha");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const validity_mod = @import("dataframe_validity_core.zig");
+const dataframe_array_mod = @import("../../dataframe_array.zig");
+const validity_mod = @import("../../dataframe_validity_core.zig");
 
 pub const DataFrameInitError = std.mem.Allocator.Error || std.Io.Writer.Error || error{ LengthMismatch, ColumnNotFound, TypeMismatch, InvalidCsv, EmptyDataFrame, UnsupportedType, InvalidDevice };
 pub const ArrowInteropError = DataFrameInitError || array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
