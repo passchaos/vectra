@@ -602,6 +602,39 @@ test "device lazy parquet scan pushes literal isin columns as range predicates" 
     try std.testing.expect(std.mem.indexOf(u8, binary_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, binary_overwrite_explain, "range=sales") == null);
 
+    var coalesce_overwrite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer coalesce_overwrite_scan.deinit();
+    try coalesce_overwrite_scan.withColumnLiteral("needle", f64, 3.0);
+    try coalesce_overwrite_scan.coalesceColumns("sales", "sales", "needle");
+    try coalesce_overwrite_scan.filterIsInColumn("sales", "needle");
+    try coalesce_overwrite_scan.select(&.{"id"});
+    const coalesce_overwrite_explain = try coalesce_overwrite_scan.explain(gpa);
+    defer gpa.free(coalesce_overwrite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, coalesce_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, coalesce_overwrite_explain, "range=sales") == null);
+
+    var compare_overwrite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer compare_overwrite_scan.deinit();
+    try compare_overwrite_scan.withColumnLiteral("needle", f64, 3.0);
+    try compare_overwrite_scan.withColumnCompare("needle", "sales", "sales", .eq);
+    try compare_overwrite_scan.filterIsInColumn("sales", "needle");
+    try compare_overwrite_scan.select(&.{"id"});
+    const compare_overwrite_explain = try compare_overwrite_scan.explain(gpa);
+    defer gpa.free(compare_overwrite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, compare_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, compare_overwrite_explain, "range=sales") == null);
+
+    var row_index_overwrite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_index_overwrite_scan.deinit();
+    try row_index_overwrite_scan.withColumnLiteral("needle", f64, 3.0);
+    try row_index_overwrite_scan.withRowIndex("needle", 0);
+    try row_index_overwrite_scan.filterIsInColumn("sales", "needle");
+    try row_index_overwrite_scan.select(&.{"id"});
+    const row_index_overwrite_explain = try row_index_overwrite_scan.explain(gpa);
+    defer gpa.free(row_index_overwrite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_index_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_index_overwrite_explain, "range=sales") == null);
+
     var inplace_scalar_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer inplace_scalar_scan.deinit();
     try inplace_scalar_scan.withColumnScalar("sales", "sales", f64, 1.0, .add);

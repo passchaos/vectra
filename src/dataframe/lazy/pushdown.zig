@@ -122,6 +122,20 @@ fn addTernaryColumnOutputRequirements(
     try markDerivedName(allocator, derived_names, literal_scalars, output_name);
 }
 
+fn addListColumnOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    output_name: []const u8,
+    input_names: []const []const u8,
+) std.mem.Allocator.Error!void {
+    for (input_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+}
+
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
     projection: ?[][]const u8 = null,
@@ -574,7 +588,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .with_row_index => |row_index| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_index.name);
+                try markDerivedName(allocator, &derived_names, &literal_scalars, row_index.name);
             },
             .with_column_abs,
             .with_column_neg,
@@ -829,27 +843,13 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .coalesce_columns => |coalesce| {
-                try appendBorrowedNameUnique(allocator, &derived_names, coalesce.output_name);
-                if (!nameInBorrowedList(coalesce.primary_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, coalesce.primary_name);
-                }
-                if (!nameInBorrowedList(coalesce.fallback_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, coalesce.fallback_name);
-                }
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, coalesce.output_name, coalesce.primary_name, coalesce.fallback_name);
             },
             .coalesce_columns_many => |coalesce| {
-                try appendBorrowedNameUnique(allocator, &derived_names, coalesce.output_name);
-                for (coalesce.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                try addListColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, coalesce.output_name, coalesce.names);
             },
             .is_null_column, .is_valid_column, .is_nan_column, .is_zero_column, .is_positive_zero_column, .is_negative_zero_column, .is_non_zero_column, .is_positive_column, .is_signbit_column, .is_negative_column, .is_finite_column, .is_normal_column, .is_subnormal_column, .is_non_finite_column, .is_inf_column, .is_positive_inf_column, .is_negative_inf_column => |predicate| {
-                try appendBorrowedNameUnique(allocator, &derived_names, predicate.output_name);
-                if (!nameInBorrowedList(predicate.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, predicate.name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, predicate.output_name, predicate.name);
             },
             .row_null_count, .row_valid_count, .row_any_null, .row_all_null, .row_any_valid, .row_all_valid, .row_null_ratio, .row_valid_ratio, .row_first_valid_index, .row_last_valid_index, .row_first_null_index, .row_last_null_index, .row_argmin, .row_argmax, .row_median, .row_iqr, .row_interdecile_range, .row_midhinge, .row_trimean, .row_bowley_skewness, .row_quartile_coeff_dispersion, .row_kelley_skewness, .row_mad, .row_mode, .row_entropy, .row_gini_impurity, .row_perplexity, .row_inverse_simpson, .row_simpson_concentration, .row_evenness, .row_mode_count, .row_mode_ratio, .row_mode_margin, .row_mode_margin_ratio, .row_count_distinct, .row_n_unique, .row_is_duplicated, .row_is_unique, .row_sum, .row_mean, .row_logsumexp, .row_logmeanexp, .row_softmax_entropy, .row_softmax_perplexity, .row_softmax_confidence, .row_softmax_margin, .row_softmax_evenness, .row_softmax_concentration, .row_softmax_normalized_hhi, .row_softmax_gini_impurity, .row_softmax_inverse_simpson, .row_softmax_simpson_evenness, .row_logit_margin, .row_geometric_mean, .row_magnitude_geometric_mean, .row_harmonic_mean, .row_skewness, .row_magnitude_skewness, .row_kurtosis, .row_magnitude_kurtosis, .row_prod, .row_min, .row_max, .row_ptp, .row_magnitude_ptp, .row_midrange, .row_magnitude_midrange, .row_range_coeff, .row_magnitude_range_coeff, .row_mean_abs, .row_hhi, .row_magnitude_normalized_hhi, .row_magnitude_sparsity, .row_magnitude_inverse_simpson, .row_magnitude_simpson_evenness, .row_magnitude_dominance, .row_magnitude_dominance_margin, .row_magnitude_entropy, .row_magnitude_perplexity, .row_magnitude_evenness, .row_mean_abs_dev, .row_gini_mean_diff, .row_gini_coefficient, .row_mean_abs_dev_ratio, .row_rms, .row_l1_norm, .row_l2_norm, .row_true_count, .row_false_count, .row_any_true, .row_all_true, .row_any_false, .row_all_false, .row_first_true_index, .row_last_true_index, .row_first_false_index, .row_last_false_index, .row_true_ratio, .row_false_ratio, .row_any_zero, .row_all_zero, .row_any_non_zero, .row_all_non_zero, .row_any_positive_zero, .row_all_positive_zero, .row_any_negative_zero, .row_all_negative_zero, .row_any_positive, .row_all_positive, .row_any_signbit, .row_all_signbit, .row_any_negative, .row_all_negative, .row_any_nan, .row_all_nan, .row_any_inf, .row_all_inf, .row_any_positive_inf, .row_all_positive_inf, .row_any_negative_inf, .row_all_negative_inf, .row_any_finite, .row_all_finite, .row_any_normal, .row_all_normal, .row_any_subnormal, .row_all_subnormal, .row_any_non_finite, .row_all_non_finite, .row_nan_count, .row_nan_ratio, .row_inf_count, .row_inf_ratio, .row_positive_inf_count, .row_negative_inf_count, .row_positive_inf_ratio, .row_negative_inf_ratio, .row_zero_count, .row_zero_ratio, .row_positive_zero_count, .row_negative_zero_count, .row_positive_zero_ratio, .row_negative_zero_ratio, .row_non_zero_count, .row_non_zero_ratio, .row_first_nan_index, .row_last_nan_index, .row_first_inf_index, .row_last_inf_index, .row_first_positive_inf_index, .row_last_positive_inf_index, .row_first_negative_inf_index, .row_last_negative_inf_index, .row_first_finite_index, .row_last_finite_index, .row_first_normal_index, .row_last_normal_index, .row_first_subnormal_index, .row_last_subnormal_index, .row_first_non_finite_index, .row_last_non_finite_index, .row_first_positive_zero_index, .row_last_positive_zero_index, .row_first_negative_zero_index, .row_last_negative_zero_index, .row_first_signbit_index, .row_last_signbit_index, .row_first_zero_index, .row_last_zero_index, .row_first_non_zero_index, .row_last_non_zero_index, .row_first_positive_index, .row_last_positive_index, .row_first_negative_index, .row_last_negative_index, .row_positive_count, .row_positive_ratio, .row_signbit_count, .row_signbit_ratio, .row_negative_count, .row_negative_ratio, .row_finite_count, .row_finite_ratio, .row_normal_count, .row_normal_ratio, .row_subnormal_count, .row_subnormal_ratio, .row_non_finite_count, .row_non_finite_ratio => |row_count| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
@@ -1088,13 +1088,10 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
             .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse, .row_cumulative_weighted_mape, .row_cumulative_weighted_smape => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &projection_blocked, row_weighted),
             .row_cumulative_weighted_covariance => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &projection_blocked, row_weighted),
             .with_column_compare => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.rhs_name);
+                try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.lhs_name, expr.rhs_name);
             },
             .with_column_compare_scalar => |expr| {
-                try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
-                try appendOwnedNameUnique(allocator, &required_names, expr.input_name);
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .group_id => |row_count| {
                 try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
@@ -1706,10 +1703,7 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 }
             },
             .where_indices_column => |predicate| {
-                try appendBorrowedNameUnique(allocator, &derived_names, predicate.output_name);
-                if (!nameInBorrowedList(predicate.name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, predicate.name);
-                }
+                try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, predicate.output_name, predicate.name);
             },
             .filter_scalar => |filter_op| {
                 const filter_depends_on_source = !nameInBorrowedList(filter_op.name, derived_names.items);
