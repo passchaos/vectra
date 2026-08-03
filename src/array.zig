@@ -2206,6 +2206,14 @@ pub fn ArrayView(comptime T: type) type {
             return divValue(T, a, b);
         }
 
+        fn opRSub(a: T, b: T) T {
+            return subValue(T, b, a);
+        }
+
+        fn opRDiv(a: T, b: T) T {
+            return divValue(T, b, a);
+        }
+
         fn opEqCompare(a: T, b: T) bool {
             return eqlValue(T, a, b);
         }
@@ -3882,6 +3890,28 @@ pub fn ArrayView(comptime T: type) type {
             return lhs.divScalar(castValue(P, scalar));
         }
 
+        pub fn rsubScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.rsubScalar(castValue(P, scalar));
+        }
+
+        pub fn rdivScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.rdivScalar(castValue(P, scalar));
+        }
+
+        pub fn scalarSubPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            return self.rsubScalarPromote(U, scalar);
+        }
+
+        pub fn scalarDivPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            return self.rdivScalarPromote(U, scalar);
+        }
+
         pub fn hypot(self: Self, other: Self) ArrayError!Array(T) {
             ensureFloat(T);
             return self.binaryView(other, opHypot);
@@ -4033,6 +4063,24 @@ pub fn ArrayView(comptime T: type) type {
         pub fn divScalar(self: Self, scalar: T) ArrayError!Array(T) {
             ensureNumeric(T);
             return self.binaryScalar(scalar, opDiv);
+        }
+
+        pub fn rsubScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opRSub);
+        }
+
+        pub fn rdivScalar(self: Self, scalar: T) ArrayError!Array(T) {
+            ensureNumeric(T);
+            return self.binaryScalar(scalar, opRDiv);
+        }
+
+        pub fn scalarSub(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.rsubScalar(scalar);
+        }
+
+        pub fn scalarDiv(self: Self, scalar: T) ArrayError!Array(T) {
+            return self.rdivScalar(scalar);
         }
 
         pub fn addOut(self: Self, other: Self, out: Array(T)) ArrayError!void {
@@ -17043,6 +17091,12 @@ pub fn Array(comptime T: type) type {
         fn opDiv(a: T, b: T) T {
             return divValue(T, a, b);
         }
+        fn opRSub(a: T, b: T) T {
+            return subValue(T, b, a);
+        }
+        fn opRDiv(a: T, b: T) T {
+            return divValue(T, b, a);
+        }
         fn opPow(a: T, b: T) T {
             if (comptime isComplex(T)) return std.math.complex.pow(a, b);
             return std.math.pow(T, a, b);
@@ -17731,6 +17785,28 @@ pub fn Array(comptime T: type) type {
             return lhs.divScalar(castValue(P, scalar));
         }
 
+        pub fn rsubScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.rsubScalar(castValue(P, scalar));
+        }
+
+        pub fn rdivScalarPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            const P = promoteType(T, U);
+            var lhs = try self.astype(P);
+            defer lhs.deinit();
+            return lhs.rdivScalar(castValue(P, scalar));
+        }
+
+        pub fn scalarSubPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            return self.rsubScalarPromote(U, scalar);
+        }
+
+        pub fn scalarDivPromote(self: Self, comptime U: type, scalar: U) ArrayError!Array(promoteType(T, U)) {
+            return self.rdivScalarPromote(U, scalar);
+        }
+
         pub fn addScalar(self: Self, scalar: T) ArrayError!Self {
             ensureNumeric(T);
             if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
@@ -17761,6 +17837,30 @@ pub fn Array(comptime T: type) type {
                 if (try axiom_backend.executeElementwiseScalarDefault(T, .div, self, scalar, .rhs)) |out| return out;
             }
             return self.binaryScalar(scalar, opDiv);
+        }
+
+        pub fn rsubScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .sub, self, scalar, .lhs)) |out| return out;
+            }
+            return self.binaryScalar(scalar, opRSub);
+        }
+
+        pub fn rdivScalar(self: Self, scalar: T) ArrayError!Self {
+            ensureNumeric(T);
+            if (comptime T == f32 or T == f64 or T == f16 or T == BFloat16) {
+                if (try axiom_backend.executeElementwiseScalarDefault(T, .div, self, scalar, .lhs)) |out| return out;
+            }
+            return self.binaryScalar(scalar, opRDiv);
+        }
+
+        pub fn scalarSub(self: Self, scalar: T) ArrayError!Self {
+            return self.rsubScalar(scalar);
+        }
+
+        pub fn scalarDiv(self: Self, scalar: T) ArrayError!Self {
+            return self.rdivScalar(scalar);
         }
 
         pub fn addScalarOut(self: Self, scalar: T, out: Self) ArrayError!void {
