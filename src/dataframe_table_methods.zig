@@ -3566,6 +3566,16 @@ pub fn withRowCumulativeWeightedBrayCurtisDistance(self: anytype, lhs_names: []c
 pub const withRowCumWeightedBrayCurtisDistance = withRowCumulativeWeightedBrayCurtisDistance;
 pub const withRowPrefixWeightedBrayCurtisDistance = withRowCumulativeWeightedBrayCurtisDistance;
 
+pub fn withRowCumulativeWeightedMeanError(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMeanError(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedBias = withRowCumulativeWeightedMeanError;
+pub const withRowCumWeightedMeanError = withRowCumulativeWeightedMeanError;
+pub const withRowCumWeightedBias = withRowCumulativeWeightedMeanError;
+pub const withRowPrefixWeightedMeanError = withRowCumulativeWeightedMeanError;
+pub const withRowPrefixWeightedBias = withRowCumulativeWeightedMeanError;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

@@ -351,6 +351,7 @@ pub fn DeviceLazyOp(comptime DeviceDataFrame: type, comptime DeviceColumn: type)
         row_cumulative_weighted_chebyshev_distance: Payloads.RowWeightedPairColumnOutputs,
         row_cumulative_weighted_canberra_distance: Payloads.RowWeightedPairColumnOutputs,
         row_cumulative_weighted_bray_curtis_distance: Payloads.RowWeightedPairColumnOutputs,
+        row_cumulative_weighted_mean_error: Payloads.RowWeightedPairColumnOutputs,
         row_weighted_mean: Payloads.RowWeightedMean,
         row_weighted_sum: Payloads.RowWeightedMean,
         row_cumulative_weighted_sum: Payloads.RowWeightedColumnOutputs,

@@ -789,6 +789,8 @@ pair error across positive-weight valid triples.
 distance, treating zero-magnitude pairs as zero contribution.
 `withRowCumulativeWeightedBrayCurtisDistance` appends prefix weighted
 Bray-Curtis distance with a NaN result when the accumulated denominator is zero.
+`withRowCumulativeWeightedMeanError` (`withRowCumulativeWeightedBias` aliases)
+appends prefix weighted signed mean error for aligned triples.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and
