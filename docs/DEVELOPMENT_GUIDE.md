@@ -160,7 +160,7 @@ Array IO / serialization 当前支持：
 - `scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
 - `scaleRows/scaleColumns/scaleRowsAndColumns()`：COO 行/列向量缩放，保留当前结构。
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
-- `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项。
+- `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项；`matmulSparse()` 支持 COO×COO 稀疏矩阵乘法。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowMeans/columnMeans`、`rowVariances/columnVariances`、`rowStddevs/columnStddevs`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`mean/variance/stddev/oneNorm/infNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：COO 行列统计、矩阵范数与存储值极值。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
@@ -168,7 +168,7 @@ Array IO / serialization 当前支持：
 - `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
 - `CsrMatrix.toDense()`：CSR 转回 dense Array。
 - `CsrMatrix.matvec()`：f64 路径复用 `veyra.csrMatvec`，其它 numeric dtype 保留泛型回退。
-- `CsrMatrix.matmat()`：f64 路径复用 `veyra.csrMatmat`。
+- `CsrMatrix.matmat()`：f64 路径复用 `veyra.csrMatmat`；`matmulSparse()` 支持 CSR×CSR 稀疏矩阵乘法并保持 CSR 输出。
 - `CsrMatrix.transpose()` / `toCsc()` / `toCoo()`：CSR 转置与 CSC/COO 转换。
 - `CsrMatrix.coalesced()`：返回每行列索引有序、重复坐标已聚合的 CSR 副本。
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
@@ -197,7 +197,7 @@ CSC 当前支持：
 - `CscMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSC 行/列向量缩放并保留列压缩结构。
 - `CscMatrix.neg/negative/sub()`：CSC 符号翻转与同形状减法。
 - `CscMatrix.hadamard/mul/multiply()`：CSC 同形状逐元素乘法，结果保持 CSC 所有权。
-- `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
+- `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`；`matmulSparse()` 支持 CSC×CSC 稀疏矩阵乘法并保持 CSC 输出。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowMeans/columnMeans`、`rowVariances/columnVariances`、`rowStddevs/columnStddevs`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`、`density`：CSC 行列统计与矩阵范数。
 - `sum/absSum/mean/variance/stddev/frobeniusNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：基础 CSC 统计。

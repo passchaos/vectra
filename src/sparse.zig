@@ -1017,6 +1017,17 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
+            if (self.cols != rhs.rows) return error.ShapeMismatch;
+            var lhs_csr = try self.toCsr();
+            defer lhs_csr.deinit();
+            var rhs_csr = try rhs.toCsr();
+            defer rhs_csr.deinit();
+            var product = try lhs_csr.matmulSparse(rhs_csr);
+            defer product.deinit();
+            return product.toCoo();
+        }
+
         pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             if (x.shape.len != 1) return error.NonVectorArray;
             if (x.shape[0] != self.rows) return error.ShapeMismatch;
@@ -1571,6 +1582,103 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
+            ensureNumeric(T);
+            if (self.cols != rhs.rows) return error.ShapeMismatch;
+            var lhs = try self.coalesced();
+            defer lhs.deinit();
+            var rhs_canonical = try rhs.coalesced();
+            defer rhs_canonical.deinit();
+
+            var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
+            errdefer self.allocator.free(row_offsets);
+            row_offsets[0] = 0;
+            var markers = try self.allocator.alloc(bool, rhs.cols);
+            defer self.allocator.free(markers);
+            @memset(markers, false);
+            const accum = try self.allocator.alloc(T, rhs.cols);
+            defer self.allocator.free(accum);
+            var touched = try self.allocator.alloc(usize, rhs.cols);
+            defer self.allocator.free(touched);
+
+            var total_nnz: usize = 0;
+            for (0..lhs.rows) |row| {
+                const touched_count = lhs.accumulateProductRow(rhs_canonical, row, markers, accum, touched);
+                std.sort.insertion(usize, touched[0..touched_count], {}, struct {
+                    fn less(_: void, lhs_col: usize, rhs_col: usize) bool {
+                        return lhs_col < rhs_col;
+                    }
+                }.less);
+                var row_nnz: usize = 0;
+                for (touched[0..touched_count]) |col| {
+                    if (isNonZero(T, accum[col])) row_nnz += 1;
+                    markers[col] = false;
+                }
+                total_nnz = std.math.add(usize, total_nnz, row_nnz) catch return error.InvalidShape;
+                row_offsets[row + 1] = total_nnz;
+            }
+
+            var col_indices = try self.allocator.alloc(usize, total_nnz);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, total_nnz);
+            errdefer self.allocator.free(values);
+
+            var write: usize = 0;
+            @memset(markers, false);
+            for (0..lhs.rows) |row| {
+                const touched_count = lhs.accumulateProductRow(rhs_canonical, row, markers, accum, touched);
+                std.sort.insertion(usize, touched[0..touched_count], {}, struct {
+                    fn less(_: void, lhs_col: usize, rhs_col: usize) bool {
+                        return lhs_col < rhs_col;
+                    }
+                }.less);
+                for (touched[0..touched_count]) |col| {
+                    if (isNonZero(T, accum[col])) {
+                        col_indices[write] = col;
+                        values[write] = accum[col];
+                        write += 1;
+                    }
+                    markers[col] = false;
+                }
+            }
+            std.debug.assert(write == total_nnz);
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = rhs.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        fn accumulateProductRow(
+            self: Self,
+            rhs: Self,
+            row: usize,
+            markers: []bool,
+            accum: []T,
+            touched: []usize,
+        ) usize {
+            var touched_count: usize = 0;
+            for (self.row_offsets[row]..self.row_offsets[row + 1]) |lhs_pos| {
+                const inner = self.col_indices[lhs_pos];
+                const lhs_value = self.values[lhs_pos];
+                for (rhs.row_offsets[inner]..rhs.row_offsets[inner + 1]) |rhs_pos| {
+                    const col = rhs.col_indices[rhs_pos];
+                    if (!markers[col]) {
+                        markers[col] = true;
+                        touched[touched_count] = col;
+                        touched_count += 1;
+                        accum[col] = zero(T);
+                    }
+                    accum[col] = addSparseValue(T, accum[col], mulSparseValue(T, lhs_value, rhs.values[rhs_pos]));
+                }
+            }
+            return touched_count;
         }
 
         pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -2565,6 +2673,17 @@ pub fn CscMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.cscMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
+            if (self.cols != rhs.rows) return error.ShapeMismatch;
+            var lhs_csr = try self.toCsr();
+            defer lhs_csr.deinit();
+            var rhs_csr = try rhs.toCsr();
+            defer rhs_csr.deinit();
+            var product = try lhs_csr.matmulSparse(rhs_csr);
+            defer product.deinit();
+            return product.toCsc();
         }
 
         pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -3651,6 +3770,45 @@ test "csr sparse matmat transpose and statistics" {
     defer product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, product.shape);
     try std.testing.expectEqualSlices(f64, &.{ 11, 14, 9, 12 }, product.data);
+
+    var sparse_rhs_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        8, 4,
+        5, 0,
+        6, 7,
+    }, &.{ 3, 2 });
+    defer sparse_rhs_dense.deinit();
+    var sparse_rhs = try csrFromDense(f64, sparse_rhs_dense);
+    defer sparse_rhs.deinit();
+    var sparse_product = try csr.matmulSparse(sparse_rhs);
+    defer sparse_product.deinit();
+    try std.testing.expectEqual(@as(usize, 3), sparse_product.nnz());
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3 }, sparse_product.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, sparse_product.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 20, 18, 15 }, sparse_product.values);
+    var sparse_product_dense = try sparse_product.toDense();
+    defer sparse_product_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 20, 18, 15, 0 }, sparse_product_dense.data);
+
+    var coo_lhs = try csr.toCoo();
+    defer coo_lhs.deinit();
+    var coo_rhs = try sparse_rhs.toCoo();
+    defer coo_rhs.deinit();
+    var coo_product = try coo_lhs.matmulSparse(coo_rhs);
+    defer coo_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1 }, coo_product.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, coo_product.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 20, 18, 15 }, coo_product.values);
+
+    var csc_lhs = try csr.toCsc();
+    defer csc_lhs.deinit();
+    var csc_rhs = try sparse_rhs.toCsc();
+    defer csc_rhs.deinit();
+    var csc_product = try csc_lhs.matmulSparse(csc_rhs);
+    defer csc_product.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3 }, csc_product.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, csc_product.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 20, 15, 18 }, csc_product.values);
+    try std.testing.expectError(error.ShapeMismatch, sparse_rhs.matmulSparse(sparse_rhs));
 
     var transposed = try csr.transpose();
     defer transposed.deinit();
