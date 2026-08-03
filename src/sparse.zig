@@ -1651,6 +1651,24 @@ pub fn CooMatrix(comptime T: type) type {
             return builder.profile();
         }
 
+        pub fn lowerProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.lowerProfile()) <= max_profile;
+        }
+
+        pub fn upperProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.upperProfile()) <= max_profile;
+        }
+
+        pub fn profileMeetsBounds(self: Self, max_lower_profile: usize, max_upper_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.meetsBounds(max_lower_profile, max_upper_profile);
+        }
+
+        pub fn profileTotalMeetsBound(self: Self, max_total_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.totalMeetsBound(max_total_profile);
+        }
+
         pub fn diagonallyDominant(self: Self) SparseError!bool {
             var canonical = try self.coalesced();
             defer canonical.deinit();
@@ -3221,6 +3239,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return builder.profile();
         }
 
+        pub fn lowerProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.lowerProfile()) <= max_profile;
+        }
+
+        pub fn upperProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.upperProfile()) <= max_profile;
+        }
+
+        pub fn profileMeetsBounds(self: Self, max_lower_profile: usize, max_upper_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.meetsBounds(max_lower_profile, max_upper_profile);
+        }
+
+        pub fn profileTotalMeetsBound(self: Self, max_total_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.totalMeetsBound(max_total_profile);
+        }
+
         pub fn diagonallyDominant(self: Self) SparseError!bool {
             var canonical = try self.coalesced();
             defer canonical.deinit();
@@ -4645,6 +4681,24 @@ pub fn CscMatrix(comptime T: type) type {
             return builder.profile();
         }
 
+        pub fn lowerProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.lowerProfile()) <= max_profile;
+        }
+
+        pub fn upperProfileMeetsBound(self: Self, max_profile: usize) SparseError!bool {
+            return (try self.upperProfile()) <= max_profile;
+        }
+
+        pub fn profileMeetsBounds(self: Self, max_lower_profile: usize, max_upper_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.meetsBounds(max_lower_profile, max_upper_profile);
+        }
+
+        pub fn profileTotalMeetsBound(self: Self, max_total_profile: usize) SparseError!bool {
+            const current = try self.profile();
+            return current.totalMeetsBound(max_total_profile);
+        }
+
         pub fn diagonallyDominant(self: Self) SparseError!bool {
             var canonical = try self.coalesced();
             defer canonical.deinit();
@@ -5631,6 +5685,14 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
     try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
     try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
+    try std.testing.expect(try symmetric.lowerProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.lowerProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.upperProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.upperProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.profileMeetsBounds(2, 2));
+    try std.testing.expect(!(try symmetric.profileMeetsBounds(1, 2)));
+    try std.testing.expect(try symmetric.profileTotalMeetsBound(4));
+    try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
     try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
@@ -5657,6 +5719,8 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
     var duplicate_diagonal = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1, 1 }, &.{ 0, 0, 0, 1, 1 }, &.{ 1, 2, 3, 4, -4 });
     defer duplicate_diagonal.deinit();
@@ -5942,6 +6006,14 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
     try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
     try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
+    try std.testing.expect(try symmetric.lowerProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.lowerProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.upperProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.upperProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.profileMeetsBounds(2, 2));
+    try std.testing.expect(!(try symmetric.profileMeetsBounds(1, 2)));
+    try std.testing.expect(try symmetric.profileTotalMeetsBound(4));
+    try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
@@ -5966,6 +6038,8 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
     var duplicate = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
     defer duplicate.deinit();
@@ -6252,6 +6326,14 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 4), try symmetric_profile.total());
     try std.testing.expect(symmetric_profile.meetsBounds(2, 2));
     try std.testing.expect(try symmetric_profile.totalMeetsBound(4));
+    try std.testing.expect(try symmetric.lowerProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.lowerProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.upperProfileMeetsBound(2));
+    try std.testing.expect(!(try symmetric.upperProfileMeetsBound(1)));
+    try std.testing.expect(try symmetric.profileMeetsBounds(2, 2));
+    try std.testing.expect(!(try symmetric.profileMeetsBounds(1, 2)));
+    try std.testing.expect(try symmetric.profileTotalMeetsBound(4));
+    try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
@@ -6262,6 +6344,8 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
     var duplicate = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 3, 5 }, &.{ 0, 0, 1, 0, 1 }, &.{ 1.0, -1.0, 2.0, 2.0, 0.0 });
     defer duplicate.deinit();
