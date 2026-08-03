@@ -1301,6 +1301,26 @@ test "device lazy frame pushes null predicate dependencies into parquet scan sou
     defer gpa.free(filter_null_ids);
     try std.testing.expectEqualSlices(i32, &.{2}, filter_null_ids);
 
+    var drop_all_nulls_single_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer drop_all_nulls_single_scan.deinit();
+    try drop_all_nulls_single_scan.dropAllNulls(&.{"sales"});
+    try drop_all_nulls_single_scan.select(&.{"id"});
+
+    const drop_all_nulls_single_explain = try drop_all_nulls_single_scan.explain(gpa);
+    defer gpa.free(drop_all_nulls_single_explain);
+    try std.testing.expect(std.mem.indexOf(u8, drop_all_nulls_single_explain, "scan_pushdown: null=sales:non_null, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, drop_all_nulls_single_explain, "drop_all_nulls[sales]") != null);
+
+    var filter_all_nulls_single_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer filter_all_nulls_single_scan.deinit();
+    try filter_all_nulls_single_scan.filterAllNulls(&.{"sales"});
+    try filter_all_nulls_single_scan.select(&.{"id"});
+
+    const filter_all_nulls_single_explain = try filter_all_nulls_single_scan.explain(gpa);
+    defer gpa.free(filter_all_nulls_single_explain);
+    try std.testing.expect(std.mem.indexOf(u8, filter_all_nulls_single_explain, "scan_pushdown: null=sales:only, projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, filter_all_nulls_single_explain, "filter_all_nulls[sales]") != null);
+
     var range_then_null_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer range_then_null_scan.deinit();
     try range_then_null_scan.filterColumnScalar("id", i32, 1, .gt);

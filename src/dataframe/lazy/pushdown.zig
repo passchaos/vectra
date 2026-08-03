@@ -223,11 +223,24 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     try setNullPredicate(allocator, &null_predicate, names[0], false);
                 }
             },
-            .drop_all_nulls, .filter_all_nulls => |names| {
+            .drop_all_nulls => |names| {
                 for (names) |name| {
                     if (!nameInBorrowedList(name, derived_names.items)) {
                         try appendOwnedNameUnique(allocator, &required_names, name);
                     }
+                }
+                if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
+                    try setNullPredicate(allocator, &null_predicate, names[0], false);
+                }
+            },
+            .filter_all_nulls => |names| {
+                for (names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                if (range_predicate == null and names.len == 1 and !nameInBorrowedList(names[0], derived_names.items)) {
+                    try setNullPredicate(allocator, &null_predicate, names[0], true);
                 }
             },
             .filter_nulls_column => |name| {
