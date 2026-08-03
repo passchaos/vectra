@@ -3045,6 +3045,31 @@ pub fn DeviceLazyTypes(
             pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
             pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
 
+            pub fn withRowCumulativeWeightedModeWeight(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedModeWeight(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedModeRatio(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedModeRatio(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedModeMargin(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedModeMargin(self, value_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedModeMarginRatio(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedModeMarginRatio(self, value_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+            pub const withRowPrefixWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+            pub const withRowCumWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+            pub const withRowPrefixWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+            pub const withRowCumWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+            pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+            pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+            pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+
             pub fn withRowWeightedQuantile(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, q: f64) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedQuantile(self, value_names, weight_names, output_name, q);
             }

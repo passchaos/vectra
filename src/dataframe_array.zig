@@ -6700,8 +6700,132 @@ pub fn withRowCumulativeWeightedMode(
     return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
 }
 
+const RowCumulativeWeightedModeDiagnostic = enum { weight, ratio, margin, margin_ratio };
+
+fn withRowCumulativeWeightedModeDiagnostic(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    comptime reduction: RowCumulativeWeightedModeDiagnostic,
+) DeviceFrameArrayError!DeviceDataFrame {
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (0..flat.rows) |row| {
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+
+            var found = false;
+            var best_weight: f64 = 0.0;
+            var second_weight: f64 = 0.0;
+            var row_weight: f64 = 0.0;
+            for (0..col_index + 1) |candidate_index| {
+                const candidate_offset = row * flat.width + candidate_index;
+                if (!flat.validity[candidate_offset]) continue;
+                row_weight += flat.weights[candidate_offset];
+                const candidate = flat.values[candidate_offset];
+
+                var seen = false;
+                for (0..candidate_index) |previous_index| {
+                    const previous_offset = row * flat.width + previous_index;
+                    if (!flat.validity[previous_offset]) continue;
+                    if (rowModeValueEqual(flat.values[previous_offset], candidate)) {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen) continue;
+
+                var candidate_weight: f64 = 0.0;
+                for (candidate_index..col_index + 1) |match_index| {
+                    const match_offset = row * flat.width + match_index;
+                    if (!flat.validity[match_offset]) continue;
+                    if (rowModeValueEqual(candidate, flat.values[match_offset])) candidate_weight += flat.weights[match_offset];
+                }
+
+                if (!found or candidate_weight > best_weight) {
+                    second_weight = best_weight;
+                    best_weight = candidate_weight;
+                    found = true;
+                } else if (candidate_weight > second_weight) {
+                    second_weight = candidate_weight;
+                }
+            }
+            if (!found or !(row_weight > 0.0)) continue;
+            cumulative[offset] = switch (reduction) {
+                .weight => best_weight,
+                .ratio => best_weight / row_weight,
+                .margin => best_weight - second_weight,
+                .margin_ratio => (best_weight - second_weight) / row_weight,
+            };
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedModeWeight(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_names, .weight);
+}
+
+pub fn withRowCumulativeWeightedModeRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_names, .ratio);
+}
+
+pub fn withRowCumulativeWeightedModeMargin(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_names, .margin);
+}
+
+pub fn withRowCumulativeWeightedModeMarginRatio(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedModeDiagnostic(DeviceDataFrame, input, value_names, weight_names, output_names, .margin_ratio);
+}
+
 pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
 pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
+pub const withRowCumWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowPrefixWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowCumWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowPrefixWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowCumWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
 
 pub fn withRowWeightedMode(
     comptime DeviceDataFrame: type,

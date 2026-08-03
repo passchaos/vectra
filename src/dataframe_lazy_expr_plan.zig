@@ -4826,6 +4826,46 @@ pub fn withRowCumulativeWeightedMode(frame: anytype, value_names: []const []cons
 pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
 pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
 
+fn withRowCumulativeWeightedModeDiagnostic(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime op: enum { weight, ratio, margin, margin_ratio }) DeviceDataError!void {
+    const owned_values = try cloneNameList(frame.allocator, value_names);
+    errdefer freeNameList(frame.allocator, owned_values);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (op) {
+        .weight => .{ .row_cumulative_weighted_mode_weight = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .ratio => .{ .row_cumulative_weighted_mode_ratio = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .margin => .{ .row_cumulative_weighted_mode_margin = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .margin_ratio => .{ .row_cumulative_weighted_mode_margin_ratio = .{ .value_names = owned_values, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedModeWeight(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedModeDiagnostic(frame, value_names, weight_names, output_names, .weight);
+}
+
+pub fn withRowCumulativeWeightedModeRatio(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedModeDiagnostic(frame, value_names, weight_names, output_names, .ratio);
+}
+
+pub fn withRowCumulativeWeightedModeMargin(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedModeDiagnostic(frame, value_names, weight_names, output_names, .margin);
+}
+
+pub fn withRowCumulativeWeightedModeMarginRatio(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedModeDiagnostic(frame, value_names, weight_names, output_names, .margin_ratio);
+}
+
+pub const withRowCumWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowPrefixWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowCumWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowPrefixWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowCumWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+
 fn withRowWeightedPercentileShape(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8, comptime op: enum { interdecile_range, midhinge, trimean, bowley_skewness, quartile_coeff_dispersion, kelley_skewness }) DeviceDataError!void {
     const owned_values = try cloneNameList(frame.allocator, value_names);
     errdefer freeNameList(frame.allocator, owned_values);

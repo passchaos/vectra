@@ -4178,6 +4178,31 @@ pub fn withRowCumulativeWeightedMode(self: anytype, value_names: []const []const
 pub const withRowCumWeightedMode = withRowCumulativeWeightedMode;
 pub const withRowPrefixWeightedMode = withRowCumulativeWeightedMode;
 
+pub fn withRowCumulativeWeightedModeWeight(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedModeWeight(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedModeRatio(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedModeRatio(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedModeMargin(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedModeMargin(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedModeMarginRatio(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedModeMarginRatio(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowPrefixWeightedModeWeight = withRowCumulativeWeightedModeWeight;
+pub const withRowCumWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowPrefixWeightedModeRatio = withRowCumulativeWeightedModeRatio;
+pub const withRowCumWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowPrefixWeightedModeMargin = withRowCumulativeWeightedModeMargin;
+pub const withRowCumWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+pub const withRowPrefixWeightedModeMarginRatio = withRowCumulativeWeightedModeMarginRatio;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

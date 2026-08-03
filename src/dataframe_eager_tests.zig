@@ -1705,6 +1705,26 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_table, gpa, "a_row_weighted_cummode", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_table, gpa, "b_row_weighted_cummode", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
 
+    var row_cum_weighted_mode_weight_table = try validity_table.withRowCumWeightedModeWeight(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_weight", "b_row_weighted_cummode_weight" });
+    defer row_cum_weighted_mode_weight_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_weight_table, gpa, "a_row_weighted_cummode_weight", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_weight_table, gpa, "b_row_weighted_cummode_weight", &.{ 0.0, 1.0, 0.0, 4.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_mode_ratio_table = try validity_table.withRowPrefixWeightedModeRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_ratio", "b_row_weighted_cummode_ratio" });
+    defer row_cum_weighted_mode_ratio_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_ratio_table, gpa, "a_row_weighted_cummode_ratio", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_ratio_table, gpa, "b_row_weighted_cummode_ratio", &.{ 0.0, 1.0, 0.0, 4.0 / 5.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_mode_margin_table = try validity_table.withRowCumWeightedModeMargin(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_margin", "b_row_weighted_cummode_margin" });
+    defer row_cum_weighted_mode_margin_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_table, gpa, "a_row_weighted_cummode_margin", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_table, gpa, "b_row_weighted_cummode_margin", &.{ 0.0, 1.0, 0.0, 3.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_mode_margin_ratio_table = try validity_table.withRowPrefixWeightedModeMarginRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_margin_ratio", "b_row_weighted_cummode_margin_ratio" });
+    defer row_cum_weighted_mode_margin_ratio_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_ratio_table, gpa, "a_row_weighted_cummode_margin_ratio", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_mode_margin_ratio_table, gpa, "b_row_weighted_cummode_margin_ratio", &.{ 0.0, 1.0, 0.0, 3.0 / 5.0 }, &.{ false, true, false, true });
+
     var row_cum_weighted_weight_sum_table = try validity_table.withRowCumulativeWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cum_weight_sum", "b_row_weighted_cum_weight_sum" });
     defer row_cum_weighted_weight_sum_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_weight_sum_table, gpa, "a_row_weighted_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
@@ -1730,6 +1750,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectError(error.InvalidShape, validity_table.withRowCumulativeWeightedTrimmedMean(&.{"a"}, &.{"wa"}, &.{"a_row_weighted_cumtrimmed"}, 0.5));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMidhinge(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummidhinge", "extra_row_weighted_cummidhinge" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedMode(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode", "extra_row_weighted_cummode" }));
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedModeWeight(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode_weight", "extra_row_weighted_cummode_weight" }));
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedWeightSum(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cum_weight_sum", "extra_row_weighted_cum_weight_sum" }));
 
     var row_weighted_weight_sum_table = try validity_table.withRowWeightedWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, "row_weighted_weight_sum");

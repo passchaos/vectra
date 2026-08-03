@@ -5115,21 +5115,48 @@ test "device lazy frame derives row cumulative weighted mode columns" {
     var plan = try DeviceLazyFrame.init(gpa, table);
     defer plan.deinit();
     try plan.withRowPrefixWeightedMode(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode", "b_row_weighted_cummode" });
-    try plan.select(&.{ "a_row_weighted_cummode", "b_row_weighted_cummode" });
+    try plan.withRowCumWeightedModeWeight(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_weight", "b_row_weighted_cummode_weight" });
+    try plan.withRowPrefixWeightedModeRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_ratio", "b_row_weighted_cummode_ratio" });
+    try plan.withRowCumWeightedModeMargin(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_margin", "b_row_weighted_cummode_margin" });
+    try plan.withRowPrefixWeightedModeMarginRatio(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummode_margin_ratio", "b_row_weighted_cummode_margin_ratio" });
+    try plan.select(&.{
+        "a_row_weighted_cummode",
+        "b_row_weighted_cummode",
+        "a_row_weighted_cummode_weight",
+        "b_row_weighted_cummode_weight",
+        "a_row_weighted_cummode_ratio",
+        "b_row_weighted_cummode_ratio",
+        "a_row_weighted_cummode_margin",
+        "b_row_weighted_cummode_margin",
+        "a_row_weighted_cummode_margin_ratio",
+        "b_row_weighted_cummode_margin_ratio",
+    });
 
     const explained = try plan.explain(gpa);
     defer gpa.free(explained);
     try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode,b_row_weighted_cummode])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode_weight(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode_weight,b_row_weighted_cummode_weight])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode_ratio(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode_ratio,b_row_weighted_cummode_ratio])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode_margin(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode_margin,b_row_weighted_cummode_margin])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_mode_margin_ratio(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummode_margin_ratio,b_row_weighted_cummode_margin_ratio])") != null);
 
     var result = try plan.collect();
     defer result.deinit();
-    try std.testing.expectEqual(@as(usize, 2), result.width());
+    try std.testing.expectEqual(@as(usize, 10), result.width());
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode_weight", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode_weight", &.{ 0.0, 1.0, 0.0, 4.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode_ratio", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode_ratio", &.{ 0.0, 1.0, 0.0, 4.0 / 5.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode_margin", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode_margin", &.{ 0.0, 1.0, 0.0, 3.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummode_margin_ratio", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummode_margin_ratio", &.{ 0.0, 1.0, 0.0, 3.0 / 5.0 }, &.{ false, true, false, true });
 
     var invalid_plan = try DeviceLazyFrame.init(gpa, table);
     defer invalid_plan.deinit();
-    try invalid_plan.withRowCumulativeWeightedMode(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode", "extra_row_weighted_cummode" });
+    try invalid_plan.withRowCumulativeWeightedModeWeight(&.{"a"}, &.{"wa"}, &.{ "a_row_weighted_cummode_weight", "extra_row_weighted_cummode_weight" });
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
