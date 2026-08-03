@@ -127,6 +127,22 @@ fn ensureFloat(comptime T: type) void {
     if (@typeInfo(T) != .float) @compileError("sparse norm requires floating-point values");
 }
 
+fn sparseValueToF64(comptime T: type, value: T) f64 {
+    return switch (@typeInfo(T)) {
+        .float => @floatCast(value),
+        .int => @floatFromInt(value),
+        else => @compileError("sparse mean requires numeric values"),
+    };
+}
+
+fn sparseSizeToF64(value: usize) f64 {
+    return @floatFromInt(value);
+}
+
+fn sparseElementCount(rows: usize, cols: usize) SparseError!usize {
+    return std.math.mul(usize, rows, cols) catch return error.InvalidShape;
+}
+
 fn diagonalExtent(diagonal_len: usize, offset: isize) SparseError!struct { size: usize, magnitude: usize, upper: bool } {
     const upper = offset >= 0;
     const magnitude: usize = if (upper)
@@ -631,6 +647,37 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn maxAbsValue(self: Self) SparseError!T {
             return maxStoredAbsValue(T, self.values);
+        }
+
+        pub fn mean(self: Self) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            if (count == 0) return error.EmptyArray;
+            var total: f64 = 0;
+            for (self.values) |value| total += sparseValueToF64(T, value);
+            return total / sparseSizeToF64(count);
+        }
+
+        pub fn rowMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| out.data[row] += sparseValueToF64(T, value);
+            const divisor = sparseSizeToF64(self.cols);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
+        pub fn columnMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| out.data[col] += sparseValueToF64(T, value);
+            const divisor = sparseSizeToF64(self.rows);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -1545,6 +1592,39 @@ pub fn CsrMatrix(comptime T: type) type {
             return maxStoredAbsValue(T, self.values);
         }
 
+        pub fn mean(self: Self) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            if (count == 0) return error.EmptyArray;
+            var total: f64 = 0;
+            for (self.values) |value| total += sparseValueToF64(T, value);
+            return total / sparseSizeToF64(count);
+        }
+
+        pub fn rowMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| out.data[row] += sparseValueToF64(T, self.values[pos]);
+            }
+            const divisor = sparseSizeToF64(self.cols);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
+        pub fn columnMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, self.col_indices) |value, col| out.data[col] += sparseValueToF64(T, value);
+            const divisor = sparseSizeToF64(self.rows);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (T == f64) {
@@ -2414,6 +2494,39 @@ pub fn CscMatrix(comptime T: type) type {
             return maxStoredAbsValue(T, self.values);
         }
 
+        pub fn mean(self: Self) SparseError!f64 {
+            ensureNumeric(T);
+            const count = try sparseElementCount(self.rows, self.cols);
+            if (count == 0) return error.EmptyArray;
+            var total: f64 = 0;
+            for (self.values) |value| total += sparseValueToF64(T, value);
+            return total / sparseSizeToF64(count);
+        }
+
+        pub fn columnMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.rows == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| out.data[col] += sparseValueToF64(T, self.values[pos]);
+            }
+            const divisor = sparseSizeToF64(self.rows);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
+        pub fn rowMeans(self: Self) SparseError!array_mod.Array(f64) {
+            ensureNumeric(T);
+            if (self.cols == 0) return error.EmptyArray;
+            var out = try array_mod.Array(f64).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, self.row_indices) |value, row| out.data[row] += sparseValueToF64(T, value);
+            const divisor = sparseSizeToF64(self.cols);
+            for (out.data) |*value| value.* /= divisor;
+            return out;
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (comptime T == f64) {
@@ -2846,6 +2959,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(usize, &.{0}, csc_identity.col_offsets);
     try std.testing.expectEqual(@as(usize, 0), csc_identity.nnz());
     try std.testing.expectError(error.EmptyArray, csc_identity.minValue());
+    try std.testing.expectError(error.EmptyArray, csc_identity.mean());
 
     var upper_diag = try cooFromDiagonal(f64, gpa, &.{ 2, 0, 3 }, 2);
     defer upper_diag.deinit();
@@ -3026,6 +3140,18 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try coo.mean(), 1e-12);
+
+    var row_means = try coo.rowMeans();
+    defer row_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var col_means = try coo.columnMeans();
+    defer col_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
 
     var row_nnz = try coo.rowNnz();
     defer row_nnz.deinit();
@@ -3325,6 +3451,18 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csr.mean(), 1e-12);
+
+    var row_means = try csr.rowMeans();
+    defer row_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var col_means = try csr.columnMeans();
+    defer col_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
 
     var row_nnz = try csr.rowNnz();
     defer row_nnz.deinit();
@@ -3542,6 +3680,18 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.minAbsValue(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11.0 / 9.0), try csc.mean(), 1e-12);
+
+    var row_means = try csc.rowMeans();
+    defer row_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var col_means = try csc.columnMeans();
+    defer col_means.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
 
     var row_nnz = try csc.rowNnz();
     defer row_nnz.deinit();
