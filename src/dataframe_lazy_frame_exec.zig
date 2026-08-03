@@ -741,6 +741,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_weighted_dot => |row_weighted| try current.withRowCumulativeWeightedDot(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_cosine_similarity => |row_weighted| try current.withRowCumulativeWeightedCosineSimilarity(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_squared_euclidean_distance => |row_weighted| try current.withRowCumulativeWeightedSquaredEuclideanDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
+            .row_cumulative_weighted_euclidean_distance => |row_weighted| try current.withRowCumulativeWeightedEuclideanDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_weighted_mean => |row_weighted| try current.withRowWeightedMean(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_sum => |row_weighted| try current.withRowWeightedSum(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_cumulative_weighted_sum => |row_weighted| try current.withRowCumulativeWeightedSum(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),

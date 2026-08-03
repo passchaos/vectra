@@ -3411,6 +3411,7 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_cumulative_weighted_dot => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_dot"),
         .row_cumulative_weighted_cosine_similarity => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_cosine_similarity"),
         .row_cumulative_weighted_squared_euclidean_distance => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_squared_euclidean_distance"),
+        .row_cumulative_weighted_euclidean_distance => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_euclidean_distance"),
         .row_weighted_mean => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean"),
         .row_weighted_sum => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_sum"),
         .row_cumulative_weighted_sum => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_sum"),

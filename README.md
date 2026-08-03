@@ -779,6 +779,8 @@ same aligned triples.
 aliases) appends prefix weighted cosine similarity for aligned triples.
 `withRowCumulativeWeightedSquaredEuclideanDistance` and its squared-distance
 aliases append prefix weighted squared Euclidean distance for aligned triples.
+`withRowCumulativeWeightedEuclideanDistance` (`withRowCumulativeWeightedL2Distance`
+aliases) appends the square-rooted prefix weighted Euclidean/L2 distance.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and

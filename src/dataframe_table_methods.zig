@@ -3525,6 +3525,16 @@ pub const withRowPrefixWeightedSquaredEuclideanDistance = withRowCumulativeWeigh
 pub const withRowPrefixWeightedSquaredDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
 pub const withRowPrefixWeightedSqEuclideanDistance = withRowCumulativeWeightedSquaredEuclideanDistance;
 
+pub fn withRowCumulativeWeightedEuclideanDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedEuclideanDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
+pub const withRowCumWeightedEuclideanDistance = withRowCumulativeWeightedEuclideanDistance;
+pub const withRowCumWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
+pub const withRowPrefixWeightedEuclideanDistance = withRowCumulativeWeightedEuclideanDistance;
+pub const withRowPrefixWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }
