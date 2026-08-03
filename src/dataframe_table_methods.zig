@@ -3576,6 +3576,16 @@ pub const withRowCumWeightedBias = withRowCumulativeWeightedMeanError;
 pub const withRowPrefixWeightedMeanError = withRowCumulativeWeightedMeanError;
 pub const withRowPrefixWeightedBias = withRowCumulativeWeightedMeanError;
 
+pub fn withRowCumulativeWeightedMae(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMae(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_names);
+}
+
+pub const withRowCumulativeWeightedMAE = withRowCumulativeWeightedMae;
+pub const withRowCumWeightedMae = withRowCumulativeWeightedMae;
+pub const withRowCumWeightedMAE = withRowCumulativeWeightedMae;
+pub const withRowPrefixWeightedMae = withRowCumulativeWeightedMae;
+pub const withRowPrefixWeightedMAE = withRowCumulativeWeightedMae;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

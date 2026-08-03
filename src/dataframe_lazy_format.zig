@@ -786,6 +786,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_canberra_distance => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_canberra_distance", row_weighted),
         .row_cumulative_weighted_bray_curtis_distance => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_bray_curtis_distance", row_weighted),
         .row_cumulative_weighted_mean_error => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_mean_error", row_weighted),
+        .row_cumulative_weighted_mae => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_mae", row_weighted),
         .row_weighted_mean => |row_weighted| {
             try writer.print("row_weighted_mean(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {
