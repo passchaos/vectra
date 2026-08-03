@@ -285,6 +285,21 @@ pub fn einsum(subscripts: []const u8, lhs: anytype, rhs: @TypeOf(lhs)) ArrayErro
         return product.sum(-1, false);
     }
     if (batchedMatmulLikeSubscripts(subscripts, lhs.shape.len, rhs.shape.len)) return lhs.matmul(rhs);
+    if (try parseSameLabelBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len)) |shared_plan| {
+        var current = try lhs.mul(rhs);
+        errdefer current.deinit();
+        var axis_index = shared_plan.reduce_len;
+        while (axis_index > 0) {
+            axis_index -= 1;
+            const next = try current.sum(@intCast(shared_plan.reduce_axes[axis_index]), false);
+            current.deinit();
+            current = next;
+        }
+        if (shared_plan.outputIsDefault()) return current;
+        const permuted = try current.permute(shared_plan.permuteAxes());
+        current.deinit();
+        return permuted;
+    }
     const plan = try parseBinaryEinsum(subscripts, lhs.shape.len, rhs.shape.len);
     if (plan.matmulLike()) return lhs.matmul(rhs);
     if (plan.matvecLike()) return lhs.matmul(rhs);
@@ -541,6 +556,70 @@ fn ellipsisBatchedDotLikeSubscripts(subscripts: []const u8, lhs_rank: usize, rhs
 }
 
 const max_einsum_rank = 16;
+
+const SameLabelBinaryEinsumPlan = struct {
+    input: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    default_out: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
+    permutation: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
+    reduce_axes: [max_einsum_rank]usize = [_]usize{0} ** max_einsum_rank,
+    input_len: usize = 0,
+    out_len: usize = 0,
+    default_out_len: usize = 0,
+    reduce_len: usize = 0,
+
+    fn outputIsDefault(plan: SameLabelBinaryEinsumPlan) bool {
+        return plan.out_len == plan.default_out_len and std.mem.eql(u8, plan.out[0..plan.out_len], plan.default_out[0..plan.default_out_len]);
+    }
+
+    fn permuteAxes(plan: *const SameLabelBinaryEinsumPlan) []const usize {
+        return plan.permutation[0..plan.out_len];
+    }
+};
+
+fn parseSameLabelBinaryEinsum(subscripts: []const u8, lhs_rank: usize, rhs_rank: usize) ArrayError!?SameLabelBinaryEinsumPlan {
+    if (lhs_rank == 0 or lhs_rank > max_einsum_rank or lhs_rank != rhs_rank) return null;
+    if (std.mem.indexOf(u8, subscripts, "...") != null) return null;
+    const explicit_output = std.mem.indexOf(u8, subscripts, "->");
+    const arrow = explicit_output orelse subscripts.len;
+    if (explicit_output != null and std.mem.indexOf(u8, subscripts[arrow + 2 ..], "->") != null) return error.InvalidShape;
+    const comma = std.mem.indexOfScalar(u8, subscripts[0..arrow], ',') orelse return null;
+    if (std.mem.indexOfScalar(u8, subscripts[comma + 1 .. arrow], ',') != null) return null;
+    const lhs_labels = subscripts[0..comma];
+    const rhs_labels = subscripts[comma + 1 .. arrow];
+    if (lhs_labels.len != lhs_rank or rhs_labels.len != rhs_rank) return null;
+    if (!std.mem.eql(u8, lhs_labels, rhs_labels)) return null;
+    if (!allEinsumLabels(lhs_labels) or hasRepeatedLabels(lhs_labels)) return null;
+
+    var plan: SameLabelBinaryEinsumPlan = .{};
+    @memcpy(plan.input[0..lhs_rank], lhs_labels);
+    plan.input_len = lhs_rank;
+    if (explicit_output) |_| {
+        plan.out_len = try parseEinsumLabels(subscripts[arrow + 2 ..], null, plan.out[0..]);
+    } else {
+        plan.out_len = 0;
+    }
+
+    var out_seen = [_]bool{false} ** 256;
+    for (plan.out[0..plan.out_len]) |label| {
+        if (out_seen[label]) return error.InvalidShape;
+        if (findLabel(lhs_labels, label) == null) return error.InvalidShape;
+        out_seen[label] = true;
+    }
+    for (lhs_labels, 0..) |label, axis| {
+        if (out_seen[label]) {
+            plan.default_out[plan.default_out_len] = label;
+            plan.default_out_len += 1;
+        } else {
+            plan.reduce_axes[plan.reduce_len] = axis;
+            plan.reduce_len += 1;
+        }
+    }
+    for (plan.out[0..plan.out_len], 0..) |label, out_axis| {
+        plan.permutation[out_axis] = findLabel(plan.default_out[0..plan.default_out_len], label) orelse return error.InvalidShape;
+    }
+    return plan;
+}
 
 const BinaryEinsumPlan = struct {
     lhs: [max_einsum_rank]u8 = [_]u8{0} ** max_einsum_rank,
