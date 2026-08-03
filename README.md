@@ -787,6 +787,8 @@ aliases) appends prefix weighted Manhattan/L1 distance for the same triples.
 pair error across positive-weight valid triples.
 `withRowCumulativeWeightedCanberraDistance` appends prefix weighted Canberra
 distance, treating zero-magnitude pairs as zero contribution.
+`withRowCumulativeWeightedBrayCurtisDistance` appends prefix weighted
+Bray-Curtis distance with a NaN result when the accumulated denominator is zero.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and

@@ -3678,7 +3678,7 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
-const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev, canberra };
+const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis };
 
 // Keep the cumulative pair-distance family in one engine so all variants share
 // the same null/current-position validity and positive-weight prefix contract.
@@ -3697,9 +3697,10 @@ fn withRowCumulativeWeightedPairDistance(
     const running_weight_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(running_weight_sums);
     const needs_quadratic_state = reduction == .squared_euclidean or reduction == .euclidean;
-    const needs_l1_state = reduction == .manhattan;
+    const needs_abs_error_sum_state = reduction == .manhattan or reduction == .bray_curtis;
     const needs_chebyshev_state = reduction == .chebyshev;
     const needs_canberra_state = reduction == .canberra;
+    const needs_bray_curtis_state = reduction == .bray_curtis;
 
     const running_cross_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_cross_sums);
@@ -3707,12 +3708,14 @@ fn withRowCumulativeWeightedPairDistance(
     defer input.allocator.free(running_lhs_square_sums);
     const running_rhs_square_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_rhs_square_sums);
-    const running_abs_error_sums = try input.allocator.alloc(f64, if (needs_l1_state) input.rows else 0);
+    const running_abs_error_sums = try input.allocator.alloc(f64, if (needs_abs_error_sum_state) input.rows else 0);
     defer input.allocator.free(running_abs_error_sums);
     const running_chebyshev_values = try input.allocator.alloc(f64, if (needs_chebyshev_state) input.rows else 0);
     defer input.allocator.free(running_chebyshev_values);
     const running_canberra_sums = try input.allocator.alloc(f64, if (needs_canberra_state) input.rows else 0);
     defer input.allocator.free(running_canberra_sums);
+    const running_bray_denominators = try input.allocator.alloc(f64, if (needs_bray_curtis_state) input.rows else 0);
+    defer input.allocator.free(running_bray_denominators);
     const cumulative = try input.allocator.alloc(f64, input.rows * lhs_names.len);
     defer input.allocator.free(cumulative);
     const cumulative_validity = try input.allocator.alloc(bool, input.rows * lhs_names.len);
@@ -3724,6 +3727,7 @@ fn withRowCumulativeWeightedPairDistance(
     @memset(running_abs_error_sums, 0.0);
     @memset(running_chebyshev_values, 0.0);
     @memset(running_canberra_sums, 0.0);
+    @memset(running_bray_denominators, 0.0);
     @memset(cumulative, 0.0);
     @memset(cumulative_validity, false);
 
@@ -3763,6 +3767,10 @@ fn withRowCumulativeWeightedPairDistance(
                         const abs_sum = @abs(lhs) + @abs(rhs);
                         running_canberra_sums[row] += if (abs_sum == 0.0) 0.0 else weight * @abs(lhs - rhs) / abs_sum;
                     },
+                    .bray_curtis => {
+                        running_abs_error_sums[row] += weight * @abs(lhs - rhs);
+                        running_bray_denominators[row] += weight * (@abs(lhs) + @abs(rhs));
+                    },
                 }
             }
             if (!(running_weight_sums[row] > 0.0)) continue;
@@ -3773,6 +3781,7 @@ fn withRowCumulativeWeightedPairDistance(
                 .manhattan => running_abs_error_sums[row],
                 .chebyshev => running_chebyshev_values[row],
                 .canberra => running_canberra_sums[row],
+                .bray_curtis => if (running_bray_denominators[row] == 0.0) quietNanF64() else running_abs_error_sums[row] / running_bray_denominators[row],
             };
             cumulative_validity[offset] = true;
         }
@@ -3862,6 +3871,20 @@ pub fn withRowCumulativeWeightedCanberraDistance(
 
 pub const withRowCumWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
 pub const withRowPrefixWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
+
+pub fn withRowCumulativeWeightedBrayCurtisDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPairDistance(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .bray_curtis);
+}
+
+pub const withRowCumWeightedBrayCurtisDistance = withRowCumulativeWeightedBrayCurtisDistance;
+pub const withRowPrefixWeightedBrayCurtisDistance = withRowCumulativeWeightedBrayCurtisDistance;
 
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 
