@@ -1083,6 +1083,22 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_weighted_pair_effective_n_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_weighted_pair_effective_n_table, gpa, "row_weighted_pair_effective_n", &.{ 1.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ true, true, false, true });
 
+    var row_cum_weighted_pair_weight_sum_table = try validity_table.withRowCumulativeWeightedPairWeightSum(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_pair_cum_weight_sum", "b_row_weighted_pair_cum_weight_sum" });
+    defer row_cum_weighted_pair_weight_sum_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_weight_sum_table, gpa, "a_row_weighted_pair_cum_weight_sum", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_weight_sum_table, gpa, "b_row_weighted_pair_cum_weight_sum", &.{ 0.0, 1.0, 0.0, 5.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_pair_positive_count_table = try validity_table.withRowCumWeightedPairPositiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_pair_cum_positive_count", "b_row_weighted_pair_cum_positive_count" });
+    defer row_cum_weighted_pair_positive_count_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_positive_count_table, gpa, "a_row_weighted_pair_cum_positive_count", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_positive_count_table, gpa, "b_row_weighted_pair_cum_positive_count", &.{ 0.0, 1.0, 0.0, 2.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_pair_effective_n_table = try validity_table.withRowPrefixWeightedPairEffectiveCount(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_pair_cum_effective_n", "b_row_weighted_pair_cum_effective_n" });
+    defer row_cum_weighted_pair_effective_n_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_effective_n_table, gpa, "a_row_weighted_pair_cum_effective_n", &.{ 1.0, 0.0, 0.0, 1.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_pair_effective_n_table, gpa, "b_row_weighted_pair_cum_effective_n", &.{ 0.0, 1.0, 0.0, 25.0 / 17.0 }, &.{ false, true, false, true });
+    try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedPairWeightSum(&.{"a"}, &.{"wa"}, &.{"wa"}, &.{ "a_row_weighted_pair_cum_weight_sum", "extra_row_weighted_pair_cum_weight_sum" }));
+
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
     defer row_argmin_table.deinit();
     const row_argmin_column = try row_argmin_table.column("row_argmin");

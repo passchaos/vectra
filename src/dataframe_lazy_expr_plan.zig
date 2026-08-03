@@ -3672,6 +3672,44 @@ pub fn withRowWeightedPairEffectiveN(frame: anytype, lhs_names: []const []const 
 
 pub const withRowWeightedPairEffectiveCount = withRowWeightedPairEffectiveN;
 
+fn withRowCumulativeWeightedPairSupport(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime reduction: enum { weight_sum, positive_count, effective_n }) DeviceDataError!void {
+    const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
+    errdefer freeNameList(frame.allocator, owned_lhs);
+    const owned_rhs = try cloneNameList(frame.allocator, rhs_names);
+    errdefer freeNameList(frame.allocator, owned_rhs);
+    const owned_weights = try cloneNameList(frame.allocator, weight_names);
+    errdefer freeNameList(frame.allocator, owned_weights);
+    const owned_outputs = try cloneNameList(frame.allocator, output_names);
+    errdefer freeNameList(frame.allocator, owned_outputs);
+    try frame.ops.append(frame.allocator, switch (reduction) {
+        .weight_sum => .{ .row_cumulative_weighted_pair_weight_sum = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .positive_count => .{ .row_cumulative_weighted_pair_positive_count = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .effective_n => .{ .row_cumulative_weighted_pair_effective_n = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
+    });
+}
+
+pub fn withRowCumulativeWeightedPairWeightSum(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPairSupport(frame, lhs_names, rhs_names, weight_names, output_names, .weight_sum);
+}
+
+pub fn withRowCumulativeWeightedPairPositiveCount(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPairSupport(frame, lhs_names, rhs_names, weight_names, output_names, .positive_count);
+}
+
+pub fn withRowCumulativeWeightedPairEffectiveN(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPairSupport(frame, lhs_names, rhs_names, weight_names, output_names, .effective_n);
+}
+
+pub const withRowCumulativeWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+pub const withRowCumWeightedPairWeightSum = withRowCumulativeWeightedPairWeightSum;
+pub const withRowPrefixWeightedPairWeightSum = withRowCumulativeWeightedPairWeightSum;
+pub const withRowCumWeightedPairPositiveCount = withRowCumulativeWeightedPairPositiveCount;
+pub const withRowPrefixWeightedPairPositiveCount = withRowCumulativeWeightedPairPositiveCount;
+pub const withRowCumWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
+pub const withRowCumWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+pub const withRowPrefixWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
+pub const withRowPrefixWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+
 pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
 }

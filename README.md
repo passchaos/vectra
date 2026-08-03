@@ -769,6 +769,10 @@ paired statistics and vector metrics.
 `withRowWeightedPairWeightSum`, `withRowWeightedPairPositiveCount`, and
 `withRowWeightedPairEffectiveN` expose the weighted support behind aligned
 lhs/rhs/weight row-wise metrics.
+`withRowCumulativeWeightedPairWeightSum`,
+`withRowCumulativeWeightedPairPositiveCount`, and
+`withRowCumulativeWeightedPairEffectiveN` append prefix weighted support
+diagnostics for aligned lhs/rhs/weight row-wise triples.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and

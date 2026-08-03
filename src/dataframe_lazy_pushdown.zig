@@ -1177,6 +1177,30 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
+            .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n => |row_weighted| {
+                for (row_weighted.output_names) |output_name| {
+                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
+                }
+                if (row_weighted.lhs_names.len == 0 or row_weighted.lhs_names.len != row_weighted.rhs_names.len or row_weighted.lhs_names.len != row_weighted.weight_names.len or row_weighted.output_names.len != row_weighted.lhs_names.len) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_weighted.lhs_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                for (row_weighted.rhs_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                for (row_weighted.weight_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
             .with_column_compare => |expr| {
                 try appendBorrowedNameUnique(allocator, &derived_names, expr.name);
                 try appendOwnedNameUnique(allocator, &required_names, expr.lhs_name);

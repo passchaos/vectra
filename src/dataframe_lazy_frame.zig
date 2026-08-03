@@ -2425,6 +2425,28 @@ pub fn DeviceLazyTypes(
 
             pub const withRowWeightedPairEffectiveCount = withRowWeightedPairEffectiveN;
 
+            pub fn withRowCumulativeWeightedPairWeightSum(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedPairWeightSum(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedPairPositiveCount(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedPairPositiveCount(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub fn withRowCumulativeWeightedPairEffectiveN(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedPairEffectiveN(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub const withRowCumulativeWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+            pub const withRowCumWeightedPairWeightSum = withRowCumulativeWeightedPairWeightSum;
+            pub const withRowPrefixWeightedPairWeightSum = withRowCumulativeWeightedPairWeightSum;
+            pub const withRowCumWeightedPairPositiveCount = withRowCumulativeWeightedPairPositiveCount;
+            pub const withRowPrefixWeightedPairPositiveCount = withRowCumulativeWeightedPairPositiveCount;
+            pub const withRowCumWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
+            pub const withRowCumWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+            pub const withRowPrefixWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
+            pub const withRowPrefixWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }

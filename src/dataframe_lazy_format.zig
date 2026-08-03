@@ -141,6 +141,30 @@ fn formatRowWeightedPairPayload(writer: *std.Io.Writer, comptime op_name: []cons
     try writer.print("]->{s})", .{row_weighted.output_name});
 }
 
+fn formatRowWeightedPairColumnOutputsPayload(writer: *std.Io.Writer, comptime op_name: []const u8, row_weighted: anytype) std.Io.Writer.Error!void {
+    try writer.print("{s}(lhs=[", .{op_name});
+    for (row_weighted.lhs_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], rhs=[", .{});
+    for (row_weighted.rhs_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("], weights=[", .{});
+    for (row_weighted.weight_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("]->[", .{});
+    for (row_weighted.output_names, 0..) |name, i| {
+        if (i != 0) try writer.print(",", .{});
+        try writer.print("{s}", .{name});
+    }
+    try writer.print("])", .{});
+}
+
 pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!void {
     switch (op) {
         .select => |names| {
@@ -750,6 +774,9 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_weighted_pair_weight_sum => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_pair_weight_sum", row_weighted),
         .row_weighted_pair_positive_count => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_pair_positive_count", row_weighted),
         .row_weighted_pair_effective_n => |row_weighted| try formatRowWeightedPairPayload(writer, "row_weighted_pair_effective_n", row_weighted),
+        .row_cumulative_weighted_pair_weight_sum => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_pair_weight_sum", row_weighted),
+        .row_cumulative_weighted_pair_positive_count => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_pair_positive_count", row_weighted),
+        .row_cumulative_weighted_pair_effective_n => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_pair_effective_n", row_weighted),
         .row_weighted_mean => |row_weighted| {
             try writer.print("row_weighted_mean(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

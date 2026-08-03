@@ -127,6 +127,28 @@ fn cloneRowWeightedPair(
     });
 }
 
+fn cloneRowWeightedPairColumnOutputs(
+    comptime Self: type,
+    allocator: std.mem.Allocator,
+    row_weighted: anytype,
+    comptime tag_name: []const u8,
+) DeviceDataError!Self {
+    const lhs_names = try cloneNameList(allocator, row_weighted.lhs_names);
+    errdefer freeNameList(allocator, lhs_names);
+    const rhs_names = try cloneNameList(allocator, row_weighted.rhs_names);
+    errdefer freeNameList(allocator, rhs_names);
+    const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+    errdefer freeNameList(allocator, weight_names);
+    const output_names = try cloneNameList(allocator, row_weighted.output_names);
+    errdefer freeNameList(allocator, output_names);
+    return @unionInit(Self, tag_name, .{
+        .lhs_names = lhs_names,
+        .rhs_names = rhs_names,
+        .weight_names = weight_names,
+        .output_names = output_names,
+    });
+}
+
 fn cloneRowWeightedColumnOutputs(
     comptime Self: type,
     allocator: std.mem.Allocator,
@@ -3383,6 +3405,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_weighted_pair_weight_sum => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_pair_weight_sum"),
         .row_weighted_pair_positive_count => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_pair_positive_count"),
         .row_weighted_pair_effective_n => |row_weighted| try cloneRowWeightedPair(Self, allocator, row_weighted, "row_weighted_pair_effective_n"),
+        .row_cumulative_weighted_pair_weight_sum => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_pair_weight_sum"),
+        .row_cumulative_weighted_pair_positive_count => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_pair_positive_count"),
+        .row_cumulative_weighted_pair_effective_n => |row_weighted| try cloneRowWeightedPairColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_pair_effective_n"),
         .row_weighted_mean => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_mean"),
         .row_weighted_sum => |row_weighted| try cloneRowWeightedMean(Self, allocator, row_weighted, "row_weighted_sum"),
         .row_cumulative_weighted_sum => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_sum"),

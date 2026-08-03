@@ -602,6 +602,12 @@ pub fn DeviceLazyPayloads(comptime DeviceDataFrame: type, comptime DeviceColumn:
             output_name: []const u8,
             correction: f64,
         };
+        pub const RowWeightedPairColumnOutputs = struct {
+            lhs_names: [][]const u8,
+            rhs_names: [][]const u8,
+            weight_names: [][]const u8,
+            output_names: [][]const u8,
+        };
         pub const RowWeightedQuantile = struct {
             value_names: [][]const u8,
             weight_names: [][]const u8,
