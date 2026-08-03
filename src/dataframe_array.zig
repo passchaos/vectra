@@ -3678,7 +3678,7 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
-const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan };
+const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev };
 
 // Keep the cumulative pair-distance family in one engine so all variants share
 // the same null/current-position validity and positive-weight prefix contract.
@@ -3696,14 +3696,20 @@ fn withRowCumulativeWeightedPairDistance(
 
     const running_weight_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(running_weight_sums);
-    const running_cross_sums = try input.allocator.alloc(f64, input.rows);
+    const needs_quadratic_state = reduction == .squared_euclidean or reduction == .euclidean;
+    const needs_l1_state = reduction == .manhattan;
+    const needs_chebyshev_state = reduction == .chebyshev;
+
+    const running_cross_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_cross_sums);
-    const running_lhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    const running_lhs_square_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_lhs_square_sums);
-    const running_rhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    const running_rhs_square_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_rhs_square_sums);
-    const running_abs_error_sums = try input.allocator.alloc(f64, input.rows);
+    const running_abs_error_sums = try input.allocator.alloc(f64, if (needs_l1_state) input.rows else 0);
     defer input.allocator.free(running_abs_error_sums);
+    const running_chebyshev_values = try input.allocator.alloc(f64, if (needs_chebyshev_state) input.rows else 0);
+    defer input.allocator.free(running_chebyshev_values);
     const cumulative = try input.allocator.alloc(f64, input.rows * lhs_names.len);
     defer input.allocator.free(cumulative);
     const cumulative_validity = try input.allocator.alloc(bool, input.rows * lhs_names.len);
@@ -3713,6 +3719,7 @@ fn withRowCumulativeWeightedPairDistance(
     @memset(running_lhs_square_sums, 0.0);
     @memset(running_rhs_square_sums, 0.0);
     @memset(running_abs_error_sums, 0.0);
+    @memset(running_chebyshev_values, 0.0);
     @memset(cumulative, 0.0);
     @memset(cumulative_validity, false);
 
@@ -3745,6 +3752,9 @@ fn withRowCumulativeWeightedPairDistance(
                     .manhattan => {
                         running_abs_error_sums[row] += weight * @abs(lhs - rhs);
                     },
+                    .chebyshev => {
+                        running_chebyshev_values[row] = @max(running_chebyshev_values[row], @abs(lhs - rhs));
+                    },
                 }
             }
             if (!(running_weight_sums[row] > 0.0)) continue;
@@ -3753,6 +3763,7 @@ fn withRowCumulativeWeightedPairDistance(
                 .squared_euclidean => running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row],
                 .euclidean => std.math.sqrt(running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row]),
                 .manhattan => running_abs_error_sums[row],
+                .chebyshev => running_chebyshev_values[row],
             };
             cumulative_validity[offset] = true;
         }
@@ -3814,6 +3825,20 @@ pub const withRowCumWeightedManhattanDistance = withRowCumulativeWeightedManhatt
 pub const withRowCumWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
 pub const withRowPrefixWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
 pub const withRowPrefixWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
+
+pub fn withRowCumulativeWeightedChebyshevDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPairDistance(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .chebyshev);
+}
+
+pub const withRowCumWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
+pub const withRowPrefixWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
 
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 

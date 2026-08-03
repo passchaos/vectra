@@ -2497,6 +2497,13 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
             pub const withRowPrefixWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
 
+            pub fn withRowCumulativeWeightedChebyshevDistance(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedChebyshevDistance(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
+            pub const withRowPrefixWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }

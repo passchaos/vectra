@@ -1122,6 +1122,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer row_cum_weighted_l1_distance_table.deinit();
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_l1_distance_table, gpa, "a_row_weighted_cuml1dist", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
     try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_l1_distance_table, gpa, "b_row_weighted_cuml1dist", &.{ 0.0, 19.0, 0.0, 39.0 }, &.{ false, true, false, true });
+
+    var row_cum_weighted_chebyshev_table = try validity_table.withRowPrefixWeightedChebyshevDistance(&.{ "a", "b" }, &.{ "wb", "wa" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumchebyshev", "b_row_weighted_cumchebyshev" });
+    defer row_cum_weighted_chebyshev_table.deinit();
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_chebyshev_table, gpa, "a_row_weighted_cumchebyshev", &.{ 1.0, 0.0, 0.0, 3.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(row_cum_weighted_chebyshev_table, gpa, "b_row_weighted_cumchebyshev", &.{ 0.0, 18.0, 0.0, 36.0 }, &.{ false, true, false, true });
     try std.testing.expectError(error.LengthMismatch, validity_table.withRowCumulativeWeightedPairWeightSum(&.{"a"}, &.{"wa"}, &.{"wa"}, &.{ "a_row_weighted_pair_cum_weight_sum", "extra_row_weighted_pair_cum_weight_sum" }));
 
     var row_argmin_table = try validity_table.withRowArgMin(&.{ "a", "b" }, "row_argmin");
