@@ -778,6 +778,7 @@ pub fn formatLazyOp(writer: *std.Io.Writer, op: anytype) std.Io.Writer.Error!voi
         .row_cumulative_weighted_pair_positive_count => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_pair_positive_count", row_weighted),
         .row_cumulative_weighted_pair_effective_n => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_pair_effective_n", row_weighted),
         .row_cumulative_weighted_dot => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_dot", row_weighted),
+        .row_cumulative_weighted_cosine_similarity => |row_weighted| try formatRowWeightedPairColumnOutputsPayload(writer, "row_cumulative_weighted_cosine_similarity", row_weighted),
         .row_weighted_mean => |row_weighted| {
             try writer.print("row_weighted_mean(values=[", .{});
             for (row_weighted.value_names, 0..) |name, i| {

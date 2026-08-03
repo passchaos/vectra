@@ -3605,6 +3605,79 @@ pub fn withRowCumulativeWeightedDot(
 pub const withRowCumWeightedDot = withRowCumulativeWeightedDot;
 pub const withRowPrefixWeightedDot = withRowCumulativeWeightedDot;
 
+pub fn withRowCumulativeWeightedCosineSimilarity(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len or lhs_names.len != weight_names.len) return error.LengthMismatch;
+    try validateRowCumulativeWeightedOutputs(output_names, lhs_names.len);
+
+    const running_weight_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(running_weight_sums);
+    const running_cross_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(running_cross_sums);
+    const running_lhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(running_lhs_square_sums);
+    const running_rhs_square_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(running_rhs_square_sums);
+    const cumulative = try input.allocator.alloc(f64, input.rows * lhs_names.len);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, input.rows * lhs_names.len);
+    defer input.allocator.free(cumulative_validity);
+    @memset(running_weight_sums, 0.0);
+    @memset(running_cross_sums, 0.0);
+    @memset(running_lhs_square_sums, 0.0);
+    @memset(running_rhs_square_sums, 0.0);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    for (lhs_names, rhs_names, weight_names, 0..) |lhs_name, rhs_name, weight_name, col_index| {
+        const lhs_source = try input.column(lhs_name);
+        const rhs_source = try input.column(rhs_name);
+        const weight_source = try input.column(weight_name);
+
+        var lhs_column = try ownedRealF64Column(input.allocator, lhs_source);
+        defer lhs_column.deinit();
+        var rhs_column = try ownedRealF64Column(input.allocator, rhs_source);
+        defer rhs_column.deinit();
+        var weight_column = try ownedRealF64Column(input.allocator, weight_source);
+        defer weight_column.deinit();
+
+        for (lhs_column.values, rhs_column.values, weight_column.values, 0..) |lhs, rhs, weight, row| {
+            const lhs_valid = if (lhs_column.validity) |mask| mask[row] else true;
+            const rhs_valid = if (rhs_column.validity) |mask| mask[row] else true;
+            const weight_valid = if (weight_column.validity) |mask| mask[row] else true;
+            if (!lhs_valid or !rhs_valid or !weight_valid) continue;
+            if (weight < 0.0) return error.InvalidShape;
+            if (weight > 0.0) {
+                running_weight_sums[row] += weight;
+                running_cross_sums[row] += weight * lhs * rhs;
+                running_lhs_square_sums[row] += weight * lhs * lhs;
+                running_rhs_square_sums[row] += weight * rhs * rhs;
+            }
+            if (!(running_weight_sums[row] > 0.0)) continue;
+            const offset = row * lhs_names.len + col_index;
+            cumulative[offset] = if (running_lhs_square_sums[row] == 0.0 or running_rhs_square_sums[row] == 0.0)
+                quietNanF64()
+            else
+                running_cross_sums[row] / (std.math.sqrt(running_lhs_square_sums[row]) * std.math.sqrt(running_rhs_square_sums[row]));
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, input.rows, lhs_names.len, cumulative, cumulative_validity);
+}
+
+pub const withRowCumulativeWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
+pub const withRowCumWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
+pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
+pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
+pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
+
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 
 fn withRowValidityMatchIndex(

@@ -775,6 +775,8 @@ lhs/rhs/weight row-wise metrics.
 diagnostics for aligned lhs/rhs/weight row-wise triples.
 `withRowCumulativeWeightedDot` appends prefix weighted dot products for the
 same aligned triples.
+`withRowCumulativeWeightedCosineSimilarity` (`withRowCumulativeWeightedCosine`
+aliases) appends prefix weighted cosine similarity for aligned triples.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and
