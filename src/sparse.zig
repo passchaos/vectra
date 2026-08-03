@@ -532,6 +532,34 @@ fn sparseMaxAbsDiffSameStructureMeetsBound(comptime T: type, lhs_values: []const
     return (try sparseMaxAbsDiffSameStructure(T, lhs_values, rhs_values)) <= max_absolute_diff;
 }
 
+fn sparseSquaredDistanceSameStructure(comptime T: type, lhs_values: []const T, rhs_values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (lhs_values.len != rhs_values.len) return error.ShapeMismatch;
+    var total = zero(T);
+    for (lhs_values, rhs_values) |lhs, rhs| {
+        const diff = lhs - rhs;
+        total += diff * diff;
+    }
+    return total;
+}
+
+fn sparseSquaredDistanceSameStructureMeetsBound(comptime T: type, lhs_values: []const T, rhs_values: []const T, max_squared_distance: T) SparseError!bool {
+    ensureNumeric(T);
+    if (!sparseValueIsFinite(T, max_squared_distance) or max_squared_distance < zero(T)) return error.InvalidShape;
+    return (try sparseSquaredDistanceSameStructure(T, lhs_values, rhs_values)) <= max_squared_distance;
+}
+
+fn sparseFrobeniusDistanceSameStructure(comptime T: type, lhs_values: []const T, rhs_values: []const T) SparseError!T {
+    ensureFloat(T);
+    return @sqrt(try sparseSquaredDistanceSameStructure(T, lhs_values, rhs_values));
+}
+
+fn sparseFrobeniusDistanceSameStructureMeetsBound(comptime T: type, lhs_values: []const T, rhs_values: []const T, max_distance: T) SparseError!bool {
+    ensureFloat(T);
+    if (!sparseValueIsFinite(T, max_distance) or max_distance < zero(T)) return error.InvalidShape;
+    return (try sparseFrobeniusDistanceSameStructure(T, lhs_values, rhs_values)) <= max_distance;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -845,6 +873,30 @@ pub fn CooMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseMaxAbsDiffSameStructureMeetsBound(T, self.values, rhs.values, max_absolute_diff);
+        }
+
+        pub fn squaredDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn squaredDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_squared_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn frobeniusDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_distance);
         }
 
         pub fn coalesced(self: Self) SparseError!Self {
@@ -2244,6 +2296,30 @@ pub fn CsrMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseMaxAbsDiffSameStructureMeetsBound(T, self.values, rhs.values, max_absolute_diff);
+        }
+
+        pub fn squaredDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn squaredDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_squared_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn frobeniusDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_distance);
         }
 
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
@@ -3852,6 +3928,30 @@ pub fn CscMatrix(comptime T: type) type {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
             return sparseMaxAbsDiffSameStructureMeetsBound(T, self.values, rhs.values, max_absolute_diff);
+        }
+
+        pub fn squaredDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn squaredDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_squared_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseSquaredDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceSameStructure(self: Self, rhs: Self) SparseError!T {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructure(T, self.values, rhs.values);
+        }
+
+        pub fn frobeniusDistanceSameStructureMeetsBound(self: Self, rhs: Self, max_distance: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            return sparseFrobeniusDistanceSameStructureMeetsBound(T, self.values, rhs.values, max_distance);
         }
 
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
@@ -5945,16 +6045,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs.maxAbsDiffSameStructureMeetsBound(dot_rhs, 4));
     try std.testing.expect(!(try lhs.maxAbsDiffSameStructureMeetsBound(dot_rhs, 3.999)));
     try std.testing.expectError(error.InvalidShape, lhs.maxAbsDiffSameStructureMeetsBound(dot_rhs, std.math.nan(f64)));
+    try std.testing.expectApproxEqAbs(@as(f64, 29), try lhs.squaredDistanceSameStructure(dot_rhs), 1e-12);
+    try std.testing.expect(try lhs.squaredDistanceSameStructureMeetsBound(dot_rhs, 29));
+    try std.testing.expect(!(try lhs.squaredDistanceSameStructureMeetsBound(dot_rhs, 28.999)));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 29)), try lhs.frobeniusDistanceSameStructure(dot_rhs), 1e-12);
+    try std.testing.expect(try lhs.frobeniusDistanceSameStructureMeetsBound(dot_rhs, @sqrt(@as(f64, 29))));
+    try std.testing.expect(!(try lhs.frobeniusDistanceSameStructureMeetsBound(dot_rhs, @sqrt(@as(f64, 29)) - 1e-12)));
 
     var different_structure = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
     defer different_structure.deinit();
     try std.testing.expect(!lhs.sameStructure(different_structure));
     try std.testing.expectError(error.InvalidShape, lhs.dotSameStructure(different_structure));
     try std.testing.expectError(error.InvalidShape, lhs.maxAbsDiffSameStructure(different_structure));
+    try std.testing.expectError(error.InvalidShape, lhs.squaredDistanceSameStructure(different_structure));
     var different_shape = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
     defer different_shape.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.dotSameStructure(different_shape));
     try std.testing.expectError(error.ShapeMismatch, lhs.maxAbsDiffSameStructure(different_shape));
+    try std.testing.expectError(error.ShapeMismatch, lhs.frobeniusDistanceSameStructure(different_shape));
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
@@ -5967,6 +6075,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(@as(f64, 4), try lhs_csr.maxAbsDiffSameStructure(dot_rhs_csr), 1e-12);
     try std.testing.expect(try lhs_csr.maxAbsDiffSameStructureMeetsBound(dot_rhs_csr, 4));
     try std.testing.expect(!(try lhs_csr.maxAbsDiffSameStructureMeetsBound(dot_rhs_csr, 3.999)));
+    try std.testing.expectApproxEqAbs(@as(f64, 29), try lhs_csr.squaredDistanceSameStructure(dot_rhs_csr), 1e-12);
+    try std.testing.expect(try lhs_csr.squaredDistanceSameStructureMeetsBound(dot_rhs_csr, 29));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 29)), try lhs_csr.frobeniusDistanceSameStructure(dot_rhs_csr), 1e-12);
+    try std.testing.expect(try lhs_csr.frobeniusDistanceSameStructureMeetsBound(dot_rhs_csr, @sqrt(@as(f64, 29))));
     var csr_sum = try lhs_csr.add(rhs_csr);
     defer csr_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
@@ -6041,6 +6153,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(@as(f64, 4), try lhs_csc.maxAbsDiffSameStructure(dot_rhs_csc), 1e-12);
     try std.testing.expect(try lhs_csc.maxAbsDiffSameStructureMeetsBound(dot_rhs_csc, 4));
     try std.testing.expect(!(try lhs_csc.maxAbsDiffSameStructureMeetsBound(dot_rhs_csc, 3.999)));
+    try std.testing.expectApproxEqAbs(@as(f64, 29), try lhs_csc.squaredDistanceSameStructure(dot_rhs_csc), 1e-12);
+    try std.testing.expect(try lhs_csc.squaredDistanceSameStructureMeetsBound(dot_rhs_csc, 29));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 29)), try lhs_csc.frobeniusDistanceSameStructure(dot_rhs_csc), 1e-12);
+    try std.testing.expect(try lhs_csc.frobeniusDistanceSameStructureMeetsBound(dot_rhs_csc, @sqrt(@as(f64, 29))));
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
