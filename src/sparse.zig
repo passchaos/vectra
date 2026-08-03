@@ -164,6 +164,32 @@ fn sparseSizeToF64(value: usize) f64 {
     return @floatFromInt(value);
 }
 
+fn validateNonNegativeRange(min_value: f64, max_value: f64) SparseError!void {
+    if (!std.math.isFinite(min_value) or !std.math.isFinite(max_value) or min_value < 0 or max_value < 0 or min_value > max_value) return error.InvalidShape;
+}
+
+fn sparseCountAverage(count: usize, divisor: usize) SparseError!f64 {
+    if (divisor == 0) return error.EmptyArray;
+    return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(divisor));
+}
+
+fn sparseCountAverageInRange(count: usize, divisor: usize, min_average: f64, max_average: f64) SparseError!bool {
+    try validateNonNegativeRange(min_average, max_average);
+    const average = try sparseCountAverage(count, divisor);
+    return average >= min_average and average <= max_average;
+}
+
+fn sparseCountFraction(count: usize, divisor: usize) SparseError!f64 {
+    if (divisor == 0) return error.EmptyArray;
+    return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(divisor));
+}
+
+fn sparseCountFractionInRange(count: usize, divisor: usize, min_fraction: f64, max_fraction: f64) SparseError!bool {
+    try validateNonNegativeRange(min_fraction, max_fraction);
+    const fraction = try sparseCountFraction(count, divisor);
+    return fraction >= min_fraction and fraction <= max_fraction;
+}
+
 fn sparseElementCount(rows: usize, cols: usize) SparseError!usize {
     return std.math.mul(usize, rows, cols) catch return error.InvalidShape;
 }
@@ -1135,6 +1161,58 @@ pub fn CooMatrix(comptime T: type) type {
             errdefer out.deinit();
             for (self.col_indices) |col| out.data[col] += 1;
             return out;
+        }
+
+        pub fn averageRowNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.rows);
+        }
+
+        pub fn averageColumnNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.cols);
+        }
+
+        pub fn averageRowNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.rows, min_average, max_average);
+        }
+
+        pub fn averageColumnNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.cols, min_average, max_average);
+        }
+
+        pub fn emptyRowCount(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            var empty_count: usize = 0;
+            for (counts.data) |count| {
+                if (count == 0) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyColumnCount(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            var empty_count: usize = 0;
+            for (counts.data) |count| {
+                if (count == 0) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyRowFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(try self.emptyRowCount(), self.rows);
+        }
+
+        pub fn emptyColumnFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(try self.emptyColumnCount(), self.cols);
+        }
+
+        pub fn emptyRowFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(try self.emptyRowCount(), self.rows, min_fraction, max_fraction);
+        }
+
+        pub fn emptyColumnFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(try self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
         }
 
         pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
@@ -2541,6 +2619,56 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn averageRowNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.rows);
+        }
+
+        pub fn averageColumnNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.cols);
+        }
+
+        pub fn averageRowNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.rows, min_average, max_average);
+        }
+
+        pub fn averageColumnNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.cols, min_average, max_average);
+        }
+
+        pub fn emptyRowCount(self: Self) usize {
+            var empty_count: usize = 0;
+            for (0..self.rows) |row| {
+                if (self.row_offsets[row] == self.row_offsets[row + 1]) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyColumnCount(self: Self) SparseError!usize {
+            var counts = try self.columnNnz();
+            defer counts.deinit();
+            var empty_count: usize = 0;
+            for (counts.data) |count| {
+                if (count == 0) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyRowFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(self.emptyRowCount(), self.rows);
+        }
+
+        pub fn emptyColumnFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(try self.emptyColumnCount(), self.cols);
+        }
+
+        pub fn emptyRowFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(self.emptyRowCount(), self.rows, min_fraction, max_fraction);
+        }
+
+        pub fn emptyColumnFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(try self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
+        }
+
         pub fn rowSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.rowSumsF64();
@@ -3810,6 +3938,56 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn averageRowNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.rows);
+        }
+
+        pub fn averageColumnNnz(self: Self) SparseError!f64 {
+            return sparseCountAverage(self.values.len, self.cols);
+        }
+
+        pub fn averageRowNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.rows, min_average, max_average);
+        }
+
+        pub fn averageColumnNnzInRange(self: Self, min_average: f64, max_average: f64) SparseError!bool {
+            return sparseCountAverageInRange(self.values.len, self.cols, min_average, max_average);
+        }
+
+        pub fn emptyColumnCount(self: Self) usize {
+            var empty_count: usize = 0;
+            for (0..self.cols) |col| {
+                if (self.col_offsets[col] == self.col_offsets[col + 1]) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyRowCount(self: Self) SparseError!usize {
+            var counts = try self.rowNnz();
+            defer counts.deinit();
+            var empty_count: usize = 0;
+            for (counts.data) |count| {
+                if (count == 0) empty_count += 1;
+            }
+            return empty_count;
+        }
+
+        pub fn emptyRowFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(try self.emptyRowCount(), self.rows);
+        }
+
+        pub fn emptyColumnFraction(self: Self) SparseError!f64 {
+            return sparseCountFraction(self.emptyColumnCount(), self.cols);
+        }
+
+        pub fn emptyRowFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(try self.emptyRowCount(), self.rows, min_fraction, max_fraction);
+        }
+
+        pub fn emptyColumnFractionInRange(self: Self, min_fraction: f64, max_fraction: f64) SparseError!bool {
+            return sparseCountFractionInRange(self.emptyColumnCount(), self.cols, min_fraction, max_fraction);
+        }
+
         pub fn columnSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             if (comptime T == f64) return self.columnSumsF64();
@@ -4651,6 +4829,16 @@ test "coo sparse row and column statistics" {
     var col_nnz = try coo.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try coo.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try coo.averageColumnNnz(), 1e-12);
+    try std.testing.expect(try coo.averageRowNnzInRange(1.6, 1.7));
+    try std.testing.expect(!(try coo.averageColumnNnzInRange(0, 1.6)));
+    try std.testing.expectEqual(@as(usize, 0), try coo.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 0), try coo.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.emptyColumnFraction(), 1e-12);
+    try std.testing.expect(try coo.emptyRowFractionInRange(0, 0));
+    try std.testing.expect(try coo.emptyColumnFractionInRange(0, 0));
 
     var row_sums = try coo.rowSums();
     defer row_sums.deinit();
@@ -4718,6 +4906,53 @@ test "sparse stored non-finite diagnostics" {
     defer finite.deinit();
     try std.testing.expectEqual(@as(usize, 0), finite.nonFiniteCount());
     try std.testing.expect(finite.allFinite());
+}
+
+test "sparse occupancy diagnostics" {
+    const gpa = std.testing.allocator;
+    var coo = try cooFromSlices(f64, gpa, 3, 4, &.{ 0, 0, 2 }, &.{ 0, 2, 0 }, &.{ 1.0, 2.0, 3.0 });
+    defer coo.deinit();
+
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), try coo.averageColumnNnz(), 1e-12);
+    try std.testing.expect(try coo.averageRowNnzInRange(1, 1));
+    try std.testing.expect(!(try coo.averageColumnNnzInRange(0, 0.7)));
+    try std.testing.expectError(error.InvalidShape, coo.averageRowNnzInRange(2, 1));
+    try std.testing.expectEqual(@as(usize, 1), try coo.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 2), try coo.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try coo.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), try coo.emptyColumnFraction(), 1e-12);
+    try std.testing.expect(try coo.emptyRowFractionInRange(0.3, 0.4));
+    try std.testing.expect(!(try coo.emptyColumnFractionInRange(0, 0.49)));
+    try std.testing.expectError(error.InvalidShape, coo.emptyRowFractionInRange(std.math.nan(f64), 1));
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), try csr.averageColumnNnz(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), csr.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 2), try csr.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csr.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.emptyColumnFraction(), 1e-12);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.75), try csc.averageColumnNnz(), 1e-12);
+    try std.testing.expectEqual(@as(usize, 1), try csc.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 2), csc.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csc.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csc.emptyColumnFraction(), 1e-12);
+
+    var zero_rows = try cooFromSlices(f64, gpa, 0, 2, &.{}, &.{}, &.{});
+    defer zero_rows.deinit();
+    try std.testing.expectError(error.EmptyArray, zero_rows.averageRowNnz());
+    try std.testing.expectError(error.EmptyArray, zero_rows.emptyRowFraction());
+
+    var zero_cols = try cooFromSlices(f64, gpa, 2, 0, &.{}, &.{}, &.{});
+    defer zero_cols.deinit();
+    try std.testing.expectError(error.EmptyArray, zero_cols.averageColumnNnz());
+    try std.testing.expectError(error.EmptyArray, zero_cols.emptyColumnFraction());
 }
 
 test "sparse stored value range diagnostics" {
@@ -5320,6 +5555,16 @@ test "csr sparse row and column statistics" {
     var col_nnz = try csr.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csr.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csr.averageColumnNnz(), 1e-12);
+    try std.testing.expect(try csr.averageRowNnzInRange(1.6, 1.7));
+    try std.testing.expect(!(try csr.averageColumnNnzInRange(0, 1.6)));
+    try std.testing.expectEqual(@as(usize, 0), csr.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 0), try csr.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csr.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csr.emptyColumnFraction(), 1e-12);
+    try std.testing.expect(try csr.emptyRowFractionInRange(0, 0));
+    try std.testing.expect(try csr.emptyColumnFractionInRange(0, 0));
 
     var row_sums = try csr.rowSums();
     defer row_sums.deinit();
@@ -5612,6 +5857,16 @@ test "csc sparse transpose products and row column stats" {
     var col_nnz = try csc.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csc.averageRowNnz(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csc.averageColumnNnz(), 1e-12);
+    try std.testing.expect(try csc.averageRowNnzInRange(1.6, 1.7));
+    try std.testing.expect(!(try csc.averageColumnNnzInRange(0, 1.6)));
+    try std.testing.expectEqual(@as(usize, 0), try csc.emptyRowCount());
+    try std.testing.expectEqual(@as(usize, 0), csc.emptyColumnCount());
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csc.emptyRowFraction(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csc.emptyColumnFraction(), 1e-12);
+    try std.testing.expect(try csc.emptyRowFractionInRange(0, 0));
+    try std.testing.expect(try csc.emptyColumnFractionInRange(0, 0));
     var row_sums = try csc.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
