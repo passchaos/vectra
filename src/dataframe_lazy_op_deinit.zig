@@ -654,7 +654,7 @@ pub fn deinit(comptime Self: type, self: *Self, allocator: std.mem.Allocator) vo
             freeNameList(allocator, row_weighted.weight_names);
             allocator.free(row_weighted.output_name);
         },
-        .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse => |row_weighted| {
+        .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse => |row_weighted| {
             freeNameList(allocator, row_weighted.lhs_names);
             freeNameList(allocator, row_weighted.rhs_names);
             freeNameList(allocator, row_weighted.weight_names);

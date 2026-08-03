@@ -3710,7 +3710,7 @@ pub const withRowCumWeightedPairEffectiveCount = withRowCumulativeWeightedPairEf
 pub const withRowPrefixWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
 pub const withRowPrefixWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
 
-const RowCumulativeWeightedPairMetric = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse };
+const RowCumulativeWeightedPairMetric = enum { dot, cosine, squared_euclidean, euclidean, manhattan, chebyshev, canberra, bray_curtis, mean_error, mae, mse, rmse };
 
 fn withRowCumulativeWeightedPairMetric(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime metric: RowCumulativeWeightedPairMetric) DeviceDataError!void {
     const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
@@ -3733,6 +3733,7 @@ fn withRowCumulativeWeightedPairMetric(frame: anytype, lhs_names: []const []cons
         .mean_error => .{ .row_cumulative_weighted_mean_error = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
         .mae => .{ .row_cumulative_weighted_mae = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
         .mse => .{ .row_cumulative_weighted_mse = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .rmse => .{ .row_cumulative_weighted_rmse = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
     });
 }
 
@@ -3836,6 +3837,16 @@ pub const withRowCumWeightedMse = withRowCumulativeWeightedMse;
 pub const withRowCumWeightedMSE = withRowCumulativeWeightedMse;
 pub const withRowPrefixWeightedMse = withRowCumulativeWeightedMse;
 pub const withRowPrefixWeightedMSE = withRowCumulativeWeightedMse;
+
+pub fn withRowCumulativeWeightedRmse(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPairMetric(frame, lhs_names, rhs_names, weight_names, output_names, .rmse);
+}
+
+pub const withRowCumulativeWeightedRMSE = withRowCumulativeWeightedRmse;
+pub const withRowCumWeightedRmse = withRowCumulativeWeightedRmse;
+pub const withRowCumWeightedRMSE = withRowCumulativeWeightedRmse;
+pub const withRowPrefixWeightedRmse = withRowCumulativeWeightedRmse;
+pub const withRowPrefixWeightedRMSE = withRowCumulativeWeightedRmse;
 
 pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
