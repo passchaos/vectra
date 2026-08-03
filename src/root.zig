@@ -125,10 +125,13 @@ pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const CsrMatrix = sparse.CsrMatrix;
 pub const CscMatrix = sparse.CscMatrix;
+pub const CooMatrix = sparse.CooMatrix;
 pub const csrFromDense = sparse.csrFromDense;
 pub const csrFromCompressed = sparse.csrFromCompressed;
 pub const cscFromDense = sparse.cscFromDense;
 pub const cscFromCompressed = sparse.cscFromCompressed;
+pub const cooFromDense = sparse.cooFromDense;
+pub const cooFromSlices = sparse.cooFromSlices;
 
 pub const MatrixNormOrder = array_mod.MatrixNormOrder;
 pub const Triangle = array_mod.Triangle;

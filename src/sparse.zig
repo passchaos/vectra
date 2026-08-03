@@ -61,6 +61,160 @@ fn toVeyraDiagonal(diagonal: Diagonal) veyra.DiagonalKind {
     };
 }
 
+pub fn CooMatrix(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        allocator: std.mem.Allocator,
+        rows: usize,
+        cols: usize,
+        row_indices: []usize,
+        col_indices: []usize,
+        values: []T,
+
+        pub fn fromSlices(
+            allocator: std.mem.Allocator,
+            rows: usize,
+            cols: usize,
+            row_indices: []const usize,
+            col_indices: []const usize,
+            values: []const T,
+        ) SparseError!Self {
+            if (row_indices.len != col_indices.len or row_indices.len != values.len) return error.ShapeMismatch;
+            for (row_indices) |row| if (row >= rows) return error.IndexOutOfBounds;
+            for (col_indices) |col| if (col >= cols) return error.IndexOutOfBounds;
+            return .{
+                .allocator = allocator,
+                .rows = rows,
+                .cols = cols,
+                .row_indices = try allocator.dupe(usize, row_indices),
+                .col_indices = try allocator.dupe(usize, col_indices),
+                .values = try allocator.dupe(T, values),
+            };
+        }
+
+        pub fn fromDense(input: array_mod.Array(T)) SparseError!Self {
+            if (input.shape.len != 2) return error.NonMatrixArray;
+            const rows = input.shape[0];
+            const cols = input.shape[1];
+            var nonzero_count: usize = 0;
+            for (input.data) |value| {
+                if (isNonZero(T, value)) nonzero_count += 1;
+            }
+
+            var row_indices = try input.allocator.alloc(usize, nonzero_count);
+            errdefer input.allocator.free(row_indices);
+            var col_indices = try input.allocator.alloc(usize, nonzero_count);
+            errdefer input.allocator.free(col_indices);
+            var values = try input.allocator.alloc(T, nonzero_count);
+            errdefer input.allocator.free(values);
+
+            var write: usize = 0;
+            for (0..rows) |row| {
+                for (0..cols) |col| {
+                    const value = input.data[row * cols + col];
+                    if (isNonZero(T, value)) {
+                        row_indices[write] = row;
+                        col_indices[write] = col;
+                        values[write] = value;
+                        write += 1;
+                    }
+                }
+            }
+            return .{
+                .allocator = input.allocator,
+                .rows = rows,
+                .cols = cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.allocator.free(self.row_indices);
+            self.allocator.free(self.col_indices);
+            self.allocator.free(self.values);
+            self.* = undefined;
+        }
+
+        pub fn nnz(self: Self) usize {
+            return self.values.len;
+        }
+
+        pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, self.cols });
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                out.data[self.row_indices[i] * self.cols + self.col_indices[i]] = value;
+            }
+            return out;
+        }
+
+        pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
+            var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
+            errdefer self.allocator.free(row_offsets);
+            @memset(row_offsets, 0);
+            for (self.row_indices) |row| row_offsets[row + 1] += 1;
+            for (1..row_offsets.len) |i| row_offsets[i] += row_offsets[i - 1];
+
+            var col_indices = try self.allocator.alloc(usize, self.values.len);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+            const next = try self.allocator.dupe(usize, row_offsets[0..self.rows]);
+            defer self.allocator.free(next);
+
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                const dst = next[row];
+                col_indices[dst] = self.col_indices[i];
+                values[dst] = value;
+                next[row] += 1;
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
+            var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
+            errdefer self.allocator.free(col_offsets);
+            @memset(col_offsets, 0);
+            for (self.col_indices) |col| col_offsets[col + 1] += 1;
+            for (1..col_offsets.len) |i| col_offsets[i] += col_offsets[i - 1];
+
+            var row_indices = try self.allocator.alloc(usize, self.values.len);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+            const next = try self.allocator.dupe(usize, col_offsets[0..self.cols]);
+            defer self.allocator.free(next);
+
+            for (self.values, 0..) |value, i| {
+                const col = self.col_indices[i];
+                const dst = next[col];
+                row_indices[dst] = self.row_indices[i];
+                values[dst] = value;
+                next[col] += 1;
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+    };
+}
+
 pub fn CsrMatrix(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -1220,6 +1374,22 @@ pub fn cscFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!Csc
     return CscMatrix(T).fromDense(input);
 }
 
+pub fn cooFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!CooMatrix(T) {
+    return CooMatrix(T).fromDense(input);
+}
+
+pub fn cooFromSlices(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    rows: usize,
+    cols: usize,
+    row_indices: []const usize,
+    col_indices: []const usize,
+    values: []const T,
+) SparseError!CooMatrix(T) {
+    return CooMatrix(T).fromSlices(allocator, rows, cols, row_indices, col_indices, values);
+}
+
 pub fn cscFromCompressed(
     comptime T: type,
     allocator: std.mem.Allocator,
@@ -1246,6 +1416,45 @@ pub fn csrFromCompressed(
     values: []const T,
 ) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromCompressedSlices(allocator, rows, cols, row_offsets, col_indices, values);
+}
+
+test "coo sparse dense roundtrip and compressed conversions" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        10, 0, 2, 0,
+        0,  3, 0, 4,
+        5,  0, 0, 6,
+    }, &.{ 3, 4 });
+    defer dense.deinit();
+
+    var coo = try cooFromDense(f64, dense);
+    defer coo.deinit();
+    try std.testing.expectEqual(@as(usize, 6), coo.nnz());
+    try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, coo.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, coo.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, coo.values);
+
+    var dense_roundtrip = try coo.toDense();
+    defer dense_roundtrip.deinit();
+    try std.testing.expectEqualSlices(f64, dense.data, dense_roundtrip.data);
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+
+    var manual = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 2, 0, 2 }, &.{ 4.0, 5.0, 6.0 });
+    defer manual.deinit();
+    var manual_dense = try manual.toDense();
+    defer manual_dense.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 0, 0, 4, 5, 0, 6 }, manual_dense.data);
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {

@@ -152,6 +152,8 @@ Array IO / serialization 当前支持：
 
 当前已开始接入 SciPy-like sparse 能力，优先复用 `../veyra.sparse`：
 
+- `CooMatrix(T)`：Vectra 自有 COO 所有权包装，支持 dense/CSR/CSC 转换。
+- `cooFromDense` / `cooFromSlices`：构建 COO。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
 - `csrFromDense`：从 dense Array/NDArray 生成 CSR。
 - `csrFromCompressed`：从 row_offsets / col_indices / values 构建 CSR。
