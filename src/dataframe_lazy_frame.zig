@@ -2447,6 +2447,13 @@ pub fn DeviceLazyTypes(
             pub const withRowPrefixWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
             pub const withRowPrefixWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
 
+            pub fn withRowCumulativeWeightedDot(self: *DeviceLazyFrame, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+                return lazy_expr_mod.withRowCumulativeWeightedDot(self, lhs_names, rhs_names, weight_names, output_names);
+            }
+
+            pub const withRowCumWeightedDot = withRowCumulativeWeightedDot;
+            pub const withRowPrefixWeightedDot = withRowCumulativeWeightedDot;
+
             pub fn withRowWeightedMean(self: *DeviceLazyFrame, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
                 return lazy_expr_mod.withRowWeightedMean(self, value_names, weight_names, output_name);
             }

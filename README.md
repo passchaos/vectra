@@ -773,6 +773,8 @@ lhs/rhs/weight row-wise metrics.
 `withRowCumulativeWeightedPairPositiveCount`, and
 `withRowCumulativeWeightedPairEffectiveN` append prefix weighted support
 diagnostics for aligned lhs/rhs/weight row-wise triples.
+`withRowCumulativeWeightedDot` appends prefix weighted dot products for the
+same aligned triples.
 `withRowWeightedSum` appends the per-row weighted sum over aligned value/weight
 lists, skipping null pairs and rejecting negative weights.
 `withRowCumulativeWeightedSum`, `withRowCumWeightedSum`, and
