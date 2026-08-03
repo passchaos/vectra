@@ -3,16 +3,16 @@
 //! generic `DeviceDataFrame` parameter preserves the original API shape.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const dataframe_device_column_mod = @import("dataframe/device_column.zig");
-const group_profile_mod = @import("dataframe_group_profile.zig");
-const keys_mod = @import("dataframe_keys.zig");
-const names_mod = @import("dataframe_names.zig");
-const numeric_mod = @import("dataframe_numeric.zig");
-const options_mod = @import("dataframe_options.zig");
-const rank_mod = @import("dataframe_rank.zig");
-const validity_mod = @import("dataframe_validity.zig");
+const array_mod = @import("../../array.zig");
+const dataframe_array_mod = @import("../../dataframe_array.zig");
+const dataframe_device_column_mod = @import("../device_column.zig");
+const group_profile_mod = @import("profile.zig");
+const keys_mod = @import("../../dataframe_keys.zig");
+const names_mod = @import("../../dataframe_names.zig");
+const numeric_mod = @import("../../dataframe_numeric.zig");
+const options_mod = @import("../../dataframe_options.zig");
+const rank_mod = @import("../../dataframe_rank.zig");
+const validity_mod = @import("../../dataframe_validity.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;

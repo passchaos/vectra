@@ -1,13 +1,13 @@
 //! Grouped stats/profile dispatch implementations for single-key group-bys.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const dataframe_device_column_mod = @import("dataframe/device_column.zig");
-const metrics_mod = @import("dataframe_group_metrics.zig");
-const numeric_mod = @import("dataframe_numeric.zig");
-const names_mod = @import("dataframe_names.zig");
-const validity_mod = @import("dataframe_validity_core.zig");
+const array_mod = @import("../../array.zig");
+const dataframe_array_mod = @import("../../dataframe_array.zig");
+const dataframe_device_column_mod = @import("../device_column.zig");
+const metrics_mod = @import("metrics.zig");
+const numeric_mod = @import("../../dataframe_numeric.zig");
+const names_mod = @import("../../dataframe_names.zig");
+const validity_mod = @import("../../dataframe_validity_core.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 const DeviceTypedColumn = dataframe_device_column_mod.DeviceTypedColumn;

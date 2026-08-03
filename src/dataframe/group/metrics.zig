@@ -1,10 +1,10 @@
 //! Grouped moment metric accumulation and dataframe materialization helpers.
 
 const std = @import("std");
-const array_mod = @import("array.zig");
-const dataframe_array_mod = @import("dataframe_array.zig");
-const dataframe_device_column_mod = @import("dataframe/device_column.zig");
-const names_mod = @import("dataframe_names.zig");
+const array_mod = @import("../../array.zig");
+const dataframe_array_mod = @import("../../dataframe_array.zig");
+const dataframe_device_column_mod = @import("../device_column.zig");
+const names_mod = @import("../../dataframe_names.zig");
 
 const DeviceColumn = dataframe_device_column_mod.DeviceColumn;
 
