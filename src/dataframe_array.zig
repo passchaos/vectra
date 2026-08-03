@@ -3678,8 +3678,10 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
-const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean };
+const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan };
 
+// Keep the cumulative pair-distance family in one engine so all variants share
+// the same null/current-position validity and positive-weight prefix contract.
 fn withRowCumulativeWeightedPairDistance(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,
@@ -3700,6 +3702,8 @@ fn withRowCumulativeWeightedPairDistance(
     defer input.allocator.free(running_lhs_square_sums);
     const running_rhs_square_sums = try input.allocator.alloc(f64, input.rows);
     defer input.allocator.free(running_rhs_square_sums);
+    const running_abs_error_sums = try input.allocator.alloc(f64, input.rows);
+    defer input.allocator.free(running_abs_error_sums);
     const cumulative = try input.allocator.alloc(f64, input.rows * lhs_names.len);
     defer input.allocator.free(cumulative);
     const cumulative_validity = try input.allocator.alloc(bool, input.rows * lhs_names.len);
@@ -3708,6 +3712,7 @@ fn withRowCumulativeWeightedPairDistance(
     @memset(running_cross_sums, 0.0);
     @memset(running_lhs_square_sums, 0.0);
     @memset(running_rhs_square_sums, 0.0);
+    @memset(running_abs_error_sums, 0.0);
     @memset(cumulative, 0.0);
     @memset(cumulative_validity, false);
 
@@ -3731,16 +3736,23 @@ fn withRowCumulativeWeightedPairDistance(
             if (weight < 0.0) return error.InvalidShape;
             if (weight > 0.0) {
                 running_weight_sums[row] += weight;
-                running_cross_sums[row] += weight * lhs * rhs;
-                running_lhs_square_sums[row] += weight * lhs * lhs;
-                running_rhs_square_sums[row] += weight * rhs * rhs;
+                switch (reduction) {
+                    .squared_euclidean, .euclidean => {
+                        running_cross_sums[row] += weight * lhs * rhs;
+                        running_lhs_square_sums[row] += weight * lhs * lhs;
+                        running_rhs_square_sums[row] += weight * rhs * rhs;
+                    },
+                    .manhattan => {
+                        running_abs_error_sums[row] += weight * @abs(lhs - rhs);
+                    },
+                }
             }
             if (!(running_weight_sums[row] > 0.0)) continue;
             const offset = row * lhs_names.len + col_index;
-            const squared_distance = running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row];
             cumulative[offset] = switch (reduction) {
-                .squared_euclidean => squared_distance,
-                .euclidean => std.math.sqrt(squared_distance),
+                .squared_euclidean => running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row],
+                .euclidean => std.math.sqrt(running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row]),
+                .manhattan => running_abs_error_sums[row],
             };
             cumulative_validity[offset] = true;
         }
@@ -3785,6 +3797,23 @@ pub const withRowCumWeightedEuclideanDistance = withRowCumulativeWeightedEuclide
 pub const withRowCumWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
 pub const withRowPrefixWeightedEuclideanDistance = withRowCumulativeWeightedEuclideanDistance;
 pub const withRowPrefixWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
+
+pub fn withRowCumulativeWeightedManhattanDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPairDistance(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .manhattan);
+}
+
+pub const withRowCumulativeWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowCumWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowCumWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowPrefixWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowPrefixWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
 
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 

@@ -3710,7 +3710,7 @@ pub const withRowCumWeightedPairEffectiveCount = withRowCumulativeWeightedPairEf
 pub const withRowPrefixWeightedPairEffectiveN = withRowCumulativeWeightedPairEffectiveN;
 pub const withRowPrefixWeightedPairEffectiveCount = withRowCumulativeWeightedPairEffectiveN;
 
-const RowCumulativeWeightedPairMetric = enum { dot, cosine, squared_euclidean, euclidean };
+const RowCumulativeWeightedPairMetric = enum { dot, cosine, squared_euclidean, euclidean, manhattan };
 
 fn withRowCumulativeWeightedPairMetric(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, comptime metric: RowCumulativeWeightedPairMetric) DeviceDataError!void {
     const owned_lhs = try cloneNameList(frame.allocator, lhs_names);
@@ -3726,6 +3726,7 @@ fn withRowCumulativeWeightedPairMetric(frame: anytype, lhs_names: []const []cons
         .cosine => .{ .row_cumulative_weighted_cosine_similarity = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
         .squared_euclidean => .{ .row_cumulative_weighted_squared_euclidean_distance = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
         .euclidean => .{ .row_cumulative_weighted_euclidean_distance = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
+        .manhattan => .{ .row_cumulative_weighted_manhattan_distance = .{ .lhs_names = owned_lhs, .rhs_names = owned_rhs, .weight_names = owned_weights, .output_names = owned_outputs } },
     });
 }
 
@@ -3768,6 +3769,16 @@ pub const withRowCumWeightedEuclideanDistance = withRowCumulativeWeightedEuclide
 pub const withRowCumWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
 pub const withRowPrefixWeightedEuclideanDistance = withRowCumulativeWeightedEuclideanDistance;
 pub const withRowPrefixWeightedL2Distance = withRowCumulativeWeightedEuclideanDistance;
+
+pub fn withRowCumulativeWeightedManhattanDistance(frame: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!void {
+    return withRowCumulativeWeightedPairMetric(frame, lhs_names, rhs_names, weight_names, output_names, .manhattan);
+}
+
+pub const withRowCumulativeWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowCumWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowCumWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowPrefixWeightedManhattanDistance = withRowCumulativeWeightedManhattanDistance;
+pub const withRowPrefixWeightedL1Distance = withRowCumulativeWeightedManhattanDistance;
 
 pub fn withRowWeightedMean(frame: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!void {
     return withRowPairedNumeric(frame, value_names, weight_names, output_name, .weighted_mean);
