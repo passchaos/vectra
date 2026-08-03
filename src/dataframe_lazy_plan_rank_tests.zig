@@ -4944,6 +4944,62 @@ test "device lazy frame derives row cumulative weighted shape columns" {
     try std.testing.expectError(error.LengthMismatch, invalid_plan.collect());
 }
 
+test "device lazy frame derives row cumulative weighted quantile columns" {
+    const gpa = std.testing.allocator;
+
+    var a = try DeviceColumn.fromSliceWithValidity(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, &.{ true, false, false, true }, .cpu);
+    defer a.deinit();
+    var b = try DeviceColumn.fromSliceWithValidity(i64, gpa, &.{ 10, 20, 30, 40 }, &.{ false, true, false, true }, .cpu);
+    defer b.deinit();
+    var weight_a = try DeviceColumn.fromSlice(f64, gpa, &.{ 1.0, 2.0, 3.0, 4.0 }, .cpu);
+    defer weight_a.deinit();
+    var weight_b = try DeviceColumn.fromSlice(f64, gpa, &.{ 2.0, 1.0, 5.0, 1.0 }, .cpu);
+    defer weight_b.deinit();
+
+    var table = try DeviceDataFrame.init(gpa, &.{
+        .{ .name = "a", .data = a },
+        .{ .name = "b", .data = b },
+        .{ .name = "wa", .data = weight_a },
+        .{ .name = "wb", .data = weight_b },
+    });
+    defer table.deinit();
+
+    var plan = try DeviceLazyFrame.init(gpa, table);
+    defer plan.deinit();
+    try plan.withRowPrefixWeightedQuantile(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumquantile", "b_row_weighted_cumquantile" }, 0.9);
+    try plan.withRowCumWeightedMedian(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cummedian", "b_row_weighted_cummedian" });
+    try plan.withRowPrefixWeightedIQR(&.{ "a", "b" }, &.{ "wa", "wb" }, &.{ "a_row_weighted_cumiqr", "b_row_weighted_cumiqr" });
+    try plan.select(&.{
+        "a_row_weighted_cumquantile",
+        "b_row_weighted_cumquantile",
+        "a_row_weighted_cummedian",
+        "b_row_weighted_cummedian",
+        "a_row_weighted_cumiqr",
+        "b_row_weighted_cumiqr",
+    });
+
+    const explained = try plan.explain(gpa);
+    defer gpa.free(explained);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_quantile(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumquantile,b_row_weighted_cumquantile], q=0.9)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_median(values=[a,b], weights=[wa,wb]->[a_row_weighted_cummedian,b_row_weighted_cummedian])") != null);
+    try std.testing.expect(std.mem.indexOf(u8, explained, "row_cumulative_weighted_iqr(values=[a,b], weights=[wa,wb]->[a_row_weighted_cumiqr,b_row_weighted_cumiqr])") != null);
+
+    var result = try plan.collect();
+    defer result.deinit();
+    try std.testing.expectEqual(@as(usize, 6), result.width());
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumquantile", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumquantile", &.{ 0.0, 20.0, 0.0, 40.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cummedian", &.{ 1.0, 0.0, 0.0, 4.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cummedian", &.{ 0.0, 20.0, 0.0, 4.0 }, &.{ false, true, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "a_row_weighted_cumiqr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ true, false, false, true });
+    try expectF64ColumnApproxOrNanWithValidity(result, gpa, "b_row_weighted_cumiqr", &.{ 0.0, 0.0, 0.0, 0.0 }, &.{ false, true, false, true });
+
+    var invalid_plan = try DeviceLazyFrame.init(gpa, table);
+    defer invalid_plan.deinit();
+    try invalid_plan.withRowCumulativeWeightedQuantile(&.{"a"}, &.{"wa"}, &.{"a_row_weighted_cumquantile"}, 1.5);
+    try std.testing.expectError(error.InvalidShape, invalid_plan.collect());
+}
+
 test "device lazy frame derives row boolean match index columns" {
     const gpa = std.testing.allocator;
 

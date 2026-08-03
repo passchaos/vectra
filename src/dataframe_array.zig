@@ -6301,6 +6301,96 @@ pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedKelleySkew = withRowWeightedKelleySkewness;
 
+fn withRowCumulativeWeightedQuantileCore(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    q: f64,
+    subtract_q: ?f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    if (std.math.isNan(q) or q < 0.0 or q > 1.0) return error.InvalidShape;
+    if (subtract_q) |lo_q| {
+        if (std.math.isNan(lo_q) or lo_q < 0.0 or lo_q > 1.0) return error.InvalidShape;
+    }
+
+    var flat = try rowWeightedFlat(DeviceDataFrame, input, value_names, weight_names);
+    defer flat.deinit();
+    try validateRowCumulativeWeightedOutputs(output_names, flat.width);
+
+    const cumulative = try input.allocator.alloc(f64, flat.rows * flat.width);
+    defer input.allocator.free(cumulative);
+    const cumulative_validity = try input.allocator.alloc(bool, flat.rows * flat.width);
+    defer input.allocator.free(cumulative_validity);
+    @memset(cumulative, 0.0);
+    @memset(cumulative_validity, false);
+
+    const scratch = try input.allocator.alloc(RowWeightedValue, flat.width);
+    defer input.allocator.free(scratch);
+    for (0..flat.rows) |row| {
+        var count: usize = 0;
+        var total_weight: f64 = 0.0;
+        for (0..flat.width) |col_index| {
+            const offset = row * flat.width + col_index;
+            if (!flat.validity[offset]) continue;
+            scratch[count] = .{ .value = flat.values[offset], .weight = flat.weights[offset] };
+            total_weight += flat.weights[offset];
+            count += 1;
+            if (!(total_weight > 0.0)) continue;
+
+            const active = scratch[0..count];
+            std.sort.insertion(RowWeightedValue, active, {}, rowWeightedValueLess);
+            const hi = rowWeightedQuantileFromSorted(active, q, total_weight);
+            cumulative[offset] = if (subtract_q) |lo_q| hi - rowWeightedQuantileFromSorted(active, lo_q, total_weight) else hi;
+            cumulative_validity[offset] = true;
+        }
+    }
+
+    return withRowCumulativeWeightedOutputColumns(DeviceDataFrame, input, output_names, flat.rows, flat.width, cumulative, cumulative_validity);
+}
+
+pub fn withRowCumulativeWeightedQuantile(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+    q: f64,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedQuantileCore(DeviceDataFrame, input, value_names, weight_names, output_names, q, null);
+}
+
+pub fn withRowCumulativeWeightedMedian(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedQuantile(DeviceDataFrame, input, value_names, weight_names, output_names, 0.5);
+}
+
+pub fn withRowCumulativeWeightedIqr(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedQuantileCore(DeviceDataFrame, input, value_names, weight_names, output_names, 0.75, 0.25);
+}
+
+pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
+pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
+pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
+pub const withRowPrefixWeightedMedian = withRowCumulativeWeightedMedian;
+pub const withRowCumulativeWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowCumWeightedIqr = withRowCumulativeWeightedIqr;
+pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
+pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+
 pub fn withRowWeightedMode(
     comptime DeviceDataFrame: type,
     input: DeviceDataFrame,

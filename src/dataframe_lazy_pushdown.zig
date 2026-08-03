@@ -1047,7 +1047,26 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                     }
                 }
             },
-            .row_cumulative_weighted_sum, .row_cumulative_weighted_mean, .row_cumulative_weighted_mean_square, .row_cumulative_weighted_rms, .row_cumulative_weighted_mean_abs, .row_cumulative_weighted_l1_norm, .row_cumulative_weighted_l2_norm, .row_cumulative_weighted_min, .row_cumulative_weighted_max, .row_cumulative_weighted_max_abs, .row_cumulative_weighted_min_abs, .row_cumulative_weighted_range, .row_cumulative_weighted_midrange, .row_cumulative_weighted_range_coeff, .row_cumulative_weighted_product, .row_cumulative_weighted_geometric_mean, .row_cumulative_weighted_harmonic_mean, .row_cumulative_weighted_logsumexp, .row_cumulative_weighted_logmeanexp, .row_cumulative_weighted_skewness, .row_cumulative_weighted_kurtosis, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
+            .row_cumulative_weighted_sum, .row_cumulative_weighted_mean, .row_cumulative_weighted_mean_square, .row_cumulative_weighted_rms, .row_cumulative_weighted_mean_abs, .row_cumulative_weighted_l1_norm, .row_cumulative_weighted_l2_norm, .row_cumulative_weighted_min, .row_cumulative_weighted_max, .row_cumulative_weighted_max_abs, .row_cumulative_weighted_min_abs, .row_cumulative_weighted_range, .row_cumulative_weighted_midrange, .row_cumulative_weighted_range_coeff, .row_cumulative_weighted_product, .row_cumulative_weighted_geometric_mean, .row_cumulative_weighted_harmonic_mean, .row_cumulative_weighted_logsumexp, .row_cumulative_weighted_logmeanexp, .row_cumulative_weighted_skewness, .row_cumulative_weighted_kurtosis, .row_cumulative_weighted_median, .row_cumulative_weighted_iqr, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
+                for (row_weighted_outputs.output_names) |output_name| {
+                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
+                }
+                if (row_weighted_outputs.value_names.len == 0 or row_weighted_outputs.value_names.len != row_weighted_outputs.weight_names.len or row_weighted_outputs.output_names.len != row_weighted_outputs.value_names.len) {
+                    projection_blocked = true;
+                    break :op_loop;
+                }
+                for (row_weighted_outputs.value_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+                for (row_weighted_outputs.weight_names) |name| {
+                    if (!nameInBorrowedList(name, derived_names.items)) {
+                        try appendOwnedNameUnique(allocator, &required_names, name);
+                    }
+                }
+            },
+            .row_cumulative_weighted_quantile => |row_weighted_outputs| {
                 for (row_weighted_outputs.output_names) |output_name| {
                     try appendBorrowedNameUnique(allocator, &derived_names, output_name);
                 }

@@ -4072,6 +4072,28 @@ pub const withRowWeightedQcd = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedQCD = withRowWeightedQuartileCoeffDispersion;
 pub const withRowWeightedKelleySkew = withRowWeightedKelleySkewness;
 
+pub fn withRowCumulativeWeightedQuantile(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8, q: f64) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedQuantile(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names, q);
+}
+
+pub fn withRowCumulativeWeightedMedian(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedMedian(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub fn withRowCumulativeWeightedIqr(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedIqr(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedQuantile = withRowCumulativeWeightedQuantile;
+pub const withRowPrefixWeightedQuantile = withRowCumulativeWeightedQuantile;
+pub const withRowCumWeightedMedian = withRowCumulativeWeightedMedian;
+pub const withRowPrefixWeightedMedian = withRowCumulativeWeightedMedian;
+pub const withRowCumulativeWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowCumWeightedIqr = withRowCumulativeWeightedIqr;
+pub const withRowCumWeightedIQR = withRowCumulativeWeightedIqr;
+pub const withRowPrefixWeightedIqr = withRowCumulativeWeightedIqr;
+pub const withRowPrefixWeightedIQR = withRowCumulativeWeightedIqr;
+
 pub fn withRowWeightedMode(self: anytype, value_names: []const []const u8, weight_names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowWeightedMode(FrameType(@TypeOf(self)), frameValue(self), value_names, weight_names, output_name);
 }

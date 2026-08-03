@@ -166,6 +166,26 @@ fn cloneRowWeightedColumnOutputsDispersion(
     });
 }
 
+fn cloneRowWeightedColumnOutputsQuantile(
+    comptime Self: type,
+    allocator: std.mem.Allocator,
+    row_weighted: anytype,
+    comptime tag_name: []const u8,
+) DeviceDataError!Self {
+    const value_names = try cloneNameList(allocator, row_weighted.value_names);
+    errdefer freeNameList(allocator, value_names);
+    const weight_names = try cloneNameList(allocator, row_weighted.weight_names);
+    errdefer freeNameList(allocator, weight_names);
+    const output_names = try cloneNameList(allocator, row_weighted.output_names);
+    errdefer freeNameList(allocator, output_names);
+    return @unionInit(Self, tag_name, .{
+        .value_names = value_names,
+        .weight_names = weight_names,
+        .output_names = output_names,
+        .q = row_weighted.q,
+    });
+}
+
 pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) DeviceDataError!Self {
     return switch (self) {
         .select => |names| blk: {
@@ -3391,6 +3411,9 @@ pub fn clone(comptime Self: type, self: Self, allocator: std.mem.Allocator) Devi
         .row_cumulative_weighted_fano => |row_weighted| try cloneRowWeightedColumnOutputsDispersion(Self, allocator, row_weighted, "row_cumulative_weighted_fano"),
         .row_cumulative_weighted_skewness => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_skewness"),
         .row_cumulative_weighted_kurtosis => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_kurtosis"),
+        .row_cumulative_weighted_quantile => |row_weighted| try cloneRowWeightedColumnOutputsQuantile(Self, allocator, row_weighted, "row_cumulative_weighted_quantile"),
+        .row_cumulative_weighted_median => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_median"),
+        .row_cumulative_weighted_iqr => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_iqr"),
         .row_cumulative_weighted_weight_sum => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_weight_sum"),
         .row_cumulative_weighted_positive_count => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_positive_count"),
         .row_cumulative_weighted_effective_n => |row_weighted| try cloneRowWeightedColumnOutputs(Self, allocator, row_weighted, "row_cumulative_weighted_effective_n"),
