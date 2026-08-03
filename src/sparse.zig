@@ -242,6 +242,30 @@ fn sparseStoredValueDynamicRangeMeetsBound(comptime T: type, values: []const T, 
     return (try sparseStoredValueDynamicRange(T, values)) <= max_dynamic_range;
 }
 
+fn sparseDiagonalAbsRange(comptime T: type, values: []const T) SparseError!struct { min_abs: T, max_abs: T } {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var min_abs = absValue(T, values[0]);
+    var max_abs = min_abs;
+    for (values[1..]) |value| {
+        const magnitude = absValue(T, value);
+        if (magnitude < min_abs) min_abs = magnitude;
+        if (magnitude > max_abs) max_abs = magnitude;
+    }
+    return .{ .min_abs = min_abs, .max_abs = max_abs };
+}
+
+fn sparseDiagonalDynamicRangeFromValues(comptime T: type, values: []const T) SparseError!f64 {
+    const range = try sparseDiagonalAbsRange(T, values);
+    if (range.min_abs == zero(T)) return error.SingularMatrix;
+    return sparseValueToF64(T, range.max_abs) / sparseValueToF64(T, range.min_abs);
+}
+
+fn sparseDiagonalDynamicRangeMeetsBoundFromValues(comptime T: type, values: []const T, max_dynamic_range: f64) SparseError!bool {
+    if (!std.math.isFinite(max_dynamic_range) or max_dynamic_range < 0) return error.InvalidShape;
+    return (try sparseDiagonalDynamicRangeFromValues(T, values)) <= max_dynamic_range;
+}
+
 fn triangularIndexMatches(row: usize, col: usize, comptime strict: bool, comptime lower: bool) bool {
     return if (lower)
         if (strict) col < row else col <= row
@@ -1226,6 +1250,30 @@ pub fn CooMatrix(comptime T: type) type {
                 if (row == self.col_indices[i]) out.data[row] = addSparseValue(T, out.data[row], value);
             }
             return out;
+        }
+
+        pub fn minAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).min_abs;
+        }
+
+        pub fn maxAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).max_abs;
+        }
+
+        pub fn diagonalDynamicRange(self: Self) SparseError!f64 {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeFromValues(T, diagonal_values.data);
+        }
+
+        pub fn diagonalDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeMeetsBoundFromValues(T, diagonal_values.data, max_dynamic_range);
         }
 
         pub fn trace(self: Self) SparseError!T {
@@ -2599,6 +2647,30 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn minAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).min_abs;
+        }
+
+        pub fn maxAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).max_abs;
+        }
+
+        pub fn diagonalDynamicRange(self: Self) SparseError!f64 {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeFromValues(T, diagonal_values.data);
+        }
+
+        pub fn diagonalDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeMeetsBoundFromValues(T, diagonal_values.data, max_dynamic_range);
+        }
+
         pub fn trace(self: Self) SparseError!T {
             ensureNumeric(T);
             if (self.rows != self.cols) return error.NonMatrixArray;
@@ -3813,6 +3885,30 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn minAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).min_abs;
+        }
+
+        pub fn maxAbsDiagonal(self: Self) SparseError!T {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return (try sparseDiagonalAbsRange(T, diagonal_values.data)).max_abs;
+        }
+
+        pub fn diagonalDynamicRange(self: Self) SparseError!f64 {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeFromValues(T, diagonal_values.data);
+        }
+
+        pub fn diagonalDynamicRangeMeetsBound(self: Self, max_dynamic_range: f64) SparseError!bool {
+            var diagonal_values = try self.diagonal();
+            defer diagonal_values.deinit();
+            return sparseDiagonalDynamicRangeMeetsBoundFromValues(T, diagonal_values.data, max_dynamic_range);
+        }
+
         pub fn trace(self: Self) SparseError!T {
             ensureNumeric(T);
             if (self.rows != self.cols) return error.NonMatrixArray;
@@ -4436,6 +4532,65 @@ test "sparse stored value range diagnostics" {
     try std.testing.expectError(error.InvalidShape, coo.valueRangeInRange(std.math.nan(f64), 1));
     try std.testing.expectError(error.InvalidShape, coo.absValueRangeInRange(2, 1));
     try std.testing.expectError(error.InvalidShape, coo.valueDynamicRangeMeetsBound(std.math.inf(f64)));
+}
+
+test "sparse diagonal absolute diagnostics" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        4, 1,  0,
+        1, -5, 2,
+        0, 2,  6,
+    }, &.{ 3, 3 });
+    defer dense.deinit();
+    var coo = try cooFromDense(f64, dense);
+    defer coo.deinit();
+
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try coo.minAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), try coo.maxAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try coo.diagonalDynamicRange(), 1e-12);
+    try std.testing.expect(try coo.diagonalDynamicRangeMeetsBound(1.5));
+    try std.testing.expect(!(try coo.diagonalDynamicRangeMeetsBound(1.499)));
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try csr.minAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), try csr.maxAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try csr.diagonalDynamicRange(), 1e-12);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try csc.minAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), try csc.maxAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try csc.diagonalDynamicRange(), 1e-12);
+
+    var missing = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 1, 2 }, &.{ 0, 2, 2 }, &.{ 1.0, 3.0, 4.0 });
+    defer missing.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try missing.minAbsDiagonal(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try missing.maxAbsDiagonal(), 1e-12);
+    try std.testing.expectError(error.SingularMatrix, missing.diagonalDynamicRange());
+    try std.testing.expectError(error.SingularMatrix, missing.diagonalDynamicRangeMeetsBound(1));
+
+    var rectangular = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1 }, &.{ 0, 2 }, &.{ 1.0, 2.0 });
+    defer rectangular.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular.minAbsDiagonal());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.maxAbsDiagonal());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.diagonalDynamicRange());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.diagonalDynamicRangeMeetsBound(1));
+
+    var rectangular_csr = try rectangular.toCsr();
+    defer rectangular_csr.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.minAbsDiagonal());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csr.diagonalDynamicRange());
+    var rectangular_csc = try rectangular.toCsc();
+    defer rectangular_csc.deinit();
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.maxAbsDiagonal());
+    try std.testing.expectError(error.NonMatrixArray, rectangular_csc.diagonalDynamicRangeMeetsBound(1));
+
+    var empty = try cooFromSlices(f64, gpa, 0, 0, &.{}, &.{}, &.{});
+    defer empty.deinit();
+    try std.testing.expectError(error.EmptyArray, empty.minAbsDiagonal());
+    try std.testing.expectError(error.EmptyArray, empty.diagonalDynamicRange());
+    try std.testing.expectError(error.InvalidShape, coo.diagonalDynamicRangeMeetsBound(std.math.nan(f64)));
 }
 
 test "sparse addition canonicalizes duplicate coordinates" {
