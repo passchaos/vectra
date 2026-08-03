@@ -385,6 +385,32 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn transposeMatvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (x.shape.len != 1) return error.NonVectorArray;
+            if (x.shape[0] != self.rows) return error.ShapeMismatch;
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                out.data[self.col_indices[i]] += value * x.data[self.row_indices[i]];
+            }
+            return out;
+        }
+
+        pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (rhs.shape[0] != self.rows) return error.ShapeMismatch;
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.cols, rhs.shape[1] });
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                const col = self.col_indices[i];
+                for (0..rhs.shape[1]) |rhs_col| {
+                    out.data[col * rhs.shape[1] + rhs_col] += value * rhs.data[row * rhs.shape[1] + rhs_col];
+                }
+            }
+            return out;
+        }
+
         pub fn transpose(self: Self) SparseError!Self {
             const row_indices = try self.allocator.dupe(usize, self.col_indices);
             errdefer self.allocator.free(row_indices);
@@ -1705,6 +1731,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     defer y.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 22, 29 }, y.data);
 
+    var tx_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer tx_rhs.deinit();
+    var tx = try coo.transposeMatvec(tx_rhs);
+    defer tx.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 25, 6, 2, 26 }, tx.data);
+
     var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
         2, 4,
@@ -1715,6 +1747,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var product = try coo.matmat(rhs);
     defer product.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 32, 22, 44, 29, 58 }, product.data);
+
+    var transpose_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
+    defer transpose_rhs.deinit();
+    var transpose_product = try coo.transposeMatmat(transpose_rhs);
+    defer transpose_product.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 35, 50, 9, 12, 2, 4, 42, 52 }, transpose_product.data);
 
     var transposed = try coo.transpose();
     defer transposed.deinit();

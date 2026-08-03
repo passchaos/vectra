@@ -152,7 +152,7 @@ Array IO / serialization 当前支持：
 
 当前已开始接入 SciPy-like sparse 能力，优先复用 `../veyra.sparse`：
 
-- `CooMatrix(T)`：Vectra 自有 COO 所有权包装，支持 dense/CSR/CSC 转换、转置、直接 matvec/matmat、基础统计和行列统计。
+- `CooMatrix(T)`：Vectra 自有 COO 所有权包装，支持 dense/CSR/CSC 转换、转置、直接/转置 matvec/matmat、基础统计和行列统计。
 - `cooFromDense` / `cooFromSlices`：构建 COO。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：COO 行列统计。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
