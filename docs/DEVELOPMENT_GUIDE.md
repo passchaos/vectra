@@ -161,7 +161,7 @@ Array IO / serialization 当前支持：
 - `scaleRows/scaleColumns/scaleRowsAndColumns()`：COO 行/列向量缩放，保留当前结构。
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
 - `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项。
-- `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`：COO 行列统计与矩阵范数。
+- `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：COO 行列统计、矩阵范数与存储值极值。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
 - `csrFromDense` / `csrEye` / `csrIdentity` / `csrFromDiagonal`：从 dense Array/NDArray 生成 CSR 或构造稀疏单位/对角矩阵。
@@ -177,7 +177,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSR 行/列向量缩放并保留行压缩结构。
 - `CsrMatrix.neg/negative/sub()`：CSR 符号翻转与同形状减法。
 - `CsrMatrix.hadamard/mul/multiply()`：CSR 同形状逐元素乘法，结果保持 CSR 所有权。
-- `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
+- `sum/absSum/frobeniusNorm/density`、`minValue/maxValue/minAbsValue/maxAbsValue`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`：CSR 行列统计与矩阵范数，f64 路径优先复用 Veyra。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
 - `transposeMatvec/transposeMatmat`：CSR 转置乘法，f64 路径复用 Veyra。
@@ -200,7 +200,7 @@ CSC 当前支持：
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`、`oneNorm/infNorm`、`density`：CSC 行列统计与矩阵范数。
-- `sum/absSum/frobeniusNorm`：基础 CSC 统计。
+- `sum/absSum/frobeniusNorm`、`minValue/maxValue/minAbsValue/maxAbsValue`：基础 CSC 统计。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSC 结构诊断，重复坐标按 dense materialization 语义聚合。
 - `solveTriangular`：CSC sparse triangular solve，支持 vector/matrix RHS，f64 路径复用 Veyra。
 ## 9. Axiom accelerator backend

@@ -81,6 +81,48 @@ fn ensureNumeric(comptime T: type) void {
     }
 }
 
+fn minStoredValue(comptime T: type, values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result = values[0];
+    for (values[1..]) |value| {
+        if (value < result) result = value;
+    }
+    return result;
+}
+
+fn maxStoredValue(comptime T: type, values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result = values[0];
+    for (values[1..]) |value| {
+        if (value > result) result = value;
+    }
+    return result;
+}
+
+fn minStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result = absValue(T, values[0]);
+    for (values[1..]) |value| {
+        const magnitude = absValue(T, value);
+        if (magnitude < result) result = magnitude;
+    }
+    return result;
+}
+
+fn maxStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
+    ensureNumeric(T);
+    if (values.len == 0) return error.EmptyArray;
+    var result = absValue(T, values[0]);
+    for (values[1..]) |value| {
+        const magnitude = absValue(T, value);
+        if (magnitude > result) result = magnitude;
+    }
+    return result;
+}
+
 fn ensureFloat(comptime T: type) void {
     if (@typeInfo(T) != .float) @compileError("sparse norm requires floating-point values");
 }
@@ -573,6 +615,22 @@ pub fn CooMatrix(comptime T: type) type {
             var total = zero(T);
             for (self.values) |value| total += absValue(T, value);
             return total;
+        }
+
+        pub fn minValue(self: Self) SparseError!T {
+            return minStoredValue(T, self.values);
+        }
+
+        pub fn maxValue(self: Self) SparseError!T {
+            return maxStoredValue(T, self.values);
+        }
+
+        pub fn minAbsValue(self: Self) SparseError!T {
+            return minStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValue(self: Self) SparseError!T {
+            return maxStoredAbsValue(T, self.values);
         }
 
         pub fn frobeniusNorm(self: Self) T {
@@ -1471,6 +1529,22 @@ pub fn CsrMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn minValue(self: Self) SparseError!T {
+            return minStoredValue(T, self.values);
+        }
+
+        pub fn maxValue(self: Self) SparseError!T {
+            return maxStoredValue(T, self.values);
+        }
+
+        pub fn minAbsValue(self: Self) SparseError!T {
+            return minStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValue(self: Self) SparseError!T {
+            return maxStoredAbsValue(T, self.values);
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (T == f64) {
@@ -2324,6 +2398,22 @@ pub fn CscMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn minValue(self: Self) SparseError!T {
+            return minStoredValue(T, self.values);
+        }
+
+        pub fn maxValue(self: Self) SparseError!T {
+            return maxStoredValue(T, self.values);
+        }
+
+        pub fn minAbsValue(self: Self) SparseError!T {
+            return minStoredAbsValue(T, self.values);
+        }
+
+        pub fn maxAbsValue(self: Self) SparseError!T {
+            return maxStoredAbsValue(T, self.values);
+        }
+
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (comptime T == f64) {
@@ -2755,6 +2845,7 @@ test "sparse eye and identity constructors" {
     defer csc_identity.deinit();
     try std.testing.expectEqualSlices(usize, &.{0}, csc_identity.col_offsets);
     try std.testing.expectEqual(@as(usize, 0), csc_identity.nnz());
+    try std.testing.expectError(error.EmptyArray, csc_identity.minValue());
 
     var upper_diag = try cooFromDiagonal(f64, gpa, &.{ 2, 0, 3 }, 2);
     defer upper_diag.deinit();
@@ -2930,6 +3021,11 @@ test "coo sparse row and column statistics" {
     defer dense.deinit();
     var coo = try cooFromDense(f64, dense);
     defer coo.deinit();
+
+    try std.testing.expectApproxEqAbs(@as(f64, -2), try coo.minValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.minAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try coo.maxAbsValue(), 1e-12);
 
     var row_nnz = try coo.rowNnz();
     defer row_nnz.deinit();
@@ -3225,6 +3321,11 @@ test "csr sparse row and column statistics" {
     var csr = try csrFromDense(f64, dense);
     defer csr.deinit();
 
+    try std.testing.expectApproxEqAbs(@as(f64, -2), try csr.minValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.minAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try csr.maxAbsValue(), 1e-12);
+
     var row_nnz = try csr.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
@@ -3436,6 +3537,11 @@ test "csc sparse transpose products and row column stats" {
     var tm = try csc.transposeMatmat(rhs);
     defer tm.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 21, 26, 9, 12, 23, 26 }, tm.data);
+
+    try std.testing.expectApproxEqAbs(@as(f64, -2), try csc.minValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.minAbsValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try csc.maxAbsValue(), 1e-12);
 
     var row_nnz = try csc.rowNnz();
     defer row_nnz.deinit();
