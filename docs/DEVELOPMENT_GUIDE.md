@@ -158,6 +158,7 @@ Array IO / serialization 当前支持：
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
 - `dropZeros()`：移除显式存储的零值，适合在加法/聚合后压缩结构。
 - `scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
+- `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：COO 行列统计。
 - `get/diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：COO 元素访问与结构诊断，重复坐标按 dense materialization 语义聚合。
 - `CsrMatrix(T)`：Vectra 自有 CSR 所有权包装。
@@ -171,6 +172,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
 - `CsrMatrix.dropZeros()`：移除显式零值并保持 CSR 行压缩结构。
 - `CsrMatrix.scale()`：CSR 标量缩放并保留行压缩结构。
+- `CsrMatrix.neg/negative/sub()`：CSR 符号翻转与同形状减法。
 - `sum/absSum/frobeniusNorm/density`：基础 sparse 统计。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowAbsSums/columnAbsSums`、`rowNorms/columnNorms`：CSR 行列统计，f64 路径优先复用 Veyra。
 - `diagonal/trace/missingDiagonalCount/zeroDiagonalCount/bandwidth/structurallySymmetric/numericallySymmetric`：CSR 结构诊断，重复坐标按 dense materialization 语义聚合。
@@ -188,6 +190,7 @@ CSC 当前支持：
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
 - `CscMatrix.dropZeros()`：移除显式零值并保持 CSC 列压缩结构。
 - `CscMatrix.scale()`：CSC 标量缩放并保留列压缩结构。
+- `CscMatrix.neg/negative/sub()`：CSC 符号翻转与同形状减法。
 - `matvec/matmat`：f64 路径复用 `veyra.cscMatvec/cscMatmat`。
 - `transposeMatvec/transposeMatmat`：CSC 转置乘法，f64 路径复用 Veyra。
 - `rowNnz/columnNnz`、`rowSums/columnSums`、`rowNorms/columnNorms`、`density`：CSC 行列统计。

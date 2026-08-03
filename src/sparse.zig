@@ -28,6 +28,17 @@ fn addSparseValue(comptime T: type, lhs: T, rhs: T) T {
     };
 }
 
+fn negSparseValue(comptime T: type, value: T) T {
+    return switch (@typeInfo(T)) {
+        .float => -value,
+        .int => if (@typeInfo(T).int.signedness == .signed)
+            -value
+        else
+            @compileError("sparse negation requires signed integer or floating-point values"),
+        else => @compileError("sparse negation requires signed integer or floating-point values"),
+    };
+}
+
 fn isNonZero(comptime T: type, value: T) bool {
     return switch (@typeInfo(T)) {
         .bool => value,
@@ -282,6 +293,22 @@ pub fn CooMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn neg(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.scale(negSparseValue(T, oneValue(T)));
+        }
+
+        pub fn negative(self: Self) SparseError!Self {
+            return self.neg();
+        }
+
+        pub fn sub(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var neg_rhs = try rhs.neg();
+            defer neg_rhs.deinit();
+            return self.add(neg_rhs);
         }
 
         pub fn scale(self: Self, alpha: T) SparseError!Self {
@@ -857,6 +884,22 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn neg(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.scale(negSparseValue(T, oneValue(T)));
+        }
+
+        pub fn negative(self: Self) SparseError!Self {
+            return self.neg();
+        }
+
+        pub fn sub(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var neg_rhs = try rhs.neg();
+            defer neg_rhs.deinit();
+            return self.add(neg_rhs);
         }
 
         pub fn toCsc(self: Self) SparseError!CscMatrix(T) {
@@ -1577,6 +1620,22 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn neg(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.scale(negSparseValue(T, oneValue(T)));
+        }
+
+        pub fn negative(self: Self) SparseError!Self {
+            return self.neg();
+        }
+
+        pub fn sub(self: Self, rhs: Self) SparseError!Self {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var neg_rhs = try rhs.neg();
+            defer neg_rhs.deinit();
+            return self.add(neg_rhs);
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -2212,6 +2271,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_scaled = try coo_pruned.scale(2);
     defer coo_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 18 }, coo_scaled.values);
+    var coo_neg = try coo_pruned.neg();
+    defer coo_neg.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -5, -9 }, coo_neg.values);
+    var coo_diff = try lhs.sub(rhs);
+    defer coo_diff.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_diff.row_indices);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_diff.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, coo_diff.values);
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
@@ -2232,6 +2299,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_scaled.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_pruned.col_indices, csr_scaled.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 15, 27 }, csr_scaled.values);
+    var csr_diff = try lhs_csr.sub(rhs_csr);
+    defer csr_diff.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_diff.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csr_diff.values);
 
     var lhs_csc = try lhs.toCsc();
     defer lhs_csc.deinit();
@@ -2255,10 +2327,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer csc_scaled_zero_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 0 }, csc_scaled_zero_pruned.col_offsets);
     try std.testing.expectEqual(@as(usize, 0), csc_scaled_zero_pruned.nnz());
+    var csc_diff = try lhs_csc.sub(rhs_csc);
+    defer csc_diff.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);
+    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_diff.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csc_diff.values);
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.add(mismatched));
+    try std.testing.expectError(error.ShapeMismatch, lhs.sub(mismatched));
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
