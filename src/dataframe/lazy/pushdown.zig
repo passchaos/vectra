@@ -26,13 +26,14 @@ fn addRowWeightedPairColumnOutputRequirements(
     allocator: std.mem.Allocator,
     required_names: *std.ArrayList([]const u8),
     derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
     projection_blocked: *bool,
     row_weighted: anytype,
 ) std.mem.Allocator.Error!void {
-    for (row_weighted.output_names) |output_name| {
-        try appendBorrowedNameUnique(allocator, derived_names, output_name);
-    }
     if (row_weighted.lhs_names.len == 0 or row_weighted.lhs_names.len != row_weighted.rhs_names.len or row_weighted.lhs_names.len != row_weighted.weight_names.len or row_weighted.output_names.len != row_weighted.lhs_names.len) {
+        for (row_weighted.output_names) |output_name| {
+            try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        }
         projection_blocked.* = true;
         return;
     }
@@ -50,6 +51,9 @@ fn addRowWeightedPairColumnOutputRequirements(
         if (!nameInBorrowedList(name, derived_names.items)) {
             try appendOwnedNameUnique(allocator, required_names, name);
         }
+    }
+    for (row_weighted.output_names) |output_name| {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
     }
 }
 
@@ -134,6 +138,213 @@ fn addListColumnOutputRequirements(
         try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
     }
     try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+}
+
+fn markDerivedNames(
+    allocator: std.mem.Allocator,
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    output_names: []const []const u8,
+) std.mem.Allocator.Error!void {
+    for (output_names) |output_name| {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    }
+}
+
+fn addRowSingleOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    input_names: []const []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (input_names.len == 0) {
+        // Empty row-wise input means "all columns visible at this point". The
+        // lightweight planner has no complete source schema or alias map, so
+        // materialize instead of projecting an incomplete dependency set.
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    try addListColumnOutputRequirements(allocator, required_names, derived_names, literal_scalars, output_name, input_names);
+    return true;
+}
+
+fn addRowMultiOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    input_names: []const []const u8,
+    output_names: []const []const u8,
+) std.mem.Allocator.Error!bool {
+    if (input_names.len == 0) {
+        try markDerivedNames(allocator, derived_names, literal_scalars, output_names);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (input_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try markDerivedNames(allocator, derived_names, literal_scalars, output_names);
+    return true;
+}
+
+fn addWeightedRowSingleOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (value_names.len == 0 or weight_names.len == 0) {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (value_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    for (weight_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    return true;
+}
+
+fn addWeightedRowMultiOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    value_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) std.mem.Allocator.Error!bool {
+    if (value_names.len == 0 or value_names.len != weight_names.len or output_names.len != value_names.len) {
+        try markDerivedNames(allocator, derived_names, literal_scalars, output_names);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (value_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    for (weight_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try markDerivedNames(allocator, derived_names, literal_scalars, output_names);
+    return true;
+}
+
+fn addWeightedPairRowSingleOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (lhs_names.len == 0 or lhs_names.len != rhs_names.len or lhs_names.len != weight_names.len) {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (lhs_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    for (rhs_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    for (weight_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    return true;
+}
+
+fn addGroupedValueOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    group_names: []const []const u8,
+    value_name: []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (group_names.len == 0) {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (group_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, value_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    return true;
+}
+
+fn addGroupedWeightedValueOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    group_names: []const []const u8,
+    value_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (group_names.len == 0) {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (group_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, value_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, weight_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    return true;
+}
+
+fn addGroupedWeightedPairOutputRequirements(
+    allocator: std.mem.Allocator,
+    required_names: *std.ArrayList([]const u8),
+    derived_names: *std.ArrayList([]const u8),
+    literal_scalars: *std.StringHashMap(options_mod.DeviceScalar),
+    projection_blocked: *bool,
+    group_names: []const []const u8,
+    lhs_name: []const u8,
+    rhs_name: []const u8,
+    weight_name: []const u8,
+    output_name: []const u8,
+) std.mem.Allocator.Error!bool {
+    if (group_names.len == 0) {
+        try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+        projection_blocked.* = true;
+        return false;
+    }
+    for (group_names) |name| {
+        try addSourceNameRequirement(allocator, required_names, derived_names.items, name);
+    }
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, lhs_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, rhs_name);
+    try addSourceNameRequirement(allocator, required_names, derived_names.items, weight_name);
+    try markDerivedName(allocator, derived_names, literal_scalars, output_name);
+    return true;
 }
 
 pub const LazyScanPushdown = struct {
@@ -852,241 +1063,52 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, predicate.output_name, predicate.name);
             },
             .row_null_count, .row_valid_count, .row_any_null, .row_all_null, .row_any_valid, .row_all_valid, .row_null_ratio, .row_valid_ratio, .row_first_valid_index, .row_last_valid_index, .row_first_null_index, .row_last_null_index, .row_argmin, .row_argmax, .row_median, .row_iqr, .row_interdecile_range, .row_midhinge, .row_trimean, .row_bowley_skewness, .row_quartile_coeff_dispersion, .row_kelley_skewness, .row_mad, .row_mode, .row_entropy, .row_gini_impurity, .row_perplexity, .row_inverse_simpson, .row_simpson_concentration, .row_evenness, .row_mode_count, .row_mode_ratio, .row_mode_margin, .row_mode_margin_ratio, .row_count_distinct, .row_n_unique, .row_is_duplicated, .row_is_unique, .row_sum, .row_mean, .row_logsumexp, .row_logmeanexp, .row_softmax_entropy, .row_softmax_perplexity, .row_softmax_confidence, .row_softmax_margin, .row_softmax_evenness, .row_softmax_concentration, .row_softmax_normalized_hhi, .row_softmax_gini_impurity, .row_softmax_inverse_simpson, .row_softmax_simpson_evenness, .row_logit_margin, .row_geometric_mean, .row_magnitude_geometric_mean, .row_harmonic_mean, .row_skewness, .row_magnitude_skewness, .row_kurtosis, .row_magnitude_kurtosis, .row_prod, .row_min, .row_max, .row_ptp, .row_magnitude_ptp, .row_midrange, .row_magnitude_midrange, .row_range_coeff, .row_magnitude_range_coeff, .row_mean_abs, .row_hhi, .row_magnitude_normalized_hhi, .row_magnitude_sparsity, .row_magnitude_inverse_simpson, .row_magnitude_simpson_evenness, .row_magnitude_dominance, .row_magnitude_dominance_margin, .row_magnitude_entropy, .row_magnitude_perplexity, .row_magnitude_evenness, .row_mean_abs_dev, .row_gini_mean_diff, .row_gini_coefficient, .row_mean_abs_dev_ratio, .row_rms, .row_l1_norm, .row_l2_norm, .row_true_count, .row_false_count, .row_any_true, .row_all_true, .row_any_false, .row_all_false, .row_first_true_index, .row_last_true_index, .row_first_false_index, .row_last_false_index, .row_true_ratio, .row_false_ratio, .row_any_zero, .row_all_zero, .row_any_non_zero, .row_all_non_zero, .row_any_positive_zero, .row_all_positive_zero, .row_any_negative_zero, .row_all_negative_zero, .row_any_positive, .row_all_positive, .row_any_signbit, .row_all_signbit, .row_any_negative, .row_all_negative, .row_any_nan, .row_all_nan, .row_any_inf, .row_all_inf, .row_any_positive_inf, .row_all_positive_inf, .row_any_negative_inf, .row_all_negative_inf, .row_any_finite, .row_all_finite, .row_any_normal, .row_all_normal, .row_any_subnormal, .row_all_subnormal, .row_any_non_finite, .row_all_non_finite, .row_nan_count, .row_nan_ratio, .row_inf_count, .row_inf_ratio, .row_positive_inf_count, .row_negative_inf_count, .row_positive_inf_ratio, .row_negative_inf_ratio, .row_zero_count, .row_zero_ratio, .row_positive_zero_count, .row_negative_zero_count, .row_positive_zero_ratio, .row_negative_zero_ratio, .row_non_zero_count, .row_non_zero_ratio, .row_first_nan_index, .row_last_nan_index, .row_first_inf_index, .row_last_inf_index, .row_first_positive_inf_index, .row_last_positive_inf_index, .row_first_negative_inf_index, .row_last_negative_inf_index, .row_first_finite_index, .row_last_finite_index, .row_first_normal_index, .row_last_normal_index, .row_first_subnormal_index, .row_last_subnormal_index, .row_first_non_finite_index, .row_last_non_finite_index, .row_first_positive_zero_index, .row_last_positive_zero_index, .row_first_negative_zero_index, .row_last_negative_zero_index, .row_first_signbit_index, .row_last_signbit_index, .row_first_zero_index, .row_last_zero_index, .row_first_non_zero_index, .row_last_non_zero_index, .row_first_positive_index, .row_last_positive_index, .row_first_negative_index, .row_last_negative_index, .row_positive_count, .row_positive_ratio, .row_signbit_count, .row_signbit_ratio, .row_negative_count, .row_negative_ratio, .row_finite_count, .row_finite_ratio, .row_normal_count, .row_normal_ratio, .row_subnormal_count, .row_subnormal_ratio, .row_non_finite_count, .row_non_finite_ratio => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    // Empty row-count input means "all columns visible at this
-                    // point".  The lightweight pushdown planner has no complete
-                    // source schema or alias map, so it must materialize the
-                    // scan rather than project an empty dependency set.
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .row_cumulative_argmin, .row_cumulative_argmax, .row_cumulative_mode, .row_cumulative_mode_count, .row_cumulative_mode_ratio, .row_cumulative_mode_margin, .row_cumulative_mode_margin_ratio, .row_cumulative_distinct_count, .row_cumulative_n_unique, .row_cumulative_first_true_index, .row_cumulative_last_true_index, .row_cumulative_first_false_index, .row_cumulative_last_false_index, .row_cumulative_first_valid_index, .row_cumulative_last_valid_index, .row_cumulative_first_null_index, .row_cumulative_last_null_index, .row_cumulative_null_count, .row_cumulative_valid_count, .row_cumulative_any_null, .row_cumulative_all_null, .row_cumulative_any_valid, .row_cumulative_all_valid, .row_cumulative_null_ratio, .row_cumulative_valid_ratio, .row_cumulative_true_count, .row_cumulative_false_count, .row_cumulative_true_ratio, .row_cumulative_false_ratio, .row_cumulative_positive_zero_count, .row_cumulative_negative_zero_count, .row_cumulative_signbit_count, .row_cumulative_positive_zero_ratio, .row_cumulative_negative_zero_ratio, .row_cumulative_signbit_ratio, .row_cumulative_nan_count, .row_cumulative_inf_count, .row_cumulative_positive_inf_count, .row_cumulative_negative_inf_count, .row_cumulative_finite_count, .row_cumulative_normal_count, .row_cumulative_subnormal_count, .row_cumulative_non_finite_count, .row_cumulative_nan_ratio, .row_cumulative_inf_ratio, .row_cumulative_positive_inf_ratio, .row_cumulative_negative_inf_ratio, .row_cumulative_finite_ratio, .row_cumulative_normal_ratio, .row_cumulative_subnormal_ratio, .row_cumulative_non_finite_ratio, .row_cumulative_any_zero, .row_cumulative_all_zero, .row_cumulative_any_non_zero, .row_cumulative_all_non_zero, .row_cumulative_any_positive_zero, .row_cumulative_all_positive_zero, .row_cumulative_any_negative_zero, .row_cumulative_all_negative_zero, .row_cumulative_any_positive, .row_cumulative_all_positive, .row_cumulative_any_signbit, .row_cumulative_all_signbit, .row_cumulative_any_negative, .row_cumulative_all_negative, .row_cumulative_any_nan, .row_cumulative_all_nan, .row_cumulative_any_inf, .row_cumulative_all_inf, .row_cumulative_any_positive_inf, .row_cumulative_all_positive_inf, .row_cumulative_any_negative_inf, .row_cumulative_all_negative_inf, .row_cumulative_any_finite, .row_cumulative_all_finite, .row_cumulative_any_normal, .row_cumulative_all_normal, .row_cumulative_any_subnormal, .row_cumulative_all_subnormal, .row_cumulative_any_non_finite, .row_cumulative_all_non_finite, .row_cumulative_first_nan_index, .row_cumulative_last_nan_index, .row_cumulative_first_inf_index, .row_cumulative_last_inf_index, .row_cumulative_first_positive_inf_index, .row_cumulative_last_positive_inf_index, .row_cumulative_first_negative_inf_index, .row_cumulative_last_negative_inf_index, .row_cumulative_first_finite_index, .row_cumulative_last_finite_index, .row_cumulative_first_normal_index, .row_cumulative_last_normal_index, .row_cumulative_first_subnormal_index, .row_cumulative_last_subnormal_index, .row_cumulative_first_non_finite_index, .row_cumulative_last_non_finite_index, .row_cumulative_zero_count, .row_cumulative_first_zero_index, .row_cumulative_last_zero_index, .row_cumulative_first_positive_zero_index, .row_cumulative_last_positive_zero_index, .row_cumulative_first_negative_zero_index, .row_cumulative_last_negative_zero_index, .row_cumulative_non_zero_count, .row_cumulative_first_non_zero_index, .row_cumulative_last_non_zero_index, .row_cumulative_first_positive_index, .row_cumulative_last_positive_index, .row_cumulative_first_signbit_index, .row_cumulative_last_signbit_index, .row_cumulative_first_negative_index, .row_cumulative_last_negative_index, .row_cumulative_positive_count, .row_cumulative_negative_count, .row_cumulative_zero_ratio, .row_cumulative_non_zero_ratio, .row_cumulative_positive_ratio, .row_cumulative_negative_ratio, .row_cumulative_any_true, .row_cumulative_all_true, .row_cumulative_any_false, .row_cumulative_all_false, .row_centered, .row_zscore, .row_robust_zscore, .row_average_rank, .row_ordinal_rank, .row_dense_rank, .row_competition_rank, .row_percent_rank, .row_cume_dist, .row_cumulative_sum, .row_cumulative_mean, .row_cumulative_logsumexp, .row_cumulative_logmeanexp, .row_cumulative_geometric_mean, .row_cumulative_harmonic_mean, .row_cumulative_skewness, .row_cumulative_kurtosis, .row_cumulative_rms, .row_cumulative_mean_abs, .row_cumulative_mean_square, .row_cumulative_max_abs, .row_cumulative_min_abs, .row_cumulative_l1_norm, .row_cumulative_l2_norm, .row_cumulative_product, .row_cumulative_max, .row_cumulative_min, .row_cumulative_range, .row_iqr_outlier, .row_tukey_winsorize, .row_max_indicator, .row_min_indicator, .row_minmax_scale, .row_l2_normalize, .row_l1_normalize, .row_sum_normalize, .row_mean_normalize, .row_max_abs_normalize, .row_softmax, .row_log_softmax, .row_softmin, .row_log_softmin => |row_outputs| {
-                for (row_outputs.output_names) |output_name| {
-                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
-                }
-                if (row_outputs.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_outputs.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowMultiOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_outputs.names, row_outputs.output_names))) break :op_loop;
             },
             .row_cumulative_variance, .row_cumulative_stddev, .row_cumulative_sem, .row_cumulative_cv, .row_cumulative_fano => |row_outputs| {
-                for (row_outputs.output_names) |output_name| {
-                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
-                }
-                if (row_outputs.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_outputs.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowMultiOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_outputs.names, row_outputs.output_names))) break :op_loop;
             },
             .row_variance, .row_magnitude_variance, .row_stddev, .row_magnitude_stddev, .row_sem, .row_magnitude_sem, .row_cv, .row_magnitude_cv, .row_magnitude_fano, .row_fano => |row_dispersion| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_dispersion.output_name);
-                if (row_dispersion.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_dispersion.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_dispersion.names, row_dispersion.output_name))) break :op_loop;
             },
             .row_quantile => |row_quantile| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_quantile.output_name);
-                if (row_quantile.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_quantile.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_quantile.names, row_quantile.output_name))) break :op_loop;
             },
             .row_quantile_range => |row_quantile_range| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_quantile_range.output_name);
-                if (row_quantile_range.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_quantile_range.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_quantile_range.names, row_quantile_range.output_name))) break :op_loop;
             },
             .row_trimmed_mean => |row_trimmed_mean| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_trimmed_mean.output_name);
-                if (row_trimmed_mean.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_trimmed_mean.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_trimmed_mean.names, row_trimmed_mean.output_name))) break :op_loop;
             },
             .row_winsorized_mean => |row_winsorized_mean| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_winsorized_mean.output_name);
-                if (row_winsorized_mean.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_winsorized_mean.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_winsorized_mean.names, row_winsorized_mean.output_name))) break :op_loop;
             },
             .row_cumulative_weighted_sum, .row_cumulative_weighted_mean, .row_cumulative_weighted_mean_square, .row_cumulative_weighted_rms, .row_cumulative_weighted_mean_abs, .row_cumulative_weighted_l1_norm, .row_cumulative_weighted_l2_norm, .row_cumulative_weighted_min, .row_cumulative_weighted_max, .row_cumulative_weighted_max_abs, .row_cumulative_weighted_min_abs, .row_cumulative_weighted_range, .row_cumulative_weighted_midrange, .row_cumulative_weighted_range_coeff, .row_cumulative_weighted_product, .row_cumulative_weighted_geometric_mean, .row_cumulative_weighted_harmonic_mean, .row_cumulative_weighted_logsumexp, .row_cumulative_weighted_logmeanexp, .row_cumulative_weighted_skewness, .row_cumulative_weighted_kurtosis, .row_cumulative_weighted_median, .row_cumulative_weighted_iqr, .row_cumulative_weighted_mad, .row_cumulative_weighted_interdecile_range, .row_cumulative_weighted_midhinge, .row_cumulative_weighted_trimean, .row_cumulative_weighted_bowley_skewness, .row_cumulative_weighted_quartile_coeff_dispersion, .row_cumulative_weighted_kelley_skewness, .row_cumulative_weighted_mode, .row_cumulative_weighted_mode_weight, .row_cumulative_weighted_mode_ratio, .row_cumulative_weighted_mode_margin, .row_cumulative_weighted_mode_margin_ratio, .row_cumulative_weighted_entropy, .row_cumulative_weighted_gini_impurity, .row_cumulative_weighted_perplexity, .row_cumulative_weighted_inverse_simpson, .row_cumulative_weighted_simpson_concentration, .row_cumulative_weighted_evenness, .row_cumulative_weighted_mean_abs_dev, .row_cumulative_weighted_mean_abs_dev_ratio, .row_cumulative_weighted_gini_mean_diff, .row_cumulative_weighted_gini_coefficient, .row_cumulative_weighted_weight_sum, .row_cumulative_weighted_positive_count, .row_cumulative_weighted_effective_n => |row_weighted_outputs| {
-                for (row_weighted_outputs.output_names) |output_name| {
-                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
-                }
-                if (row_weighted_outputs.value_names.len == 0 or row_weighted_outputs.value_names.len != row_weighted_outputs.weight_names.len or row_weighted_outputs.output_names.len != row_weighted_outputs.value_names.len) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted_outputs.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted_outputs.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowMultiOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted_outputs.value_names, row_weighted_outputs.weight_names, row_weighted_outputs.output_names))) break :op_loop;
             },
             .row_cumulative_weighted_quantile, .row_cumulative_weighted_trimmed_mean, .row_cumulative_weighted_winsorized_mean => |row_weighted_outputs| {
-                for (row_weighted_outputs.output_names) |output_name| {
-                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
-                }
-                if (row_weighted_outputs.value_names.len == 0 or row_weighted_outputs.value_names.len != row_weighted_outputs.weight_names.len or row_weighted_outputs.output_names.len != row_weighted_outputs.value_names.len) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted_outputs.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted_outputs.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowMultiOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted_outputs.value_names, row_weighted_outputs.weight_names, row_weighted_outputs.output_names))) break :op_loop;
             },
             .row_cumulative_weighted_variance, .row_cumulative_weighted_stddev, .row_cumulative_weighted_sem, .row_cumulative_weighted_cv, .row_cumulative_weighted_fano => |row_weighted_outputs| {
-                for (row_weighted_outputs.output_names) |output_name| {
-                    try appendBorrowedNameUnique(allocator, &derived_names, output_name);
-                }
-                if (row_weighted_outputs.value_names.len == 0 or row_weighted_outputs.value_names.len != row_weighted_outputs.weight_names.len or row_weighted_outputs.output_names.len != row_weighted_outputs.value_names.len) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted_outputs.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted_outputs.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowMultiOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted_outputs.value_names, row_weighted_outputs.weight_names, row_weighted_outputs.output_names))) break :op_loop;
             },
             .row_pair_count, .row_weighted_mean, .row_weighted_sum, .row_weighted_weight_sum, .row_weighted_positive_count, .row_weighted_effective_n, .row_weighted_mean_square, .row_weighted_rms, .row_weighted_mean_abs, .row_weighted_l1_norm, .row_weighted_l2_norm, .row_weighted_min, .row_weighted_max, .row_weighted_max_abs, .row_weighted_min_abs, .row_weighted_range, .row_weighted_midrange, .row_weighted_range_coeff, .row_weighted_product, .row_weighted_geometric_mean, .row_weighted_harmonic_mean, .row_weighted_logsumexp, .row_weighted_logmeanexp, .row_weighted_median, .row_weighted_iqr, .row_weighted_mad, .row_weighted_interdecile_range, .row_weighted_midhinge, .row_weighted_trimean, .row_weighted_bowley_skewness, .row_weighted_quartile_coeff_dispersion, .row_weighted_kelley_skewness, .row_weighted_mode, .row_weighted_mode_weight, .row_weighted_mode_ratio, .row_weighted_mode_margin, .row_weighted_mode_margin_ratio, .row_weighted_entropy, .row_weighted_gini_impurity, .row_weighted_perplexity, .row_weighted_inverse_simpson, .row_weighted_simpson_concentration, .row_weighted_evenness, .row_weighted_mean_abs_dev, .row_weighted_mean_abs_dev_ratio, .row_weighted_gini_mean_diff, .row_weighted_gini_coefficient, .row_weighted_skewness, .row_weighted_kurtosis, .row_dot, .row_cosine_similarity, .row_squared_euclidean_distance, .row_euclidean_distance, .row_manhattan_distance, .row_chebyshev_distance, .row_canberra_distance, .row_bray_curtis_distance, .row_mean_error, .row_mae, .row_mse, .row_rmse, .row_mape, .row_smape, .row_covariance, .row_correlation, .row_beta => |row_weighted| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
-                if (row_weighted.value_names.len == 0 or row_weighted.weight_names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name))) break :op_loop;
             },
             .row_weighted_variance, .row_weighted_stddev, .row_weighted_sem, .row_weighted_cv, .row_weighted_fano => |row_weighted| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
-                if (row_weighted.value_names.len == 0 or row_weighted.weight_names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name))) break :op_loop;
             },
             .row_weighted_quantile, .row_weighted_trimmed_mean, .row_weighted_winsorized_mean => |row_weighted| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
-                if (row_weighted.value_names.len == 0 or row_weighted.weight_names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted.value_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name))) break :op_loop;
             },
             .row_weighted_pair_weight_sum, .row_weighted_pair_positive_count, .row_weighted_pair_effective_n, .row_weighted_dot, .row_weighted_cosine_similarity, .row_weighted_squared_euclidean_distance, .row_weighted_euclidean_distance, .row_weighted_manhattan_distance, .row_weighted_chebyshev_distance, .row_weighted_canberra_distance, .row_weighted_bray_curtis_distance, .row_weighted_mean_error, .row_weighted_mae, .row_weighted_mse, .row_weighted_rmse, .row_weighted_mape, .row_weighted_smape, .row_weighted_covariance, .row_weighted_correlation, .row_weighted_beta => |row_weighted| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_weighted.output_name);
-                if (row_weighted.lhs_names.len == 0 or row_weighted.lhs_names.len != row_weighted.rhs_names.len or row_weighted.lhs_names.len != row_weighted.weight_names.len) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_weighted.lhs_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted.rhs_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                for (row_weighted.weight_names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addWeightedPairRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_name))) break :op_loop;
             },
-            .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse, .row_cumulative_weighted_mape, .row_cumulative_weighted_smape => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &projection_blocked, row_weighted),
-            .row_cumulative_weighted_covariance => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &projection_blocked, row_weighted),
+            .row_cumulative_weighted_pair_weight_sum, .row_cumulative_weighted_pair_positive_count, .row_cumulative_weighted_pair_effective_n, .row_cumulative_weighted_dot, .row_cumulative_weighted_cosine_similarity, .row_cumulative_weighted_squared_euclidean_distance, .row_cumulative_weighted_euclidean_distance, .row_cumulative_weighted_manhattan_distance, .row_cumulative_weighted_chebyshev_distance, .row_cumulative_weighted_canberra_distance, .row_cumulative_weighted_bray_curtis_distance, .row_cumulative_weighted_mean_error, .row_cumulative_weighted_mae, .row_cumulative_weighted_mse, .row_cumulative_weighted_rmse, .row_cumulative_weighted_mape, .row_cumulative_weighted_smape => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted),
+            .row_cumulative_weighted_covariance => |row_weighted| try addRowWeightedPairColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_weighted),
             .with_column_compare => |expr| {
                 try addBinaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.lhs_name, expr.rhs_name);
             },
@@ -1094,259 +1116,61 @@ pub fn planLazyScanPushdown(allocator: std.mem.Allocator, ops: anytype) std.mem.
                 try addUnaryColumnOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, expr.name, expr.input_name);
             },
             .group_id => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_first_row_index => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_last_row_index => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_is_first_row => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_is_last_row => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_is_singleton => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_is_duplicated => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_cume_dist => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_percent_rank => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_reverse_cume_dist => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_reverse_percent_rank => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_lag, .group_lead, .group_first_row_value, .group_last_row_value, .group_nth_row_value, .group_first_valid_value, .group_last_valid_value, .group_nth_valid_value, .group_fill_null_forward, .group_fill_null_backward, .group_cumulative_valid_count, .group_cumulative_null_count, .group_cumulative_valid_ratio, .group_cumulative_null_ratio, .group_cumulative_first_valid_index, .group_cumulative_last_valid_index, .group_cumulative_first_null_index, .group_cumulative_last_null_index, .group_cumulative_nan_count, .group_cumulative_nan_ratio, .group_cumulative_inf_count, .group_cumulative_inf_ratio, .group_cumulative_positive_inf_count, .group_cumulative_positive_inf_ratio, .group_cumulative_negative_inf_count, .group_cumulative_negative_inf_ratio, .group_cumulative_finite_count, .group_cumulative_finite_ratio, .group_cumulative_normal_count, .group_cumulative_normal_ratio, .group_cumulative_subnormal_count, .group_cumulative_subnormal_ratio, .group_cumulative_non_finite_count, .group_cumulative_non_finite_ratio, .group_cumulative_zero_count, .group_cumulative_zero_ratio, .group_cumulative_positive_zero_count, .group_cumulative_positive_zero_ratio, .group_cumulative_negative_zero_count, .group_cumulative_negative_zero_ratio, .group_cumulative_non_zero_count, .group_cumulative_non_zero_ratio, .group_cumulative_positive_count, .group_cumulative_positive_ratio, .group_cumulative_signbit_count, .group_cumulative_signbit_ratio, .group_cumulative_negative_count, .group_cumulative_negative_ratio, .group_cumulative_first_nan_index, .group_cumulative_last_nan_index, .group_cumulative_first_inf_index, .group_cumulative_last_inf_index, .group_cumulative_first_positive_inf_index, .group_cumulative_last_positive_inf_index, .group_cumulative_first_negative_inf_index, .group_cumulative_last_negative_inf_index, .group_cumulative_first_finite_index, .group_cumulative_last_finite_index, .group_cumulative_first_normal_index, .group_cumulative_last_normal_index, .group_cumulative_first_subnormal_index, .group_cumulative_last_subnormal_index, .group_cumulative_first_non_finite_index, .group_cumulative_last_non_finite_index, .group_cumulative_first_zero_index, .group_cumulative_last_zero_index, .group_cumulative_first_positive_zero_index, .group_cumulative_last_positive_zero_index, .group_cumulative_first_negative_zero_index, .group_cumulative_last_negative_zero_index, .group_cumulative_first_non_zero_index, .group_cumulative_last_non_zero_index, .group_cumulative_first_positive_index, .group_cumulative_last_positive_index, .group_cumulative_first_signbit_index, .group_cumulative_last_signbit_index, .group_cumulative_first_negative_index, .group_cumulative_last_negative_index, .group_cumulative_distinct_count, .group_cumulative_n_unique, .group_cumulative_mode, .group_cumulative_mode_count, .group_cumulative_mode_ratio, .group_cumulative_mode_margin, .group_cumulative_mode_margin_ratio, .group_cumulative_entropy, .group_cumulative_gini_impurity, .group_cumulative_perplexity, .group_cumulative_inverse_simpson, .group_cumulative_simpson_concentration, .group_cumulative_evenness, .group_cumulative_mean_abs_dev, .group_cumulative_mean_abs_dev_ratio, .group_cumulative_gini_mean_diff, .group_cumulative_gini_coefficient, .group_cumulative_median, .group_cumulative_iqr, .group_cumulative_mad, .group_cumulative_interdecile_range, .group_cumulative_midhinge, .group_cumulative_trimean, .group_cumulative_bowley_skewness, .group_cumulative_quartile_coeff_dispersion, .group_cumulative_kelley_skewness, .group_cumulative_any, .group_cumulative_all, .group_cumulative_true_count, .group_cumulative_false_count, .group_cumulative_true_ratio, .group_cumulative_false_ratio, .group_cumulative_first_true_index, .group_cumulative_last_true_index, .group_cumulative_first_false_index, .group_cumulative_last_false_index, .group_cumulative_sum, .group_cumulative_mean, .group_cumulative_product, .group_cumulative_min, .group_cumulative_max, .group_cumulative_variance, .group_cumulative_stddev, .group_cumulative_sem, .group_cumulative_cv, .group_cumulative_fano, .group_cumulative_skewness, .group_cumulative_kurtosis, .group_cumulative_mean_abs, .group_cumulative_mean_square, .group_cumulative_rms, .group_cumulative_max_abs, .group_cumulative_min_abs, .group_cumulative_l1_norm, .group_cumulative_l2_norm, .group_cumulative_range, .group_cumulative_midrange, .group_cumulative_range_coeff, .group_cumulative_logsumexp, .group_cumulative_logmeanexp, .group_cumulative_geometric_mean, .group_cumulative_harmonic_mean, .group_cumulative_argmin, .group_cumulative_argmax => |shift| {
-                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
-                if (shift.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (shift.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
-                }
+                if (!(try addGroupedValueOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, shift.names, shift.value_name, shift.output_name))) break :op_loop;
             },
             .group_cumulative_quantile, .group_cumulative_trimmed_mean, .group_cumulative_winsorized_mean => |shift| {
-                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
-                if (shift.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (shift.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
-                }
+                if (!(try addGroupedValueOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, shift.names, shift.value_name, shift.output_name))) break :op_loop;
             },
             .group_cumulative_weighted_sum, .group_cumulative_weighted_product, .group_cumulative_weighted_weight_sum, .group_cumulative_weighted_positive_count, .group_cumulative_weighted_effective_n, .group_cumulative_weighted_mean, .group_cumulative_weighted_mean_square, .group_cumulative_weighted_rms, .group_cumulative_weighted_min, .group_cumulative_weighted_max, .group_cumulative_weighted_median, .group_cumulative_weighted_iqr, .group_cumulative_weighted_mad, .group_cumulative_weighted_interdecile_range, .group_cumulative_weighted_midhinge, .group_cumulative_weighted_trimean, .group_cumulative_weighted_bowley_skewness, .group_cumulative_weighted_quartile_coeff_dispersion, .group_cumulative_weighted_kelley_skewness, .group_cumulative_weighted_mode, .group_cumulative_weighted_mode_weight, .group_cumulative_weighted_mode_ratio, .group_cumulative_weighted_mode_margin, .group_cumulative_weighted_mode_margin_ratio, .group_cumulative_weighted_entropy, .group_cumulative_weighted_gini_impurity, .group_cumulative_weighted_perplexity, .group_cumulative_weighted_inverse_simpson, .group_cumulative_weighted_simpson_concentration, .group_cumulative_weighted_evenness, .group_cumulative_weighted_mean_abs_dev, .group_cumulative_weighted_mean_abs_dev_ratio, .group_cumulative_weighted_gini_mean_diff, .group_cumulative_weighted_gini_coefficient, .group_cumulative_weighted_mean_abs, .group_cumulative_weighted_l1_norm, .group_cumulative_weighted_l2_norm, .group_cumulative_weighted_max_abs, .group_cumulative_weighted_min_abs, .group_cumulative_weighted_geometric_mean, .group_cumulative_weighted_harmonic_mean, .group_cumulative_weighted_logsumexp, .group_cumulative_weighted_logmeanexp, .group_cumulative_weighted_range, .group_cumulative_weighted_midrange, .group_cumulative_weighted_range_coeff, .group_cumulative_weighted_variance, .group_cumulative_weighted_stddev, .group_cumulative_weighted_sem, .group_cumulative_weighted_cv, .group_cumulative_weighted_fano, .group_cumulative_weighted_skewness, .group_cumulative_weighted_kurtosis => |shift| {
-                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
-                if (shift.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (shift.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
-                }
-                if (!nameInBorrowedList(shift.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.weight_name);
-                }
+                if (!(try addGroupedWeightedValueOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, shift.names, shift.value_name, shift.weight_name, shift.output_name))) break :op_loop;
             },
             .group_cumulative_weighted_quantile, .group_cumulative_weighted_trimmed_mean, .group_cumulative_weighted_winsorized_mean => |shift| {
-                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
-                if (shift.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (shift.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                if (!nameInBorrowedList(shift.value_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.value_name);
-                }
-                if (!nameInBorrowedList(shift.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.weight_name);
-                }
+                if (!(try addGroupedWeightedValueOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, shift.names, shift.value_name, shift.weight_name, shift.output_name))) break :op_loop;
             },
             .group_cumulative_weighted_dot, .group_cumulative_weighted_cosine_similarity, .group_cumulative_weighted_squared_euclidean_distance, .group_cumulative_weighted_euclidean_distance, .group_cumulative_weighted_manhattan_distance, .group_cumulative_weighted_chebyshev_distance, .group_cumulative_weighted_canberra_distance, .group_cumulative_weighted_bray_curtis_distance, .group_cumulative_weighted_mean_error, .group_cumulative_weighted_mae, .group_cumulative_weighted_mse, .group_cumulative_weighted_rmse, .group_cumulative_weighted_mape, .group_cumulative_weighted_smape, .group_cumulative_weighted_covariance, .group_cumulative_weighted_correlation, .group_cumulative_weighted_beta => |shift| {
-                try appendBorrowedNameUnique(allocator, &derived_names, shift.output_name);
-                if (shift.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (shift.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
-                if (!nameInBorrowedList(shift.lhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.lhs_name);
-                }
-                if (!nameInBorrowedList(shift.rhs_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.rhs_name);
-                }
-                if (!nameInBorrowedList(shift.weight_name, derived_names.items)) {
-                    try appendOwnedNameUnique(allocator, &required_names, shift.weight_name);
-                }
+                if (!(try addGroupedWeightedPairOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, shift.names, shift.lhs_name, shift.rhs_name, shift.weight_name, shift.output_name))) break :op_loop;
             },
             .group_row_number => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_size => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_reverse_row_number => |row_count| {
-                try appendBorrowedNameUnique(allocator, &derived_names, row_count.output_name);
-                if (row_count.names.len == 0) {
-                    projection_blocked = true;
-                    break :op_loop;
-                }
-                for (row_count.names) |name| {
-                    if (!nameInBorrowedList(name, derived_names.items)) {
-                        try appendOwnedNameUnique(allocator, &required_names, name);
-                    }
-                }
+                if (!(try addRowSingleOutputRequirements(allocator, &required_names, &derived_names, &literal_scalars, &projection_blocked, row_count.names, row_count.output_name))) break :op_loop;
             },
             .group_by_count => |group| {
                 if (!nameInBorrowedList(group.key_name, derived_names.items)) {

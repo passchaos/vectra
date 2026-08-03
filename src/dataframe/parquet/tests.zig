@@ -635,6 +635,17 @@ test "device lazy parquet scan pushes literal isin columns as range predicates" 
     try std.testing.expect(std.mem.indexOf(u8, row_index_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
     try std.testing.expect(std.mem.indexOf(u8, row_index_overwrite_explain, "range=sales") == null);
 
+    var row_output_overwrite_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer row_output_overwrite_scan.deinit();
+    try row_output_overwrite_scan.withColumnLiteral("needle", f64, 3.0);
+    try row_output_overwrite_scan.withRowSum(&.{"sales"}, "needle");
+    try row_output_overwrite_scan.filterIsInColumn("sales", "needle");
+    try row_output_overwrite_scan.select(&.{"id"});
+    const row_output_overwrite_explain = try row_output_overwrite_scan.explain(gpa);
+    defer gpa.free(row_output_overwrite_explain);
+    try std.testing.expect(std.mem.indexOf(u8, row_output_overwrite_explain, "scan_pushdown: projection=[sales,id]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, row_output_overwrite_explain, "range=sales") == null);
+
     var inplace_scalar_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
     defer inplace_scalar_scan.deinit();
     try inplace_scalar_scan.withColumnScalar("sales", "sales", f64, 1.0, .add);
@@ -660,6 +671,19 @@ test "device lazy parquet scan pushes literal isin columns as range predicates" 
     const inplace_binary_sales = try (try inplace_binary.column("sales")).f64.toOwnedSlice(gpa);
     defer gpa.free(inplace_binary_sales);
     try std.testing.expectEqualSlices(f64, &.{ 4.0, 6.0, 10.0 }, inplace_binary_sales);
+
+    var inplace_row_output_scan = try DeviceLazyFrame.scanParquetBytes(gpa, bytes, .cpu);
+    defer inplace_row_output_scan.deinit();
+    try inplace_row_output_scan.withRowSum(&.{"sales"}, "sales");
+    try inplace_row_output_scan.select(&.{"sales"});
+    const inplace_row_output_explain = try inplace_row_output_scan.explain(gpa);
+    defer gpa.free(inplace_row_output_explain);
+    try std.testing.expect(std.mem.indexOf(u8, inplace_row_output_explain, "scan_pushdown: projection=[sales]") != null);
+    var inplace_row_output = try inplace_row_output_scan.collect();
+    defer inplace_row_output.deinit();
+    const inplace_row_output_sales = try (try inplace_row_output.column("sales")).f64.toOwnedSlice(gpa);
+    defer gpa.free(inplace_row_output_sales);
+    try std.testing.expectEqualSlices(f64, &.{ 2.0, 3.0, 5.0 }, inplace_row_output_sales);
 }
 
 test "device lazy frame pushes scalar filters and projection into parquet scan source" {
