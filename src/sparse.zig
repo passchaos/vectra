@@ -151,6 +151,32 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn matvec(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (x.shape.len != 1) return error.NonVectorArray;
+            if (x.shape[0] != self.cols) return error.ShapeMismatch;
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                out.data[self.row_indices[i]] += value * x.data[self.col_indices[i]];
+            }
+            return out;
+        }
+
+        pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
+            var out = try array_mod.Array(T).zeros(self.allocator, &.{ self.rows, rhs.shape[1] });
+            errdefer out.deinit();
+            for (self.values, 0..) |value, i| {
+                const row = self.row_indices[i];
+                const col = self.col_indices[i];
+                for (0..rhs.shape[1]) |out_col| {
+                    out.data[row * rhs.shape[1] + out_col] += value * rhs.data[col * rhs.shape[1] + out_col];
+                }
+            }
+            return out;
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -1437,6 +1463,23 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var dense_roundtrip = try coo.toDense();
     defer dense_roundtrip.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, dense_roundtrip.data);
+
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4 }, &.{4});
+    defer x.deinit();
+    var y = try coo.matvec(x);
+    defer y.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 16, 22, 29 }, y.data);
+
+    var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,
+        2, 4,
+        3, 6,
+        4, 8,
+    }, &.{ 4, 2 });
+    defer rhs.deinit();
+    var product = try coo.matmat(rhs);
+    defer product.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 16, 32, 22, 44, 29, 58 }, product.data);
 
     var csr = try coo.toCsr();
     defer csr.deinit();
