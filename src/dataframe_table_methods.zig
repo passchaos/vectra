@@ -3552,6 +3552,13 @@ pub fn withRowCumulativeWeightedChebyshevDistance(self: anytype, lhs_names: []co
 pub const withRowCumWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
 pub const withRowPrefixWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
 
+pub fn withRowCumulativeWeightedCanberraDistance(self: anytype, lhs_names: []const []const u8, rhs_names: []const []const u8, weight_names: []const []const u8, output_names: []const []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
+    return dataframe_array_mod.withRowCumulativeWeightedCanberraDistance(FrameType(@TypeOf(self)), frameValue(self), lhs_names, rhs_names, weight_names, output_names);
+}
+
+pub const withRowCumWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
+pub const withRowPrefixWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
+
 pub fn withRowFirstValidIndex(self: anytype, names: []const []const u8, output_name: []const u8) DeviceDataError!FrameType(@TypeOf(self)) {
     return dataframe_array_mod.withRowFirstValidIndex(FrameType(@TypeOf(self)), frameValue(self), names, output_name);
 }

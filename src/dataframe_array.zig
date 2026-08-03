@@ -3678,7 +3678,7 @@ pub const withRowCumWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosineSimilarity = withRowCumulativeWeightedCosineSimilarity;
 pub const withRowPrefixWeightedCosine = withRowCumulativeWeightedCosineSimilarity;
 
-const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev };
+const RowCumulativeWeightedPairDistanceReduction = enum { squared_euclidean, euclidean, manhattan, chebyshev, canberra };
 
 // Keep the cumulative pair-distance family in one engine so all variants share
 // the same null/current-position validity and positive-weight prefix contract.
@@ -3699,6 +3699,7 @@ fn withRowCumulativeWeightedPairDistance(
     const needs_quadratic_state = reduction == .squared_euclidean or reduction == .euclidean;
     const needs_l1_state = reduction == .manhattan;
     const needs_chebyshev_state = reduction == .chebyshev;
+    const needs_canberra_state = reduction == .canberra;
 
     const running_cross_sums = try input.allocator.alloc(f64, if (needs_quadratic_state) input.rows else 0);
     defer input.allocator.free(running_cross_sums);
@@ -3710,6 +3711,8 @@ fn withRowCumulativeWeightedPairDistance(
     defer input.allocator.free(running_abs_error_sums);
     const running_chebyshev_values = try input.allocator.alloc(f64, if (needs_chebyshev_state) input.rows else 0);
     defer input.allocator.free(running_chebyshev_values);
+    const running_canberra_sums = try input.allocator.alloc(f64, if (needs_canberra_state) input.rows else 0);
+    defer input.allocator.free(running_canberra_sums);
     const cumulative = try input.allocator.alloc(f64, input.rows * lhs_names.len);
     defer input.allocator.free(cumulative);
     const cumulative_validity = try input.allocator.alloc(bool, input.rows * lhs_names.len);
@@ -3720,6 +3723,7 @@ fn withRowCumulativeWeightedPairDistance(
     @memset(running_rhs_square_sums, 0.0);
     @memset(running_abs_error_sums, 0.0);
     @memset(running_chebyshev_values, 0.0);
+    @memset(running_canberra_sums, 0.0);
     @memset(cumulative, 0.0);
     @memset(cumulative_validity, false);
 
@@ -3755,6 +3759,10 @@ fn withRowCumulativeWeightedPairDistance(
                     .chebyshev => {
                         running_chebyshev_values[row] = @max(running_chebyshev_values[row], @abs(lhs - rhs));
                     },
+                    .canberra => {
+                        const abs_sum = @abs(lhs) + @abs(rhs);
+                        running_canberra_sums[row] += if (abs_sum == 0.0) 0.0 else weight * @abs(lhs - rhs) / abs_sum;
+                    },
                 }
             }
             if (!(running_weight_sums[row] > 0.0)) continue;
@@ -3764,6 +3772,7 @@ fn withRowCumulativeWeightedPairDistance(
                 .euclidean => std.math.sqrt(running_lhs_square_sums[row] + running_rhs_square_sums[row] - 2.0 * running_cross_sums[row]),
                 .manhattan => running_abs_error_sums[row],
                 .chebyshev => running_chebyshev_values[row],
+                .canberra => running_canberra_sums[row],
             };
             cumulative_validity[offset] = true;
         }
@@ -3839,6 +3848,20 @@ pub fn withRowCumulativeWeightedChebyshevDistance(
 
 pub const withRowCumWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
 pub const withRowPrefixWeightedChebyshevDistance = withRowCumulativeWeightedChebyshevDistance;
+
+pub fn withRowCumulativeWeightedCanberraDistance(
+    comptime DeviceDataFrame: type,
+    input: DeviceDataFrame,
+    lhs_names: []const []const u8,
+    rhs_names: []const []const u8,
+    weight_names: []const []const u8,
+    output_names: []const []const u8,
+) DeviceFrameArrayError!DeviceDataFrame {
+    return withRowCumulativeWeightedPairDistance(DeviceDataFrame, input, lhs_names, rhs_names, weight_names, output_names, .canberra);
+}
+
+pub const withRowCumWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
+pub const withRowPrefixWeightedCanberraDistance = withRowCumulativeWeightedCanberraDistance;
 
 const RowValidityMatchIndex = enum { first_valid, last_valid, first_null, last_null };
 

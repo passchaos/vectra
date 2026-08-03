@@ -744,6 +744,7 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
             .row_cumulative_weighted_euclidean_distance => |row_weighted| try current.withRowCumulativeWeightedEuclideanDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_manhattan_distance => |row_weighted| try current.withRowCumulativeWeightedManhattanDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_cumulative_weighted_chebyshev_distance => |row_weighted| try current.withRowCumulativeWeightedChebyshevDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
+            .row_cumulative_weighted_canberra_distance => |row_weighted| try current.withRowCumulativeWeightedCanberraDistance(row_weighted.lhs_names, row_weighted.rhs_names, row_weighted.weight_names, row_weighted.output_names),
             .row_weighted_mean => |row_weighted| try current.withRowWeightedMean(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_weighted_sum => |row_weighted| try current.withRowWeightedSum(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_name),
             .row_cumulative_weighted_sum => |row_weighted| try current.withRowCumulativeWeightedSum(row_weighted.value_names, row_weighted.weight_names, row_weighted.output_names),
