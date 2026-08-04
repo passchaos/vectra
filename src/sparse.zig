@@ -486,6 +486,23 @@ fn sparseRelativeResidualNorm(
     return residual_norm / scale;
 }
 
+fn sparseMatrixResidualNorm(comptime T: type, lhs: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+    ensureFloat(T);
+    if (lhs.shape.len != 2 or rhs.shape.len != 2) return error.NonMatrixArray;
+    if (lhs.shape[0] != rhs.shape[0] or lhs.shape[1] != rhs.shape[1]) return error.ShapeMismatch;
+    return sparseVectorResidualNorm(T, lhs.data, rhs.data);
+}
+
+fn sparseRelativeMatrixResidualNorm(
+    comptime T: type,
+    residual_norm: T,
+    operator_norm: T,
+    x_values: []const T,
+    rhs_values: []const T,
+) T {
+    return sparseRelativeResidualNorm(T, residual_norm, operator_norm, x_values, rhs_values);
+}
+
 fn sparseValueIsFinite(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
@@ -2535,6 +2552,28 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.matmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn matmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
             if (self.cols != rhs.rows) return error.ShapeMismatch;
             var lhs_csr = try self.toCsr();
@@ -2593,6 +2632,28 @@ pub fn CooMatrix(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.transposeMatmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn transpose(self: Self) SparseError!Self {
@@ -3259,6 +3320,28 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
 
+        pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.matmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn matmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
             ensureNumeric(T);
             if (self.cols != rhs.rows) return error.ShapeMismatch;
@@ -3424,6 +3507,28 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrTransposeMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.transposeMatmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn transpose(self: Self) SparseError!Self {
@@ -5118,6 +5223,28 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
 
+        pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.matmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn matmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmulSparse(self: Self, rhs: Self) SparseError!Self {
             if (self.cols != rhs.rows) return error.ShapeMismatch;
             var lhs_csr = try self.toCsr();
@@ -5200,6 +5327,28 @@ pub fn CscMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.cscTransposeMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            var predicted = try self.transposeMatmat(x);
+            defer predicted.deinit();
+            return sparseMatrixResidualNorm(T, predicted, rhs);
+        }
+
+        pub fn transposeMatmatResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatmatResidualFrobeniusNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatmatRelativeResidualFrobeniusNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn sum(self: Self) T {
@@ -8047,6 +8196,86 @@ test "sparse matvec residual diagnostics" {
     try std.testing.expect(try csc.transposeMatvecResidualNormMeetsBound(tx, perturbed_t, 1));
     try std.testing.expectApproxEqAbs(transpose_relative, try csc.transposeMatvecRelativeResidualNorm(tx, perturbed_t), 1e-12);
     try std.testing.expect(try csc.transposeMatvecRelativeResidualNormMeetsBound(tx, perturbed_t, transpose_relative + 1e-12));
+
+    var matrix_x = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,
+        3, 4,
+        5, 6,
+    }, &.{ 3, 2 });
+    defer matrix_x.deinit();
+    var matrix_exact = try array_mod.Array(f64).fromSlice(gpa, &.{
+        11, 14,
+        9,  12,
+    }, &.{ 2, 2 });
+    defer matrix_exact.deinit();
+    var matrix_perturbed = try array_mod.Array(f64).fromSlice(gpa, &.{
+        12, 14,
+        9,  14,
+    }, &.{ 2, 2 });
+    defer matrix_perturbed.deinit();
+    const matrix_residual = @sqrt(@as(f64, 5));
+    const matrix_relative = matrix_residual / (@sqrt(@as(f64, 14)) * @sqrt(@as(f64, 91)) + @sqrt(@as(f64, 617)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.matmatResidualFrobeniusNorm(matrix_x, matrix_exact), 1e-12);
+    try std.testing.expect(try coo.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_exact, 0));
+    try std.testing.expectApproxEqAbs(matrix_residual, try coo.matmatResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try coo.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual + 1e-12));
+    try std.testing.expect(!(try coo.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual * 0.999)));
+    try std.testing.expectApproxEqAbs(matrix_relative, try coo.matmatRelativeResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try coo.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative + 1e-12));
+    try std.testing.expect(!(try coo.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative * 0.5)));
+    try std.testing.expectError(error.InvalidShape, coo.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, -1));
+
+    try std.testing.expectApproxEqAbs(matrix_residual, try csr.matmatResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try csr.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual + 1e-12));
+    try std.testing.expect(!(try csr.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual * 0.999)));
+    try std.testing.expectApproxEqAbs(matrix_relative, try csr.matmatRelativeResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try csr.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative + 1e-12));
+
+    try std.testing.expectApproxEqAbs(matrix_residual, try csc.matmatResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try csc.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual + 1e-12));
+    try std.testing.expect(!(try csc.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_residual * 0.999)));
+    try std.testing.expectApproxEqAbs(matrix_relative, try csc.matmatRelativeResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
+    try std.testing.expect(try csc.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative + 1e-12));
+
+    var transpose_matrix_x = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,
+        3, 4,
+    }, &.{ 2, 2 });
+    defer transpose_matrix_x.deinit();
+    var transpose_matrix_exact = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,
+        9, 12,
+        2, 4,
+    }, &.{ 3, 2 });
+    defer transpose_matrix_exact.deinit();
+    var transpose_matrix_perturbed = try array_mod.Array(f64).fromSlice(gpa, &.{
+        2, 2,
+        9, 10,
+        2, 4,
+    }, &.{ 3, 2 });
+    defer transpose_matrix_perturbed.deinit();
+    const transpose_matrix_residual = @sqrt(@as(f64, 5));
+    const transpose_matrix_relative = transpose_matrix_residual / (@sqrt(@as(f64, 14)) * @sqrt(@as(f64, 30)) + @sqrt(@as(f64, 209)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.transposeMatmatResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_exact), 1e-12);
+    try std.testing.expect(try coo.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_exact, 0));
+    try std.testing.expectApproxEqAbs(transpose_matrix_residual, try coo.transposeMatmatResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try coo.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual + 1e-12));
+    try std.testing.expect(!(try coo.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual * 0.999)));
+    try std.testing.expectApproxEqAbs(transpose_matrix_relative, try coo.transposeMatmatRelativeResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try coo.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative + 1e-12));
+    try std.testing.expect(!(try coo.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative * 0.5)));
+
+    try std.testing.expectApproxEqAbs(transpose_matrix_residual, try csr.transposeMatmatResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try csr.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual + 1e-12));
+    try std.testing.expectApproxEqAbs(transpose_matrix_relative, try csr.transposeMatmatRelativeResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try csr.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative + 1e-12));
+
+    try std.testing.expectApproxEqAbs(transpose_matrix_residual, try csc.transposeMatmatResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try csc.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual + 1e-12));
+    try std.testing.expectApproxEqAbs(transpose_matrix_relative, try csc.transposeMatmatRelativeResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
+    try std.testing.expect(try csc.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative + 1e-12));
 }
 
 test "csc sparse transpose products and row column stats" {
