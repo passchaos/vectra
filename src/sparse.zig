@@ -5876,11 +5876,19 @@ pub fn CooMatrix(comptime T: type) type {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
@@ -11126,11 +11134,19 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
@@ -16587,11 +16603,19 @@ pub fn CscMatrix(comptime T: type) type {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
@@ -23795,6 +23819,10 @@ test "sparse dense fused elementwise helpers" {
             defer addcmul_alias.deinit();
             try expectArray(addcmul_alias, &.{ 2, 3 }, addcmul.data);
 
+            var addcmul_array_alias = try matrix.addcmulArray(input1, input2, 0.5);
+            defer addcmul_array_alias.deinit();
+            try expectArray(addcmul_array_alias, &.{ 2, 3 }, addcmul.data);
+
             var addcdiv = try matrix.addcdiv(input1, input2, 2);
             defer addcdiv.deinit();
             try expectArray(addcdiv, &.{ 2, 3 }, &.{ 2, 4.0 / 3.0, 1.5, 1.6, 11.0 / 3.0, 33.0 / 7.0 });
@@ -23802,6 +23830,10 @@ test "sparse dense fused elementwise helpers" {
             var addcdiv_alias = try matrix.addCDiv(input1, input2, 2);
             defer addcdiv_alias.deinit();
             try expectArray(addcdiv_alias, &.{ 2, 3 }, addcdiv.data);
+
+            var addcdiv_array_alias = try matrix.addcdivArray(input1, input2, 2);
+            defer addcdiv_array_alias.deinit();
+            try expectArray(addcdiv_array_alias, &.{ 2, 3 }, addcdiv.data);
 
             var lower = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 0.5, 0.5, 0.5,
