@@ -1111,6 +1111,33 @@ fn sparseDenseModArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T
     return dense.mod(rhs);
 }
 
+fn sparseDensePow(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.pow(rhs_dense);
+}
+
+fn sparseDenseFloorDiv(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.floorDiv(rhs_dense);
+}
+
+fn sparseDenseMod(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.mod(rhs_dense);
+}
+
 fn sparseDenseMaximumArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4821,6 +4848,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDensePow(T, self, rhs);
+        }
+
+        pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMod(T, self, rhs);
+        }
+
+        pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.mod(rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9587,6 +9630,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDensePow(T, self, rhs);
+        }
+
+        pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMod(T, self, rhs);
+        }
+
+        pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.mod(rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -14564,6 +14623,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDensePow(T, self, rhs);
+        }
+
+        pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMod(T, self, rhs);
+        }
+
+        pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.mod(rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -21899,6 +21974,42 @@ test "sparse dense numeric array helpers" {
             defer remainder_alias.deinit();
             try expectArray(remainder_alias, &.{ 2, 3 }, modded.data);
 
+            var rhs_sparse = try cooFromSlices(
+                i32,
+                matrix.allocator,
+                2,
+                3,
+                &.{ 0, 0, 0, 1, 1, 1 },
+                &.{ 0, 1, 2, 0, 1, 2 },
+                &.{ 2, 2, 3, 4, 5, 2 },
+            );
+            defer rhs_sparse.deinit();
+            var rhs_same_format = if (comptime Matrix == CooMatrix(i32))
+                try rhs_sparse.clone()
+            else if (comptime Matrix == CsrMatrix(i32))
+                try rhs_sparse.toCsr()
+            else if (comptime Matrix == CscMatrix(i32))
+                try rhs_sparse.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer rhs_same_format.deinit();
+
+            var sparse_powers = try matrix.pow(rhs_same_format);
+            defer sparse_powers.deinit();
+            try expectArray(sparse_powers, &.{ 2, 3 }, &.{ 4, 0, 0, 0, -1, 4 });
+
+            var sparse_floor = try matrix.floorDiv(rhs_same_format);
+            defer sparse_floor.deinit();
+            try expectArray(sparse_floor, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
+
+            var sparse_mod = try matrix.mod(rhs_same_format);
+            defer sparse_mod.deinit();
+            try expectArray(sparse_mod, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 4, 0 });
+
+            var sparse_remainder = try matrix.remainder(rhs_same_format);
+            defer sparse_remainder.deinit();
+            try expectArray(sparse_remainder, &.{ 2, 3 }, sparse_mod.data);
+
             var bounds = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
                 1, -1, 3,
                 0, 4,  5,
@@ -21954,6 +22065,22 @@ test "sparse dense numeric array helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.minimumArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.fmaxArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.fminArray(bad));
+
+            var bad_sparse_coo = try cooFromSlices(i32, matrix.allocator, 3, 2, &.{0}, &.{0}, &.{1});
+            defer bad_sparse_coo.deinit();
+            var bad_same_format = if (comptime Matrix == CooMatrix(i32))
+                try bad_sparse_coo.clone()
+            else if (comptime Matrix == CsrMatrix(i32))
+                try bad_sparse_coo.toCsr()
+            else if (comptime Matrix == CscMatrix(i32))
+                try bad_sparse_coo.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer bad_same_format.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.pow(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.floorDiv(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.mod(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.remainder(bad_same_format));
         }
     }.check;
 
