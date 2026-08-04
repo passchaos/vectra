@@ -853,6 +853,42 @@ fn sparseDensePercentileAxes(comptime T: type, matrix: anytype, percentile_value
     return dense.percentileAxes(percentile_value, axes, keepdims);
 }
 
+fn sparseDenseAverage(comptime T: type, matrix: anytype, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.average(weights, axis_opt, keepdims);
+}
+
+fn sparseDenseWeightedMean(comptime T: type, matrix: anytype, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedMean(weights, axis_opt, keepdims);
+}
+
+fn sparseDenseWeightedVariance(comptime T: type, matrix: anytype, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedVariance(weights, axis_opt, keepdims, correction);
+}
+
+fn sparseDenseWeightedStddev(comptime T: type, matrix: anytype, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedStddev(weights, axis_opt, keepdims, correction);
+}
+
+fn sparseDenseWeightedQuantile(comptime T: type, matrix: anytype, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedQuantile(weights, q, axis_opt, keepdims);
+}
+
+fn sparseDenseWeightedMedian(comptime T: type, matrix: anytype, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedMedian(weights, axis_opt, keepdims);
+}
+
 fn sparseDenseCumulative(comptime T: type, matrix: anytype, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4021,6 +4057,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -8263,6 +8331,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -12716,6 +12816,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
+            return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -19502,6 +19634,95 @@ test "sparse dense quantile helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense weighted statistic helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectWeightedStats = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                1, 2, 1,
+                3, 2, 1,
+            }, &.{ 2, 3 });
+            defer weights.deinit();
+
+            var average_unweighted = try matrix.average(null, null, false);
+            defer average_unweighted.deinit();
+            try expectArray(average_unweighted, &.{}, &.{1});
+
+            var average_weighted = try matrix.average(weights, null, false);
+            defer average_weighted.deinit();
+            try expectArray(average_weighted, &.{}, &.{8.0 / 10.0});
+
+            var weighted_mean_flat = try matrix.weightedMean(weights, null, true);
+            defer weighted_mean_flat.deinit();
+            try expectArray(weighted_mean_flat, &.{ 1, 1 }, &.{8.0 / 10.0});
+
+            var weighted_mean_rows = try matrix.weightedMean(weights, 1, false);
+            defer weighted_mean_rows.deinit();
+            try expectArray(weighted_mean_rows, &.{2}, &.{ 0.25, 7.0 / 6.0 });
+
+            var weighted_variance_flat = try matrix.weightedVariance(weights, null, false, 0);
+            defer weighted_variance_flat.deinit();
+            try expectArray(weighted_variance_flat, &.{}, &.{1.16});
+
+            var weighted_var_rows = try matrix.weightedVar(weights, 1, false, 0);
+            defer weighted_var_rows.deinit();
+            try expectArray(weighted_var_rows, &.{2}, &.{ 3.0 / 16.0, 53.0 / 36.0 });
+
+            var weighted_std_flat = try matrix.weightedStddev(weights, null, false, 0);
+            defer weighted_std_flat.deinit();
+            try expectArray(weighted_std_flat, &.{}, &.{@sqrt(1.16)});
+
+            var weighted_std_rows = try matrix.weightedStd(weights, 1, false, 0);
+            defer weighted_std_rows.deinit();
+            try expectArray(weighted_std_rows, &.{2}, &.{ @sqrt(3.0 / 16.0), @sqrt(53.0 / 36.0) });
+
+            var weighted_quantile_flat = try matrix.weightedQuantile(weights, 0.5, null, false);
+            defer weighted_quantile_flat.deinit();
+            try expectArray(weighted_quantile_flat, &.{}, &.{0});
+
+            var weighted_quantile_rows = try matrix.weightedQuantile(weights, 0.75, 1, false);
+            defer weighted_quantile_rows.deinit();
+            try expectArray(weighted_quantile_rows, &.{2}, &.{ 0, 2 });
+
+            var weighted_median_flat = try matrix.weightedMedian(weights, null, false);
+            defer weighted_median_flat.deinit();
+            try expectArray(weighted_median_flat, &.{}, weighted_quantile_flat.data);
+
+            var weighted_median_rows = try matrix.weightedMedian(weights, 1, false);
+            defer weighted_median_rows.deinit();
+            try expectArray(weighted_median_rows, &.{2}, &.{ 0, 0 });
+
+            var bad_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
+            defer bad_weights.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.weightedMean(bad_weights, null, false));
+
+            var negative_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                1, -1, 1,
+                1, 1,  1,
+            }, &.{ 2, 3 });
+            defer negative_weights.deinit();
+            try std.testing.expectError(error.InvalidShape, matrix.weightedMean(negative_weights, null, false));
+            try std.testing.expectError(error.InvalidShape, matrix.weightedQuantile(weights, 1.5, null, false));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectWeightedStats(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectWeightedStats(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectWeightedStats(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense covariance helpers" {
