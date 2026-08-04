@@ -158,7 +158,7 @@ Array IO / serialization 当前支持：
 - `isclose()/isClose()/iscloseEqualNan()/isCloseEqualNan()/allclose()/allClose()/allcloseEqualNan()/allCloseEqualNan()`：按 dense materialization 语义比较同形状稀疏矩阵，`*Dense` variants 支持与 dense `Array` 比较；`diffSummary()/diffSummaryMeetsBounds()/maxAbsDiff()/maxAbsDiffMeetsBound()/maxRelDiff()/maxRelDiffMeetsBound()/squaredDistance()/squaredDistanceMeetsBound()/frobeniusDistance()/frobeniusDistanceMeetsBound()/relativeFrobeniusDistance()/relativeFrobeniusDistanceMeetsBound()/diffSummaryDense()/diffSummaryDenseMeetsBounds()/maxAbsDiffDense()/maxAbsDiffDenseMeetsBound()/maxRelDiffDense()/maxRelDiffDenseMeetsBound()/squaredDistanceDense()/squaredDistanceDenseMeetsBound()/frobeniusDistanceDense()/frobeniusDistanceDenseMeetsBound()/relativeFrobeniusDistanceDense()/relativeFrobeniusDistanceDenseMeetsBound()/sameStructure()/dotSameStructure()/sameStructureDiffSummary()/maxAbsDiffSameStructure()/maxAbsDiffSameStructureMeetsBound()/maxRelDiffSameStructure()/maxRelDiffSameStructureMeetsBound()/squaredDistanceSameStructure()/squaredDistanceSameStructureMeetsBound()/frobeniusDistanceSameStructure()/frobeniusDistanceSameStructureMeetsBound()/relativeFrobeniusDistanceSameStructure()/relativeFrobeniusDistanceSameStructureMeetsBound()`：COO 精确结构比较、同结构存储值点积与距离诊断；`coalesced()`：返回按 `(row, col)` 排序且重复坐标已聚合的 COO 副本，便于生成规范化 sparse 结构。
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
 - `dropZerosNnz()` 预估删除显式零值后的存储项数量；`dropZeros()`：移除显式存储的零值；`pruneZerosNnz(tolerance)` 预估阈值裁剪后的存储项数量；`pruneZeros(tolerance)`：按绝对值阈值移除近零存储值，适合在加法/聚合后压缩结构。
-- `positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`：COO 存储值逐元素一元变换并保留当前结构；`scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
+- `positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`、`clip/clipMin/clipMax/clamp/clampMin/clampMax()`：COO 存储值逐元素一元/标量边界变换并保留当前结构；`scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
 - `scaleRows/scaleColumns/scaleRowsAndColumns()`：COO 行/列向量缩放，保留当前结构。
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
 - `hadamard/mul/multiply()`：COO 同形状逐元素乘法，仅保留两边都有结构项的坐标并聚合重复项；`matmulSparse()` 支持 COO×COO 稀疏矩阵乘法。
@@ -176,7 +176,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.coalesced()`：返回每行列索引有序、重复坐标已聚合的 CSR 副本。
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
 - `CsrMatrix.dropZerosNnz()` 预估删除显式零值后的存储项数量；`dropZeros()` 移除显式零值并保持 CSR 行压缩结构；`pruneZerosNnz(tolerance)` 预估阈值裁剪后的存储项数量；`pruneZeros(tolerance)` 按绝对值阈值移除近零存储值。
-- `CsrMatrix.positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`：CSR 存储值逐元素一元变换并保留行压缩结构；`scale()`：CSR 标量缩放并保留行压缩结构。
+- `CsrMatrix.positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`、`clip/clipMin/clipMax/clamp/clampMin/clampMax()`：CSR 存储值逐元素一元/标量边界变换并保留行压缩结构；`scale()`：CSR 标量缩放并保留行压缩结构。
 - `CsrMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSR 行/列向量缩放并保留行压缩结构。
 - `CsrMatrix.neg/negative/sub()`：CSR 符号翻转与同形状减法。
 - `CsrMatrix.hadamard/mul/multiply()`：CSR 同形状逐元素乘法，结果保持 CSR 所有权。
@@ -198,7 +198,7 @@ CSC 当前支持：
 - `CscMatrix.coalesced()`：返回每列行索引有序、重复坐标已聚合的 CSC 副本。
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
 - `CscMatrix.dropZerosNnz()` 预估删除显式零值后的存储项数量；`dropZeros()` 移除显式零值并保持 CSC 列压缩结构；`pruneZerosNnz(tolerance)` 预估阈值裁剪后的存储项数量；`pruneZeros(tolerance)` 按绝对值阈值移除近零存储值。
-- `CscMatrix.positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`：CSC 存储值逐元素一元变换并保留列压缩结构；`scale()`：CSC 标量缩放并保留列压缩结构。
+- `CscMatrix.positive()`、`abs/absolute/fabs()`、`square()`、`sqrt()`、`rsqrt()`、`cbrt()`、`reciprocal()`、`floor()`、`ceil()`、`round()`、`trunc()`、`sign()`、`signbit()`、`clip/clipMin/clipMax/clamp/clampMin/clampMax()`：CSC 存储值逐元素一元/标量边界变换并保留列压缩结构；`scale()`：CSC 标量缩放并保留列压缩结构。
 - `CscMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSC 行/列向量缩放并保留列压缩结构。
 - `CscMatrix.neg/negative/sub()`：CSC 符号翻转与同形状减法。
 - `CscMatrix.hadamard/mul/multiply()`：CSC 同形状逐元素乘法，结果保持 CSC 所有权。

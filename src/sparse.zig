@@ -1557,6 +1557,49 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn clipMin(self: Self, min_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) value.* = min_value;
+            }
+            return out;
+        }
+
+        pub fn clampMin(self: Self, min_value: T) SparseError!Self {
+            return self.clipMin(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* > max_value) value.* = max_value;
+            }
+            return out;
+        }
+
+        pub fn clampMax(self: Self, max_value: T) SparseError!Self {
+            return self.clipMax(max_value);
+        }
+
+        pub fn clip(self: Self, min_value: T, max_value: T) SparseError!Self {
+            try validateSparseValueRange(T, min_value, max_value);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) {
+                    value.* = min_value;
+                } else if (value.* > max_value) {
+                    value.* = max_value;
+                }
+            }
+            return out;
+        }
+
+        pub fn clamp(self: Self, min_value: T, max_value: T) SparseError!Self {
+            return self.clip(min_value, max_value);
+        }
+
         pub fn sign(self: Self) SparseError!Self {
             ensureNumeric(T);
             const out = try self.clone();
@@ -3952,6 +3995,49 @@ pub fn CsrMatrix(comptime T: type) type {
             const out = try self.clone();
             for (out.values) |*value| value.* = truncSparseValue(T, value.*);
             return out;
+        }
+
+        pub fn clipMin(self: Self, min_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) value.* = min_value;
+            }
+            return out;
+        }
+
+        pub fn clampMin(self: Self, min_value: T) SparseError!Self {
+            return self.clipMin(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* > max_value) value.* = max_value;
+            }
+            return out;
+        }
+
+        pub fn clampMax(self: Self, max_value: T) SparseError!Self {
+            return self.clipMax(max_value);
+        }
+
+        pub fn clip(self: Self, min_value: T, max_value: T) SparseError!Self {
+            try validateSparseValueRange(T, min_value, max_value);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) {
+                    value.* = min_value;
+                } else if (value.* > max_value) {
+                    value.* = max_value;
+                }
+            }
+            return out;
+        }
+
+        pub fn clamp(self: Self, min_value: T, max_value: T) SparseError!Self {
+            return self.clip(min_value, max_value);
         }
 
         pub fn sign(self: Self) SparseError!Self {
@@ -6560,6 +6646,49 @@ pub fn CscMatrix(comptime T: type) type {
             const out = try self.clone();
             for (out.values) |*value| value.* = truncSparseValue(T, value.*);
             return out;
+        }
+
+        pub fn clipMin(self: Self, min_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) value.* = min_value;
+            }
+            return out;
+        }
+
+        pub fn clampMin(self: Self, min_value: T) SparseError!Self {
+            return self.clipMin(min_value);
+        }
+
+        pub fn clipMax(self: Self, max_value: T) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* > max_value) value.* = max_value;
+            }
+            return out;
+        }
+
+        pub fn clampMax(self: Self, max_value: T) SparseError!Self {
+            return self.clipMax(max_value);
+        }
+
+        pub fn clip(self: Self, min_value: T, max_value: T) SparseError!Self {
+            try validateSparseValueRange(T, min_value, max_value);
+            const out = try self.clone();
+            for (out.values) |*value| {
+                if (value.* < min_value) {
+                    value.* = min_value;
+                } else if (value.* > max_value) {
+                    value.* = max_value;
+                }
+            }
+            return out;
+        }
+
+        pub fn clamp(self: Self, min_value: T, max_value: T) SparseError!Self {
+            return self.clip(min_value, max_value);
         }
 
         pub fn sign(self: Self) SparseError!Self {
@@ -10359,6 +10488,18 @@ test "sparse stored rounding unary helpers preserve structure" {
     var coo_trunc = try coo.trunc();
     defer coo_trunc.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, coo_trunc.values);
+    var coo_clip_min = try coo.clipMin(0);
+    defer coo_clip_min.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_clip_min.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_clip_min.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, coo_clip_min.values);
+    var coo_clip_max = try coo.clipMax(3);
+    defer coo_clip_max.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, coo_clip_max.values);
+    var coo_clip = try coo.clip(-1, 3);
+    defer coo_clip.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, coo_clip.values);
+    try std.testing.expectError(error.InvalidShape, coo.clip(3, -1));
 
     var csr = try coo.toCsr();
     defer csr.deinit();
@@ -10376,6 +10517,18 @@ test "sparse stored rounding unary helpers preserve structure" {
     var csr_trunc = try csr.trunc();
     defer csr_trunc.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, csr_trunc.values);
+    var csr_clip_min = try csr.clampMin(0);
+    defer csr_clip_min.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_clip_min.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_clip_min.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, csr_clip_min.values);
+    var csr_clip_max = try csr.clampMax(3);
+    defer csr_clip_max.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, csr_clip_max.values);
+    var csr_clip = try csr.clamp(-1, 3);
+    defer csr_clip.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, csr_clip.values);
+    try std.testing.expectError(error.InvalidShape, csr.clamp(3, -1));
 
     var csc = try coo.toCsc();
     defer csc.deinit();
@@ -10393,6 +10546,18 @@ test "sparse stored rounding unary helpers preserve structure" {
     var csc_trunc = try csc.trunc();
     defer csc_trunc.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, csc_trunc.values);
+    var csc_clip_min = try csc.clipMin(0);
+    defer csc_clip_min.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_clip_min.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_clip_min.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, csc_clip_min.values);
+    var csc_clip_max = try csc.clipMax(3);
+    defer csc_clip_max.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, csc_clip_max.values);
+    var csc_clip = try csc.clip(-1, 3);
+    defer csc_clip.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, csc_clip.values);
+    try std.testing.expectError(error.InvalidShape, csc.clip(3, -1));
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
