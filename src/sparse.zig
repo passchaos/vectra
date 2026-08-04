@@ -1274,6 +1274,19 @@ pub fn CooMatrix(comptime T: type) type {
             );
         }
 
+        pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.allclose(rhs_dense, rtol, atol);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
+        }
+
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
@@ -3235,6 +3248,19 @@ pub fn CsrMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.allclose(rhs_dense, rtol, atol);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -5411,6 +5437,19 @@ pub fn CscMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.allclose(rhs_dense, rtol, atol);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -8269,6 +8308,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(relative_distance, try lhs.relativeFrobeniusDistanceSameStructure(dot_rhs), 1e-12);
     try std.testing.expect(try lhs.relativeFrobeniusDistanceSameStructureMeetsBound(dot_rhs, relative_distance));
     try std.testing.expect(!(try lhs.relativeFrobeniusDistanceSameStructureMeetsBound(dot_rhs, relative_distance - 1e-12)));
+    try std.testing.expect(try lhs.allclose(lhs, 1e-12, 1e-12));
+    try std.testing.expect(try lhs.allClose(lhs, 1e-12, 1e-12));
+    try std.testing.expect(!(try lhs.allclose(rhs, 1e-12, 1e-12)));
+    try std.testing.expect(try lhs.allclose(rhs, 1, 4));
 
     var different_structure = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
     defer different_structure.deinit();
@@ -8309,6 +8352,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs_csr.frobeniusDistanceSameStructureMeetsBound(dot_rhs_csr, @sqrt(@as(f64, 29))));
     try std.testing.expectApproxEqAbs(relative_distance, try lhs_csr.relativeFrobeniusDistanceSameStructure(dot_rhs_csr), 1e-12);
     try std.testing.expect(try lhs_csr.relativeFrobeniusDistanceSameStructureMeetsBound(dot_rhs_csr, relative_distance));
+    try std.testing.expect(try lhs_csr.allclose(lhs_csr, 1e-12, 1e-12));
+    try std.testing.expect(!(try lhs_csr.allclose(rhs_csr, 1e-12, 1e-12)));
+    try std.testing.expect(try lhs_csr.allClose(rhs_csr, 1, 4));
+    var different_shape_csr = try different_shape.toCsr();
+    defer different_shape_csr.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs_csr.allclose(different_shape_csr, 1e-12, 1e-12));
     var csr_sum = try lhs_csr.add(rhs_csr);
     defer csr_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
@@ -8403,6 +8452,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs_csc.frobeniusDistanceSameStructureMeetsBound(dot_rhs_csc, @sqrt(@as(f64, 29))));
     try std.testing.expectApproxEqAbs(relative_distance, try lhs_csc.relativeFrobeniusDistanceSameStructure(dot_rhs_csc), 1e-12);
     try std.testing.expect(try lhs_csc.relativeFrobeniusDistanceSameStructureMeetsBound(dot_rhs_csc, relative_distance));
+    try std.testing.expect(try lhs_csc.allclose(lhs_csc, 1e-12, 1e-12));
+    try std.testing.expect(!(try lhs_csc.allclose(rhs_csc, 1e-12, 1e-12)));
+    try std.testing.expect(try lhs_csc.allClose(rhs_csc, 1, 4));
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
