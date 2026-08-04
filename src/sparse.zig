@@ -4465,6 +4465,14 @@ pub fn CooMatrix(comptime T: type) type {
             return array_mod.DType.of(T).bitSize();
         }
 
+        pub fn byteSize(self: Self) usize {
+            return self.dtypeByteSize();
+        }
+
+        pub fn bitSize(self: Self) usize {
+            return self.dtypeBitSize();
+        }
+
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
@@ -4516,6 +4524,34 @@ pub fn CooMatrix(comptime T: type) type {
         pub fn isNumericDtype(self: Self) bool {
             _ = self;
             return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn isFloat(self: Self) bool {
+            return self.isFloatDtype();
+        }
+
+        pub fn isInteger(self: Self) bool {
+            return self.isIntegerDtype();
+        }
+
+        pub fn isSigned(self: Self) bool {
+            return self.isSignedDtype();
+        }
+
+        pub fn isUnsigned(self: Self) bool {
+            return self.isUnsignedDtype();
+        }
+
+        pub fn isComplex(self: Self) bool {
+            return self.isComplexDtype();
+        }
+
+        pub fn isBool(self: Self) bool {
+            return self.isBoolDtype();
+        }
+
+        pub fn isNumeric(self: Self) bool {
+            return self.isNumericDtype();
         }
 
         pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
@@ -10173,6 +10209,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.DType.of(T).bitSize();
         }
 
+        pub fn byteSize(self: Self) usize {
+            return self.dtypeByteSize();
+        }
+
+        pub fn bitSize(self: Self) usize {
+            return self.dtypeBitSize();
+        }
+
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
@@ -10224,6 +10268,34 @@ pub fn CsrMatrix(comptime T: type) type {
         pub fn isNumericDtype(self: Self) bool {
             _ = self;
             return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn isFloat(self: Self) bool {
+            return self.isFloatDtype();
+        }
+
+        pub fn isInteger(self: Self) bool {
+            return self.isIntegerDtype();
+        }
+
+        pub fn isSigned(self: Self) bool {
+            return self.isSignedDtype();
+        }
+
+        pub fn isUnsigned(self: Self) bool {
+            return self.isUnsignedDtype();
+        }
+
+        pub fn isComplex(self: Self) bool {
+            return self.isComplexDtype();
+        }
+
+        pub fn isBool(self: Self) bool {
+            return self.isBoolDtype();
+        }
+
+        pub fn isNumeric(self: Self) bool {
+            return self.isNumericDtype();
         }
 
         pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
@@ -16094,6 +16166,14 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.DType.of(T).bitSize();
         }
 
+        pub fn byteSize(self: Self) usize {
+            return self.dtypeByteSize();
+        }
+
+        pub fn bitSize(self: Self) usize {
+            return self.dtypeBitSize();
+        }
+
         pub fn elementSize(self: Self) usize {
             _ = self;
             return @sizeOf(T);
@@ -16145,6 +16225,34 @@ pub fn CscMatrix(comptime T: type) type {
         pub fn isNumericDtype(self: Self) bool {
             _ = self;
             return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn isFloat(self: Self) bool {
+            return self.isFloatDtype();
+        }
+
+        pub fn isInteger(self: Self) bool {
+            return self.isIntegerDtype();
+        }
+
+        pub fn isSigned(self: Self) bool {
+            return self.isSignedDtype();
+        }
+
+        pub fn isUnsigned(self: Self) bool {
+            return self.isUnsignedDtype();
+        }
+
+        pub fn isComplex(self: Self) bool {
+            return self.isComplexDtype();
+        }
+
+        pub fn isBool(self: Self) bool {
+            return self.isBoolDtype();
+        }
+
+        pub fn isNumeric(self: Self) bool {
+            return self.isNumericDtype();
         }
 
         pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
@@ -24227,17 +24335,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqual(array_mod.DType.f64.tag(), lhs.dtypeTag());
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.dtypeByteSize());
     try std.testing.expectEqual(@as(usize, @bitSizeOf(f64)), lhs.dtypeBitSize());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.byteSize());
+    try std.testing.expectEqual(@as(usize, @bitSizeOf(f64)), lhs.bitSize());
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.elementSize());
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.itemsize());
     try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), try lhs.nbytes());
     try std.testing.expect(lhs.isFloatDtype());
+    try std.testing.expect(lhs.isFloat());
     try std.testing.expect(!lhs.isIntegerDtype());
+    try std.testing.expect(!lhs.isInteger());
     try std.testing.expect(!lhs.isSignedDtype());
+    try std.testing.expect(!lhs.isSigned());
     try std.testing.expect(!lhs.isUnsignedDtype());
+    try std.testing.expect(!lhs.isUnsigned());
     try std.testing.expect(!lhs.isComplexDtype());
+    try std.testing.expect(!lhs.isComplex());
     try std.testing.expect(!lhs.isBoolDtype());
+    try std.testing.expect(!lhs.isBool());
     try std.testing.expect(lhs.isRealDtype());
     try std.testing.expect(lhs.isNumericDtype());
+    try std.testing.expect(lhs.isNumeric());
     try std.testing.expect(lhs.canCastToDtype(.f32));
     try std.testing.expectEqual(array_mod.Backend.cpu, lhs.deviceBackend());
     try std.testing.expectEqual(@as(usize, 0), lhs.deviceIndex());
