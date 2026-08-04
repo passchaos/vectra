@@ -6814,6 +6814,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseWhere(T, src, mask, self);
         }
 
+        pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseWhereArray(T, self, mask, src);
+        }
+
         pub fn sameStructure(self: Self, rhs: Self) bool {
             return self.rows == rhs.rows and
                 self.cols == rhs.cols and
@@ -12260,6 +12264,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn copyWhere(self: Self, mask: array_mod.Array(bool), src: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, src, mask, self);
+        }
+
+        pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseWhereArray(T, self, mask, src);
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
@@ -17929,6 +17937,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseWhere(T, src, mask, self);
         }
 
+        pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseWhereArray(T, self, mask, src);
+        }
+
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
             return veyra.CscView(T).fromSlices(self.rows, self.cols, self.col_offsets, self.row_indices, self.values) catch return error.BackendFailure;
         }
@@ -22032,6 +22044,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var copied = try matrix.copyWhere(mask, rhs_matrix);
             defer copied.deinit();
             try expectMatrix(copied, &.{ 4, 0, 0, 0, -2, 3 });
+
+            var copied_array = try matrix.copyWhereFromArray(mask, rhs_dense);
+            defer copied_array.deinit();
+            try expectMatrix(copied_array, &.{ 1, 0, 0, 0, 2, 6 });
 
             var masked = try matrix.maskedSelect(mask);
             defer masked.deinit();
