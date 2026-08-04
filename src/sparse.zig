@@ -4852,16 +4852,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseFlatNonzero(self);
         }
 
+        pub fn flatNonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.flatNonzero(), out);
+        }
+
         pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseNonzero(self);
+        }
+
+        pub fn nonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nonzero(), out);
         }
 
         pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
         }
 
+        pub fn argwhereOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
+        }
+
         pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn whereIndicesOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
         }
 
         pub fn all(self: Self) SparseError!bool {
@@ -10990,16 +11006,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseFlatNonzero(self);
         }
 
+        pub fn flatNonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.flatNonzero(), out);
+        }
+
         pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseNonzero(self);
+        }
+
+        pub fn nonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nonzero(), out);
         }
 
         pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
         }
 
+        pub fn argwhereOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
+        }
+
         pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn whereIndicesOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
         }
 
         pub fn all(self: Self) SparseError!bool {
@@ -17341,16 +17373,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseFlatNonzero(self);
         }
 
+        pub fn flatNonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.flatNonzero(), out);
+        }
+
         pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseNonzero(self);
+        }
+
+        pub fn nonzeroOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nonzero(), out);
         }
 
         pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
         }
 
+        pub fn argwhereOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
+        }
+
         pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn whereIndicesOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try self.nonzeroOut(out);
         }
 
         pub fn all(self: Self) SparseError!bool {
@@ -24346,21 +24394,33 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer flat.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, flat.shape);
             try std.testing.expectEqualSlices(usize, &.{ 0, 4, 5 }, flat.data);
+            var flat_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{3});
+            defer flat_out.deinit();
+            try matrix.flatNonzeroOut(flat_out);
+            try std.testing.expectEqualSlices(usize, flat.data, flat_out.data);
 
             var nonzero = try matrix.nonzero();
             defer nonzero.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, nonzero.shape);
             try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 1, 2 }, nonzero.data);
+            var nonzero_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 3, 2 });
+            defer nonzero_out.deinit();
+            try matrix.nonzeroOut(nonzero_out);
+            try std.testing.expectEqualSlices(usize, nonzero.data, nonzero_out.data);
 
             var argwhere = try matrix.argwhere();
             defer argwhere.deinit();
             try std.testing.expectEqualSlices(usize, nonzero.shape, argwhere.shape);
             try std.testing.expectEqualSlices(usize, nonzero.data, argwhere.data);
+            try matrix.argwhereOut(nonzero_out);
+            try std.testing.expectEqualSlices(usize, argwhere.data, nonzero_out.data);
 
             var where_indices = try matrix.whereIndices();
             defer where_indices.deinit();
             try std.testing.expectEqualSlices(usize, nonzero.shape, where_indices.shape);
             try std.testing.expectEqualSlices(usize, nonzero.data, where_indices.data);
+            try matrix.whereIndicesOut(nonzero_out);
+            try std.testing.expectEqualSlices(usize, where_indices.data, nonzero_out.data);
         }
     }.check;
     const expectWhere = struct {
