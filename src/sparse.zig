@@ -1767,6 +1767,12 @@ pub fn CooMatrix(comptime T: type) type {
             return @sqrt(total);
         }
 
+        pub fn frobeniusNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureFloat(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return self.frobeniusNorm() <= max_norm;
+        }
+
         pub fn density(self: Self) SparseError!f64 {
             const total = self.rows * self.cols;
             if (total == 0) return 0;
@@ -1792,6 +1798,12 @@ pub fn CooMatrix(comptime T: type) type {
             return max_sum;
         }
 
+        pub fn oneNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.oneNorm()) <= max_norm;
+        }
+
         pub fn infNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var row_sums = try self.allocator.alloc(T, self.rows);
@@ -1803,6 +1815,12 @@ pub fn CooMatrix(comptime T: type) type {
                 if (sum_value > max_sum) max_sum = sum_value;
             }
             return max_sum;
+        }
+
+        pub fn infNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.infNorm()) <= max_norm;
         }
 
         pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
@@ -3563,6 +3581,12 @@ pub fn CsrMatrix(comptime T: type) type {
             return @sqrt(total);
         }
 
+        pub fn frobeniusNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureFloat(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return self.frobeniusNorm() <= max_norm;
+        }
+
         pub fn density(self: Self) SparseError!f64 {
             const total = self.rows * self.cols;
             if (total == 0) return 0;
@@ -3592,6 +3616,12 @@ pub fn CsrMatrix(comptime T: type) type {
             return max_sum;
         }
 
+        pub fn oneNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.oneNorm()) <= max_norm;
+        }
+
         pub fn infNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var max_sum = zero(T);
@@ -3601,6 +3631,12 @@ pub fn CsrMatrix(comptime T: type) type {
                 if (row_sum > max_sum) max_sum = row_sum;
             }
             return max_sum;
+        }
+
+        pub fn infNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.infNorm()) <= max_norm;
         }
 
         pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
@@ -5235,6 +5271,12 @@ pub fn CscMatrix(comptime T: type) type {
             return @sqrt(total);
         }
 
+        pub fn frobeniusNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureFloat(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return self.frobeniusNorm() <= max_norm;
+        }
+
         pub fn density(self: Self) SparseError!f64 {
             const total = self.rows * self.cols;
             if (total == 0) return 0;
@@ -5262,6 +5304,12 @@ pub fn CscMatrix(comptime T: type) type {
             return max_sum;
         }
 
+        pub fn oneNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.oneNorm()) <= max_norm;
+        }
+
         pub fn infNorm(self: Self) SparseError!T {
             ensureNumeric(T);
             var row_sums = try self.allocator.alloc(T, self.rows);
@@ -5273,6 +5321,12 @@ pub fn CscMatrix(comptime T: type) type {
                 if (sum_value > max_sum) max_sum = sum_value;
             }
             return max_sum;
+        }
+
+        pub fn infNormMeetsBound(self: Self, max_norm: T) SparseError!bool {
+            ensureNumeric(T);
+            try validateSparseValueRange(T, zero(T), max_norm);
+            return (try self.infNorm()) <= max_norm;
         }
 
         pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
@@ -6183,8 +6237,17 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expect(!(try coo.absSumInRange(31, 32)));
     try std.testing.expectError(error.InvalidShape, coo.absSumInRange(31, 30));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), coo.frobeniusNorm(), 1e-12);
+    try std.testing.expect(try coo.frobeniusNormMeetsBound(@sqrt(@as(f64, 190.0))));
+    try std.testing.expect(!(try coo.frobeniusNormMeetsBound(@sqrt(@as(f64, 190.0)) - 1e-12)));
+    try std.testing.expectError(error.InvalidShape, coo.frobeniusNormMeetsBound(std.math.nan(f64)));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try coo.oneNorm(), 1e-12);
+    try std.testing.expect(try coo.oneNormMeetsBound(15));
+    try std.testing.expect(!(try coo.oneNormMeetsBound(14.999)));
+    try std.testing.expectError(error.InvalidShape, coo.oneNormMeetsBound(-1));
     try std.testing.expectApproxEqAbs(@as(f64, 12), try coo.infNorm(), 1e-12);
+    try std.testing.expect(try coo.infNormMeetsBound(12));
+    try std.testing.expect(!(try coo.infNormMeetsBound(11.999)));
+    try std.testing.expectError(error.InvalidShape, coo.infNormMeetsBound(std.math.inf(f64)));
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try coo.density(), 1e-12);
 
     var dense_roundtrip = try coo.toDense();
@@ -7280,8 +7343,17 @@ test "csr sparse matmat transpose and statistics" {
     try std.testing.expect(!(try csr.absSumInRange(7, 8)));
     try std.testing.expectError(error.InvalidShape, csr.absSumInRange(std.math.nan(f64), 6));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(14.0)), csr.frobeniusNorm(), 1e-12);
+    try std.testing.expect(try csr.frobeniusNormMeetsBound(@sqrt(@as(f64, 14.0))));
+    try std.testing.expect(!(try csr.frobeniusNormMeetsBound(@sqrt(@as(f64, 14.0)) - 1e-12)));
+    try std.testing.expectError(error.InvalidShape, csr.frobeniusNormMeetsBound(std.math.nan(f64)));
     try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.oneNorm(), 1e-12);
+    try std.testing.expect(try csr.oneNormMeetsBound(3));
+    try std.testing.expect(!(try csr.oneNormMeetsBound(2.999)));
+    try std.testing.expectError(error.InvalidShape, csr.oneNormMeetsBound(-1));
     try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.infNorm(), 1e-12);
+    try std.testing.expect(try csr.infNormMeetsBound(3));
+    try std.testing.expect(!(try csr.infNormMeetsBound(2.999)));
+    try std.testing.expectError(error.InvalidShape, csr.infNormMeetsBound(std.math.inf(f64)));
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.density(), 1e-12);
 }
 
@@ -7673,8 +7745,17 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     try std.testing.expect(!(try csc.absSumInRange(31, 32)));
     try std.testing.expectError(error.InvalidShape, csc.absSumInRange(std.math.inf(f64), 31));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), csc.frobeniusNorm(), 1e-12);
+    try std.testing.expect(try csc.frobeniusNormMeetsBound(@sqrt(@as(f64, 190.0))));
+    try std.testing.expect(!(try csc.frobeniusNormMeetsBound(@sqrt(@as(f64, 190.0)) - 1e-12)));
+    try std.testing.expectError(error.InvalidShape, csc.frobeniusNormMeetsBound(std.math.nan(f64)));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try csc.oneNorm(), 1e-12);
+    try std.testing.expect(try csc.oneNormMeetsBound(15));
+    try std.testing.expect(!(try csc.oneNormMeetsBound(14.999)));
+    try std.testing.expectError(error.InvalidShape, csc.oneNormMeetsBound(-1));
     try std.testing.expectApproxEqAbs(@as(f64, 12), try csc.infNorm(), 1e-12);
+    try std.testing.expect(try csc.infNormMeetsBound(12));
+    try std.testing.expect(!(try csc.infNormMeetsBound(11.999)));
+    try std.testing.expectError(error.InvalidShape, csc.infNormMeetsBound(std.math.inf(f64)));
 }
 
 test "csc sparse transpose products and row column stats" {
