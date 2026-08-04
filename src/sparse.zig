@@ -84,6 +84,29 @@ pub const SparseDiffSummary = struct {
 
 const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
 
+fn ensureSparseComparisonSupported(comptime T: type, comptime comparison: SparseScalarComparison) void {
+    switch (@typeInfo(T)) {
+        .bool, .int, .float => {},
+        else => @compileError("sparse comparison requires bool, integer, or floating-point values"),
+    }
+    switch (comparison) {
+        .eq, .ne => {},
+        .gt, .ge, .lt, .le => ensureNumeric(T),
+    }
+}
+
+fn sparseCompareValue(comptime T: type, lhs: T, rhs: T, comptime comparison: SparseScalarComparison) bool {
+    ensureSparseComparisonSupported(T, comparison);
+    return switch (comparison) {
+        .eq => lhs == rhs,
+        .ne => lhs != rhs,
+        .gt => lhs > rhs,
+        .ge => lhs >= rhs,
+        .lt => lhs < rhs,
+        .le => lhs <= rhs,
+    };
+}
+
 fn sparseCompareScalarValues(
     comptime T: type,
     allocator: std.mem.Allocator,
@@ -91,18 +114,26 @@ fn sparseCompareScalarValues(
     scalar: T,
     comptime comparison: SparseScalarComparison,
 ) SparseError![]bool {
-    ensureNumeric(T);
     var out = try allocator.alloc(bool, values.len);
     errdefer allocator.free(out);
     for (values, 0..) |value, index| {
-        out[index] = switch (comparison) {
-            .eq => value == scalar,
-            .ne => value != scalar,
-            .gt => value > scalar,
-            .ge => value >= scalar,
-            .lt => value < scalar,
-            .le => value <= scalar,
-        };
+        out[index] = sparseCompareValue(T, value, scalar, comparison);
+    }
+    return out;
+}
+
+fn sparseCompareSameStructureValues(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    lhs_values: []const T,
+    rhs_values: []const T,
+    comptime comparison: SparseScalarComparison,
+) SparseError![]bool {
+    if (lhs_values.len != rhs_values.len) return error.ShapeMismatch;
+    var out = try allocator.alloc(bool, lhs_values.len);
+    errdefer allocator.free(out);
+    for (lhs_values, rhs_values, 0..) |lhs, rhs, index| {
+        out[index] = sparseCompareValue(T, lhs, rhs, comparison);
     }
     return out;
 }
@@ -1789,6 +1820,73 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
             return self.lessEqualScalar(scalar);
+        }
+
+        fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CooMatrix(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try sparseCompareSameStructureValues(T, self.allocator, self.values, rhs.values, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .eq);
+        }
+
+        pub fn eqSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.equalSameStructure(rhs);
+        }
+
+        pub fn notEqualSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .ne);
+        }
+
+        pub fn neSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.notEqualSameStructure(rhs);
+        }
+
+        pub fn greaterSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .gt);
+        }
+
+        pub fn gtSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.greaterSameStructure(rhs);
+        }
+
+        pub fn greaterEqualSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .ge);
+        }
+
+        pub fn geSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.greaterEqualSameStructure(rhs);
+        }
+
+        pub fn lessSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .lt);
+        }
+
+        pub fn ltSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.lessSameStructure(rhs);
+        }
+
+        pub fn lessEqualSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.compareSameStructure(rhs, .le);
+        }
+
+        pub fn leSameStructure(self: Self, rhs: Self) SparseError!CooMatrix(bool) {
+            return self.lessEqualSameStructure(rhs);
         }
 
         pub fn nnz(self: Self) usize {
@@ -4508,6 +4606,73 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
             return self.lessEqualScalar(scalar);
+        }
+
+        fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CsrMatrix(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try sparseCompareSameStructureValues(T, self.allocator, self.values, rhs.values, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .eq);
+        }
+
+        pub fn eqSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.equalSameStructure(rhs);
+        }
+
+        pub fn notEqualSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .ne);
+        }
+
+        pub fn neSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.notEqualSameStructure(rhs);
+        }
+
+        pub fn greaterSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .gt);
+        }
+
+        pub fn gtSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.greaterSameStructure(rhs);
+        }
+
+        pub fn greaterEqualSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .ge);
+        }
+
+        pub fn geSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.greaterEqualSameStructure(rhs);
+        }
+
+        pub fn lessSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .lt);
+        }
+
+        pub fn ltSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.lessSameStructure(rhs);
+        }
+
+        pub fn lessEqualSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.compareSameStructure(rhs, .le);
+        }
+
+        pub fn leSameStructure(self: Self, rhs: Self) SparseError!CsrMatrix(bool) {
+            return self.lessEqualSameStructure(rhs);
         }
 
         pub fn nnz(self: Self) usize {
@@ -7442,6 +7607,73 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
             return self.lessEqualScalar(scalar);
+        }
+
+        fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CscMatrix(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
+            if (!self.sameStructure(rhs)) return error.InvalidShape;
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const values = try sparseCompareSameStructureValues(T, self.allocator, self.values, rhs.values, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .eq);
+        }
+
+        pub fn eqSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.equalSameStructure(rhs);
+        }
+
+        pub fn notEqualSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .ne);
+        }
+
+        pub fn neSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.notEqualSameStructure(rhs);
+        }
+
+        pub fn greaterSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .gt);
+        }
+
+        pub fn gtSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.greaterSameStructure(rhs);
+        }
+
+        pub fn greaterEqualSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .ge);
+        }
+
+        pub fn geSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.greaterEqualSameStructure(rhs);
+        }
+
+        pub fn lessSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .lt);
+        }
+
+        pub fn ltSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.lessSameStructure(rhs);
+        }
+
+        pub fn lessEqualSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.compareSameStructure(rhs, .le);
+        }
+
+        pub fn leSameStructure(self: Self, rhs: Self) SparseError!CscMatrix(bool) {
+            return self.lessEqualSameStructure(rhs);
         }
 
         pub fn nnz(self: Self) usize {
@@ -10919,6 +11151,28 @@ test "sparse non-positive diagonal diagnostics" {
 
 test "sparse addition canonicalizes duplicate coordinates" {
     const gpa = std.testing.allocator;
+    const expectCooBool = struct {
+        fn check(mask: CooMatrix(bool), row_indices: []const usize, col_indices: []const usize, values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, row_indices, mask.row_indices);
+            try std.testing.expectEqualSlices(usize, col_indices, mask.col_indices);
+            try std.testing.expectEqualSlices(bool, values, mask.values);
+        }
+    }.check;
+    const expectCsrBool = struct {
+        fn check(mask: CsrMatrix(bool), row_offsets: []const usize, col_indices: []const usize, values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, row_offsets, mask.row_offsets);
+            try std.testing.expectEqualSlices(usize, col_indices, mask.col_indices);
+            try std.testing.expectEqualSlices(bool, values, mask.values);
+        }
+    }.check;
+    const expectCscBool = struct {
+        fn check(mask: CscMatrix(bool), col_offsets: []const usize, row_indices: []const usize, values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, col_offsets, mask.col_offsets);
+            try std.testing.expectEqualSlices(usize, row_indices, mask.row_indices);
+            try std.testing.expectEqualSlices(bool, values, mask.values);
+        }
+    }.check;
+
     var lhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 3, 1, 2 });
     defer lhs.deinit();
     var rhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1, 1 }, &.{ 2, 0, 1, 2 }, &.{ 5, 4, -2, 1 });
@@ -11087,6 +11341,34 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs.deinit();
     try std.testing.expect(lhs.sameStructure(dot_rhs));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs.dotSameStructure(dot_rhs), 1e-12);
+    var coo_equal_same = try lhs.equalSameStructure(dot_rhs);
+    defer coo_equal_same.deinit();
+    try expectCooBool(coo_equal_same, lhs.row_indices, lhs.col_indices, &.{ false, false, false });
+    var coo_ne_same = try lhs.neSameStructure(dot_rhs);
+    defer coo_ne_same.deinit();
+    try expectCooBool(coo_ne_same, lhs.row_indices, lhs.col_indices, &.{ true, true, true });
+    var coo_greater_same = try lhs.greaterSameStructure(dot_rhs);
+    defer coo_greater_same.deinit();
+    try expectCooBool(coo_greater_same, lhs.row_indices, lhs.col_indices, &.{ false, false, true });
+    var coo_ge_same = try lhs.geSameStructure(dot_rhs);
+    defer coo_ge_same.deinit();
+    try expectCooBool(coo_ge_same, lhs.row_indices, lhs.col_indices, &.{ false, false, true });
+    var coo_less_same = try lhs.lessSameStructure(dot_rhs);
+    defer coo_less_same.deinit();
+    try expectCooBool(coo_less_same, lhs.row_indices, lhs.col_indices, &.{ true, true, false });
+    var coo_le_same = try lhs.leSameStructure(dot_rhs);
+    defer coo_le_same.deinit();
+    try expectCooBool(coo_le_same, lhs.row_indices, lhs.col_indices, &.{ true, true, false });
+    var bool_lhs = try cooFromSlices(bool, gpa, 1, 2, &.{ 0, 0 }, &.{ 0, 1 }, &.{ true, false });
+    defer bool_lhs.deinit();
+    var bool_rhs = try cooFromSlices(bool, gpa, 1, 2, &.{ 0, 0 }, &.{ 0, 1 }, &.{ true, true });
+    defer bool_rhs.deinit();
+    var bool_eq_same = try bool_lhs.eqSameStructure(bool_rhs);
+    defer bool_eq_same.deinit();
+    try expectCooBool(bool_eq_same, bool_lhs.row_indices, bool_lhs.col_indices, &.{ true, false });
+    var bool_not_equal_same = try bool_lhs.notEqualSameStructure(bool_rhs);
+    defer bool_not_equal_same.deinit();
+    try expectCooBool(bool_not_equal_same, bool_lhs.row_indices, bool_lhs.col_indices, &.{ false, true });
     const coo_summary = try lhs.sameStructureDiffSummary(dot_rhs);
     try std.testing.expectApproxEqAbs(@as(f64, 15), coo_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), coo_summary.max_abs_diff, 1e-12);
@@ -11170,6 +11452,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectError(error.InvalidShape, lhs.maxAbsDiffSameStructure(different_structure));
     try std.testing.expectError(error.InvalidShape, lhs.maxRelDiffSameStructure(different_structure));
     try std.testing.expectError(error.InvalidShape, lhs.squaredDistanceSameStructure(different_structure));
+    try std.testing.expectError(error.InvalidShape, lhs.eqSameStructure(different_structure));
     var different_shape = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
     defer different_shape.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.dotSameStructure(different_shape));
@@ -11177,6 +11460,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectError(error.ShapeMismatch, lhs.maxAbsDiffSameStructure(different_shape));
     try std.testing.expectError(error.ShapeMismatch, lhs.maxRelDiffSameStructure(different_shape));
     try std.testing.expectError(error.ShapeMismatch, lhs.frobeniusDistanceSameStructure(different_shape));
+    try std.testing.expectError(error.ShapeMismatch, lhs.greaterSameStructure(different_shape));
 
     var lhs_csr = try lhs.toCsr();
     defer lhs_csr.deinit();
@@ -11186,6 +11470,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs_csr.deinit();
     try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
+    var csr_eq_same = try lhs_csr.eqSameStructure(dot_rhs_csr);
+    defer csr_eq_same.deinit();
+    try expectCsrBool(csr_eq_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ false, false, false });
+    var csr_not_equal_same = try lhs_csr.notEqualSameStructure(dot_rhs_csr);
+    defer csr_not_equal_same.deinit();
+    try expectCsrBool(csr_not_equal_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ true, true, true });
+    var csr_gt_same = try lhs_csr.gtSameStructure(dot_rhs_csr);
+    defer csr_gt_same.deinit();
+    try expectCsrBool(csr_gt_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ false, false, true });
+    var csr_greater_equal_same = try lhs_csr.greaterEqualSameStructure(dot_rhs_csr);
+    defer csr_greater_equal_same.deinit();
+    try expectCsrBool(csr_greater_equal_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ false, false, true });
+    var csr_lt_same = try lhs_csr.ltSameStructure(dot_rhs_csr);
+    defer csr_lt_same.deinit();
+    try expectCsrBool(csr_lt_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ true, true, false });
+    var csr_less_equal_same = try lhs_csr.lessEqualSameStructure(dot_rhs_csr);
+    defer csr_less_equal_same.deinit();
+    try expectCsrBool(csr_less_equal_same, lhs_csr.row_offsets, lhs_csr.col_indices, &.{ true, true, false });
     const csr_summary = try lhs_csr.sameStructureDiffSummary(dot_rhs_csr);
     try std.testing.expectApproxEqAbs(coo_summary.dot, csr_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(coo_summary.squared_distance, csr_summary.squared_distance, 1e-12);
@@ -11210,6 +11512,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var different_shape_csr = try different_shape.toCsr();
     defer different_shape_csr.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs_csr.allclose(different_shape_csr, 1e-12, 1e-12));
+    try std.testing.expectError(error.ShapeMismatch, lhs_csr.eqSameStructure(different_shape_csr));
+    var different_structure_csr = try different_structure.toCsr();
+    defer different_structure_csr.deinit();
+    try std.testing.expectError(error.InvalidShape, lhs_csr.leSameStructure(different_structure_csr));
     var csr_sum = try lhs_csr.add(rhs_csr);
     defer csr_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_sum.row_offsets);
@@ -11465,6 +11771,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(f64, &.{ 4, -4, 18 }, csc_product.values);
     try std.testing.expect(lhs_csc.sameStructure(dot_rhs_csc));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csc.dotSameStructure(dot_rhs_csc), 1e-12);
+    var csc_equal_same = try lhs_csc.equalSameStructure(dot_rhs_csc);
+    defer csc_equal_same.deinit();
+    try expectCscBool(csc_equal_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ false, false, false });
+    var csc_ne_same = try lhs_csc.neSameStructure(dot_rhs_csc);
+    defer csc_ne_same.deinit();
+    try expectCscBool(csc_ne_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ true, true, true });
+    var csc_greater_same = try lhs_csc.greaterSameStructure(dot_rhs_csc);
+    defer csc_greater_same.deinit();
+    try expectCscBool(csc_greater_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ false, true, false });
+    var csc_ge_same = try lhs_csc.geSameStructure(dot_rhs_csc);
+    defer csc_ge_same.deinit();
+    try expectCscBool(csc_ge_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ false, true, false });
+    var csc_less_same = try lhs_csc.lessSameStructure(dot_rhs_csc);
+    defer csc_less_same.deinit();
+    try expectCscBool(csc_less_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ true, false, true });
+    var csc_le_same = try lhs_csc.leSameStructure(dot_rhs_csc);
+    defer csc_le_same.deinit();
+    try expectCscBool(csc_le_same, lhs_csc.col_offsets, lhs_csc.row_indices, &.{ true, false, true });
     const csc_summary = try lhs_csc.sameStructureDiffSummary(dot_rhs_csc);
     try std.testing.expectApproxEqAbs(coo_summary.dot, csc_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(coo_summary.squared_distance, csc_summary.squared_distance, 1e-12);
@@ -11486,6 +11810,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var csc_close_mask = try lhs_csc.isClose(rhs_csc, 1, 4);
     defer csc_close_mask.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, csc_close_mask.data);
+    var different_shape_csc = try different_shape.toCsc();
+    defer different_shape_csc.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs_csc.eqSameStructure(different_shape_csc));
+    var different_structure_for_csc = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 0, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
+    defer different_structure_for_csc.deinit();
+    var different_structure_csc = try different_structure_for_csc.toCsc();
+    defer different_structure_csc.deinit();
+    try std.testing.expectError(error.InvalidShape, lhs_csc.gtSameStructure(different_structure_csc));
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
