@@ -1429,6 +1429,14 @@ pub fn CooMatrix(comptime T: type) type {
             self.* = undefined;
         }
 
+        pub fn fillStoredValues(self: *Self, value: T) void {
+            @memset(self.values, value);
+        }
+
+        pub fn fillValues(self: *Self, value: T) void {
+            self.fillStoredValues(value);
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const row_indices = try self.allocator.dupe(usize, self.row_indices);
             errdefer self.allocator.free(row_indices);
@@ -3907,6 +3915,14 @@ pub fn CsrMatrix(comptime T: type) type {
             self.allocator.free(self.col_indices);
             self.allocator.free(self.values);
             self.* = undefined;
+        }
+
+        pub fn fillStoredValues(self: *Self, value: T) void {
+            @memset(self.values, value);
+        }
+
+        pub fn fillValues(self: *Self, value: T) void {
+            self.fillStoredValues(value);
         }
 
         pub fn clone(self: Self) SparseError!Self {
@@ -6600,6 +6616,14 @@ pub fn CscMatrix(comptime T: type) type {
             self.* = undefined;
         }
 
+        pub fn fillStoredValues(self: *Self, value: T) void {
+            @memset(self.values, value);
+        }
+
+        pub fn fillValues(self: *Self, value: T) void {
+            self.fillStoredValues(value);
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
             errdefer self.allocator.free(col_offsets);
@@ -9246,6 +9270,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, coo.row_indices, coo_mapped.row_indices);
     try std.testing.expectEqualSlices(usize, coo.col_indices, coo_mapped.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 11, 3, 4, 5, 6, 7 }, coo_mapped.values);
+    var coo_filled = try coo.clone();
+    defer coo_filled.deinit();
+    coo_filled.fillStoredValues(-2);
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_filled.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_filled.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, -2, -2, -2, -2, -2 }, coo_filled.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -9357,6 +9387,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_mapped.row_offsets);
     try std.testing.expectEqualSlices(usize, csr.col_indices, csr_mapped.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 20, 4, 6, 8, 10, 12 }, csr_mapped.values);
+    var csr_filled = try csr.clone();
+    defer csr_filled.deinit();
+    csr_filled.fillValues(7);
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_filled.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_filled.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, csr_filled.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -9393,6 +9429,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_mapped.col_offsets);
     try std.testing.expectEqualSlices(usize, csc.row_indices, csc_mapped.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 9, 4, 2, 1, 3, 5 }, csc_mapped.values);
+    var csc_filled = try csc.clone();
+    defer csc_filled.deinit();
+    csc_filled.fillStoredValues(8);
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_filled.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_filled.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8, 8, 8, 8 }, csc_filled.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
