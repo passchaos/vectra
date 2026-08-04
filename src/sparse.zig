@@ -1582,6 +1582,15 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseNonFiniteCount(T, self.values);
         }
 
+        pub fn nonFiniteCountMeetsBound(self: Self, max_count: usize) bool {
+            return self.nonFiniteCount() <= max_count;
+        }
+
+        pub fn nonFiniteCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(self.nonFiniteCount(), min_count, max_count);
+        }
+
         pub fn allFinite(self: Self) bool {
             return sparseAllFinite(T, self.values);
         }
@@ -3386,6 +3395,15 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseNonFiniteCount(T, self.values);
         }
 
+        pub fn nonFiniteCountMeetsBound(self: Self, max_count: usize) bool {
+            return self.nonFiniteCount() <= max_count;
+        }
+
+        pub fn nonFiniteCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(self.nonFiniteCount(), min_count, max_count);
+        }
+
         pub fn allFinite(self: Self) bool {
             return sparseAllFinite(T, self.values);
         }
@@ -5076,6 +5094,15 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseNonFiniteCount(T, self.values);
         }
 
+        pub fn nonFiniteCountMeetsBound(self: Self, max_count: usize) bool {
+            return self.nonFiniteCount() <= max_count;
+        }
+
+        pub fn nonFiniteCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(self.nonFiniteCount(), min_count, max_count);
+        }
+
         pub fn allFinite(self: Self) bool {
             return sparseAllFinite(T, self.values);
         }
@@ -6510,6 +6537,12 @@ test "sparse stored non-finite diagnostics" {
     var coo = try cooFromSlices(f64, gpa, 3, 3, &.{ 0, 0, 1, 2, 2 }, &.{ 0, 2, 1, 0, 2 }, &.{ 1.0, std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64), 5.0 });
     defer coo.deinit();
     try std.testing.expectEqual(@as(usize, 3), coo.nonFiniteCount());
+    try std.testing.expect(coo.nonFiniteCountMeetsBound(3));
+    try std.testing.expect(!coo.nonFiniteCountMeetsBound(2));
+    try std.testing.expect(try coo.nonFiniteCountInRange(3, 3));
+    try std.testing.expect(try coo.nonFiniteCountInRange(2, 4));
+    try std.testing.expect(!(try coo.nonFiniteCountInRange(0, 2)));
+    try std.testing.expectError(error.InvalidShape, coo.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!coo.allFinite());
 
     var coo_rows = try coo.rowNonFiniteCounts();
@@ -6522,6 +6555,11 @@ test "sparse stored non-finite diagnostics" {
     var csr = try coo.toCsr();
     defer csr.deinit();
     try std.testing.expectEqual(@as(usize, 3), csr.nonFiniteCount());
+    try std.testing.expect(csr.nonFiniteCountMeetsBound(3));
+    try std.testing.expect(!csr.nonFiniteCountMeetsBound(2));
+    try std.testing.expect(try csr.nonFiniteCountInRange(3, 3));
+    try std.testing.expect(!(try csr.nonFiniteCountInRange(0, 2)));
+    try std.testing.expectError(error.InvalidShape, csr.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!csr.allFinite());
     var csr_rows = try csr.rowNonFiniteCounts();
     defer csr_rows.deinit();
@@ -6533,6 +6571,11 @@ test "sparse stored non-finite diagnostics" {
     var csc = try coo.toCsc();
     defer csc.deinit();
     try std.testing.expectEqual(@as(usize, 3), csc.nonFiniteCount());
+    try std.testing.expect(csc.nonFiniteCountMeetsBound(3));
+    try std.testing.expect(!csc.nonFiniteCountMeetsBound(2));
+    try std.testing.expect(try csc.nonFiniteCountInRange(3, 3));
+    try std.testing.expect(!(try csc.nonFiniteCountInRange(0, 2)));
+    try std.testing.expectError(error.InvalidShape, csc.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!csc.allFinite());
     var csc_rows = try csc.rowNonFiniteCounts();
     defer csc_rows.deinit();
@@ -6544,6 +6587,9 @@ test "sparse stored non-finite diagnostics" {
     var finite = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 1, 0 }, &.{ 2.0, 3.0 });
     defer finite.deinit();
     try std.testing.expectEqual(@as(usize, 0), finite.nonFiniteCount());
+    try std.testing.expect(finite.nonFiniteCountMeetsBound(0));
+    try std.testing.expect(try finite.nonFiniteCountInRange(0, 0));
+    try std.testing.expect(!(try finite.nonFiniteCountInRange(1, 1)));
     try std.testing.expect(finite.allFinite());
 }
 
