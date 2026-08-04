@@ -8562,6 +8562,39 @@ pub fn CooMatrix(comptime T: type) type {
             return if (found) total else null;
         }
 
+        pub fn getValue(self: Self, row: usize, col: usize) SparseError!T {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            return self.get(row, col) orelse zero(T);
+        }
+
+        pub fn getSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getValue(
+                try sparseNormalizeSignedIndex(row, self.rows),
+                try sparseNormalizeSignedIndex(col, self.cols),
+            );
+        }
+
+        pub fn at(self: Self, row: usize, col: usize) SparseError!T {
+            return self.getValue(row, col);
+        }
+
+        pub fn atSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getSigned(row, col);
+        }
+
+        pub fn item(self: Self) SparseError!T {
+            if (self.rows != 1 or self.cols != 1) return error.ShapeMismatch;
+            return self.getValue(0, 0);
+        }
+
+        pub fn itemValue(self: Self) SparseError!T {
+            return self.item();
+        }
+
+        pub fn scalarValue(self: Self) SparseError!T {
+            return self.item();
+        }
+
         fn hasEntry(self: Self, row: usize, col: usize) bool {
             if (row >= self.rows or col >= self.cols) return false;
             for (self.row_indices, self.col_indices) |entry_row, entry_col| {
@@ -15073,6 +15106,39 @@ pub fn CsrMatrix(comptime T: type) type {
             return if (found) total else null;
         }
 
+        pub fn getValue(self: Self, row: usize, col: usize) SparseError!T {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            return self.get(row, col) orelse zero(T);
+        }
+
+        pub fn getSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getValue(
+                try sparseNormalizeSignedIndex(row, self.rows),
+                try sparseNormalizeSignedIndex(col, self.cols),
+            );
+        }
+
+        pub fn at(self: Self, row: usize, col: usize) SparseError!T {
+            return self.getValue(row, col);
+        }
+
+        pub fn atSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getSigned(row, col);
+        }
+
+        pub fn item(self: Self) SparseError!T {
+            if (self.rows != 1 or self.cols != 1) return error.ShapeMismatch;
+            return self.getValue(0, 0);
+        }
+
+        pub fn itemValue(self: Self) SparseError!T {
+            return self.item();
+        }
+
+        pub fn scalarValue(self: Self) SparseError!T {
+            return self.item();
+        }
+
         fn hasEntry(self: Self, row: usize, col: usize) bool {
             if (row >= self.rows or col >= self.cols) return false;
             for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
@@ -20335,6 +20401,39 @@ pub fn CscMatrix(comptime T: type) type {
                 }
             }
             return if (found) total else null;
+        }
+
+        pub fn getValue(self: Self, row: usize, col: usize) SparseError!T {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            return self.get(row, col) orelse zero(T);
+        }
+
+        pub fn getSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getValue(
+                try sparseNormalizeSignedIndex(row, self.rows),
+                try sparseNormalizeSignedIndex(col, self.cols),
+            );
+        }
+
+        pub fn at(self: Self, row: usize, col: usize) SparseError!T {
+            return self.getValue(row, col);
+        }
+
+        pub fn atSigned(self: Self, row: isize, col: isize) SparseError!T {
+            return self.getSigned(row, col);
+        }
+
+        pub fn item(self: Self) SparseError!T {
+            if (self.rows != 1 or self.cols != 1) return error.ShapeMismatch;
+            return self.getValue(0, 0);
+        }
+
+        pub fn itemValue(self: Self) SparseError!T {
+            return self.item();
+        }
+
+        pub fn scalarValue(self: Self) SparseError!T {
+            return self.item();
         }
 
         fn hasEntry(self: Self, row: usize, col: usize) bool {
@@ -27213,11 +27312,23 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expect(try symmetric.symmetryResidualFrobeniusNormMeetsBound(0));
     try std.testing.expect(try symmetric.symmetryRelativeResidualFrobeniusNormMeetsBound(0));
     try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try symmetric.getValue(1, 2), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try symmetric.at(1, 2), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try symmetric.getSigned(-2, -1), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try symmetric.atSigned(-2, -1), 1e-12);
     try std.testing.expect(symmetric.get(0, 2) == null);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.getValue(0, 2), 1e-12);
+    try std.testing.expectError(error.IndexOutOfBounds, symmetric.getValue(0, 3));
     var point_mut = try symmetric.clone();
     defer point_mut.deinit();
     try point_mut.setExisting(1, 2, 7);
     try std.testing.expectApproxEqAbs(@as(f64, 7), point_mut.get(1, 2).?, 1e-12);
+    var scalar_coo = try cooFromSlices(f64, gpa, 1, 1, &.{0}, &.{0}, &.{42});
+    defer scalar_coo.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 42), try scalar_coo.item(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 42), try scalar_coo.itemValue(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 42), try scalar_coo.scalarValue(), 1e-12);
+    try std.testing.expectError(error.ShapeMismatch, point_mut.item());
     try std.testing.expectError(error.InvalidShape, point_mut.setStoredValue(0, 2, 9));
     try std.testing.expectError(error.IndexOutOfBounds, point_mut.setExisting(3, 0, 9));
 
@@ -27410,6 +27521,11 @@ test "csr sparse bridge dense roundtrip and matvec" {
     defer csr_point_mut.deinit();
     try csr_point_mut.setExisting(0, 2, 11);
     try std.testing.expectApproxEqAbs(@as(f64, 11), csr_point_mut.get(0, 2).?, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11), try csr_point_mut.getValue(0, 2), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11), try csr_point_mut.at(0, 2), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 11), try csr_point_mut.getSigned(0, -2), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csr_point_mut.getValue(0, 1), 1e-12);
+    try std.testing.expectError(error.IndexOutOfBounds, csr_point_mut.at(3, 0));
     try std.testing.expectError(error.InvalidShape, csr_point_mut.setStoredValue(0, 1, 9));
     try std.testing.expectError(error.IndexOutOfBounds, csr_point_mut.setExisting(3, 0, 9));
     var square_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
@@ -27452,6 +27568,11 @@ test "csr sparse bridge dense roundtrip and matvec" {
     defer csc_point_mut.deinit();
     try csc_point_mut.setExisting(2, 0, 12);
     try std.testing.expectApproxEqAbs(@as(f64, 12), csc_point_mut.get(2, 0).?, 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), try csc_point_mut.getValue(2, 0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), try csc_point_mut.at(2, 0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), try csc_point_mut.atSigned(-1, 0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try csc_point_mut.getValue(0, 1), 1e-12);
+    try std.testing.expectError(error.IndexOutOfBounds, csc_point_mut.getSigned(0, 4));
     try std.testing.expectError(error.InvalidShape, csc_point_mut.setStoredValue(0, 1, 9));
     try std.testing.expectError(error.IndexOutOfBounds, csc_point_mut.setExisting(0, 4, 9));
     var square_csc = try cscFromDense(f64, square_dense);
