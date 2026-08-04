@@ -771,6 +771,36 @@ fn sparseDenseUniqueWithCounts(comptime T: type, matrix: anytype) SparseError!ar
     return dense.uniqueWithCounts();
 }
 
+fn sparseDenseSearchsorted(comptime T: type, matrix: anytype, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    // Sparse containers are matrix-ranked, while Array.searchsorted intentionally
+    // accepts only a one-dimensional sorted domain.  Flatten the dense
+    // materialization in row-major order so sparse matrices can expose the same
+    // sorted-domain operation without requiring a separate sparse vector type.
+    var flat = try dense.flatten();
+    defer flat.deinit();
+    return flat.searchsorted(values, side);
+}
+
+fn sparseDenseBucketize(comptime T: type, matrix: anytype, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.bucketize(boundaries, side);
+}
+
+fn sparseDenseDigitize(comptime T: type, matrix: anytype, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.digitize(bins, right);
+}
+
+fn sparseDenseIsin(comptime T: type, matrix: anytype, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isin(test_elements, invert);
+}
+
 fn sparseDenseSetOp(comptime T: type, matrix: anytype, rhs: anytype, comptime op: SparseDenseSetOp) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3605,6 +3635,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseSearchsorted(T, self, values, side);
+        }
+
+        pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseDigitize(T, self, bins, right);
+        }
+
+        pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsin(T, self, test_elements, invert);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -7463,6 +7509,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseSearchsorted(T, self, values, side);
+        }
+
+        pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseDigitize(T, self, bins, right);
+        }
+
+        pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsin(T, self, test_elements, invert);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -11532,6 +11594,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseSearchsorted(T, self, values, side);
+        }
+
+        pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
+            return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseDigitize(T, self, bins, right);
+        }
+
+        pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsin(T, self, test_elements, invert);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -16806,6 +16884,49 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectError(error.IndexOutOfBounds, matrix.putFlat(bad_take_indices, scalar_values));
         }
     }.check;
+    const expectSearchMembership = struct {
+        fn expectUsizeArray(values: array_mod.Array(usize), shape: []const usize, expected: []const usize) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            try std.testing.expectEqualSlices(usize, expected, values.data);
+        }
+
+        fn expectBoolMatrix(values: array_mod.Array(bool), expected: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, values.shape);
+            try std.testing.expectEqualSlices(bool, expected, values.data);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix, sorted_matrix: Matrix) !void {
+            var membership_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 3 }, &.{2});
+            defer membership_values.deinit();
+            var members = try matrix.isin(membership_values, false);
+            defer members.deinit();
+            try expectBoolMatrix(members, &.{ false, true, true, true, false, true });
+            var non_members = try matrix.isin(membership_values, true);
+            defer non_members.deinit();
+            try expectBoolMatrix(non_members, &.{ true, false, false, false, true, false });
+
+            var probes = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 2, 3, 5 }, &.{ 2, 2 });
+            defer probes.deinit();
+            var left_positions = try sorted_matrix.searchsorted(probes, .left);
+            defer left_positions.deinit();
+            try expectUsizeArray(left_positions, &.{ 2, 2 }, &.{ 0, 3, 5, 6 });
+            var right_positions = try sorted_matrix.searchsorted(probes, .right);
+            defer right_positions.deinit();
+            try expectUsizeArray(right_positions, &.{ 2, 2 }, &.{ 2, 5, 5, 6 });
+
+            var boundaries = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 2, 4 }, &.{3});
+            defer boundaries.deinit();
+            var buckets = try matrix.bucketize(boundaries, .right);
+            defer buckets.deinit();
+            try expectUsizeArray(buckets, &.{ 2, 3 }, &.{ 1, 1, 1, 1, 2, 2 });
+            var digits_left_open = try matrix.digitize(boundaries, false);
+            defer digits_left_open.deinit();
+            try expectUsizeArray(digits_left_open, &.{ 2, 3 }, buckets.data);
+            var digits_right_open = try matrix.digitize(boundaries, true);
+            defer digits_right_open.deinit();
+            try expectUsizeArray(digits_right_open, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 1, 2 });
+        }
+    }.check;
     const expectMatrixPredicates = struct {
         fn check(comptime Matrix: type, upper: Matrix, diagonal: Matrix) !void {
             try std.testing.expect(!(try upper.isDiagonalMatrix()));
@@ -17017,6 +17138,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer lhs.deinit();
     var rhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1, 1 }, &.{ 2, 0, 1, 2 }, &.{ 5, 4, -2, 1 });
     defer rhs.deinit();
+    var sorted_for_search = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1, 1 }, &.{ 2, 0, 1, 2 }, &.{ 1, 2, 2, 4 });
+    defer sorted_for_search.deinit();
 
     var coo_sum = try lhs.add(rhs);
     defer coo_sum.deinit();
@@ -17152,6 +17275,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     }, &.{ 2, 3 });
     defer where_mask.deinit();
     try expectWhere(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary, where_mask);
+    try expectSearchMembership(@TypeOf(lhs), lhs, sorted_for_search);
     var upper_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 1 }, &.{ 1, 2, 3 });
     defer upper_square.deinit();
     var diagonal_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ 1, 3 });
@@ -17354,6 +17478,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try expectScalarCloseness(@TypeOf(lhs_csr), lhs_csr);
     try expectNonzero(@TypeOf(lhs_csr), lhs_csr);
     try expectWhere(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary, where_mask);
+    var sorted_for_search_csr = try sorted_for_search.toCsr();
+    defer sorted_for_search_csr.deinit();
+    try expectSearchMembership(@TypeOf(lhs_csr), lhs_csr, sorted_for_search_csr);
     try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
     var csr_eq_same = try lhs_csr.eqSameStructure(dot_rhs_csr);
@@ -17535,6 +17662,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try expectScalarCloseness(@TypeOf(lhs_csc), lhs_csc);
     try expectNonzero(@TypeOf(lhs_csc), lhs_csc);
     try expectWhere(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary, where_mask);
+    var sorted_for_search_csc = try sorted_for_search.toCsc();
+    defer sorted_for_search_csc.deinit();
+    try expectSearchMembership(@TypeOf(lhs_csc), lhs_csc, sorted_for_search_csc);
     var csc_sum = try lhs_csc.add(rhs_csc);
     defer csc_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
