@@ -5144,16 +5144,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSelect(T, self, axis_index, index);
         }
 
+        pub fn selectOut(self: Self, axis_index: isize, index: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.select(axis_index, index), out);
+        }
+
         pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn selectSignedOut(self: Self, axis_index: isize, index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selectSigned(axis_index, index), out);
         }
 
         pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrow(T, self, axis_index, start, length);
         }
 
+        pub fn narrowOut(self: Self, axis_index: isize, start: usize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrow(axis_index, start, length), out);
+        }
+
         pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrowSigned(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSignedOut(self: Self, axis_index: isize, start: isize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrowSigned(axis_index, start, length), out);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -11302,16 +11318,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSelect(T, self, axis_index, index);
         }
 
+        pub fn selectOut(self: Self, axis_index: isize, index: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.select(axis_index, index), out);
+        }
+
         pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn selectSignedOut(self: Self, axis_index: isize, index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selectSigned(axis_index, index), out);
         }
 
         pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrow(T, self, axis_index, start, length);
         }
 
+        pub fn narrowOut(self: Self, axis_index: isize, start: usize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrow(axis_index, start, length), out);
+        }
+
         pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrowSigned(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSignedOut(self: Self, axis_index: isize, start: isize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrowSigned(axis_index, start, length), out);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -17673,16 +17705,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSelect(T, self, axis_index, index);
         }
 
+        pub fn selectOut(self: Self, axis_index: isize, index: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.select(axis_index, index), out);
+        }
+
         pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn selectSignedOut(self: Self, axis_index: isize, index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selectSigned(axis_index, index), out);
         }
 
         pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrow(T, self, axis_index, start, length);
         }
 
+        pub fn narrowOut(self: Self, axis_index: isize, start: usize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrow(axis_index, start, length), out);
+        }
+
         pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
             return sparseDenseNarrowSigned(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSignedOut(self: Self, axis_index: isize, start: isize, length: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.narrowSigned(axis_index, start, length), out);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -24861,18 +24909,34 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var selected_row = try matrix.select(0, 1);
             defer selected_row.deinit();
             try expectArray(selected_row, &.{3}, &.{ 0, 2, 3 });
+            var selected_row_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer selected_row_out.deinit();
+            try matrix.selectOut(0, 1, selected_row_out);
+            try std.testing.expectEqualSlices(f64, selected_row.data, selected_row_out.data);
 
             var selected_column = try matrix.selectSigned(1, -1);
             defer selected_column.deinit();
             try expectArray(selected_column, &.{2}, &.{ 0, 3 });
+            var selected_column_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer selected_column_out.deinit();
+            try matrix.selectSignedOut(1, -1, selected_column_out);
+            try std.testing.expectEqualSlices(f64, selected_column.data, selected_column_out.data);
 
             var narrowed_rows = try matrix.narrow(0, 0, 1);
             defer narrowed_rows.deinit();
             try expectArray(narrowed_rows, &.{ 1, 3 }, &.{ 1, 0, 0 });
+            var narrowed_rows_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 3 });
+            defer narrowed_rows_out.deinit();
+            try matrix.narrowOut(0, 0, 1, narrowed_rows_out);
+            try std.testing.expectEqualSlices(f64, narrowed_rows.data, narrowed_rows_out.data);
 
             var narrowed_columns = try matrix.narrowSigned(1, -2, 2);
             defer narrowed_columns.deinit();
             try expectArray(narrowed_columns, &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+            var narrowed_columns_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer narrowed_columns_out.deinit();
+            try matrix.narrowSignedOut(1, -2, 2, narrowed_columns_out);
+            try std.testing.expectEqualSlices(f64, narrowed_columns.data, narrowed_columns_out.data);
 
             try std.testing.expectError(error.IndexOutOfBounds, matrix.select(0, 2));
             try std.testing.expectError(error.IndexOutOfBounds, matrix.narrow(1, 2, 2));
