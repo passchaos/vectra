@@ -955,6 +955,36 @@ fn sparseDensePairwiseDistance(comptime T: type, matrix: anytype, other: array_m
     return dense.pairwiseDistance(other, p, axis_index, keepdims);
 }
 
+fn sparseDenseLerp(comptime T: type, matrix: anytype, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.lerp(end, weight);
+}
+
+fn sparseDenseLerpScalar(comptime T: type, matrix: anytype, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.lerpScalar(end, weight);
+}
+
+fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.addcmul(input1, input2, value);
+}
+
+fn sparseDenseAddcdiv(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.addcdiv(input1, input2, value);
+}
+
+fn sparseDenseClipArray(comptime T: type, matrix: anytype, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.clipArray(min_values, max_values);
+}
+
 fn sparseDenseCumulative(comptime T: type, matrix: anytype, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4239,6 +4269,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.pairwiseDistance(other, p, dim_index, keepdim);
+        }
+
+        pub fn lerp(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLerp(T, self, end, weight);
+        }
+
+        pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.lerp(end, weight);
+        }
+
+        pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLerpScalar(T, self, end, weight);
+        }
+
+        pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcdiv(T, self, input1, input2, value);
+        }
+
+        pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseClipArray(T, self, min_values, max_values);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -8597,6 +8659,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.pairwiseDistance(other, p, dim_index, keepdim);
+        }
+
+        pub fn lerp(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLerp(T, self, end, weight);
+        }
+
+        pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.lerp(end, weight);
+        }
+
+        pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLerpScalar(T, self, end, weight);
+        }
+
+        pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcdiv(T, self, input1, input2, value);
+        }
+
+        pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseClipArray(T, self, min_values, max_values);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -13166,6 +13260,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.pairwiseDistance(other, p, dim_index, keepdim);
+        }
+
+        pub fn lerp(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLerp(T, self, end, weight);
+        }
+
+        pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.lerp(end, weight);
+        }
+
+        pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLerpScalar(T, self, end, weight);
+        }
+
+        pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseAddcdiv(T, self, input1, input2, value);
+        }
+
+        pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
+            return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseClipArray(T, self, min_values, max_values);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -19952,6 +20078,98 @@ test "sparse dense quantile helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense fused elementwise helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectFused = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var end_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                3, 4, 5,
+                6, 7, 8,
+            }, &.{ 2, 3 });
+            defer end_values.deinit();
+            var weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                0,   0.25, 0.5,
+                0.5, 0.75, 1,
+            }, &.{ 2, 3 });
+            defer weights.deinit();
+
+            var lerped = try matrix.lerp(end_values, weights);
+            defer lerped.deinit();
+            try expectArray(lerped, &.{ 2, 3 }, &.{ 1, 1, 2.5, 3, 5.75, 8 });
+
+            var lerp_alias = try matrix.lerpArray(end_values, weights);
+            defer lerp_alias.deinit();
+            try expectArray(lerp_alias, &.{ 2, 3 }, lerped.data);
+
+            var lerped_scalar = try matrix.lerpScalar(end_values, 0.5);
+            defer lerped_scalar.deinit();
+            try expectArray(lerped_scalar, &.{ 2, 3 }, &.{ 2, 2, 2.5, 3, 4.5, 5.5 });
+
+            var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                1, 2, 3,
+                4, 5, 6,
+            }, &.{ 2, 3 });
+            defer input1.deinit();
+            var input2 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                2, 3, 4,
+                5, 6, 7,
+            }, &.{ 2, 3 });
+            defer input2.deinit();
+
+            var addcmul = try matrix.addcmul(input1, input2, 0.5);
+            defer addcmul.deinit();
+            try expectArray(addcmul, &.{ 2, 3 }, &.{ 2, 3, 6, 10, 17, 24 });
+
+            var addcmul_alias = try matrix.addCMul(input1, input2, 0.5);
+            defer addcmul_alias.deinit();
+            try expectArray(addcmul_alias, &.{ 2, 3 }, addcmul.data);
+
+            var addcdiv = try matrix.addcdiv(input1, input2, 2);
+            defer addcdiv.deinit();
+            try expectArray(addcdiv, &.{ 2, 3 }, &.{ 2, 4.0 / 3.0, 1.5, 1.6, 11.0 / 3.0, 33.0 / 7.0 });
+
+            var addcdiv_alias = try matrix.addCDiv(input1, input2, 2);
+            defer addcdiv_alias.deinit();
+            try expectArray(addcdiv_alias, &.{ 2, 3 }, addcdiv.data);
+
+            var lower = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                0.5, 0.5, 0.5,
+                0.5, 1.5, 2.5,
+            }, &.{ 2, 3 });
+            defer lower.deinit();
+            var upper = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                2, 2,   2,
+                2, 2.5, 2.5,
+            }, &.{ 2, 3 });
+            defer upper.deinit();
+            var clipped = try matrix.clipArray(lower, upper);
+            defer clipped.deinit();
+            try expectArray(clipped, &.{ 2, 3 }, &.{ 1, 0.5, 0.5, 0.5, 2, 2.5 });
+
+            var bad = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer bad.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.lerp(end_values, bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.clipArray(lower, bad));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectFused(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectFused(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectFused(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense norm and logsumexp helpers" {
