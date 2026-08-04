@@ -198,6 +198,15 @@ fn truncSparseValue(comptime T: type, value: T) T {
     };
 }
 
+fn cbrtSparseValue(comptime T: type, value: T) T {
+    ensureFloat(T);
+    return switch (T) {
+        f16 => @floatCast(std.math.cbrt(@as(f32, @floatCast(value)))),
+        f32, f64 => std.math.cbrt(value),
+        else => @compileError("sparse cbrt requires f16, f32, or f64 values"),
+    };
+}
+
 fn isNonZero(comptime T: type, value: T) bool {
     return switch (@typeInfo(T)) {
         .bool => value,
@@ -1503,6 +1512,13 @@ pub fn CooMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn cbrt(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = cbrtSparseValue(T, value.*);
             return out;
         }
 
@@ -3893,6 +3909,13 @@ pub fn CsrMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn cbrt(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = cbrtSparseValue(T, value.*);
             return out;
         }
 
@@ -6494,6 +6517,13 @@ pub fn CscMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn cbrt(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = cbrtSparseValue(T, value.*);
             return out;
         }
 
@@ -9848,6 +9878,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, coo_squared.row_indices, coo_reciprocal.row_indices);
     try std.testing.expectEqualSlices(usize, coo_squared.col_indices, coo_reciprocal.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, coo_reciprocal.values);
+    var coo_cubes = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 1 }, &.{ -8, 27, 64 });
+    defer coo_cubes.deinit();
+    var coo_cbrt = try coo_cubes.cbrt();
+    defer coo_cbrt.deinit();
+    try std.testing.expectEqualSlices(usize, coo_cubes.row_indices, coo_cbrt.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_cubes.col_indices, coo_cbrt.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 3, 4 }, coo_cbrt.values);
     var coo_positive = try coo_diff.positive();
     defer coo_positive.deinit();
     try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_positive.row_indices);
@@ -10107,6 +10144,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_squared.row_offsets, csr_reciprocal.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_squared.col_indices, csr_reciprocal.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, csr_reciprocal.values);
+    var csr_cubes = try coo_cubes.toCsr();
+    defer csr_cubes.deinit();
+    var csr_cbrt = try csr_cubes.cbrt();
+    defer csr_cbrt.deinit();
+    try std.testing.expectEqualSlices(usize, csr_cubes.row_offsets, csr_cbrt.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_cubes.col_indices, csr_cbrt.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 3, 4 }, csr_cbrt.values);
     var csr_sign = try csr_diff.sign();
     defer csr_sign.deinit();
     try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_sign.row_offsets);
@@ -10216,6 +10260,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csc_squared.col_offsets, csc_reciprocal.col_offsets);
     try std.testing.expectEqualSlices(usize, csc_squared.row_indices, csc_reciprocal.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, csc_reciprocal.values);
+    var csc_cubes = try coo_cubes.toCsc();
+    defer csc_cubes.deinit();
+    var csc_cbrt = try csc_cubes.cbrt();
+    defer csc_cbrt.deinit();
+    try std.testing.expectEqualSlices(usize, csc_cubes.col_offsets, csc_cbrt.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_cubes.row_indices, csc_cbrt.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 3, 4 }, csc_cbrt.values);
     var csc_sign = try csc_diff.sign();
     defer csc_sign.deinit();
     try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_sign.col_offsets);
