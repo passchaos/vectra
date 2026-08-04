@@ -496,6 +496,36 @@ fn sparseDenseUnsqueezeAxes(comptime T: type, matrix: anytype, axes: []const isi
     return dense.unsqueezeAxes(axes);
 }
 
+fn sparseDenseFlip(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.flip(axis_index);
+}
+
+fn sparseDenseFlipAxes(comptime T: type, matrix: anytype, axes: []const isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.flipAxes(axes);
+}
+
+fn sparseDenseRoll(comptime T: type, matrix: anytype, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.roll(shift, axis_index);
+}
+
+fn sparseDenseRollFlat(comptime T: type, matrix: anytype, shift: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.rollFlat(shift);
+}
+
+fn sparseDenseRollAxes(comptime T: type, matrix: anytype, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.rollAxes(shifts, axes);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2749,6 +2779,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlip(T, self, axis_index);
+        }
+
+        pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(0);
+        }
+
+        pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(1);
+        }
+
+        pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRoll(T, self, shift, axis_index);
+        }
+
+        pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -6079,6 +6137,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlip(T, self, axis_index);
+        }
+
+        pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(0);
+        }
+
+        pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(1);
+        }
+
+        pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRoll(T, self, shift, axis_index);
+        }
+
+        pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9624,6 +9710,34 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlip(T, self, axis_index);
+        }
+
+        pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(0);
+        }
+
+        pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
+            return self.flip(1);
+        }
+
+        pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRoll(T, self, shift, axis_index);
+        }
+
+        pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -14077,6 +14191,34 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var squeezed_axes = try expanded.squeezeAxes(&.{ 0, 3 });
             defer squeezed_axes.deinit();
             try expectArray(squeezed_axes, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var flipped_rows = try matrix.flip(0);
+            defer flipped_rows.deinit();
+            try expectArray(flipped_rows, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+
+            var flipped_columns = try matrix.fliplr();
+            defer flipped_columns.deinit();
+            try expectArray(flipped_columns, &.{ 2, 3 }, &.{ 0, 0, 1, 3, 2, 0 });
+
+            var flipped_axes = try matrix.flipAxes(&.{ 0, 1 });
+            defer flipped_axes.deinit();
+            try expectArray(flipped_axes, &.{ 2, 3 }, &.{ 3, 2, 0, 0, 0, 1 });
+
+            var flipped_up = try matrix.flipud();
+            defer flipped_up.deinit();
+            try expectArray(flipped_up, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+
+            var rolled_columns = try matrix.roll(1, 1);
+            defer rolled_columns.deinit();
+            try expectArray(rolled_columns, &.{ 2, 3 }, &.{ 0, 1, 0, 3, 0, 2 });
+
+            var rolled_flat = try matrix.rollFlat(1);
+            defer rolled_flat.deinit();
+            try expectArray(rolled_flat, &.{ 2, 3 }, &.{ 3, 1, 0, 0, 0, 2 });
+
+            var rolled_axes = try matrix.rollAxes(&.{ 1, -1 }, &.{ 0, 1 });
+            defer rolled_axes.deinit();
+            try expectArray(rolled_axes, &.{ 2, 3 }, &.{ 2, 3, 0, 0, 0, 1 });
 
             try std.testing.expectError(error.ShapeMismatch, matrix.reshape(&.{ 4, 2 }));
 
