@@ -5260,24 +5260,48 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePutFlat(T, self, indices, values);
         }
 
+        pub fn putFlatOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlat(indices, values), out);
+        }
+
         pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatModeOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatMode(indices, values, mode), out);
         }
 
         pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalar(T, self, indices, value);
         }
 
+        pub fn putFlatScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalar(indices, value), out);
+        }
+
         pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatScalarModeOut(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarMode(indices, value, mode), out);
         }
 
         pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatSigned(T, self, indices, values);
         }
 
+        pub fn putFlatSignedOut(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatSigned(indices, values), out);
+        }
+
         pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarSignedOut(self: Self, indices: array_mod.Array(isize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarSigned(indices, value), out);
         }
 
         pub fn ravelCoords(self: Self, coords: array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
@@ -7396,8 +7420,16 @@ pub fn CooMatrix(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
+        pub fn indexPutOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatOut(indices, values, out);
+        }
+
         pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.putFlatScalar(indices, value);
+        }
+
+        pub fn indexPutScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatScalarOut(indices, value, out);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -11502,24 +11534,48 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePutFlat(T, self, indices, values);
         }
 
+        pub fn putFlatOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlat(indices, values), out);
+        }
+
         pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatModeOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatMode(indices, values, mode), out);
         }
 
         pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalar(T, self, indices, value);
         }
 
+        pub fn putFlatScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalar(indices, value), out);
+        }
+
         pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatScalarModeOut(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarMode(indices, value, mode), out);
         }
 
         pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatSigned(T, self, indices, values);
         }
 
+        pub fn putFlatSignedOut(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatSigned(indices, values), out);
+        }
+
         pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarSignedOut(self: Self, indices: array_mod.Array(isize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarSigned(indices, value), out);
         }
 
         pub fn ravelCoords(self: Self, coords: array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
@@ -13630,8 +13686,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
+        pub fn indexPutOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatOut(indices, values, out);
+        }
+
         pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.putFlatScalar(indices, value);
+        }
+
+        pub fn indexPutScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatScalarOut(indices, value, out);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -17957,24 +18021,48 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePutFlat(T, self, indices, values);
         }
 
+        pub fn putFlatOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlat(indices, values), out);
+        }
+
         pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatModeOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatMode(indices, values, mode), out);
         }
 
         pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalar(T, self, indices, value);
         }
 
+        pub fn putFlatScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalar(indices, value), out);
+        }
+
         pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatScalarModeOut(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarMode(indices, value, mode), out);
         }
 
         pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatSigned(T, self, indices, values);
         }
 
+        pub fn putFlatSignedOut(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatSigned(indices, values), out);
+        }
+
         pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarSignedOut(self: Self, indices: array_mod.Array(isize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.putFlatScalarSigned(indices, value), out);
         }
 
         pub fn ravelCoords(self: Self, coords: array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
@@ -20085,8 +20173,16 @@ pub fn CscMatrix(comptime T: type) type {
             return self.putFlat(indices, values);
         }
 
+        pub fn indexPutOut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatOut(indices, values, out);
+        }
+
         pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.putFlatScalar(indices, value);
+        }
+
+        pub fn indexPutScalarOut(self: Self, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.putFlatScalarOut(indices, value, out);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -25202,18 +25298,28 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var put_flat = try matrix.putFlat(put_indices, put_flat_values);
             defer put_flat.deinit();
             try expectArray(put_flat, &.{ 2, 3 }, &.{ 1, 20, 0, 21, 2, 22 });
+            var put_flat_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer put_flat_out.deinit();
+            try matrix.putFlatOut(put_indices, put_flat_values, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_flat.data, put_flat_out.data);
 
             var put_flat_alias = try matrix.indexPut(put_indices, put_flat_values);
             defer put_flat_alias.deinit();
             try expectArray(put_flat_alias, &.{ 2, 3 }, &.{ 1, 20, 0, 21, 2, 22 });
+            try matrix.indexPutOut(put_indices, put_flat_values, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_flat_alias.data, put_flat_out.data);
 
             var put_flat_scalar = try matrix.putFlatScalar(put_indices, 30);
             defer put_flat_scalar.deinit();
             try expectArray(put_flat_scalar, &.{ 2, 3 }, &.{ 1, 30, 0, 30, 2, 30 });
+            try matrix.putFlatScalarOut(put_indices, 30, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_flat_scalar.data, put_flat_out.data);
 
             var put_flat_scalar_alias = try matrix.indexPutScalar(put_indices, 31);
             defer put_flat_scalar_alias.deinit();
             try expectArray(put_flat_scalar_alias, &.{ 2, 3 }, &.{ 1, 31, 0, 31, 2, 31 });
+            try matrix.indexPutScalarOut(put_indices, 31, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_flat_scalar_alias.data, put_flat_out.data);
 
             var scalar_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{40}, &.{1});
             defer scalar_values.deinit();
@@ -25228,10 +25334,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var put_mode = try matrix.putFlatMode(wrapped_put_indices, mode_values, .wrap);
             defer put_mode.deinit();
             try expectArray(put_mode, &.{ 2, 3 }, &.{ 50, 51, 0, 0, 2, 3 });
+            try matrix.putFlatModeOut(wrapped_put_indices, mode_values, .wrap, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_mode.data, put_flat_out.data);
 
             var put_flat_scalar_mode = try matrix.putFlatScalarMode(wrapped_put_indices, 60, .wrap);
             defer put_flat_scalar_mode.deinit();
             try expectArray(put_flat_scalar_mode, &.{ 2, 3 }, &.{ 60, 60, 0, 0, 2, 3 });
+            try matrix.putFlatScalarModeOut(wrapped_put_indices, 60, .wrap, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_flat_scalar_mode.data, put_flat_out.data);
 
             var signed_put_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
             defer signed_put_indices.deinit();
@@ -25240,10 +25350,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var put_signed = try matrix.putFlatSigned(signed_put_indices, signed_values);
             defer put_signed.deinit();
             try expectArray(put_signed, &.{ 2, 3 }, &.{ 71, 0, 0, 0, 2, 70 });
+            try matrix.putFlatSignedOut(signed_put_indices, signed_values, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_signed.data, put_flat_out.data);
 
             var put_signed_scalar = try matrix.putFlatScalarSigned(signed_put_indices, 80);
             defer put_signed_scalar.deinit();
             try expectArray(put_signed_scalar, &.{ 2, 3 }, &.{ 80, 0, 0, 0, 2, 80 });
+            try matrix.putFlatScalarSignedOut(signed_put_indices, 80, put_flat_out);
+            try std.testing.expectEqualSlices(f64, put_signed_scalar.data, put_flat_out.data);
 
             var coords = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
                 0, 0,
