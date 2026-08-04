@@ -1093,6 +1093,24 @@ fn sparseDenseDivArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T
     return dense.div(rhs);
 }
 
+fn sparseDensePowArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.pow(rhs);
+}
+
+fn sparseDenseFloorDivArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.floorDiv(rhs);
+}
+
+fn sparseDenseModArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.mod(rhs);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4595,6 +4613,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePowArray(T, self, rhs);
+        }
+
+        pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseModArray(T, self, rhs);
+        }
+
+        pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.modArray(rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9173,6 +9207,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePowArray(T, self, rhs);
+        }
+
+        pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseModArray(T, self, rhs);
+        }
+
+        pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.modArray(rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -13962,6 +14012,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePowArray(T, self, rhs);
+        }
+
+        pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseModArray(T, self, rhs);
+        }
+
+        pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.modArray(rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -20878,6 +20944,62 @@ test "sparse dense fused elementwise helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectFused(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense numeric array helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectNumericArrays = struct {
+        fn expectArray(values: array_mod.Array(i32), shape: []const usize, expected: []const i32) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            try std.testing.expectEqualSlices(i32, expected, values.data);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var exponents = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
+                2, 2, 2,
+                2, 2, 3,
+            }, &.{ 2, 3 });
+            defer exponents.deinit();
+            var powers = try matrix.powArray(exponents);
+            defer powers.deinit();
+            try expectArray(powers, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 1, 8 });
+
+            var divisors = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
+                2, 2, 3,
+                4, 5, 2,
+            }, &.{ 2, 3 });
+            defer divisors.deinit();
+            var floored = try matrix.floorDivArray(divisors);
+            defer floored.deinit();
+            try expectArray(floored, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
+
+            var modded = try matrix.modArray(divisors);
+            defer modded.deinit();
+            try expectArray(modded, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 4, 0 });
+
+            var remainder_alias = try matrix.remainderArray(divisors);
+            defer remainder_alias.deinit();
+            try expectArray(remainder_alias, &.{ 2, 3 }, modded.data);
+
+            var bad = try array_mod.Array(i32).ones(matrix.allocator, &.{ 3, 2 });
+            defer bad.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.powArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.floorDivArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.modArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.remainderArray(bad));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(i32, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 2, -1, 2 });
+    defer matrix.deinit();
+    try expectNumericArrays(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectNumericArrays(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectNumericArrays(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense reduction helpers" {
