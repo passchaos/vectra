@@ -1180,6 +1180,33 @@ fn sparseDenseNextAfterArray(comptime T: type, matrix: anytype, rhs: array_mod.A
     return dense.nextAfter(rhs);
 }
 
+fn sparseDenseHypot(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.hypot(rhs_dense);
+}
+
+fn sparseDenseAtan2(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.atan2(rhs_dense);
+}
+
+fn sparseDenseNextAfter(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.nextAfter(rhs_dense);
+}
+
 fn sparseDenseCopysignArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -1208,6 +1235,51 @@ fn sparseDenseXlogyArray(comptime T: type, matrix: anytype, rhs: array_mod.Array
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.xlogy(rhs);
+}
+
+fn sparseDenseCopysign(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.copysign(rhs_dense);
+}
+
+fn sparseDenseHeaviside(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.heaviside(rhs_dense);
+}
+
+fn sparseDenseLogAddExp(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.logAddExp(rhs_dense);
+}
+
+fn sparseDenseLogAddExp2(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.logAddExp2(rhs_dense);
+}
+
+fn sparseDenseXlogy(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.xlogy(rhs_dense);
 }
 
 fn sparseDenseAddScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
@@ -4902,6 +4974,26 @@ pub fn CooMatrix(comptime T: type) type {
             return self.nextAfterArray(rhs);
         }
 
+        pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHypot(T, self, rhs);
+        }
+
+        pub fn atan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2(T, self, rhs);
+        }
+
+        pub fn arctan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.atan2(rhs);
+        }
+
+        pub fn nextAfter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfter(T, self, rhs);
+        }
+
+        pub fn nextafter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.nextAfter(rhs);
+        }
+
         pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseCopysignArray(T, self, rhs);
         }
@@ -4928,6 +5020,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysign(T, self, rhs);
+        }
+
+        pub fn heaviside(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHeaviside(T, self, rhs);
+        }
+
+        pub fn logAddExp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp(T, self, rhs);
+        }
+
+        pub fn logaddexp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp(rhs);
+        }
+
+        pub fn logAddExp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2(T, self, rhs);
+        }
+
+        pub fn logaddexp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp2(rhs);
+        }
+
+        pub fn xlogy(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogy(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -9684,6 +9804,26 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.nextAfterArray(rhs);
         }
 
+        pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHypot(T, self, rhs);
+        }
+
+        pub fn atan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2(T, self, rhs);
+        }
+
+        pub fn arctan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.atan2(rhs);
+        }
+
+        pub fn nextAfter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfter(T, self, rhs);
+        }
+
+        pub fn nextafter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.nextAfter(rhs);
+        }
+
         pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseCopysignArray(T, self, rhs);
         }
@@ -9710,6 +9850,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysign(T, self, rhs);
+        }
+
+        pub fn heaviside(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHeaviside(T, self, rhs);
+        }
+
+        pub fn logAddExp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp(T, self, rhs);
+        }
+
+        pub fn logaddexp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp(rhs);
+        }
+
+        pub fn logAddExp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2(T, self, rhs);
+        }
+
+        pub fn logaddexp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp2(rhs);
+        }
+
+        pub fn xlogy(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogy(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -14677,6 +14845,26 @@ pub fn CscMatrix(comptime T: type) type {
             return self.nextAfterArray(rhs);
         }
 
+        pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHypot(T, self, rhs);
+        }
+
+        pub fn atan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2(T, self, rhs);
+        }
+
+        pub fn arctan2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.atan2(rhs);
+        }
+
+        pub fn nextAfter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfter(T, self, rhs);
+        }
+
+        pub fn nextafter(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.nextAfter(rhs);
+        }
+
         pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseCopysignArray(T, self, rhs);
         }
@@ -14703,6 +14891,34 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysign(T, self, rhs);
+        }
+
+        pub fn heaviside(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseHeaviside(T, self, rhs);
+        }
+
+        pub fn logAddExp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp(T, self, rhs);
+        }
+
+        pub fn logaddexp(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp(rhs);
+        }
+
+        pub fn logAddExp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2(T, self, rhs);
+        }
+
+        pub fn logaddexp2(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return self.logAddExp2(rhs);
+        }
+
+        pub fn xlogy(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogy(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -21771,6 +21987,81 @@ test "sparse dense fused elementwise helpers" {
             defer xlogy_array.deinit();
             try expectArray(xlogy_array, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 3), 0, 0, 0, 2 * std.math.log(f64, std.math.e, 7), 3 * std.math.log(f64, std.math.e, 8) });
 
+            var rhs_sparse = try cooFromSlices(
+                f64,
+                matrix.allocator,
+                2,
+                3,
+                &.{ 0, 0, 0, 1, 1, 1 },
+                &.{ 0, 1, 2, 0, 1, 2 },
+                end_values.data,
+            );
+            defer rhs_sparse.deinit();
+            var rhs_same_format = if (comptime Matrix == CooMatrix(f64))
+                try rhs_sparse.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try rhs_sparse.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try rhs_sparse.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer rhs_same_format.deinit();
+
+            var hypot_sparse = try matrix.hypot(rhs_same_format);
+            defer hypot_sparse.deinit();
+            try expectArray(hypot_sparse, &.{ 2, 3 }, hypot_array.data);
+
+            var atan2_sparse = try matrix.atan2(rhs_same_format);
+            defer atan2_sparse.deinit();
+            try expectArray(atan2_sparse, &.{ 2, 3 }, atan2_array.data);
+
+            var arctan2_sparse = try matrix.arctan2(rhs_same_format);
+            defer arctan2_sparse.deinit();
+            try expectArray(arctan2_sparse, &.{ 2, 3 }, atan2_array.data);
+
+            var next_after_sparse = try matrix.nextAfter(rhs_same_format);
+            defer next_after_sparse.deinit();
+            try expectArray(next_after_sparse, &.{ 2, 3 }, &.{
+                std.math.nextAfter(f64, 1, 3),
+                std.math.nextAfter(f64, 0, 4),
+                std.math.nextAfter(f64, 0, 5),
+                std.math.nextAfter(f64, 0, 6),
+                std.math.nextAfter(f64, 2, 7),
+                std.math.nextAfter(f64, 3, 8),
+            });
+
+            var nextafter_sparse = try matrix.nextafter(rhs_same_format);
+            defer nextafter_sparse.deinit();
+            try expectArray(nextafter_sparse, &.{ 2, 3 }, next_after_sparse.data);
+
+            var copysign_sparse = try matrix.copysign(rhs_same_format);
+            defer copysign_sparse.deinit();
+            try expectArray(copysign_sparse, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var heaviside_sparse = try matrix.heaviside(rhs_same_format);
+            defer heaviside_sparse.deinit();
+            try expectArray(heaviside_sparse, &.{ 2, 3 }, &.{ 1, 4, 5, 6, 1, 1 });
+
+            var logaddexp_sparse = try matrix.logAddExp(rhs_same_format);
+            defer logaddexp_sparse.deinit();
+            try expectArray(logaddexp_sparse, &.{ 2, 3 }, logaddexp_array.data);
+
+            var logaddexp_sparse_alias = try matrix.logaddexp(rhs_same_format);
+            defer logaddexp_sparse_alias.deinit();
+            try expectArray(logaddexp_sparse_alias, &.{ 2, 3 }, logaddexp_array.data);
+
+            var logaddexp2_sparse = try matrix.logAddExp2(rhs_same_format);
+            defer logaddexp2_sparse.deinit();
+            try expectArray(logaddexp2_sparse, &.{ 2, 3 }, logaddexp2_array.data);
+
+            var logaddexp2_sparse_alias = try matrix.logaddexp2(rhs_same_format);
+            defer logaddexp2_sparse_alias.deinit();
+            try expectArray(logaddexp2_sparse_alias, &.{ 2, 3 }, logaddexp2_array.data);
+
+            var xlogy_sparse = try matrix.xlogy(rhs_same_format);
+            defer xlogy_sparse.deinit();
+            try expectArray(xlogy_sparse, &.{ 2, 3 }, xlogy_array.data);
+
             var added_scalar = try matrix.addScalar(2);
             defer added_scalar.deinit();
             try expectArray(added_scalar, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
@@ -21923,6 +22214,26 @@ test "sparse dense fused elementwise helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.logAddExpArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.logAddExp2Array(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.xlogyArray(bad));
+
+            var bad_sparse_coo = try cooFromSlices(f64, matrix.allocator, 3, 2, &.{0}, &.{0}, &.{1});
+            defer bad_sparse_coo.deinit();
+            var bad_same_format = if (comptime Matrix == CooMatrix(f64))
+                try bad_sparse_coo.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try bad_sparse_coo.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try bad_sparse_coo.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer bad_same_format.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.hypot(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.atan2(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.nextAfter(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.copysign(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.heaviside(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.logAddExp(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.logAddExp2(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.xlogy(bad_same_format));
             try std.testing.expectError(error.ShapeMismatch, matrix.clipArray(lower, bad));
         }
     }.check;
