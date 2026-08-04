@@ -660,6 +660,18 @@ fn sparseDenseInner(comptime T: type, matrix: anytype, rhs: anytype) SparseError
     }
 }
 
+fn sparseDenseContractAxes(comptime T: type, matrix: anytype, rhs: anytype, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return dense.contractAxes(rhs, axes_self, axes_other);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return dense.contractAxes(rhs_dense, axes_self, axes_other);
+    }
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3317,6 +3329,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -6995,6 +7015,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -10884,6 +10912,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -16013,6 +16049,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer inner_array.deinit();
             try std.testing.expectEqualSlices(usize, inner_self.shape, inner_array.shape);
             for (inner_self.data, inner_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var contracted = try upper.contractAxes(upper, &.{1}, &.{0});
+            defer contracted.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, contracted.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), contracted.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 8), contracted.data[1], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), contracted.data[2], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 9), contracted.data[3], 1e-12);
+
+            var contracted_array = try upper.contractAxesArray(upper_dense, &.{1}, &.{0});
+            defer contracted_array.deinit();
+            try std.testing.expectEqualSlices(usize, contracted.shape, contracted_array.shape);
+            for (contracted.data, contracted_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
