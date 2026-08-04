@@ -177,6 +177,14 @@ fn sparseAbsValueExceedsTolerance(comptime T: type, value: T, tolerance: T) bool
     return absValue(T, value) > tolerance;
 }
 
+fn sparseDropZerosNnz(comptime T: type, values: []const T) usize {
+    var nonzero_count: usize = 0;
+    for (values) |value| {
+        if (isNonZero(T, value)) nonzero_count += 1;
+    }
+    return nonzero_count;
+}
+
 fn sparsePruneZerosNnz(comptime T: type, values: []const T, tolerance: T) SparseError!usize {
     try validateSparseValueRange(T, zero(T), tolerance);
     var keep_count: usize = 0;
@@ -1622,11 +1630,12 @@ pub fn CooMatrix(comptime T: type) type {
             return combined.coalesced();
         }
 
+        pub fn dropZerosNnz(self: Self) usize {
+            return sparseDropZerosNnz(T, self.values);
+        }
+
         pub fn dropZeros(self: Self) SparseError!Self {
-            var nonzero_count: usize = 0;
-            for (self.values) |value| {
-                if (isNonZero(T, value)) nonzero_count += 1;
-            }
+            const nonzero_count = self.dropZerosNnz();
 
             var row_indices = try self.allocator.alloc(usize, nonzero_count);
             errdefer self.allocator.free(row_indices);
@@ -3787,11 +3796,12 @@ pub fn CsrMatrix(comptime T: type) type {
             return sum_coo.toCsr();
         }
 
+        pub fn dropZerosNnz(self: Self) usize {
+            return sparseDropZerosNnz(T, self.values);
+        }
+
         pub fn dropZeros(self: Self) SparseError!Self {
-            var nonzero_count: usize = 0;
-            for (self.values) |value| {
-                if (isNonZero(T, value)) nonzero_count += 1;
-            }
+            const nonzero_count = self.dropZerosNnz();
 
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -6188,11 +6198,12 @@ pub fn CscMatrix(comptime T: type) type {
             return sum_coo.toCsc();
         }
 
+        pub fn dropZerosNnz(self: Self) usize {
+            return sparseDropZerosNnz(T, self.values);
+        }
+
         pub fn dropZeros(self: Self) SparseError!Self {
-            var nonzero_count: usize = 0;
-            for (self.values) |value| {
-                if (isNonZero(T, value)) nonzero_count += 1;
-            }
+            const nonzero_count = self.dropZerosNnz();
 
             var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
             errdefer self.allocator.free(col_offsets);
@@ -8891,6 +8902,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coo_pruned.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2 }, coo_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, coo_pruned.values);
+    try std.testing.expectEqual(@as(usize, 2), coo_sum.dropZerosNnz());
     var coo_tolerance_pruned = try coo_sum.pruneZeros(5);
     defer coo_tolerance_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{1}, coo_tolerance_pruned.row_indices);
@@ -9111,6 +9123,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_pruned.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2 }, csr_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, csr_pruned.values);
+    try std.testing.expectEqual(@as(usize, 2), csr_sum.dropZerosNnz());
     var csr_tolerance_pruned = try csr_sum.pruneZeros(5);
     defer csr_tolerance_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1 }, csr_tolerance_pruned.row_offsets);
@@ -9182,6 +9195,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1, 2 }, csc_pruned.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, csc_pruned.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 5, 9 }, csc_pruned.values);
+    try std.testing.expectEqual(@as(usize, 2), csc_sum.dropZerosNnz());
     var csc_tolerance_pruned = try csc_sum.pruneZeros(5);
     defer csc_tolerance_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 1 }, csc_tolerance_pruned.col_offsets);
