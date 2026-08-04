@@ -690,6 +690,12 @@ fn sparseDenseQr(comptime T: type, matrix: anytype) SparseError!array_mod.QrResu
     return dense.qr();
 }
 
+fn sparseDenseLu(comptime T: type, matrix: anytype) SparseError!array_mod.LuResult(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.lu();
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3265,6 +3271,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
             return sparseDenseQr(T, self);
+        }
+
+        pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
+            return sparseDenseLu(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6895,6 +6905,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
             return sparseDenseQr(T, self);
+        }
+
+        pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
+            return sparseDenseLu(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10740,6 +10754,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
             return sparseDenseQr(T, self);
+        }
+
+        pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
+            return sparseDenseLu(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15781,6 +15799,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 2), qr_reconstructed.data[1], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 0), qr_reconstructed.data[2], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 3), qr_reconstructed.data[3], 1e-10);
+
+            var lu_result = try upper.lu();
+            defer lu_result.deinit();
+            var lu_product = try lu_result.l.matmul(lu_result.u);
+            defer lu_product.deinit();
+            var lu_reconstructed = try lu_result.p.matmul(lu_product);
+            defer lu_reconstructed.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, lu_reconstructed.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), lu_reconstructed.data[0], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 2), lu_reconstructed.data[1], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), lu_reconstructed.data[2], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), lu_reconstructed.data[3], 1e-10);
 
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try upper.matrixNorm(.fro, 1e-12), 1e-12);
             try std.testing.expectEqual(@as(usize, 2), try upper.matrixRank(1e-12));
