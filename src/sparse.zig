@@ -503,6 +503,19 @@ fn sparseRelativeMatrixResidualNorm(
     return sparseRelativeResidualNorm(T, residual_norm, operator_norm, x_values, rhs_values);
 }
 
+fn sparseSymmetryResidualFrobeniusNormFromDense(comptime T: type, values: []const T, rows: usize, cols: usize) SparseError!T {
+    ensureFloat(T);
+    if (rows != cols) return error.NonMatrixArray;
+    var total = zero(T);
+    for (0..rows) |row| {
+        for ((row + 1)..cols) |col| {
+            const diff = values[row * cols + col] - values[col * cols + row];
+            total += diff * diff * @as(T, @floatFromInt(2));
+        }
+    }
+    return @sqrt(total);
+}
+
 fn sparseValueIsFinite(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
@@ -2491,6 +2504,28 @@ pub fn CooMatrix(comptime T: type) type {
                 if (absDifference(T, value, mirror) > tolerance) return false;
             }
             return true;
+        }
+
+        pub fn symmetryResidualFrobeniusNorm(self: Self) SparseError!T {
+            ensureFloat(T);
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return sparseSymmetryResidualFrobeniusNormFromDense(T, dense.data, self.rows, self.cols);
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNorm(self: Self) SparseError!T {
+            const residual = try self.symmetryResidualFrobeniusNorm();
+            return residual / @max(oneValue(T), self.frobeniusNorm());
+        }
+
+        pub fn symmetryResidualFrobeniusNormMeetsBound(self: Self, max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.symmetryResidualFrobeniusNorm()) <= max_residual;
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNormMeetsBound(self: Self, max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.symmetryRelativeResidualFrobeniusNorm()) <= max_relative_residual;
         }
 
         pub fn toDense(self: Self) SparseError!array_mod.Array(T) {
@@ -4551,6 +4586,28 @@ pub fn CsrMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn symmetryResidualFrobeniusNorm(self: Self) SparseError!T {
+            ensureFloat(T);
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return sparseSymmetryResidualFrobeniusNormFromDense(T, dense.data, self.rows, self.cols);
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNorm(self: Self) SparseError!T {
+            const residual = try self.symmetryResidualFrobeniusNorm();
+            return residual / @max(oneValue(T), self.frobeniusNorm());
+        }
+
+        pub fn symmetryResidualFrobeniusNormMeetsBound(self: Self, max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.symmetryResidualFrobeniusNorm()) <= max_residual;
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNormMeetsBound(self: Self, max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.symmetryRelativeResidualFrobeniusNorm()) <= max_relative_residual;
+        }
+
         pub fn get(self: Self, row: usize, col: usize) ?T {
             if (row >= self.rows or col >= self.cols) return null;
             var found = false;
@@ -6366,6 +6423,28 @@ pub fn CscMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn symmetryResidualFrobeniusNorm(self: Self) SparseError!T {
+            ensureFloat(T);
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return sparseSymmetryResidualFrobeniusNormFromDense(T, dense.data, self.rows, self.cols);
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNorm(self: Self) SparseError!T {
+            const residual = try self.symmetryResidualFrobeniusNorm();
+            return residual / @max(oneValue(T), self.frobeniusNorm());
+        }
+
+        pub fn symmetryResidualFrobeniusNormMeetsBound(self: Self, max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.symmetryResidualFrobeniusNorm()) <= max_residual;
+        }
+
+        pub fn symmetryRelativeResidualFrobeniusNormMeetsBound(self: Self, max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.symmetryRelativeResidualFrobeniusNorm()) <= max_relative_residual;
+        }
+
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
             if (self.rows != self.cols) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
@@ -7519,6 +7598,10 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try symmetric.symmetryResidualFrobeniusNormMeetsBound(0));
+    try std.testing.expect(try symmetric.symmetryRelativeResidualFrobeniusNormMeetsBound(0));
     try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
     try std.testing.expect(symmetric.get(0, 2) == null);
 
@@ -7542,6 +7625,12 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)), try nonsym.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)), try nonsym.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try nonsym.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26))));
+    try std.testing.expect(!(try nonsym.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) - 1e-12)));
+    try std.testing.expect(try nonsym.symmetryRelativeResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)) + 1e-12));
+    try std.testing.expectError(error.InvalidShape, nonsym.symmetryResidualFrobeniusNormMeetsBound(-1));
 
     var rectangular = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1 }, &.{ 0, 2 }, &.{ 1, 2 });
     defer rectangular.deinit();
@@ -7557,6 +7646,9 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryRelativeResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNormMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
@@ -7930,6 +8022,10 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try symmetric.symmetryResidualFrobeniusNormMeetsBound(0));
+    try std.testing.expect(try symmetric.symmetryRelativeResidualFrobeniusNormMeetsBound(0));
 
     var nonsym_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2, 0,
@@ -7951,6 +8047,12 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)), try nonsym.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)), try nonsym.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try nonsym.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26))));
+    try std.testing.expect(!(try nonsym.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) - 1e-12)));
+    try std.testing.expect(try nonsym.symmetryRelativeResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)) + 1e-12));
+    try std.testing.expectError(error.InvalidShape, nonsym.symmetryResidualFrobeniusNormMeetsBound(-1));
 
     var rectangular = try csrFromCompressed(f64, gpa, 2, 3, &.{ 0, 1, 2 }, &.{ 0, 2 }, &.{ 1, 2 });
     defer rectangular.deinit();
@@ -7966,6 +8068,9 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryRelativeResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNormMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
@@ -8498,6 +8603,10 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expect(!(try symmetric.profileTotalMeetsBound(3)));
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try symmetric.symmetryResidualFrobeniusNormMeetsBound(0));
+    try std.testing.expect(try symmetric.symmetryRelativeResidualFrobeniusNormMeetsBound(0));
 
     var missing_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2, 0,
@@ -8515,6 +8624,12 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectEqual(@as(usize, 0), try missing.zeroDiagonalCount());
     try std.testing.expect(try missing.zeroDiagonalCountMeetsBound(0));
     try std.testing.expect(!(try missing.zeroDiagonalCountInRange(1, 1)));
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)), try missing.symmetryResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)), try missing.symmetryRelativeResidualFrobeniusNorm(), 1e-12);
+    try std.testing.expect(try missing.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26))));
+    try std.testing.expect(!(try missing.symmetryResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) - 1e-12)));
+    try std.testing.expect(try missing.symmetryRelativeResidualFrobeniusNormMeetsBound(@sqrt(@as(f64, 26)) / @sqrt(@as(f64, 30)) + 1e-12));
+    try std.testing.expectError(error.InvalidShape, missing.symmetryResidualFrobeniusNormMeetsBound(-1));
 
     var rectangular = try cscFromCompressed(f64, gpa, 2, 3, &.{ 0, 1, 1, 2 }, &.{ 0, 1 }, &.{ 1, 2 });
     defer rectangular.deinit();
@@ -8530,6 +8645,9 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profile());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryRelativeResidualFrobeniusNorm());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.symmetryResidualFrobeniusNormMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileMeetsBounds(1, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.profileTotalMeetsBound(1));
 
