@@ -123,6 +123,7 @@ const SparseDenseUnary = enum {
     hardsigmoid,
     hardswish,
     logsigmoid,
+    selu,
 };
 
 fn sparseComplexRealType(comptime T: type) type {
@@ -270,7 +271,20 @@ fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseU
         .hardsigmoid => dense.hardsigmoid(),
         .hardswish => dense.hardswish(),
         .logsigmoid => dense.logsigmoid(),
+        .selu => dense.selu(),
     };
+}
+
+fn sparseDenseThreshold(comptime T: type, matrix: anytype, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.threshold(threshold_value, replacement_value);
+}
+
+fn sparseDenseLeakyRelu(comptime T: type, matrix: anytype, negative_slope: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.leakyRelu(negative_slope);
 }
 
 fn sparseDenseHardtanh(comptime T: type, matrix: anytype, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
@@ -289,6 +303,18 @@ fn sparseDenseSoftshrink(comptime T: type, matrix: anytype, lambd: T) SparseErro
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.softshrink(lambd);
+}
+
+fn sparseDenseElu(comptime T: type, matrix: anytype, alpha: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.elu(alpha);
+}
+
+fn sparseDenseCelu(comptime T: type, matrix: anytype, alpha: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.celu(alpha);
 }
 
 fn sparseDenseLogicalBinary(lhs: anytype, rhs: @TypeOf(lhs), comptime op: SparseLogicalBinary) SparseError!array_mod.Array(bool) {
@@ -5023,6 +5049,14 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseThreshold(T, self, threshold_value, replacement_value);
+        }
+
+        pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
@@ -5089,6 +5123,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseElu(T, self, alpha);
+        }
+
+        pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn selu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .selu);
+        }
+
+        pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
+            return self.selu();
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -10077,6 +10127,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseThreshold(T, self, threshold_value, replacement_value);
+        }
+
+        pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
@@ -10143,6 +10201,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseElu(T, self, alpha);
+        }
+
+        pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn selu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .selu);
+        }
+
+        pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
+            return self.selu();
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -15342,6 +15416,14 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseThreshold(T, self, threshold_value, replacement_value);
+        }
+
+        pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
@@ -15408,6 +15490,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseElu(T, self, alpha);
+        }
+
+        pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn selu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .selu);
+        }
+
+        pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
+            return self.selu();
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -23627,6 +23725,32 @@ test "sparse dense norm and logsumexp helpers" {
             var relu6_values = try activation_matrix.relu6();
             defer relu6_values.deinit();
             try expectArray(relu6_values, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 0.5, 6 });
+
+            var threshold_values = try activation_matrix.threshold(0.25, -9);
+            defer threshold_values.deinit();
+            try expectArray(threshold_values, &.{ 2, 3 }, &.{ -9, -9, -9, -9, 0.5, 7 });
+
+            var leaky_relu_values = try activation_matrix.leakyRelu(0.1);
+            defer leaky_relu_values.deinit();
+            try expectArray(leaky_relu_values, &.{ 2, 3 }, &.{ -0.2, 0, 0, 0, 0.5, 7 });
+
+            var elu_values = try activation_matrix.elu(2);
+            defer elu_values.deinit();
+            try expectArray(elu_values, &.{ 2, 3 }, &.{ 2 * std.math.expm1(@as(f64, -2)), 0, 0, 0, 0.5, 7 });
+
+            var celu_values = try activation_matrix.celu(2);
+            defer celu_values.deinit();
+            try expectArray(celu_values, &.{ 2, 3 }, &.{ 2 * std.math.expm1(@as(f64, -1)), 0, 0, 0, 0.5, 7 });
+
+            const selu_scale = 1.0507009873554805;
+            const selu_alpha = 1.6732632423543772;
+            var selu_values = try activation_matrix.selu();
+            defer selu_values.deinit();
+            try expectArray(selu_values, &.{ 2, 3 }, &.{ selu_scale * selu_alpha * std.math.expm1(@as(f64, -2)), 0, 0, 0, selu_scale * 0.5, selu_scale * 7 });
+
+            var selu_alias = try activation_matrix.SELU();
+            defer selu_alias.deinit();
+            try expectArray(selu_alias, &.{ 2, 3 }, selu_values.data);
 
             var hardtanh_values = try activation_matrix.hardtanh(-1, 1);
             defer hardtanh_values.deinit();
