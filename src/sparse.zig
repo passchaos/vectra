@@ -5092,24 +5092,48 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseTake(T, self, indices, axis_opt);
         }
 
+        pub fn takeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.take(indices, axis_opt), out);
+        }
+
         pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSignedOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSigned(indices, axis_opt), out);
         }
 
         pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
         }
 
+        pub fn takeModeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeMode(indices, axis_opt, mode), out);
+        }
+
         pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedModeOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSignedMode(indices, axis_opt, mode), out);
         }
 
         pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
             return self.take(indices, axis_index);
         }
 
+        pub fn indexSelectOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeOut(indices, axis_index, out);
+        }
+
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn indexSelectSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeSignedOut(indices, axis_index, out);
         }
 
         pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
@@ -11266,24 +11290,48 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseTake(T, self, indices, axis_opt);
         }
 
+        pub fn takeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.take(indices, axis_opt), out);
+        }
+
         pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSignedOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSigned(indices, axis_opt), out);
         }
 
         pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
         }
 
+        pub fn takeModeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeMode(indices, axis_opt, mode), out);
+        }
+
         pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedModeOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSignedMode(indices, axis_opt, mode), out);
         }
 
         pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
             return self.take(indices, axis_index);
         }
 
+        pub fn indexSelectOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeOut(indices, axis_index, out);
+        }
+
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn indexSelectSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeSignedOut(indices, axis_index, out);
         }
 
         pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
@@ -17653,24 +17701,48 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseTake(T, self, indices, axis_opt);
         }
 
+        pub fn takeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.take(indices, axis_opt), out);
+        }
+
         pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSignedOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSigned(indices, axis_opt), out);
         }
 
         pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
         }
 
+        pub fn takeModeOut(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeMode(indices, axis_opt, mode), out);
+        }
+
         pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
             return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedModeOut(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.takeSignedMode(indices, axis_opt, mode), out);
         }
 
         pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
             return self.take(indices, axis_index);
         }
 
+        pub fn indexSelectOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeOut(indices, axis_index, out);
+        }
+
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn indexSelectSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try self.takeSignedOut(indices, axis_index, out);
         }
 
         pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
@@ -24773,42 +24845,66 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var flat_take = try matrix.take(flat_indices, null);
             defer flat_take.deinit();
             try expectArray(flat_take, &.{3}, &.{ 3, 1, 2 });
+            var flat_take_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer flat_take_out.deinit();
+            try matrix.takeOut(flat_indices, null, flat_take_out);
+            try std.testing.expectEqualSlices(f64, flat_take.data, flat_take_out.data);
 
             var row_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 0 }, &.{2});
             defer row_indices.deinit();
             var row_take = try matrix.take(row_indices, 0);
             defer row_take.deinit();
             try expectArray(row_take, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+            var row_take_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer row_take_out.deinit();
+            try matrix.takeOut(row_indices, 0, row_take_out);
+            try std.testing.expectEqualSlices(f64, row_take.data, row_take_out.data);
 
             var column_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 2, 0 }, &.{2});
             defer column_indices.deinit();
             var column_take = try matrix.indexSelect(1, column_indices);
             defer column_take.deinit();
             try expectArray(column_take, &.{ 2, 2 }, &.{ 0, 1, 3, 0 });
+            var column_take_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer column_take_out.deinit();
+            try matrix.indexSelectOut(1, column_indices, column_take_out);
+            try std.testing.expectEqualSlices(f64, column_take.data, column_take_out.data);
 
             var signed_flat_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
             defer signed_flat_indices.deinit();
             var signed_flat_take = try matrix.takeSigned(signed_flat_indices, null);
             defer signed_flat_take.deinit();
             try expectArray(signed_flat_take, &.{2}, &.{ 3, 1 });
+            var signed_flat_take_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer signed_flat_take_out.deinit();
+            try matrix.takeSignedOut(signed_flat_indices, null, signed_flat_take_out);
+            try std.testing.expectEqualSlices(f64, signed_flat_take.data, signed_flat_take_out.data);
 
             var signed_column_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
             defer signed_column_indices.deinit();
             var signed_column_take = try matrix.indexSelectSigned(1, signed_column_indices);
             defer signed_column_take.deinit();
             try expectArray(signed_column_take, &.{ 2, 2 }, &.{ 0, 1, 3, 0 });
+            try matrix.indexSelectSignedOut(1, signed_column_indices, column_take_out);
+            try std.testing.expectEqualSlices(f64, signed_column_take.data, column_take_out.data);
 
             var wrapped_flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 6, 7 }, &.{2});
             defer wrapped_flat_indices.deinit();
             var wrapped_flat_take = try matrix.takeMode(wrapped_flat_indices, null, .wrap);
             defer wrapped_flat_take.deinit();
             try expectArray(wrapped_flat_take, &.{2}, &.{ 1, 0 });
+            var wrapped_flat_take_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer wrapped_flat_take_out.deinit();
+            try matrix.takeModeOut(wrapped_flat_indices, null, .wrap, wrapped_flat_take_out);
+            try std.testing.expectEqualSlices(f64, wrapped_flat_take.data, wrapped_flat_take_out.data);
 
             var clipped_signed_columns = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -4, 99 }, &.{2});
             defer clipped_signed_columns.deinit();
             var clipped_signed_take = try matrix.takeSignedMode(clipped_signed_columns, 1, .clip);
             defer clipped_signed_take.deinit();
             try expectArray(clipped_signed_take, &.{ 2, 2 }, &.{ 1, 0, 0, 3 });
+            try matrix.takeSignedModeOut(clipped_signed_columns, 1, .clip, column_take_out);
+            try std.testing.expectEqualSlices(f64, clipped_signed_take.data, column_take_out.data);
 
             var bad_take_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{6}, &.{1});
             defer bad_take_indices.deinit();
