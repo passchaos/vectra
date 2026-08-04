@@ -5834,16 +5834,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argminAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargmax(self: Self) SparseError!usize {
@@ -5858,16 +5874,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseNanargmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseNanargminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12226,16 +12258,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argminAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargmax(self: Self) SparseError!usize {
@@ -12250,16 +12298,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseNanargmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseNanargminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -18831,16 +18895,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn argminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.argminAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargmax(self: Self) SparseError!usize {
@@ -18855,16 +18935,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseNanargmaxAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargmaxAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargmaxAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargmaxDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargmaxAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn nanargminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseNanargminAxis(T, self, axis_opt, keepdims);
         }
 
+        pub fn nanargminAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.nanargminAxis(axis_opt, keepdims), out);
+        }
+
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn nanargminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.nanargminAxisOut(dim_opt, keepdim, out);
         }
 
         pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -26373,30 +26469,56 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var flat_argmax = try matrix.argmaxAxis(null, false);
             defer flat_argmax.deinit();
             try expectUsizeArray(flat_argmax, &.{}, &.{5});
+            var flat_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{});
+            defer flat_arg_out.deinit();
+            try matrix.argmaxAxisOut(null, false, flat_arg_out);
+            try std.testing.expectEqualSlices(usize, flat_argmax.data, flat_arg_out.data);
             var flat_argmin_keepdim = try matrix.argminAxis(null, true);
             defer flat_argmin_keepdim.deinit();
             try expectUsizeArray(flat_argmin_keepdim, &.{ 1, 1 }, &.{1});
+            var flat_arg_keepdim_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 1, 1 });
+            defer flat_arg_keepdim_out.deinit();
+            try matrix.argminAxisOut(null, true, flat_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, flat_argmin_keepdim.data, flat_arg_keepdim_out.data);
 
             var row_argmax = try matrix.argmaxAxis(1, false);
             defer row_argmax.deinit();
             try expectUsizeArray(row_argmax, &.{2}, &.{ 0, 2 });
+            var row_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{2});
+            defer row_arg_out.deinit();
+            try matrix.argmaxAxisOut(1, false, row_arg_out);
+            try std.testing.expectEqualSlices(usize, row_argmax.data, row_arg_out.data);
             var row_argmax_dim = try matrix.argmaxDim(-1, true);
             defer row_argmax_dim.deinit();
             try expectUsizeArray(row_argmax_dim, &.{ 2, 1 }, &.{ 0, 2 });
+            var row_arg_keepdim_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 1 });
+            defer row_arg_keepdim_out.deinit();
+            try matrix.argmaxDimOut(-1, true, row_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, row_argmax_dim.data, row_arg_keepdim_out.data);
 
             var row_argmin = try matrix.argminAxis(1, false);
             defer row_argmin.deinit();
             try expectUsizeArray(row_argmin, &.{2}, &.{ 1, 0 });
+            try matrix.argminAxisOut(1, false, row_arg_out);
+            try std.testing.expectEqualSlices(usize, row_argmin.data, row_arg_out.data);
             var row_argmin_dim = try matrix.argminDim(-1, true);
             defer row_argmin_dim.deinit();
             try expectUsizeArray(row_argmin_dim, &.{ 2, 1 }, row_argmin.data);
+            try matrix.argminDimOut(-1, true, row_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, row_argmin_dim.data, row_arg_keepdim_out.data);
 
             var column_argmax = try matrix.argmaxAxis(0, false);
             defer column_argmax.deinit();
             try expectUsizeArray(column_argmax, &.{3}, &.{ 0, 1, 1 });
+            var column_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{3});
+            defer column_arg_out.deinit();
+            try matrix.argmaxAxisOut(0, false, column_arg_out);
+            try std.testing.expectEqualSlices(usize, column_argmax.data, column_arg_out.data);
             var column_argmin = try matrix.argminDim(0, false);
             defer column_argmin.deinit();
             try expectUsizeArray(column_argmin, &.{3}, &.{ 1, 0, 0 });
+            try matrix.argminDimOut(0, false, column_arg_out);
+            try std.testing.expectEqualSlices(usize, column_argmin.data, column_arg_out.data);
 
             try std.testing.expectError(error.InvalidAxis, matrix.argmaxAxis(2, false));
         }
@@ -27657,30 +27779,56 @@ test "sparse dense nanarg reduction helpers" {
             var flat_argmax = try matrix.nanargmaxAxis(null, false);
             defer flat_argmax.deinit();
             try expectUsizeArray(flat_argmax, &.{}, &.{2});
+            var flat_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{});
+            defer flat_arg_out.deinit();
+            try matrix.nanargmaxAxisOut(null, false, flat_arg_out);
+            try std.testing.expectEqualSlices(usize, flat_argmax.data, flat_arg_out.data);
             var flat_argmin_keepdim = try matrix.nanargminAxis(null, true);
             defer flat_argmin_keepdim.deinit();
             try expectUsizeArray(flat_argmin_keepdim, &.{ 1, 1 }, &.{4});
+            var flat_arg_keepdim_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 1, 1 });
+            defer flat_arg_keepdim_out.deinit();
+            try matrix.nanargminAxisOut(null, true, flat_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, flat_argmin_keepdim.data, flat_arg_keepdim_out.data);
 
             var row_argmax = try matrix.nanargmaxAxis(1, false);
             defer row_argmax.deinit();
             try expectUsizeArray(row_argmax, &.{2}, &.{ 2, 0 });
+            var row_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{2});
+            defer row_arg_out.deinit();
+            try matrix.nanargmaxAxisOut(1, false, row_arg_out);
+            try std.testing.expectEqualSlices(usize, row_argmax.data, row_arg_out.data);
             var row_argmax_dim = try matrix.nanargmaxDim(-1, true);
             defer row_argmax_dim.deinit();
             try expectUsizeArray(row_argmax_dim, &.{ 2, 1 }, row_argmax.data);
+            var row_arg_keepdim_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 1 });
+            defer row_arg_keepdim_out.deinit();
+            try matrix.nanargmaxDimOut(-1, true, row_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, row_argmax_dim.data, row_arg_keepdim_out.data);
 
             var row_argmin = try matrix.nanargminAxis(1, false);
             defer row_argmin.deinit();
             try expectUsizeArray(row_argmin, &.{2}, &.{ 1, 1 });
+            try matrix.nanargminAxisOut(1, false, row_arg_out);
+            try std.testing.expectEqualSlices(usize, row_argmin.data, row_arg_out.data);
             var row_argmin_dim = try matrix.nanargminDim(-1, true);
             defer row_argmin_dim.deinit();
             try expectUsizeArray(row_argmin_dim, &.{ 2, 1 }, row_argmin.data);
+            try matrix.nanargminDimOut(-1, true, row_arg_keepdim_out);
+            try std.testing.expectEqualSlices(usize, row_argmin_dim.data, row_arg_keepdim_out.data);
 
             var column_argmax = try matrix.nanargmaxAxis(0, false);
             defer column_argmax.deinit();
             try expectUsizeArray(column_argmax, &.{3}, &.{ 1, 0, 0 });
+            var column_arg_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{3});
+            defer column_arg_out.deinit();
+            try matrix.nanargmaxAxisOut(0, false, column_arg_out);
+            try std.testing.expectEqualSlices(usize, column_argmax.data, column_arg_out.data);
             var column_argmin = try matrix.nanargminDim(0, false);
             defer column_argmin.deinit();
             try expectUsizeArray(column_argmin, &.{3}, &.{ 1, 1, 0 });
+            try matrix.nanargminDimOut(0, false, column_arg_out);
+            try std.testing.expectEqualSlices(usize, column_argmin.data, column_arg_out.data);
         }
     }.check;
 
