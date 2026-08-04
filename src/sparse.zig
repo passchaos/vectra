@@ -5172,12 +5172,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseScatter(T, self, axis_index, indices, src);
         }
 
+        pub fn scatterOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatter(axis_index, indices, src), out);
+        }
+
         pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseScatterScalar(T, self, axis_index, indices, value);
         }
 
+        pub fn scatterScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterScalar(axis_index, indices, value), out);
+        }
+
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn putAlongAxisOut(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterOut(axis_index, indices, src, out);
         }
 
         pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
@@ -5216,16 +5228,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
         }
 
+        pub fn scatterReduceOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduce(axis_index, indices, src, reduction), out);
+        }
+
         pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterAddOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceOut(axis_index, indices, src, .sum, out);
         }
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
+        pub fn scatterReduceScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduceScalar(axis_index, indices, value, reduction), out);
+        }
+
         pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
+        }
+
+        pub fn scatterAddScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceScalarOut(axis_index, indices, value, .sum, out);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -11386,12 +11414,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseScatter(T, self, axis_index, indices, src);
         }
 
+        pub fn scatterOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatter(axis_index, indices, src), out);
+        }
+
         pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseScatterScalar(T, self, axis_index, indices, value);
         }
 
+        pub fn scatterScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterScalar(axis_index, indices, value), out);
+        }
+
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn putAlongAxisOut(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterOut(axis_index, indices, src, out);
         }
 
         pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
@@ -11430,16 +11470,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
         }
 
+        pub fn scatterReduceOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduce(axis_index, indices, src, reduction), out);
+        }
+
         pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterAddOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceOut(axis_index, indices, src, .sum, out);
         }
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
+        pub fn scatterReduceScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduceScalar(axis_index, indices, value, reduction), out);
+        }
+
         pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
+        }
+
+        pub fn scatterAddScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceScalarOut(axis_index, indices, value, .sum, out);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -17813,12 +17869,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseScatter(T, self, axis_index, indices, src);
         }
 
+        pub fn scatterOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatter(axis_index, indices, src), out);
+        }
+
         pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseScatterScalar(T, self, axis_index, indices, value);
         }
 
+        pub fn scatterScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterScalar(axis_index, indices, value), out);
+        }
+
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn putAlongAxisOut(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterOut(axis_index, indices, src, out);
         }
 
         pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
@@ -17857,16 +17925,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
         }
 
+        pub fn scatterReduceOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduce(axis_index, indices, src, reduction), out);
+        }
+
         pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterAddOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceOut(axis_index, indices, src, .sum, out);
         }
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
+        pub fn scatterReduceScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.scatterReduceScalar(axis_index, indices, value, reduction), out);
+        }
+
         pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return self.scatterReduceScalar(axis_index, indices, value, .sum);
+        }
+
+        pub fn scatterAddScalarOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.scatterReduceScalarOut(axis_index, indices, value, .sum, out);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -25020,34 +25104,52 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var scatter_out = try matrix.scatter(1, scatter_indices, scatter_src);
             defer scatter_out.deinit();
             try expectArray(scatter_out, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+            var scatter_buffer = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer scatter_buffer.deinit();
+            try matrix.scatterOut(1, scatter_indices, scatter_src, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_out.data, scatter_buffer.data);
 
             var put_along = try matrix.putAlongAxis(scatter_indices, scatter_src, 1);
             defer put_along.deinit();
             try expectArray(put_along, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+            try matrix.putAlongAxisOut(scatter_indices, scatter_src, 1, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, put_along.data, scatter_buffer.data);
 
             var scatter_scalar = try matrix.scatterScalar(1, scatter_indices, -5);
             defer scatter_scalar.deinit();
             try expectArray(scatter_scalar, &.{ 2, 3 }, &.{ -5, -5, -5, -5, -5, -5 });
+            try matrix.scatterScalarOut(1, scatter_indices, -5, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_scalar.data, scatter_buffer.data);
 
             var scatter_sum = try matrix.scatterReduce(1, scatter_indices, scatter_src, .sum);
             defer scatter_sum.deinit();
             try expectArray(scatter_sum, &.{ 2, 3 }, &.{ 10, 8, 7, 4, 7, 9 });
+            try matrix.scatterReduceOut(1, scatter_indices, scatter_src, .sum, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_sum.data, scatter_buffer.data);
 
             var scatter_add = try matrix.scatterAdd(1, scatter_indices, scatter_src);
             defer scatter_add.deinit();
             try expectArray(scatter_add, &.{ 2, 3 }, &.{ 10, 8, 7, 4, 7, 9 });
+            try matrix.scatterAddOut(1, scatter_indices, scatter_src, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_add.data, scatter_buffer.data);
 
             var scatter_max = try matrix.scatterReduce(1, scatter_indices, scatter_src, .max);
             defer scatter_max.deinit();
             try expectArray(scatter_max, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+            try matrix.scatterReduceOut(1, scatter_indices, scatter_src, .max, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_max.data, scatter_buffer.data);
 
             var scatter_scalar_sum = try matrix.scatterReduceScalar(1, scatter_indices, 2, .sum);
             defer scatter_scalar_sum.deinit();
             try expectArray(scatter_scalar_sum, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
+            try matrix.scatterReduceScalarOut(1, scatter_indices, 2, .sum, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_scalar_sum.data, scatter_buffer.data);
 
             var scatter_scalar_add = try matrix.scatterAddScalar(1, scatter_indices, 2);
             defer scatter_scalar_add.deinit();
             try expectArray(scatter_scalar_add, &.{ 2, 3 }, scatter_scalar_sum.data);
+            try matrix.scatterAddScalarOut(1, scatter_indices, 2, scatter_buffer);
+            try std.testing.expectEqualSlices(f64, scatter_scalar_add.data, scatter_buffer.data);
 
             var bad_scatter_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
                 0, 3, 0,
