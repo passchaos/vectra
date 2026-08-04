@@ -3934,6 +3934,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseNnz(T, input);
         }
 
+        pub fn fromArray(input: array_mod.Array(T)) SparseError!Self {
+            return Self.fromDense(input);
+        }
+
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
@@ -9719,6 +9723,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn fromDenseNnz(input: array_mod.Array(T)) SparseError!usize {
             return sparseDenseNnz(T, input);
+        }
+
+        pub fn fromArray(input: array_mod.Array(T)) SparseError!Self {
+            return Self.fromDense(input);
         }
 
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
@@ -15729,6 +15737,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn fromDenseNnz(input: array_mod.Array(T)) SparseError!usize {
             return sparseDenseNnz(T, input);
+        }
+
+        pub fn fromArray(input: array_mod.Array(T)) SparseError!Self {
+            return Self.fromDense(input);
         }
 
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
@@ -21766,6 +21778,11 @@ test "coo sparse dense roundtrip and compressed conversions" {
 
     var coo = try cooFromDense(f64, dense);
     defer coo.deinit();
+    var coo_from_array = try @TypeOf(coo).fromArray(dense);
+    defer coo_from_array.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_from_array.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_from_array.col_indices);
+    try std.testing.expectEqualSlices(f64, coo.values, coo_from_array.values);
     try std.testing.expectEqual(@as(usize, 6), try cooFromDenseNnz(f64, dense));
     try std.testing.expectEqual(@as(usize, 6), coo.nnz());
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, coo.row_indices);
@@ -28120,6 +28137,11 @@ test "csr sparse bridge dense roundtrip and matvec" {
 
     var csr = try csrFromDense(f64, dense);
     defer csr.deinit();
+    var csr_from_array = try @TypeOf(csr).fromArray(dense);
+    defer csr_from_array.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_from_array.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_from_array.col_indices);
+    try std.testing.expectEqualSlices(f64, csr.values, csr_from_array.values);
     try std.testing.expectEqual(@as(usize, 6), csr.nnz());
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
@@ -28178,6 +28200,11 @@ test "csr sparse bridge dense roundtrip and matvec" {
 
     var csc = try csr.toCsc();
     defer csc.deinit();
+    var csc_from_array = try @TypeOf(csc).fromArray(dense);
+    defer csc_from_array.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_from_array.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_from_array.row_indices);
+    try std.testing.expectEqualSlices(f64, csc.values, csc_from_array.values);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
