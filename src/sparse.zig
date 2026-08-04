@@ -4544,6 +4544,10 @@ pub fn CooMatrix(comptime T: type) type {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshapeAs(other);
+        }
+
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
@@ -4554,6 +4558,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
+        }
+
+        pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.viewAs(other);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
@@ -6316,8 +6324,16 @@ pub fn CooMatrix(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expandAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
         pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.expandAs(other);
+        }
+
+        pub fn broadcastAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.broadcastAs(other);
         }
 
         pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
@@ -9802,6 +9818,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshapeAs(other);
+        }
+
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
@@ -9812,6 +9832,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
+        }
+
+        pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.viewAs(other);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
@@ -11570,8 +11594,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expandAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
         pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.expandAs(other);
+        }
+
+        pub fn broadcastAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.broadcastAs(other);
         }
 
         pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
@@ -15271,6 +15303,10 @@ pub fn CscMatrix(comptime T: type) type {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshapeAs(other);
+        }
+
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
@@ -15281,6 +15317,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
+        }
+
+        pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.viewAs(other);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
@@ -17039,8 +17079,16 @@ pub fn CscMatrix(comptime T: type) type {
             return self.expand(other.shape);
         }
 
+        pub fn expandAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
         pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.expandAs(other);
+        }
+
+        pub fn broadcastAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.broadcastAs(other);
         }
 
         pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
@@ -21807,6 +21855,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer reshaped_as.deinit();
             try expectArray(reshaped_as, &.{ 3, 2 }, reshaped.data);
 
+            var reshaped_as_array = try matrix.reshapeAsArray(reshape_target);
+            defer reshaped_as_array.deinit();
+            try expectArray(reshaped_as_array, &.{ 3, 2 }, reshaped.data);
+
             var viewed = try matrix.view(&.{ 3, 2 });
             defer viewed.deinit();
             try expectArray(viewed, &.{ 3, 2 }, reshaped.data);
@@ -21818,6 +21870,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var viewed_as = try matrix.viewAs(reshape_target);
             defer viewed_as.deinit();
             try expectArray(viewed_as, &.{ 3, 2 }, reshaped.data);
+
+            var viewed_as_array = try matrix.viewAsArray(reshape_target);
+            defer viewed_as_array.deinit();
+            try expectArray(viewed_as_array, &.{ 3, 2 }, reshaped.data);
 
             var flattened = try matrix.flatten();
             defer flattened.deinit();
@@ -22010,9 +22066,17 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer expanded_as.deinit();
             try expectArray(expanded_as, &.{ 1, 2, 3 }, broadcasted.data);
 
+            var expanded_as_array = try matrix.expandAsArray(broadcast_target);
+            defer expanded_as_array.deinit();
+            try expectArray(expanded_as_array, &.{ 1, 2, 3 }, broadcasted.data);
+
             var broadcast_as = try matrix.broadcastAs(broadcast_target);
             defer broadcast_as.deinit();
             try expectArray(broadcast_as, &.{ 1, 2, 3 }, broadcasted.data);
+
+            var broadcast_as_array = try matrix.broadcastAsArray(broadcast_target);
+            defer broadcast_as_array.deinit();
+            try expectArray(broadcast_as_array, &.{ 1, 2, 3 }, broadcasted.data);
 
             var permuted = try matrix.permute(&.{ 1, 0 });
             defer permuted.deinit();
