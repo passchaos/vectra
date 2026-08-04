@@ -5748,16 +5748,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn partitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.partition(kth, axis_opt, descending), out);
+        }
+
         pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn partitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.partitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn argpartitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argpartition(kth, axis_opt, descending), out);
+        }
+
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argpartitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
@@ -12094,16 +12110,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn partitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.partition(kth, axis_opt, descending), out);
+        }
+
         pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn partitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.partitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn argpartitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argpartition(kth, axis_opt, descending), out);
+        }
+
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argpartitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
@@ -18653,16 +18685,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn partitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.partition(kth, axis_opt, descending), out);
+        }
+
         pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn partitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.partitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
         }
 
+        pub fn argpartitionOut(self: Self, kth: usize, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argpartition(kth, axis_opt, descending), out);
+        }
+
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartitionDimOut(self: Self, kth: usize, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argpartitionOut(kth, dim_opt, descending, out);
         }
 
         pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
@@ -25223,20 +25271,28 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var partitioned_flat = try matrix.partition(3, null, false);
             defer partitioned_flat.deinit();
             try expectArray(partitioned_flat, &.{6}, sorted_flat.data);
+            try matrix.partitionOut(3, null, false, sorted_flat_out);
+            try std.testing.expectEqualSlices(f64, partitioned_flat.data, sorted_flat_out.data);
 
             var partitioned_rows = try matrix.partitionDim(1, 1, false);
             defer partitioned_rows.deinit();
             try expectMatrix(partitioned_rows, sorted_rows.data);
+            try matrix.partitionDimOut(1, 1, false, sorted_rows_out);
+            try std.testing.expectEqualSlices(f64, partitioned_rows.data, sorted_rows_out.data);
 
             var argpartitioned_flat = try matrix.argpartition(3, null, false);
             defer argpartitioned_flat.deinit();
             try std.testing.expectEqualSlices(usize, argsorted_flat.shape, argpartitioned_flat.shape);
             try std.testing.expectEqualSlices(usize, argsorted_flat.data, argpartitioned_flat.data);
+            try matrix.argpartitionOut(3, null, false, argsorted_flat_out);
+            try std.testing.expectEqualSlices(usize, argpartitioned_flat.data, argsorted_flat_out.data);
 
             var argpartitioned_rows = try matrix.argpartitionDim(1, 1, false);
             defer argpartitioned_rows.deinit();
             try std.testing.expectEqualSlices(usize, argsorted_rows.shape, argpartitioned_rows.shape);
             try std.testing.expectEqualSlices(usize, argsorted_rows.data, argpartitioned_rows.data);
+            try matrix.argpartitionDimOut(1, 1, false, argsorted_rows_out);
+            try std.testing.expectEqualSlices(usize, argpartitioned_rows.data, argsorted_rows_out.data);
 
             try std.testing.expectError(error.InvalidShape, matrix.partition(6, null, false));
             try std.testing.expectError(error.InvalidShape, matrix.argpartition(6, null, false));
