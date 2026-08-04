@@ -1984,6 +1984,24 @@ pub fn CooMatrix(comptime T: type) type {
             return empty_count;
         }
 
+        pub fn emptyRowCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.emptyRowCount()) <= max_count;
+        }
+
+        pub fn emptyRowCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.emptyRowCount(), min_count, max_count);
+        }
+
+        pub fn emptyColumnCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.emptyColumnCount()) <= max_count;
+        }
+
+        pub fn emptyColumnCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.emptyColumnCount(), min_count, max_count);
+        }
+
         pub fn emptyRowFraction(self: Self) SparseError!f64 {
             return sparseCountFraction(try self.emptyRowCount(), self.rows);
         }
@@ -4089,6 +4107,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return empty_count;
         }
 
+        pub fn emptyRowCountMeetsBound(self: Self, max_count: usize) bool {
+            return self.emptyRowCount() <= max_count;
+        }
+
+        pub fn emptyRowCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(self.emptyRowCount(), min_count, max_count);
+        }
+
+        pub fn emptyColumnCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.emptyColumnCount()) <= max_count;
+        }
+
+        pub fn emptyColumnCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.emptyColumnCount(), min_count, max_count);
+        }
+
         pub fn emptyRowFraction(self: Self) SparseError!f64 {
             return sparseCountFraction(self.emptyRowCount(), self.rows);
         }
@@ -5940,6 +5976,24 @@ pub fn CscMatrix(comptime T: type) type {
             return empty_count;
         }
 
+        pub fn emptyRowCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.emptyRowCount()) <= max_count;
+        }
+
+        pub fn emptyRowCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.emptyRowCount(), min_count, max_count);
+        }
+
+        pub fn emptyColumnCountMeetsBound(self: Self, max_count: usize) bool {
+            return self.emptyColumnCount() <= max_count;
+        }
+
+        pub fn emptyColumnCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(self.emptyColumnCount(), min_count, max_count);
+        }
+
         pub fn emptyRowFraction(self: Self) SparseError!f64 {
             return sparseCountFraction(try self.emptyRowCount(), self.rows);
         }
@@ -7163,6 +7217,15 @@ test "sparse occupancy diagnostics" {
     try std.testing.expectError(error.InvalidShape, coo.averageRowNnzInRange(2, 1));
     try std.testing.expectEqual(@as(usize, 1), try coo.emptyRowCount());
     try std.testing.expectEqual(@as(usize, 2), try coo.emptyColumnCount());
+    try std.testing.expect(try coo.emptyRowCountMeetsBound(1));
+    try std.testing.expect(!(try coo.emptyRowCountMeetsBound(0)));
+    try std.testing.expect(try coo.emptyRowCountInRange(1, 1));
+    try std.testing.expect(!(try coo.emptyRowCountInRange(0, 0)));
+    try std.testing.expectError(error.InvalidShape, coo.emptyRowCountInRange(2, 1));
+    try std.testing.expect(try coo.emptyColumnCountMeetsBound(2));
+    try std.testing.expect(!(try coo.emptyColumnCountMeetsBound(1)));
+    try std.testing.expect(try coo.emptyColumnCountInRange(2, 2));
+    try std.testing.expect(!(try coo.emptyColumnCountInRange(0, 1)));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try coo.emptyRowFraction(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try coo.emptyColumnFraction(), 1e-12);
     try std.testing.expect(try coo.emptyRowFractionInRange(0.3, 0.4));
@@ -7186,6 +7249,15 @@ test "sparse occupancy diagnostics" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.75), try csr.averageColumnNnz(), 1e-12);
     try std.testing.expectEqual(@as(usize, 1), csr.emptyRowCount());
     try std.testing.expectEqual(@as(usize, 2), try csr.emptyColumnCount());
+    try std.testing.expect(csr.emptyRowCountMeetsBound(1));
+    try std.testing.expect(!csr.emptyRowCountMeetsBound(0));
+    try std.testing.expect(try csr.emptyRowCountInRange(1, 1));
+    try std.testing.expect(!(try csr.emptyRowCountInRange(0, 0)));
+    try std.testing.expectError(error.InvalidShape, csr.emptyRowCountInRange(2, 1));
+    try std.testing.expect(try csr.emptyColumnCountMeetsBound(2));
+    try std.testing.expect(!(try csr.emptyColumnCountMeetsBound(1)));
+    try std.testing.expect(try csr.emptyColumnCountInRange(2, 2));
+    try std.testing.expect(!(try csr.emptyColumnCountInRange(0, 1)));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csr.emptyRowFraction(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csr.emptyColumnFraction(), 1e-12);
     try std.testing.expectEqual(@as(usize, 0), try csr.minRowNnz());
@@ -7202,6 +7274,15 @@ test "sparse occupancy diagnostics" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.75), try csc.averageColumnNnz(), 1e-12);
     try std.testing.expectEqual(@as(usize, 1), try csc.emptyRowCount());
     try std.testing.expectEqual(@as(usize, 2), csc.emptyColumnCount());
+    try std.testing.expect(try csc.emptyRowCountMeetsBound(1));
+    try std.testing.expect(!(try csc.emptyRowCountMeetsBound(0)));
+    try std.testing.expect(try csc.emptyRowCountInRange(1, 1));
+    try std.testing.expect(!(try csc.emptyRowCountInRange(0, 0)));
+    try std.testing.expectError(error.InvalidShape, csc.emptyRowCountInRange(2, 1));
+    try std.testing.expect(csc.emptyColumnCountMeetsBound(2));
+    try std.testing.expect(!csc.emptyColumnCountMeetsBound(1));
+    try std.testing.expect(try csc.emptyColumnCountInRange(2, 2));
+    try std.testing.expect(!(try csc.emptyColumnCountInRange(0, 1)));
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), try csc.emptyRowFraction(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 0.5), try csc.emptyColumnFraction(), 1e-12);
     try std.testing.expectEqual(@as(usize, 0), try csc.minRowNnz());
