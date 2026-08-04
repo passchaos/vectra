@@ -1411,6 +1411,28 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn abs(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = absValue(T, value.*);
+            return out;
+        }
+
+        pub fn absolute(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn fabs(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn square(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = value.* * value.*;
+            return out;
+        }
+
         pub fn nnz(self: Self) usize {
             return self.values.len;
         }
@@ -3695,6 +3717,28 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn abs(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = absValue(T, value.*);
+            return out;
+        }
+
+        pub fn absolute(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn fabs(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn square(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = value.* * value.*;
+            return out;
         }
 
         pub fn nnz(self: Self) usize {
@@ -6192,6 +6236,28 @@ pub fn CscMatrix(comptime T: type) type {
                 .row_indices = row_indices,
                 .values = values,
             };
+        }
+
+        pub fn abs(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = absValue(T, value.*);
+            return out;
+        }
+
+        pub fn absolute(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn fabs(self: Self) SparseError!Self {
+            return self.abs();
+        }
+
+        pub fn square(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = value.* * value.*;
+            return out;
         }
 
         pub fn nnz(self: Self) usize {
@@ -9457,6 +9523,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_diff.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, coo_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, coo_diff.values);
+    var coo_abs = try coo_diff.abs();
+    defer coo_abs.deinit();
+    try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_abs.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_abs.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 4, 3 }, coo_abs.values);
+    var coo_squared = try coo_diff.square();
+    defer coo_squared.deinit();
+    try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_squared.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_squared.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, coo_squared.values);
     const full_summary = try lhs.diffSummary(rhs);
     try std.testing.expectApproxEqAbs(@as(f64, 18), full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), full_summary.max_abs_diff, 1e-12);
@@ -9676,6 +9752,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, csr_diff.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csr_diff.values);
+    var csr_abs = try csr_diff.absolute();
+    defer csr_abs.deinit();
+    try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_abs.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_diff.col_indices, csr_abs.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 4, 3 }, csr_abs.values);
+    var csr_squared = try csr_diff.square();
+    defer csr_squared.deinit();
+    try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_squared.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_diff.col_indices, csr_squared.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, csr_squared.values);
     const csr_full_summary = try lhs_csr.diffSummary(rhs_csr);
     try std.testing.expectApproxEqAbs(full_summary.dot, csr_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csr_full_summary.squared_distance, 1e-12);
@@ -9750,6 +9836,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, csc_diff.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ -3, 4, -3 }, csc_diff.values);
+    var csc_abs = try csc_diff.fabs();
+    defer csc_abs.deinit();
+    try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_abs.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_diff.row_indices, csc_abs.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 3, 4, 3 }, csc_abs.values);
+    var csc_squared = try csc_diff.square();
+    defer csc_squared.deinit();
+    try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_squared.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_diff.row_indices, csc_squared.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, csc_squared.values);
     const csc_full_summary = try lhs_csc.diffSummary(rhs_csc);
     try std.testing.expectApproxEqAbs(full_summary.dot, csc_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csc_full_summary.squared_distance, 1e-12);
