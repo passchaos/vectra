@@ -890,6 +890,32 @@ fn sparseDenseIsHermitian(comptime T: type, matrix: anytype, rtol: T, atol: T) S
     return dense.isHermitian(rtol, atol);
 }
 
+fn sparseDenseMagnitude(comptime T: type, matrix: anytype) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.magnitude();
+}
+
+fn sparseDenseAngle(comptime T: type, matrix: anytype) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.angle();
+}
+
+fn sparseDenseIsReal(comptime T: type, matrix: anytype) SparseError!array_mod.Array(bool) {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isReal();
+}
+
+fn sparseDenseIsComplex(comptime T: type, matrix: anytype) SparseError!array_mod.Array(bool) {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.iscomplex();
+}
+
 fn sparseDenseFlip(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -1426,8 +1452,8 @@ fn minStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
     if (values.len == 0) return error.EmptyArray;
     var result = absValue(T, values[0]);
     for (values[1..]) |value| {
-        const magnitude = absValue(T, value);
-        if (magnitude < result) result = magnitude;
+        const abs_magnitude = absValue(T, value);
+        if (abs_magnitude < result) result = abs_magnitude;
     }
     return result;
 }
@@ -1438,9 +1464,9 @@ fn minStoredAbsValueIndex(comptime T: type, values: []const T) SparseError!usize
     var result_index: usize = 0;
     var result = absValue(T, values[0]);
     for (values[1..], 1..) |value, index| {
-        const magnitude = absValue(T, value);
-        if (magnitude < result) {
-            result = magnitude;
+        const abs_magnitude = absValue(T, value);
+        if (abs_magnitude < result) {
+            result = abs_magnitude;
             result_index = index;
         }
     }
@@ -1452,8 +1478,8 @@ fn maxStoredAbsValue(comptime T: type, values: []const T) SparseError!T {
     if (values.len == 0) return error.EmptyArray;
     var result = absValue(T, values[0]);
     for (values[1..]) |value| {
-        const magnitude = absValue(T, value);
-        if (magnitude > result) result = magnitude;
+        const abs_magnitude = absValue(T, value);
+        if (abs_magnitude > result) result = abs_magnitude;
     }
     return result;
 }
@@ -1464,9 +1490,9 @@ fn maxStoredAbsValueIndex(comptime T: type, values: []const T) SparseError!usize
     var result_index: usize = 0;
     var result = absValue(T, values[0]);
     for (values[1..], 1..) |value, index| {
-        const magnitude = absValue(T, value);
-        if (magnitude > result) {
-            result = magnitude;
+        const abs_magnitude = absValue(T, value);
+        if (abs_magnitude > result) {
+            result = abs_magnitude;
             result_index = index;
         }
     }
@@ -1816,8 +1842,8 @@ fn sparseAbsValueRangeInRange(comptime T: type, values: []const T, min_abs_value
     try validateSparseValueRange(T, min_abs_value, max_abs_value);
     if (values.len == 0) return error.EmptyArray;
     for (values) |value| {
-        const magnitude = absValue(T, value);
-        if (!(magnitude >= min_abs_value and magnitude <= max_abs_value)) return false;
+        const abs_magnitude = absValue(T, value);
+        if (!(abs_magnitude >= min_abs_value and abs_magnitude <= max_abs_value)) return false;
     }
     return true;
 }
@@ -1848,9 +1874,9 @@ fn sparseDiagonalAbsRange(comptime T: type, values: []const T) SparseError!struc
     var min_abs = absValue(T, values[0]);
     var max_abs = min_abs;
     for (values[1..]) |value| {
-        const magnitude = absValue(T, value);
-        if (magnitude < min_abs) min_abs = magnitude;
-        if (magnitude > max_abs) max_abs = magnitude;
+        const abs_magnitude = absValue(T, value);
+        if (abs_magnitude < min_abs) min_abs = abs_magnitude;
+        if (abs_magnitude > max_abs) max_abs = abs_magnitude;
     }
     return .{ .min_abs = min_abs, .max_abs = max_abs };
 }
@@ -3582,6 +3608,34 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
+        pub fn magnitude(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseMagnitude(T, self);
+        }
+
+        pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.magnitude();
+        }
+
+        pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseAngle(T, self);
+        }
+
+        pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.angle();
+        }
+
+        pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsReal(T, self);
+        }
+
+        pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
+            return self.isReal();
+        }
+
+        pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsComplex(T, self);
+        }
+
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlip(T, self, axis_index);
         }
@@ -5121,8 +5175,8 @@ pub fn CooMatrix(comptime T: type) type {
             ensureNumeric(T);
             var out = try self.rowMaxAbs();
             for (self.values, self.row_indices) |value, row| {
-                const magnitude = absValue(T, value);
-                if (magnitude < out.data[row]) out.data[row] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude < out.data[row]) out.data[row] = abs_magnitude;
             }
             return out;
         }
@@ -5132,8 +5186,8 @@ pub fn CooMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
             for (self.values, self.row_indices) |value, row| {
-                const magnitude = absValue(T, value);
-                if (magnitude > out.data[row]) out.data[row] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude > out.data[row]) out.data[row] = abs_magnitude;
             }
             return out;
         }
@@ -5142,8 +5196,8 @@ pub fn CooMatrix(comptime T: type) type {
             ensureNumeric(T);
             var out = try self.columnMaxAbs();
             for (self.values, self.col_indices) |value, col| {
-                const magnitude = absValue(T, value);
-                if (magnitude < out.data[col]) out.data[col] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude < out.data[col]) out.data[col] = abs_magnitude;
             }
             return out;
         }
@@ -5153,8 +5207,8 @@ pub fn CooMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.values, self.col_indices) |value, col| {
-                const magnitude = absValue(T, value);
-                if (magnitude > out.data[col]) out.data[col] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude > out.data[col]) out.data[col] = abs_magnitude;
             }
             return out;
         }
@@ -7308,6 +7362,34 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
+        pub fn magnitude(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseMagnitude(T, self);
+        }
+
+        pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.magnitude();
+        }
+
+        pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseAngle(T, self);
+        }
+
+        pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.angle();
+        }
+
+        pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsReal(T, self);
+        }
+
+        pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
+            return self.isReal();
+        }
+
+        pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsComplex(T, self);
+        }
+
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlip(T, self, axis_index);
         }
@@ -9237,8 +9319,8 @@ pub fn CsrMatrix(comptime T: type) type {
             var out = try self.rowMaxAbs();
             for (0..self.rows) |row| {
                 for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
-                    const magnitude = absValue(T, self.values[pos]);
-                    if (magnitude < out.data[row]) out.data[row] = magnitude;
+                    const abs_magnitude = absValue(T, self.values[pos]);
+                    if (abs_magnitude < out.data[row]) out.data[row] = abs_magnitude;
                 }
             }
             return out;
@@ -9250,8 +9332,8 @@ pub fn CsrMatrix(comptime T: type) type {
             errdefer out.deinit();
             for (0..self.rows) |row| {
                 for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
-                    const magnitude = absValue(T, self.values[pos]);
-                    if (magnitude > out.data[row]) out.data[row] = magnitude;
+                    const abs_magnitude = absValue(T, self.values[pos]);
+                    if (abs_magnitude > out.data[row]) out.data[row] = abs_magnitude;
                 }
             }
             return out;
@@ -9261,8 +9343,8 @@ pub fn CsrMatrix(comptime T: type) type {
             ensureNumeric(T);
             var out = try self.columnMaxAbs();
             for (self.values, self.col_indices) |value, col| {
-                const magnitude = absValue(T, value);
-                if (magnitude < out.data[col]) out.data[col] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude < out.data[col]) out.data[col] = abs_magnitude;
             }
             return out;
         }
@@ -9272,8 +9354,8 @@ pub fn CsrMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.values, self.col_indices) |value, col| {
-                const magnitude = absValue(T, value);
-                if (magnitude > out.data[col]) out.data[col] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude > out.data[col]) out.data[col] = abs_magnitude;
             }
             return out;
         }
@@ -11249,6 +11331,34 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
+        pub fn magnitude(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseMagnitude(T, self);
+        }
+
+        pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.magnitude();
+        }
+
+        pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseAngle(T, self);
+        }
+
+        pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return self.angle();
+        }
+
+        pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsReal(T, self);
+        }
+
+        pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
+            return self.isReal();
+        }
+
+        pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseIsComplex(T, self);
+        }
+
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlip(T, self, axis_index);
         }
@@ -13069,8 +13179,8 @@ pub fn CscMatrix(comptime T: type) type {
             var out = try self.columnMaxAbs();
             for (0..self.cols) |col| {
                 for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
-                    const magnitude = absValue(T, self.values[pos]);
-                    if (magnitude < out.data[col]) out.data[col] = magnitude;
+                    const abs_magnitude = absValue(T, self.values[pos]);
+                    if (abs_magnitude < out.data[col]) out.data[col] = abs_magnitude;
                 }
             }
             return out;
@@ -13082,8 +13192,8 @@ pub fn CscMatrix(comptime T: type) type {
             errdefer out.deinit();
             for (0..self.cols) |col| {
                 for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
-                    const magnitude = absValue(T, self.values[pos]);
-                    if (magnitude > out.data[col]) out.data[col] = magnitude;
+                    const abs_magnitude = absValue(T, self.values[pos]);
+                    if (abs_magnitude > out.data[col]) out.data[col] = abs_magnitude;
                 }
             }
             return out;
@@ -13117,8 +13227,8 @@ pub fn CscMatrix(comptime T: type) type {
             ensureNumeric(T);
             var out = try self.rowMaxAbs();
             for (self.values, self.row_indices) |value, row| {
-                const magnitude = absValue(T, value);
-                if (magnitude < out.data[row]) out.data[row] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude < out.data[row]) out.data[row] = abs_magnitude;
             }
             return out;
         }
@@ -13128,8 +13238,8 @@ pub fn CscMatrix(comptime T: type) type {
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
             for (self.values, self.row_indices) |value, row| {
-                const magnitude = absValue(T, value);
-                if (magnitude > out.data[row]) out.data[row] = magnitude;
+                const abs_magnitude = absValue(T, value);
+                if (abs_magnitude > out.data[row]) out.data[row] = abs_magnitude;
             }
             return out;
         }
@@ -17423,6 +17533,42 @@ test "sparse complex helpers dense materialize" {
             try std.testing.expectEqualSlices(C, conjugated.data, conjugated_alias.data);
 
             try std.testing.expect(try matrix.isHermitian(C.init(1e-5, 0), C.init(1e-5, 0)));
+
+            var magnitudes = try matrix.magnitude();
+            defer magnitudes.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, magnitudes.shape);
+            try std.testing.expectApproxEqAbs(@as(f32, 1), magnitudes.data[0], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, @sqrt(13.0)), magnitudes.data[1], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, @sqrt(13.0)), magnitudes.data[2], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, 4), magnitudes.data[3], 1e-6);
+
+            var abs_alias = try matrix.absComplex();
+            defer abs_alias.deinit();
+            try std.testing.expectEqualSlices(f32, magnitudes.data, abs_alias.data);
+
+            var angles = try matrix.angle();
+            defer angles.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, angles.shape);
+            try std.testing.expectApproxEqAbs(@as(f32, 0), angles.data[0], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, std.math.atan2(@as(f32, 3), @as(f32, 2))), angles.data[1], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, std.math.atan2(@as(f32, -3), @as(f32, 2))), angles.data[2], 1e-6);
+            try std.testing.expectApproxEqAbs(@as(f32, 0), angles.data[3], 1e-6);
+
+            var phases = try matrix.phase();
+            defer phases.deinit();
+            try std.testing.expectEqualSlices(f32, angles.data, phases.data);
+
+            var real_mask = try matrix.isreal();
+            defer real_mask.deinit();
+            try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, real_mask.data);
+
+            var real_mask_alias = try matrix.isReal();
+            defer real_mask_alias.deinit();
+            try std.testing.expectEqualSlices(bool, real_mask.data, real_mask_alias.data);
+
+            var complex_mask = try matrix.iscomplex();
+            defer complex_mask.deinit();
+            try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, complex_mask.data);
         }
     }.check;
 
