@@ -7192,20 +7192,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseWhere(T, self, mask, other);
         }
 
+        pub fn whereOut(self: Self, mask: array_mod.Array(bool), other: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.where(mask, other), out);
+        }
+
         pub fn whereArray(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, other);
+        }
+
+        pub fn whereArrayOut(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereArray(mask, other), out);
         }
 
         pub fn whereScalar(self: Self, mask: array_mod.Array(bool), other_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseWhereScalar(T, self, mask, other_value);
         }
 
+        pub fn whereScalarOut(self: Self, mask: array_mod.Array(bool), other_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereScalar(mask, other_value), out);
+        }
+
         pub fn copyWhere(self: Self, mask: array_mod.Array(bool), src: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, src, mask, self);
         }
 
+        pub fn copyWhereOut(self: Self, mask: array_mod.Array(bool), src: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhere(mask, src), out);
+        }
+
         pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, src);
+        }
+
+        pub fn copyWhereFromArrayOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhereFromArray(mask, src), out);
         }
 
         pub fn sameStructure(self: Self, rhs: Self) bool {
@@ -13186,20 +13206,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseWhere(T, self, mask, other);
         }
 
+        pub fn whereOut(self: Self, mask: array_mod.Array(bool), other: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.where(mask, other), out);
+        }
+
         pub fn whereArray(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, other);
+        }
+
+        pub fn whereArrayOut(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereArray(mask, other), out);
         }
 
         pub fn whereScalar(self: Self, mask: array_mod.Array(bool), other_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseWhereScalar(T, self, mask, other_value);
         }
 
+        pub fn whereScalarOut(self: Self, mask: array_mod.Array(bool), other_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereScalar(mask, other_value), out);
+        }
+
         pub fn copyWhere(self: Self, mask: array_mod.Array(bool), src: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, src, mask, self);
         }
 
+        pub fn copyWhereOut(self: Self, mask: array_mod.Array(bool), src: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhere(mask, src), out);
+        }
+
         pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, src);
+        }
+
+        pub fn copyWhereFromArrayOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhereFromArray(mask, src), out);
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
@@ -19401,20 +19441,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseWhere(T, self, mask, other);
         }
 
+        pub fn whereOut(self: Self, mask: array_mod.Array(bool), other: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.where(mask, other), out);
+        }
+
         pub fn whereArray(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, other);
+        }
+
+        pub fn whereArrayOut(self: Self, mask: array_mod.Array(bool), other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereArray(mask, other), out);
         }
 
         pub fn whereScalar(self: Self, mask: array_mod.Array(bool), other_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseWhereScalar(T, self, mask, other_value);
         }
 
+        pub fn whereScalarOut(self: Self, mask: array_mod.Array(bool), other_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.whereScalar(mask, other_value), out);
+        }
+
         pub fn copyWhere(self: Self, mask: array_mod.Array(bool), src: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, src, mask, self);
         }
 
+        pub fn copyWhereOut(self: Self, mask: array_mod.Array(bool), src: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhere(mask, src), out);
+        }
+
         pub fn copyWhereFromArray(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseWhereArray(T, self, mask, src);
+        }
+
+        pub fn copyWhereFromArrayOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copyWhereFromArray(mask, src), out);
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
@@ -23917,6 +23977,19 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var copied_array = try matrix.copyWhereFromArray(mask, rhs_dense);
             defer copied_array.deinit();
             try expectMatrix(copied_array, &.{ 1, 0, 0, 0, 2, 6 });
+
+            var where_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer where_out.deinit();
+            try matrix.whereOut(mask, rhs_matrix, where_out);
+            try expectMatrix(where_out, &.{ 1, 0, 0, 0, 2, 6 });
+            try matrix.whereArrayOut(mask, rhs_dense, where_out);
+            try expectMatrix(where_out, &.{ 1, 0, 0, 0, 2, 6 });
+            try matrix.whereScalarOut(mask, -9, where_out);
+            try expectMatrix(where_out, &.{ 1, -9, 0, -9, 2, -9 });
+            try matrix.copyWhereOut(mask, rhs_matrix, where_out);
+            try expectMatrix(where_out, &.{ 4, 0, 0, 0, -2, 3 });
+            try matrix.copyWhereFromArrayOut(mask, rhs_dense, where_out);
+            try expectMatrix(where_out, &.{ 1, 0, 0, 0, 2, 6 });
 
             var masked = try matrix.maskedSelect(mask);
             defer masked.deinit();
