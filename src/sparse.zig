@@ -526,6 +526,18 @@ fn sparseDenseRollAxes(comptime T: type, matrix: anytype, shifts: []const isize,
     return dense.rollAxes(shifts, axes);
 }
 
+fn sparseDenseRepeat(comptime T: type, matrix: anytype, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.repeat(repeats, axis_index);
+}
+
+fn sparseDenseTile(comptime T: type, matrix: anytype, repeats: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.tile(repeats);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2807,6 +2819,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseTile(T, self, repeats);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -6165,6 +6185,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseTile(T, self, repeats);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9738,6 +9766,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseTile(T, self, repeats);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -14219,6 +14255,31 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var rolled_axes = try matrix.rollAxes(&.{ 1, -1 }, &.{ 0, 1 });
             defer rolled_axes.deinit();
             try expectArray(rolled_axes, &.{ 2, 3 }, &.{ 2, 3, 0, 0, 0, 1 });
+
+            var repeated_rows = try matrix.repeat(2, 0);
+            defer repeated_rows.deinit();
+            try expectArray(repeated_rows, &.{ 4, 3 }, &.{
+                1, 0, 0,
+                1, 0, 0,
+                0, 2, 3,
+                0, 2, 3,
+            });
+
+            var repeated_columns = try matrix.repeat(2, 1);
+            defer repeated_columns.deinit();
+            try expectArray(repeated_columns, &.{ 2, 6 }, &.{
+                1, 1, 0, 0, 0, 0,
+                0, 0, 2, 2, 3, 3,
+            });
+
+            var tiled = try matrix.tile(&.{ 2, 1 });
+            defer tiled.deinit();
+            try expectArray(tiled, &.{ 4, 3 }, &.{
+                1, 0, 0,
+                0, 2, 3,
+                1, 0, 0,
+                0, 2, 3,
+            });
 
             try std.testing.expectError(error.ShapeMismatch, matrix.reshape(&.{ 4, 2 }));
 
