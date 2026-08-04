@@ -526,6 +526,12 @@ fn sparseDenseRollAxes(comptime T: type, matrix: anytype, shifts: []const isize,
     return dense.rollAxes(shifts, axes);
 }
 
+fn sparseDenseRot90(comptime T: type, matrix: anytype, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.rot90(k, axes);
+}
+
 fn sparseDenseRepeat(comptime T: type, matrix: anytype, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -2831,6 +2837,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRot90(T, self, k, axes);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -6205,6 +6215,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRot90(T, self, k, axes);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -9794,6 +9808,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
+        }
+
+        pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRot90(T, self, k, axes);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -14291,6 +14309,15 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var rolled_axes = try matrix.rollAxes(&.{ 1, -1 }, &.{ 0, 1 });
             defer rolled_axes.deinit();
             try expectArray(rolled_axes, &.{ 2, 3 }, &.{ 2, 3, 0, 0, 0, 1 });
+
+            var rotated = try matrix.rot90(1, .{ 0, 1 });
+            defer rotated.deinit();
+            try expectArray(rotated, &.{ 3, 2 }, &.{
+                0, 3,
+                0, 2,
+                1, 0,
+            });
+            try std.testing.expectError(error.InvalidAxis, matrix.rot90(1, .{ 0, 0 }));
 
             var repeated_rows = try matrix.repeat(2, 0);
             defer repeated_rows.deinit();
