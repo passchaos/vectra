@@ -4892,40 +4892,80 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseLogicalNot(self);
         }
 
+        pub fn logicalNotOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalNot(), out);
+        }
+
         pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAnd(rhs), out);
         }
 
         pub fn logicalAndArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .and_);
         }
 
+        pub fn logicalAndArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndArray(rhs), out);
+        }
+
         pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalAndScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndScalar(scalar), out);
         }
 
         pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .or_);
         }
 
+        pub fn logicalOrOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOr(rhs), out);
+        }
+
         pub fn logicalOrArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .or_);
+        }
+
+        pub fn logicalOrArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrArray(rhs), out);
         }
 
         pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .or_);
         }
 
+        pub fn logicalOrScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrScalar(scalar), out);
+        }
+
         pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXor(rhs), out);
         }
 
         pub fn logicalXorArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .xor_);
         }
 
+        pub fn logicalXorArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorArray(rhs), out);
+        }
+
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn logicalXorScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorScalar(scalar), out);
         }
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
@@ -10942,40 +10982,80 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseLogicalNot(self);
         }
 
+        pub fn logicalNotOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalNot(), out);
+        }
+
         pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAnd(rhs), out);
         }
 
         pub fn logicalAndArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .and_);
         }
 
+        pub fn logicalAndArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndArray(rhs), out);
+        }
+
         pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalAndScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndScalar(scalar), out);
         }
 
         pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .or_);
         }
 
+        pub fn logicalOrOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOr(rhs), out);
+        }
+
         pub fn logicalOrArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .or_);
+        }
+
+        pub fn logicalOrArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrArray(rhs), out);
         }
 
         pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .or_);
         }
 
+        pub fn logicalOrScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrScalar(scalar), out);
+        }
+
         pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXor(rhs), out);
         }
 
         pub fn logicalXorArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .xor_);
         }
 
+        pub fn logicalXorArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorArray(rhs), out);
+        }
+
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn logicalXorScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorScalar(scalar), out);
         }
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
@@ -17205,40 +17285,80 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseLogicalNot(self);
         }
 
+        pub fn logicalNotOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalNot(), out);
+        }
+
         pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAnd(rhs), out);
         }
 
         pub fn logicalAndArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .and_);
         }
 
+        pub fn logicalAndArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndArray(rhs), out);
+        }
+
         pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalAndScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalAndScalar(scalar), out);
         }
 
         pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .or_);
         }
 
+        pub fn logicalOrOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOr(rhs), out);
+        }
+
         pub fn logicalOrArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .or_);
+        }
+
+        pub fn logicalOrArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrArray(rhs), out);
         }
 
         pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .or_);
         }
 
+        pub fn logicalOrScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalOrScalar(scalar), out);
+        }
+
         pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXor(rhs), out);
         }
 
         pub fn logicalXorArray(self: Self, rhs: array_mod.Array(bool)) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalArray(self, rhs, .xor_);
         }
 
+        pub fn logicalXorArrayOut(self: Self, rhs: array_mod.Array(bool), out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorArray(rhs), out);
+        }
+
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn logicalXorScalarOut(self: Self, scalar: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.logicalXorScalar(scalar), out);
         }
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
@@ -23228,6 +23348,29 @@ test "sparse bool reductions use dense materialization" {
             var xor_true = try matrix.logicalXorScalar(true);
             defer xor_true.deinit();
             try expectMask(xor_true, &.{ 2, 3 }, &.{ false, true, true, true, true, false });
+
+            var out = try array_mod.Array(bool).zeros(matrix.allocator, &.{ 2, 3 });
+            defer out.deinit();
+            try matrix.logicalNotOut(out);
+            try expectMask(out, &.{ 2, 3 }, not_mask.data);
+            try matrix.logicalAndOut(rhs, out);
+            try expectMask(out, &.{ 2, 3 }, and_mask.data);
+            try matrix.logicalAndArrayOut(rhs_dense, out);
+            try expectMask(out, &.{ 2, 3 }, and_array.data);
+            try matrix.logicalAndScalarOut(false, out);
+            try expectMask(out, &.{ 2, 3 }, and_false.data);
+            try matrix.logicalOrOut(rhs, out);
+            try expectMask(out, &.{ 2, 3 }, or_mask.data);
+            try matrix.logicalOrArrayOut(rhs_dense, out);
+            try expectMask(out, &.{ 2, 3 }, or_array.data);
+            try matrix.logicalOrScalarOut(true, out);
+            try expectMask(out, &.{ 2, 3 }, or_true.data);
+            try matrix.logicalXorOut(rhs, out);
+            try expectMask(out, &.{ 2, 3 }, xor_mask.data);
+            try matrix.logicalXorArrayOut(rhs_dense, out);
+            try expectMask(out, &.{ 2, 3 }, xor_array.data);
+            try matrix.logicalXorScalarOut(true, out);
+            try expectMask(out, &.{ 2, 3 }, xor_true.data);
         }
     };
 
