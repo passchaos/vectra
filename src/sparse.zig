@@ -586,6 +586,36 @@ fn sparseDensePadSymmetric(comptime T: type, matrix: anytype, before: []const us
     return dense.padSymmetric(before, after);
 }
 
+fn sparseDenseSplit(comptime T: type, matrix: anytype, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.split(split_size, axis_index);
+}
+
+fn sparseDenseSplitWithSizes(comptime T: type, matrix: anytype, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.splitWithSizes(sizes, axis_index);
+}
+
+fn sparseDenseSplitAtIndices(comptime T: type, matrix: anytype, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.splitAtIndices(indices, axis_index);
+}
+
+fn sparseDenseChunk(comptime T: type, matrix: anytype, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.chunk(chunks, axis_index);
+}
+
+fn sparseDenseUnbind(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.unbind(axis_index);
+}
+
 fn sparseDenseRepeat(comptime T: type, matrix: anytype, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -2951,6 +2981,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplit(T, self, split_size, axis_index);
+        }
+
+        pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitAtIndices(T, self, indices, axis_index);
+        }
+
+        pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseChunk(T, self, chunks, axis_index);
+        }
+
+        pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseUnbind(T, self, axis_index);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -6385,6 +6435,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplit(T, self, split_size, axis_index);
+        }
+
+        pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitAtIndices(T, self, indices, axis_index);
+        }
+
+        pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseChunk(T, self, chunks, axis_index);
+        }
+
+        pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseUnbind(T, self, axis_index);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -10034,6 +10104,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplit(T, self, split_size, axis_index);
+        }
+
+        pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseSplitAtIndices(T, self, indices, axis_index);
+        }
+
+        pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseChunk(T, self, chunks, axis_index);
+        }
+
+        pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
+            return sparseDenseUnbind(T, self, axis_index);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -14628,6 +14718,42 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             try std.testing.expectError(error.ShapeMismatch, matrix.padConstant(&.{1}, &.{ 0, 0 }, -1));
             try std.testing.expectError(error.InvalidShape, matrix.padReflect(&.{ 2, 0 }, &.{ 0, 0 }));
+
+            var split_rows = try matrix.split(1, 0);
+            defer split_rows.deinit();
+            try std.testing.expectEqual(@as(usize, 2), split_rows.items.len);
+            try expectArray(split_rows.items[0], &.{ 1, 3 }, &.{ 1, 0, 0 });
+            try expectArray(split_rows.items[1], &.{ 1, 3 }, &.{ 0, 2, 3 });
+
+            var split_columns = try matrix.splitWithSizes(&.{ 1, 2 }, 1);
+            defer split_columns.deinit();
+            try std.testing.expectEqual(@as(usize, 2), split_columns.items.len);
+            try expectArray(split_columns.items[0], &.{ 2, 1 }, &.{ 1, 0 });
+            try expectArray(split_columns.items[1], &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+
+            var split_at_columns = try matrix.splitAtIndices(&.{ 1, 2 }, 1);
+            defer split_at_columns.deinit();
+            try std.testing.expectEqual(@as(usize, 3), split_at_columns.items.len);
+            try expectArray(split_at_columns.items[0], &.{ 2, 1 }, &.{ 1, 0 });
+            try expectArray(split_at_columns.items[1], &.{ 2, 1 }, &.{ 0, 2 });
+            try expectArray(split_at_columns.items[2], &.{ 2, 1 }, &.{ 0, 3 });
+
+            var chunks = try matrix.chunk(2, 1);
+            defer chunks.deinit();
+            try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
+            try expectArray(chunks.items[0], &.{ 2, 2 }, &.{ 1, 0, 0, 2 });
+            try expectArray(chunks.items[1], &.{ 2, 1 }, &.{ 0, 3 });
+
+            var unbound_rows = try matrix.unbind(0);
+            defer unbound_rows.deinit();
+            try std.testing.expectEqual(@as(usize, 2), unbound_rows.items.len);
+            try expectArray(unbound_rows.items[0], &.{3}, &.{ 1, 0, 0 });
+            try expectArray(unbound_rows.items[1], &.{3}, &.{ 0, 2, 3 });
+
+            try std.testing.expectError(error.InvalidShape, matrix.split(0, 0));
+            try std.testing.expectError(error.ShapeMismatch, matrix.splitWithSizes(&.{ 1, 1 }, 1));
+            try std.testing.expectError(error.InvalidShape, matrix.splitAtIndices(&.{ 2, 1 }, 1));
+            try std.testing.expectError(error.InvalidShape, matrix.chunk(0, 1));
 
             var repeated_rows = try matrix.repeat(2, 0);
             defer repeated_rows.deinit();
