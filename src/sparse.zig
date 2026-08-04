@@ -740,6 +740,18 @@ fn sparseDenseArgpartition(comptime T: type, matrix: anytype, kth: usize, axis_o
     return dense.argpartition(kth, axis_opt, descending);
 }
 
+fn sparseDenseTopK(comptime T: type, matrix: anytype, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.topk(k, axis_opt, largest, sorted);
+}
+
+fn sparseDenseKthValue(comptime T: type, matrix: anytype, k: usize, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T).KthValue {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.kthValue(k, axis_opt, keepdims);
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3524,6 +3536,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return sparseDenseTopK(T, self, k, axis_opt, largest, sorted);
+        }
+
+        pub fn topkDim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return self.topk(k, dim_opt, largest, sorted);
+        }
+
+        pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T).KthValue {
+            return sparseDenseKthValue(T, self, k, axis_opt, keepdims);
+        }
+
+        pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
+            return self.kthValue(k, dim_opt, keepdim);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -7322,6 +7350,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return sparseDenseTopK(T, self, k, axis_opt, largest, sorted);
+        }
+
+        pub fn topkDim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return self.topk(k, dim_opt, largest, sorted);
+        }
+
+        pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T).KthValue {
+            return sparseDenseKthValue(T, self, k, axis_opt, keepdims);
+        }
+
+        pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
+            return self.kthValue(k, dim_opt, keepdim);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -11331,6 +11375,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argpartition(kth, dim_opt, descending);
+        }
+
+        pub fn topk(self: Self, k: usize, axis_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return sparseDenseTopK(T, self, k, axis_opt, largest, sorted);
+        }
+
+        pub fn topkDim(self: Self, k: usize, dim_opt: ?isize, largest: bool, sorted: bool) SparseError!array_mod.Array(T).TopK {
+            return self.topk(k, dim_opt, largest, sorted);
+        }
+
+        pub fn kthValue(self: Self, k: usize, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T).KthValue {
+            return sparseDenseKthValue(T, self, k, axis_opt, keepdims);
+        }
+
+        pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
+            return self.kthValue(k, dim_opt, keepdim);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15817,6 +15877,33 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             try std.testing.expectError(error.InvalidShape, matrix.partition(6, null, false));
             try std.testing.expectError(error.InvalidShape, matrix.argpartition(6, null, false));
+
+            var top_values = try matrix.topk(2, null, true, true);
+            defer top_values.deinit();
+            try expectArray(top_values.values, &.{2}, &.{ 3, 2 });
+            try std.testing.expectEqualSlices(usize, &.{2}, top_values.indices.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 5, 4 }, top_values.indices.data);
+
+            var top_rows = try matrix.topkDim(2, 1, true, true);
+            defer top_rows.deinit();
+            try expectArray(top_rows.values, &.{ 2, 2 }, &.{ 1, 0, 3, 2 });
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, top_rows.indices.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 1 }, top_rows.indices.data);
+
+            var kth_flat = try matrix.kthValue(4, null, false);
+            defer kth_flat.deinit();
+            try expectArray(kth_flat.values, &.{}, &.{1});
+            try std.testing.expectEqualSlices(usize, &.{}, kth_flat.indices.shape);
+            try std.testing.expectEqualSlices(usize, &.{0}, kth_flat.indices.data);
+
+            var kth_rows = try matrix.kthValueDim(2, 1, true);
+            defer kth_rows.deinit();
+            try expectArray(kth_rows.values, &.{ 2, 1 }, &.{ 0, 2 });
+            try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, kth_rows.indices.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, kth_rows.indices.data);
+
+            try std.testing.expectError(error.InvalidShape, matrix.topk(7, null, true, true));
+            try std.testing.expectError(error.InvalidShape, matrix.kthValue(0, null, false));
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
