@@ -906,6 +906,42 @@ fn sparseDenseGradient(comptime T: type, matrix: anytype, x_values: ?array_mod.A
     return dense.gradient(x_values, dx, axis_index);
 }
 
+fn sparseDenseCov(comptime T: type, matrix: anytype, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.cov(rowvar, correction);
+}
+
+fn sparseDenseCorrcoef(comptime T: type, matrix: anytype, rowvar: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.corrcoef(rowvar);
+}
+
+fn sparseDenseWeightedCov(comptime T: type, matrix: anytype, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedCov(weights, rowvar, correction);
+}
+
+fn sparseDenseWeightedCorrcoef(comptime T: type, matrix: anytype, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.weightedCorrcoef(weights, rowvar);
+}
+
+fn sparseDenseNanCov(comptime T: type, matrix: anytype, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanCov(rowvar, correction);
+}
+
+fn sparseDenseNanCorrcoef(comptime T: type, matrix: anytype, rowvar: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanCorrcoef(rowvar);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3974,6 +4010,30 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseGradient(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn cov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCov(T, self, rowvar, correction);
+        }
+
+        pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
+        }
+
+        pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCov(T, self, rowvar, correction);
+        }
+
+        pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCorrcoef(T, self, rowvar);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -8040,6 +8100,30 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseGradient(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn cov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCov(T, self, rowvar, correction);
+        }
+
+        pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
+        }
+
+        pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCov(T, self, rowvar, correction);
+        }
+
+        pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCorrcoef(T, self, rowvar);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -12317,6 +12401,30 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseGradient(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn cov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseCov(T, self, rowvar, correction);
+        }
+
+        pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
+        }
+
+        pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCov(T, self, rowvar, correction);
+        }
+
+        pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanCorrcoef(T, self, rowvar);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -18843,6 +18951,83 @@ test "sparse dense quantile helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense covariance helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectApproxArray = struct {
+        fn check(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+    }.check;
+
+    const expectCovariance = struct {
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var covariance = try matrix.cov(false, 1);
+            defer covariance.deinit();
+            try expectApproxArray(covariance, &.{ 2, 2 }, &.{ 1, 2, 2, 4 });
+
+            var corr = try matrix.corrcoef(false);
+            defer corr.deinit();
+            try expectApproxArray(corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+
+            var weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2, 1 }, &.{3});
+            defer weights.deinit();
+            var weighted_covariance = try matrix.weightedCov(weights, false, 1);
+            defer weighted_covariance.deinit();
+            try expectApproxArray(weighted_covariance, &.{ 2, 2 }, &.{ 2.0 / 3.0, 4.0 / 3.0, 4.0 / 3.0, 8.0 / 3.0 });
+
+            var weighted_corr = try matrix.weightedCorrcoef(weights, false);
+            defer weighted_corr.deinit();
+            try expectApproxArray(weighted_corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+
+            var bad_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
+            defer bad_weights.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.weightedCov(bad_weights, false, 1));
+            try std.testing.expectError(error.InvalidShape, matrix.cov(false, 3));
+        }
+    }.check;
+
+    var observations = try cooFromSlices(f64, gpa, 3, 2, &.{ 0, 0, 1, 1, 2, 2 }, &.{ 0, 1, 0, 1, 0, 1 }, &.{ 1, 2, 2, 4, 3, 6 });
+    defer observations.deinit();
+    try expectCovariance(@TypeOf(observations), observations);
+    var observations_csr = try observations.toCsr();
+    defer observations_csr.deinit();
+    try expectCovariance(@TypeOf(observations_csr), observations_csr);
+    var observations_csc = try observations.toCsc();
+    defer observations_csc.deinit();
+    try expectCovariance(@TypeOf(observations_csc), observations_csc);
+
+    const expectNanCovariance = struct {
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var nan_covariance = try matrix.nanCov(false, 1);
+            defer nan_covariance.deinit();
+            try expectApproxArray(nan_covariance, &.{ 2, 2 }, &.{ 2, 4, 4, 8 });
+
+            var nan_corr = try matrix.nanCorrcoef(false);
+            defer nan_corr.deinit();
+            try expectApproxArray(nan_corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+        }
+    }.check;
+
+    const nan = std.math.nan(f64);
+    var nan_observations = try cooFromSlices(f64, gpa, 3, 2, &.{ 0, 0, 1, 1, 2, 2 }, &.{ 0, 1, 0, 1, 0, 1 }, &.{ 1, 2, nan, nan, 3, 6 });
+    defer nan_observations.deinit();
+    try expectNanCovariance(@TypeOf(nan_observations), nan_observations);
+    var nan_observations_csr = try nan_observations.toCsr();
+    defer nan_observations_csr.deinit();
+    try expectNanCovariance(@TypeOf(nan_observations_csr), nan_observations_csr);
+    var nan_observations_csc = try nan_observations.toCsc();
+    defer nan_observations_csc.deinit();
+    try expectNanCovariance(@TypeOf(nan_observations_csc), nan_observations_csc);
+
+    var rowvar_matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 0, 0, 1, 1, 1 }, &.{ 0, 1, 2, 0, 1, 2 }, &.{ 1, 2, 3, 2, 4, 6 });
+    defer rowvar_matrix.deinit();
+    var row_covariance = try rowvar_matrix.cov(true, 1);
+    defer row_covariance.deinit();
+    try expectApproxArray(row_covariance, &.{ 2, 2 }, &.{ 1, 2, 2, 4 });
 }
 
 test "sparse dense cumulative helpers" {
