@@ -9292,6 +9292,40 @@ pub fn CooMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn asSlice(self: Self) SparseError![]T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn asConstSlice(self: Self) SparseError![]const T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn copyToSlice(self: Self, out: []T) SparseError!void {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            try dense.copyToSlice(out);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) SparseError![]T {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedSlice(allocator);
+        }
+
+        pub fn toOwnedString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedString(allocator);
+        }
+
+        pub fn toOwnedTensorString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedTensorString(allocator);
+        }
+
         pub fn materialize(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
         }
@@ -13422,6 +13456,40 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn toArray(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn asSlice(self: Self) SparseError![]T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn asConstSlice(self: Self) SparseError![]const T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn copyToSlice(self: Self, out: []T) SparseError!void {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            try dense.copyToSlice(out);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) SparseError![]T {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedSlice(allocator);
+        }
+
+        pub fn toOwnedString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedString(allocator);
+        }
+
+        pub fn toOwnedTensorString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedTensorString(allocator);
         }
 
         pub fn materialize(self: Self) SparseError!array_mod.Array(T) {
@@ -19429,6 +19497,40 @@ pub fn CscMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn asSlice(self: Self) SparseError![]T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn asConstSlice(self: Self) SparseError![]const T {
+            _ = self;
+            return error.InvalidShape;
+        }
+
+        pub fn copyToSlice(self: Self, out: []T) SparseError!void {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            try dense.copyToSlice(out);
+        }
+
+        pub fn toOwnedSlice(self: Self, allocator: std.mem.Allocator) SparseError![]T {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedSlice(allocator);
+        }
+
+        pub fn toOwnedString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedString(allocator);
+        }
+
+        pub fn toOwnedTensorString(self: Self, allocator: std.mem.Allocator) SparseError![]u8 {
+            var dense = try self.toDense();
+            defer dense.deinit();
+            return dense.toOwnedTensorString(allocator);
+        }
+
         pub fn materialize(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
         }
@@ -21883,6 +21985,20 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var array_roundtrip = try coo.toArray();
     defer array_roundtrip.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, array_roundtrip.data);
+    var coo_copy_slice: [12]f64 = undefined;
+    try coo.copyToSlice(&coo_copy_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, &coo_copy_slice);
+    const coo_owned_slice = try coo.toOwnedSlice(gpa);
+    defer gpa.free(coo_owned_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, coo_owned_slice);
+    const coo_string = try coo.toOwnedString(gpa);
+    defer gpa.free(coo_string);
+    try std.testing.expect(std.mem.indexOf(u8, coo_string, "Array(f64") != null);
+    const coo_tensor_string = try coo.toOwnedTensorString(gpa);
+    defer gpa.free(coo_tensor_string);
+    try std.testing.expect(std.mem.indexOf(u8, coo_tensor_string, "tensor(") != null);
+    try std.testing.expectError(error.InvalidShape, coo.asSlice());
+    try std.testing.expectError(error.InvalidShape, coo.asConstSlice());
     var materialized = try coo.materialize();
     defer materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, materialized.data);
@@ -28192,6 +28308,12 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var array2 = try csr.toArray();
     defer array2.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, array2.data);
+    var csr_copy_slice: [12]f64 = undefined;
+    try csr.copyToSlice(&csr_copy_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, &csr_copy_slice);
+    const csr_owned_slice = try csr.toOwnedSlice(gpa);
+    defer gpa.free(csr_owned_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, csr_owned_slice);
     var csr_materialized = try csr.materializeAndSynchronize();
     defer csr_materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csr_materialized.data);
@@ -28247,6 +28369,12 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var csc_array = try csc.toArray();
     defer csc_array.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csc_array.data);
+    var csc_copy_slice: [12]f64 = undefined;
+    try csc.copyToSlice(&csc_copy_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, &csc_copy_slice);
+    const csc_owned_slice = try csc.toOwnedSlice(gpa);
+    defer gpa.free(csc_owned_slice);
+    try std.testing.expectEqualSlices(f64, dense.data, csc_owned_slice);
     var csc_materialized = try csc.materialize();
     defer csc_materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csc_materialized.data);
