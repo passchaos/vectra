@@ -456,6 +456,36 @@ fn sparseValueSquareToF64(comptime T: type, value: T) f64 {
     return numeric * numeric;
 }
 
+fn sparseVectorL2Norm(comptime T: type, values: []const T) T {
+    ensureFloat(T);
+    var total = zero(T);
+    for (values) |value| total += value * value;
+    return @sqrt(total);
+}
+
+fn sparseVectorResidualNorm(comptime T: type, lhs: []const T, rhs: []const T) SparseError!T {
+    ensureFloat(T);
+    if (lhs.len != rhs.len) return error.ShapeMismatch;
+    var total = zero(T);
+    for (lhs, rhs) |lhs_value, rhs_value| {
+        const diff = lhs_value - rhs_value;
+        total += diff * diff;
+    }
+    return @sqrt(total);
+}
+
+fn sparseRelativeResidualNorm(
+    comptime T: type,
+    residual_norm: T,
+    operator_norm: T,
+    x_values: []const T,
+    rhs_values: []const T,
+) T {
+    ensureFloat(T);
+    const scale = @max(oneValue(T), operator_norm * sparseVectorL2Norm(T, x_values) + sparseVectorL2Norm(T, rhs_values));
+    return residual_norm / scale;
+}
+
 fn sparseValueIsFinite(comptime T: type, value: T) bool {
     if (comptime T == array_mod.BFloat16) return std.math.isFinite(value.toF32());
     if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return std.math.isFinite(value.re) and std.math.isFinite(value.im);
@@ -2467,6 +2497,29 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.matvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn matvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
@@ -2502,6 +2555,29 @@ pub fn CooMatrix(comptime T: type) type {
                 out.data[self.col_indices[i]] += value * x.data[self.row_indices[i]];
             }
             return out;
+        }
+
+        pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.transposeMatvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -3132,6 +3208,29 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
+        pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.matvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn matvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
@@ -3277,6 +3376,29 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrTransposeMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
+        }
+
+        pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.transposeMatvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -4947,6 +5069,29 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
+        pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.matvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn matvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.matvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn matvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
+        }
+
         pub fn matmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (rhs.shape[0] != self.cols) return error.ShapeMismatch;
@@ -5006,6 +5151,29 @@ pub fn CscMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.cscTransposeMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
+        }
+
+        pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            ensureFloat(T);
+            if (rhs.shape.len != 1) return error.NonVectorArray;
+            var predicted = try self.transposeMatvec(x);
+            defer predicted.deinit();
+            return sparseVectorResidualNorm(T, predicted.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_residual);
+            return (try self.transposeMatvecResidualNorm(x, rhs)) <= max_residual;
+        }
+
+        pub fn transposeMatvecRelativeResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
+            try validateSparseValueRange(T, zero(T), max_relative_residual);
+            return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
         }
 
         pub fn transposeMatmat(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -7802,6 +7970,83 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     try std.testing.expect(try csc.infNormMeetsBound(12));
     try std.testing.expect(!(try csc.infNormMeetsBound(11.999)));
     try std.testing.expectError(error.InvalidShape, csc.infNormMeetsBound(std.math.inf(f64)));
+}
+
+test "sparse matvec residual diagnostics" {
+    const gpa = std.testing.allocator;
+    var dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 0, 2,
+        0, 3, 0,
+    }, &.{ 2, 3 });
+    defer dense.deinit();
+    var coo = try cooFromDense(f64, dense);
+    defer coo.deinit();
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+
+    var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
+    defer x.deinit();
+    var exact = try array_mod.Array(f64).fromSlice(gpa, &.{ 7, 6 }, &.{2});
+    defer exact.deinit();
+    var perturbed = try array_mod.Array(f64).fromSlice(gpa, &.{ 7, 8 }, &.{2});
+    defer perturbed.deinit();
+    var short_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{7}, &.{1});
+    defer short_rhs.deinit();
+    const relative = @as(f64, 2) / (@as(f64, 14) + @sqrt(@as(f64, 113)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.matvecResidualNorm(x, exact), 1e-12);
+    try std.testing.expect(try coo.matvecResidualNormMeetsBound(x, exact, 0));
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try coo.matvecResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try coo.matvecResidualNormMeetsBound(x, perturbed, 2));
+    try std.testing.expect(!(try coo.matvecResidualNormMeetsBound(x, perturbed, 1.999)));
+    try std.testing.expectApproxEqAbs(relative, try coo.matvecRelativeResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try coo.matvecRelativeResidualNormMeetsBound(x, perturbed, relative + 1e-12));
+    try std.testing.expect(!(try coo.matvecRelativeResidualNormMeetsBound(x, perturbed, relative * 0.5)));
+    try std.testing.expectError(error.InvalidShape, coo.matvecResidualNormMeetsBound(x, perturbed, -1));
+    try std.testing.expectError(error.ShapeMismatch, coo.matvecResidualNorm(x, short_rhs));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try csr.matvecResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try csr.matvecResidualNormMeetsBound(x, perturbed, 2));
+    try std.testing.expect(!(try csr.matvecResidualNormMeetsBound(x, perturbed, 1.999)));
+    try std.testing.expectApproxEqAbs(relative, try csr.matvecRelativeResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try csr.matvecRelativeResidualNormMeetsBound(x, perturbed, relative + 1e-12));
+    try std.testing.expect(!(try csr.matvecRelativeResidualNormMeetsBound(x, perturbed, relative * 0.5)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try csc.matvecResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try csc.matvecResidualNormMeetsBound(x, perturbed, 2));
+    try std.testing.expect(!(try csc.matvecResidualNormMeetsBound(x, perturbed, 1.999)));
+    try std.testing.expectApproxEqAbs(relative, try csc.matvecRelativeResidualNorm(x, perturbed), 1e-12);
+    try std.testing.expect(try csc.matvecRelativeResidualNormMeetsBound(x, perturbed, relative + 1e-12));
+    try std.testing.expect(!(try csc.matvecRelativeResidualNormMeetsBound(x, perturbed, relative * 0.5)));
+
+    var tx = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 5 }, &.{2});
+    defer tx.deinit();
+    var exact_t = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 15, 8 }, &.{3});
+    defer exact_t.deinit();
+    var perturbed_t = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 16, 8 }, &.{3});
+    defer perturbed_t.deinit();
+    const transpose_relative = @as(f64, 1) / (@sqrt(@as(f64, 14)) * @sqrt(@as(f64, 41)) + @sqrt(@as(f64, 336)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try coo.transposeMatvecResidualNorm(tx, exact_t), 1e-12);
+    try std.testing.expect(try coo.transposeMatvecResidualNormMeetsBound(tx, exact_t, 0));
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try coo.transposeMatvecResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try coo.transposeMatvecResidualNormMeetsBound(tx, perturbed_t, 1));
+    try std.testing.expect(!(try coo.transposeMatvecResidualNormMeetsBound(tx, perturbed_t, 0.999)));
+    try std.testing.expectApproxEqAbs(transpose_relative, try coo.transposeMatvecRelativeResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try coo.transposeMatvecRelativeResidualNormMeetsBound(tx, perturbed_t, transpose_relative + 1e-12));
+    try std.testing.expect(!(try coo.transposeMatvecRelativeResidualNormMeetsBound(tx, perturbed_t, transpose_relative * 0.5)));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csr.transposeMatvecResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try csr.transposeMatvecResidualNormMeetsBound(tx, perturbed_t, 1));
+    try std.testing.expectApproxEqAbs(transpose_relative, try csr.transposeMatvecRelativeResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try csr.transposeMatvecRelativeResidualNormMeetsBound(tx, perturbed_t, transpose_relative + 1e-12));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 1), try csc.transposeMatvecResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try csc.transposeMatvecResidualNormMeetsBound(tx, perturbed_t, 1));
+    try std.testing.expectApproxEqAbs(transpose_relative, try csc.transposeMatvecRelativeResidualNorm(tx, perturbed_t), 1e-12);
+    try std.testing.expect(try csc.transposeMatvecRelativeResidualNormMeetsBound(tx, perturbed_t, transpose_relative + 1e-12));
 }
 
 test "csc sparse transpose products and row column stats" {
