@@ -233,6 +233,13 @@ fn sparseDenseWhereScalar(comptime T: type, lhs: anytype, mask: array_mod.Array(
     return lhs_dense.whereScalar(mask, other_value);
 }
 
+fn sparseDenseMaskedSelect(comptime T: type, matrix: anytype, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
+    try validateDenseMatrixShape(matrix.rows, matrix.cols, mask.shape);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.maskedSelect(mask);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2233,6 +2240,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedSelect(T, self, mask);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -5343,6 +5354,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedSelect(T, self, mask);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -8668,6 +8683,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
+        pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedSelect(T, self, mask);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -12672,6 +12691,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var copied = try matrix.copyWhere(mask, rhs_matrix);
             defer copied.deinit();
             try expectArray(copied, &.{ 4, 0, 0, 0, -2, 3 });
+
+            var masked = try matrix.maskedSelect(mask);
+            defer masked.deinit();
+            try std.testing.expectEqualSlices(usize, &.{3}, masked.shape);
+            try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, masked.data);
         }
     }.check;
 
@@ -12852,6 +12876,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var wrong_where_mask = try array_mod.Array(bool).zeros(gpa, &.{ 3, 3 });
     defer wrong_where_mask.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.whereScalar(wrong_where_mask, 0));
+    try std.testing.expectError(error.ShapeMismatch, lhs.maskedSelect(wrong_where_mask));
     var coo_product = try lhs.hadamard(rhs);
     defer coo_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
