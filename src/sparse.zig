@@ -642,6 +642,24 @@ fn sparseDenseSolve(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) 
     return dense.solve(rhs);
 }
 
+fn sparseDenseMatrixNorm(comptime T: type, matrix: anytype, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.matrixNorm(order, tolerance);
+}
+
+fn sparseDenseMatrixRank(comptime T: type, matrix: anytype, tolerance: T) SparseError!usize {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.matrixRank(tolerance);
+}
+
+fn sparseDensePinv(comptime T: type, matrix: anytype, tolerance: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.pinv(tolerance);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3185,6 +3203,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
+            return sparseDenseMatrixNorm(T, self, order, tolerance);
+        }
+
+        pub fn matrixRank(self: Self, tolerance: T) SparseError!usize {
+            return sparseDenseMatrixRank(T, self, tolerance);
+        }
+
+        pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDensePinv(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6783,6 +6813,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
+            return sparseDenseMatrixNorm(T, self, order, tolerance);
+        }
+
+        pub fn matrixRank(self: Self, tolerance: T) SparseError!usize {
+            return sparseDenseMatrixRank(T, self, tolerance);
+        }
+
+        pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDensePinv(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10596,6 +10638,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
+            return sparseDenseMatrixNorm(T, self, order, tolerance);
+        }
+
+        pub fn matrixRank(self: Self, tolerance: T) SparseError!usize {
+            return sparseDenseMatrixRank(T, self, tolerance);
+        }
+
+        pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDensePinv(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15322,6 +15376,19 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectError(error.NonMatrixArray, matrix.inverse());
             try std.testing.expectError(error.NonMatrixArray, matrix.matrixPower(2));
             try std.testing.expectError(error.NonMatrixArray, matrix.solve(flattened));
+            try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try matrix.matrixNorm(.fro, 1e-12), 1e-12);
+            try std.testing.expectEqual(@as(usize, 2), try matrix.matrixRank(1e-12));
+            var rectangular_pinv = try matrix.pinv(1e-12);
+            defer rectangular_pinv.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, rectangular_pinv.shape);
+            const expected_rectangular_pinv: []const f64 = &.{
+                1, 0,
+                0, 0.15384615384615385,
+                0, 0.23076923076923078,
+            };
+            for (expected_rectangular_pinv, rectangular_pinv.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
 
             var unsqueezed = try matrix.unsqueeze(0);
             defer unsqueezed.deinit();
@@ -15606,6 +15673,15 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
+
+            try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try upper.matrixNorm(.fro, 1e-12), 1e-12);
+            try std.testing.expectEqual(@as(usize, 2), try upper.matrixRank(1e-12));
+            var pseudo_inverse = try upper.pinv(1e-12);
+            defer pseudo_inverse.deinit();
+            try std.testing.expectEqualSlices(usize, inverse.shape, pseudo_inverse.shape);
+            for (inverse.data, pseudo_inverse.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
         }
     }.check;
 
