@@ -502,6 +502,22 @@ fn sparseDenseUnflatten(comptime T: type, matrix: anytype, axis_index: isize, di
     return dense.unflatten(axis_index, dims);
 }
 
+fn sparseDenseAsStrided(comptime T: type, matrix: anytype, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    var dense_view = try dense.asStrided(dims, stride_values, offset);
+    defer dense_view.deinit();
+    return dense_view.toArray();
+}
+
+fn sparseDenseUnfold(comptime T: type, matrix: anytype, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    var dense_view = try dense.unfold(axis_index, window_size, step);
+    defer dense_view.deinit();
+    return dense_view.toArray();
+}
+
 fn sparseDenseSliceAxis(comptime T: type, matrix: anytype, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3009,6 +3025,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseAsStrided(T, self, dims, stride_values, offset);
+        }
+
+        pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnfold(T, self, axis_index, window_size, step);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
@@ -6555,6 +6579,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseAsStrided(T, self, dims, stride_values, offset);
+        }
+
+        pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnfold(T, self, axis_index, window_size, step);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
@@ -10316,6 +10348,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseAsStrided(T, self, dims, stride_values, offset);
+        }
+
+        pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnfold(T, self, axis_index, window_size, step);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
@@ -14987,6 +15027,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var unflattened = try matrix.unflatten(1, &.{ 3, 1 });
             defer unflattened.deinit();
             try expectArray(unflattened, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var strided = try matrix.asStrided(&.{ 2, 2 }, &.{ 3, 1 }, 1);
+            defer strided.deinit();
+            try expectArray(strided, &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+
+            var unfolded = try matrix.unfold(1, 2, 1);
+            defer unfolded.deinit();
+            try expectArray(unfolded, &.{ 2, 2, 2 }, &.{
+                1, 0,
+                0, 0,
+                0, 2,
+                2, 3,
+            });
+
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.asStrided(&.{2}, &.{4}, 3));
+            try std.testing.expectError(error.InvalidShape, matrix.unfold(1, 4, 1));
 
             var sliced_columns = try matrix.sliceAxis(1, .{ .start = 0, .stop = null, .step = 2 });
             defer sliced_columns.deinit();
