@@ -3141,6 +3141,22 @@ pub fn CooMatrix(comptime T: type) type {
             return false;
         }
 
+        pub fn setExisting(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            var found = false;
+            for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                if (entry_row == row and entry_col == col) {
+                    entry_value.* = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.InvalidShape;
+        }
+
+        pub fn setStoredValue(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            return self.setExisting(row, col, value);
+        }
+
         pub fn setDiagonal(self: *Self, value: T) SparseError!void {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.rows) |index| {
@@ -6674,6 +6690,22 @@ pub fn CsrMatrix(comptime T: type) type {
             return false;
         }
 
+        pub fn setExisting(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            var found = false;
+            for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                if (self.col_indices[pos] == col) {
+                    self.values[pos] = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.InvalidShape;
+        }
+
+        pub fn setStoredValue(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            return self.setExisting(row, col, value);
+        }
+
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
             if (self.rows != self.cols) return error.NonMatrixArray;
             if (rhs.shape.len != 1 and rhs.shape.len != 2) return error.InvalidShape;
@@ -8944,6 +8976,22 @@ pub fn CscMatrix(comptime T: type) type {
                 if (self.row_indices[pos] == row) return true;
             }
             return false;
+        }
+
+        pub fn setExisting(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            if (row >= self.rows or col >= self.cols) return error.IndexOutOfBounds;
+            var found = false;
+            for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                if (self.row_indices[pos] == row) {
+                    self.values[pos] = value;
+                    found = true;
+                }
+            }
+            if (!found) return error.InvalidShape;
+        }
+
+        pub fn setStoredValue(self: *Self, row: usize, col: usize, value: T) SparseError!void {
+            return self.setExisting(row, col, value);
         }
 
         pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
@@ -11407,6 +11455,12 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expect(try symmetric.symmetryRelativeResidualFrobeniusNormMeetsBound(0));
     try std.testing.expectApproxEqAbs(@as(f64, 2), symmetric.get(1, 2).?, 1e-12);
     try std.testing.expect(symmetric.get(0, 2) == null);
+    var point_mut = try symmetric.clone();
+    defer point_mut.deinit();
+    try point_mut.setExisting(1, 2, 7);
+    try std.testing.expectApproxEqAbs(@as(f64, 7), point_mut.get(1, 2).?, 1e-12);
+    try std.testing.expectError(error.InvalidShape, point_mut.setStoredValue(0, 2, 9));
+    try std.testing.expectError(error.IndexOutOfBounds, point_mut.setExisting(3, 0, 9));
 
     var nonsym_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2, 0,
@@ -11508,6 +11562,12 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
+    var csr_point_mut = try csr.clone();
+    defer csr_point_mut.deinit();
+    try csr_point_mut.setExisting(0, 2, 11);
+    try std.testing.expectApproxEqAbs(@as(f64, 11), csr_point_mut.get(0, 2).?, 1e-12);
+    try std.testing.expectError(error.InvalidShape, csr_point_mut.setStoredValue(0, 1, 9));
+    try std.testing.expectError(error.IndexOutOfBounds, csr_point_mut.setExisting(3, 0, 9));
     var square_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         4, 1, 0,
         1, 5, 2,
@@ -11544,6 +11604,12 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+    var csc_point_mut = try csc.clone();
+    defer csc_point_mut.deinit();
+    try csc_point_mut.setExisting(2, 0, 12);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), csc_point_mut.get(2, 0).?, 1e-12);
+    try std.testing.expectError(error.InvalidShape, csc_point_mut.setStoredValue(0, 1, 9));
+    try std.testing.expectError(error.IndexOutOfBounds, csc_point_mut.setExisting(0, 4, 9));
     var square_csc = try cscFromDense(f64, square_dense);
     defer square_csc.deinit();
     try square_csc.addToDiagonal(2);
