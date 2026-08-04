@@ -460,6 +460,18 @@ fn sparseDensePutCoordsScalar(comptime T: type, matrix: anytype, coords: array_m
     return dense.putCoordsScalar(coords, value);
 }
 
+fn sparseDenseReshape(comptime T: type, matrix: anytype, dims: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.reshape(dims);
+}
+
+fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.flatten();
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2673,6 +2685,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshape(T, self, dims);
+        }
+
+        pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFlatten(T, self);
+        }
+
+        pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
+            return self.flatten();
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -5955,6 +5979,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshape(T, self, dims);
+        }
+
+        pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFlatten(T, self);
+        }
+
+        pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
+            return self.flatten();
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9452,6 +9488,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshape(T, self, dims);
+        }
+
+        pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFlatten(T, self);
+        }
+
+        pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
+            return self.flatten();
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -13809,6 +13857,20 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var bad_unravel = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{6}, &.{1});
             defer bad_unravel.deinit();
             try std.testing.expectError(error.IndexOutOfBounds, matrix.unravelFlat(bad_unravel));
+
+            var reshaped = try matrix.reshape(&.{ 3, 2 });
+            defer reshaped.deinit();
+            try expectArray(reshaped, &.{ 3, 2 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var flattened = try matrix.flatten();
+            defer flattened.deinit();
+            try expectArray(flattened, &.{6}, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var raveled = try matrix.ravel();
+            defer raveled.deinit();
+            try expectArray(raveled, &.{6}, flattened.data);
+
+            try std.testing.expectError(error.ShapeMismatch, matrix.reshape(&.{ 4, 2 }));
 
             var bad_put_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
             defer bad_put_values.deinit();
