@@ -1308,6 +1308,42 @@ fn sparseDenseMod(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError
     return lhs_dense.mod(rhs_dense);
 }
 
+fn sparseDenseMaximum(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.maximum(rhs_dense);
+}
+
+fn sparseDenseMinimum(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.minimum(rhs_dense);
+}
+
+fn sparseDenseFmax(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.fmax(rhs_dense);
+}
+
+fn sparseDenseFmin(comptime T: type, lhs: anytype, rhs: @TypeOf(lhs)) SparseError!array_mod.Array(T) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.fmin(rhs_dense);
+}
+
 fn sparseDenseMaximumArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5406,6 +5442,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximum(T, self, rhs);
+        }
+
+        pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmax(T, self, rhs);
+        }
+
+        pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmin(T, self, rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -10532,6 +10584,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximum(T, self, rhs);
+        }
+
+        pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmax(T, self, rhs);
+        }
+
+        pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmin(T, self, rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -15869,6 +15937,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximum(T, self, rhs);
+        }
+
+        pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmax(T, self, rhs);
+        }
+
+        pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseFmin(T, self, rhs);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -23514,6 +23598,22 @@ test "sparse dense numeric array helpers" {
             defer sparse_remainder.deinit();
             try expectArray(sparse_remainder, &.{ 2, 3 }, sparse_mod.data);
 
+            var sparse_maximum = try matrix.maximum(rhs_same_format);
+            defer sparse_maximum.deinit();
+            try expectArray(sparse_maximum, &.{ 2, 3 }, &.{ 2, 2, 3, 4, 5, 2 });
+
+            var sparse_minimum = try matrix.minimum(rhs_same_format);
+            defer sparse_minimum.deinit();
+            try expectArray(sparse_minimum, &.{ 2, 3 }, &.{ 2, 0, 0, 0, -1, 2 });
+
+            var sparse_fmax = try matrix.fmax(rhs_same_format);
+            defer sparse_fmax.deinit();
+            try expectArray(sparse_fmax, &.{ 2, 3 }, sparse_maximum.data);
+
+            var sparse_fmin = try matrix.fmin(rhs_same_format);
+            defer sparse_fmin.deinit();
+            try expectArray(sparse_fmin, &.{ 2, 3 }, sparse_minimum.data);
+
             var bounds = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
                 1, -1, 3,
                 0, 4,  5,
@@ -23585,6 +23685,10 @@ test "sparse dense numeric array helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.floorDiv(bad_same_format));
             try std.testing.expectError(error.ShapeMismatch, matrix.mod(bad_same_format));
             try std.testing.expectError(error.ShapeMismatch, matrix.remainder(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.maximum(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.minimum(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.fmax(bad_same_format));
+            try std.testing.expectError(error.ShapeMismatch, matrix.fmin(bad_same_format));
         }
     }.check;
 
