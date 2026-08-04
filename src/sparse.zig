@@ -1171,6 +1171,24 @@ fn sparseDenseRdivScalar(comptime T: type, matrix: anytype, scalar: T) SparseErr
     return dense.rdivScalar(scalar);
 }
 
+fn sparseDensePowScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.powScalar(scalar);
+}
+
+fn sparseDenseFloorDivScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.floorDivScalar(scalar);
+}
+
+fn sparseDenseModScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.modScalar(scalar);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4737,6 +4755,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDensePowScalar(T, self, scalar);
+        }
+
+        pub fn floorDivScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivScalar(T, self, scalar);
+        }
+
+        pub fn modScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseModScalar(T, self, scalar);
+        }
+
+        pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.modScalar(scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9379,6 +9413,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDensePowScalar(T, self, scalar);
+        }
+
+        pub fn floorDivScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivScalar(T, self, scalar);
+        }
+
+        pub fn modScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseModScalar(T, self, scalar);
+        }
+
+        pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.modScalar(scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -14232,6 +14282,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDensePowScalar(T, self, scalar);
+        }
+
+        pub fn floorDivScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFloorDivScalar(T, self, scalar);
+        }
+
+        pub fn modScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseModScalar(T, self, scalar);
+        }
+
+        pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.modScalar(scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -21246,6 +21312,22 @@ test "sparse dense numeric array helpers" {
             var fmin = try matrix.fminArray(bounds);
             defer fmin.deinit();
             try expectArray(fmin, &.{ 2, 3 }, minimum.data);
+
+            var scalar_power = try matrix.powScalar(2);
+            defer scalar_power.deinit();
+            try expectArray(scalar_power, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 1, 4 });
+
+            var scalar_floored = try matrix.floorDivScalar(2);
+            defer scalar_floored.deinit();
+            try expectArray(scalar_floored, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
+
+            var scalar_mod = try matrix.modScalar(2);
+            defer scalar_mod.deinit();
+            try expectArray(scalar_mod, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 1, 0 });
+
+            var scalar_remainder = try matrix.remainderScalar(2);
+            defer scalar_remainder.deinit();
+            try expectArray(scalar_remainder, &.{ 2, 3 }, scalar_mod.data);
 
             var bad = try array_mod.Array(i32).ones(matrix.allocator, &.{ 3, 2 });
             defer bad.deinit();
