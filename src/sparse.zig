@@ -484,6 +484,18 @@ fn sparseDenseUnsqueeze(comptime T: type, matrix: anytype, axis_index: isize) Sp
     return dense.unsqueeze(axis_index);
 }
 
+fn sparseDenseSqueezeAxes(comptime T: type, matrix: anytype, axes: []const isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.squeezeAxes(axes);
+}
+
+fn sparseDenseUnsqueezeAxes(comptime T: type, matrix: anytype, axes: []const isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.unsqueezeAxes(axes);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2725,6 +2737,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return self.unsqueeze(axis_index);
+        }
+
+        pub fn squeezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueezeAxes(T, self, axes);
+        }
+
+        pub fn unsqueezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueezeAxes(T, self, axes);
+        }
+
+        pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return self.unsqueezeAxes(axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -6035,6 +6059,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return self.unsqueeze(axis_index);
+        }
+
+        pub fn squeezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueezeAxes(T, self, axes);
+        }
+
+        pub fn unsqueezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueezeAxes(T, self, axes);
+        }
+
+        pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return self.unsqueezeAxes(axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9560,6 +9596,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
             return self.unsqueeze(axis_index);
+        }
+
+        pub fn squeezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueezeAxes(T, self, axes);
+        }
+
+        pub fn unsqueezeAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueezeAxes(T, self, axes);
+        }
+
+        pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
+            return self.unsqueezeAxes(axes);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -13945,6 +13993,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var squeezed_dim = try unsqueezed_dim.squeezeDim(-1);
             defer squeezed_dim.deinit();
             try expectArray(squeezed_dim, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var expanded = try matrix.expandDims(&.{ 0, -1 });
+            defer expanded.deinit();
+            try expectArray(expanded, &.{ 1, 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var unsqueezed_axes = try matrix.unsqueezeAxes(&.{ 0, 3 });
+            defer unsqueezed_axes.deinit();
+            try expectArray(unsqueezed_axes, &.{ 1, 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var squeezed_axes = try expanded.squeezeAxes(&.{ 0, 3 });
+            defer squeezed_axes.deinit();
+            try expectArray(squeezed_axes, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
 
             try std.testing.expectError(error.ShapeMismatch, matrix.reshape(&.{ 4, 2 }));
 
