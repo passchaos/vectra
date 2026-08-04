@@ -853,6 +853,18 @@ fn sparseDenseMatmulAdd(comptime T: type, matrix: anytype, rhs: array_mod.Array(
     return dense.matmulAdd(rhs, addend);
 }
 
+fn sparseDenseMatmulOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    try dense.matmulOut(rhs, out);
+}
+
+fn sparseDenseMatmulAddOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    try dense.matmulAddOut(rhs, addend, out);
+}
+
 fn sparseDenseMatmulAddSqrt(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5080,6 +5092,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn matmulAdd(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmulAdd(T, self, rhs, addend);
+        }
+
+        pub fn matmulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulOut(T, self, rhs, out);
+        }
+
+        pub fn matmulAddOut(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulAddOut(T, self, rhs, addend, out);
         }
 
         pub fn matmulAddArray(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -10676,6 +10696,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn matmulAdd(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmulAdd(T, self, rhs, addend);
+        }
+
+        pub fn matmulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulOut(T, self, rhs, out);
+        }
+
+        pub fn matmulAddOut(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulAddOut(T, self, rhs, addend, out);
         }
 
         pub fn matmulAddArray(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -16483,6 +16511,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn matmulAdd(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmulAdd(T, self, rhs, addend);
+        }
+
+        pub fn matmulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulOut(T, self, rhs, out);
+        }
+
+        pub fn matmulAddOut(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMatmulAddOut(T, self, rhs, addend, out);
         }
 
         pub fn matmulAddArray(self: Self, rhs: array_mod.Array(T), addend: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -23571,11 +23607,27 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var addend_rhs = try array_mod.Array(f64).fromSlice(upper.allocator, &.{ 1, 1, 1, 1 }, &.{ 2, 2 });
             defer addend_rhs.deinit();
+            var matmul_out = try array_mod.Array(f64).zeros(upper.allocator, &.{ 2, 2 });
+            defer matmul_out.deinit();
+            try upper.matmulOut(identity_rhs, matmul_out);
+            try std.testing.expectEqualSlices(usize, matmul_identity.shape, matmul_out.shape);
+            for (matmul_identity.data, matmul_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
             var matmul_added = try upper.matmulAdd(identity_rhs, addend_rhs);
             defer matmul_added.deinit();
             try std.testing.expectEqualSlices(usize, matmul_identity.shape, matmul_added.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 2), matmul_added.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 4), matmul_added.data[3], 1e-12);
+
+            var matmul_added_out = try array_mod.Array(f64).zeros(upper.allocator, &.{ 2, 2 });
+            defer matmul_added_out.deinit();
+            try upper.matmulAddOut(identity_rhs, addend_rhs, matmul_added_out);
+            try std.testing.expectEqualSlices(usize, matmul_added.shape, matmul_added_out.shape);
+            for (matmul_added.data, matmul_added_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var matmul_added_array = try upper.matmulAddArray(identity_rhs, addend_rhs);
             defer matmul_added_array.deinit();
