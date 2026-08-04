@@ -246,6 +246,13 @@ fn sparseDenseCompress(comptime T: type, matrix: anytype, condition: array_mod.A
     return dense.compress(condition, axis_opt);
 }
 
+fn sparseDenseMaskedFill(comptime T: type, matrix: anytype, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+    try validateDenseMatrixShape(matrix.rows, matrix.cols, mask.shape);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.maskedFill(mask, value);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2250,6 +2257,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedPutScalar(mask, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -5368,6 +5387,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedPutScalar(mask, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -8701,6 +8732,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedFill(mask, value);
+        }
+
+        pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
+            return self.maskedPutScalar(mask, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -12715,6 +12758,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{3}, masked.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, masked.data);
 
+            var filled = try matrix.maskedFill(mask, -7);
+            defer filled.deinit();
+            try expectArray(filled, &.{ -7, 0, -7, 0, -7, 3 });
+
+            var put_scalar = try matrix.maskedPutScalar(mask, -8);
+            defer put_scalar.deinit();
+            try expectArray(put_scalar, &.{ -8, 0, -8, 0, -8, 3 });
+
+            var put_mask_scalar = try matrix.putMaskScalar(mask, -6);
+            defer put_mask_scalar.deinit();
+            try expectArray(put_mask_scalar, &.{ -6, 0, -6, 0, -6, 3 });
+
             var row_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false }, &.{2});
             defer row_condition.deinit();
             var compressed_rows = try matrix.compress(row_condition, 0);
@@ -12916,6 +12971,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer wrong_where_mask.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.whereScalar(wrong_where_mask, 0));
     try std.testing.expectError(error.ShapeMismatch, lhs.maskedSelect(wrong_where_mask));
+    try std.testing.expectError(error.ShapeMismatch, lhs.maskedFill(wrong_where_mask, 0));
     var coo_product = try lhs.hadamard(rhs);
     defer coo_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
