@@ -901,6 +901,12 @@ fn sparseDenseSumDim(comptime T: type, matrix: anytype, dim_opt: ?isize, keepdim
     return dense.sumDim(dim_opt, keepdim);
 }
 
+fn sparseDenseSumToSize(comptime T: type, matrix: anytype, dims: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.sumToSize(dims);
+}
+
 fn sparseDenseProd(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4293,6 +4299,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSumToSize(T, self, dims);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -8851,6 +8861,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSumToSize(T, self, dims);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -13620,6 +13634,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSumToSize(T, self, dims);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -20803,6 +20821,18 @@ test "sparse dense reduction helpers" {
             defer all_sum_dims.deinit();
             try expectArray(all_sum_dims, &.{}, all_sum_keep.data);
 
+            var row_sums_to_size = try matrix.sumToSize(&.{ 2, 1 });
+            defer row_sums_to_size.deinit();
+            try expectArray(row_sums_to_size, &.{ 2, 1 }, &.{ 1, 5 });
+
+            var column_sums_to_size = try matrix.sumToSize(&.{ 1, 3 });
+            defer column_sums_to_size.deinit();
+            try expectArray(column_sums_to_size, &.{ 1, 3 }, column_sum.data);
+
+            var flat_sum_to_size = try matrix.sumToSize(&.{});
+            defer flat_sum_to_size.deinit();
+            try expectArray(flat_sum_to_size, &.{}, all_sum_dims.data);
+
             var flat_product = try matrix.prod(null, false);
             defer flat_product.deinit();
             try expectArray(flat_product, &.{}, &.{0});
@@ -20939,6 +20969,7 @@ test "sparse dense reduction helpers" {
             try std.testing.expectError(error.InvalidAxis, matrix.meanDim(2, false));
             try std.testing.expectError(error.InvalidAxis, matrix.varianceDim(2, false, 0));
             try std.testing.expectError(error.InvalidAxis, matrix.stddevDim(2, false, 0));
+            try std.testing.expectError(error.ShapeMismatch, matrix.sumToSize(&.{ 2, 2 }));
         }
     }.check;
 
