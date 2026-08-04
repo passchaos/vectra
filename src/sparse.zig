@@ -1189,6 +1189,18 @@ fn sparseDenseModScalar(comptime T: type, matrix: anytype, scalar: T) SparseErro
     return dense.modScalar(scalar);
 }
 
+fn sparseDenseFmaxScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.fmaxScalar(scalar);
+}
+
+fn sparseDenseFminScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.fminScalar(scalar);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4771,6 +4783,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.modScalar(scalar);
+        }
+
+        pub fn fmaxScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxScalar(T, self, scalar);
+        }
+
+        pub fn fminScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFminScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9429,6 +9449,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.modScalar(scalar);
+        }
+
+        pub fn fmaxScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxScalar(T, self, scalar);
+        }
+
+        pub fn fminScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFminScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -14298,6 +14326,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn remainderScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.modScalar(scalar);
+        }
+
+        pub fn fmaxScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxScalar(T, self, scalar);
+        }
+
+        pub fn fminScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseFminScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -21328,6 +21364,14 @@ test "sparse dense numeric array helpers" {
             var scalar_remainder = try matrix.remainderScalar(2);
             defer scalar_remainder.deinit();
             try expectArray(scalar_remainder, &.{ 2, 3 }, scalar_mod.data);
+
+            var scalar_fmax = try matrix.fmaxScalar(1);
+            defer scalar_fmax.deinit();
+            try expectArray(scalar_fmax, &.{ 2, 3 }, &.{ 2, 1, 1, 1, 1, 2 });
+
+            var scalar_fmin = try matrix.fminScalar(1);
+            defer scalar_fmin.deinit();
+            try expectArray(scalar_fmin, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
 
             var bad = try array_mod.Array(i32).ones(matrix.allocator, &.{ 3, 2 });
             defer bad.deinit();
