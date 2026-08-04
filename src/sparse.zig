@@ -678,6 +678,12 @@ fn sparseDenseCholesky(comptime T: type, matrix: anytype) SparseError!array_mod.
     return dense.cholesky();
 }
 
+fn sparseDenseLstsq(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.lstsq(rhs, tolerance);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3245,6 +3251,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseCholesky(T, self);
+        }
+
+        pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6867,6 +6877,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseCholesky(T, self);
+        }
+
+        pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10704,6 +10718,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseCholesky(T, self);
+        }
+
+        pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15728,6 +15746,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
+
+            var least_squares = try upper.lstsq(rhs, 1e-12);
+            defer least_squares.deinit();
+            try std.testing.expectEqualSlices(usize, solution.shape, least_squares.shape);
+            for (solution.data, least_squares.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
 
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try upper.matrixNorm(.fro, 1e-12), 1e-12);
             try std.testing.expectEqual(@as(usize, 2), try upper.matrixRank(1e-12));
