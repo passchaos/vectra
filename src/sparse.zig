@@ -2094,6 +2094,18 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.rowSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
+        pub fn columnSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.columnSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
         pub fn rowMins(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -4239,6 +4251,18 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
+        pub fn rowSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.rowSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
+        pub fn columnSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.columnSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
         pub fn rowMins(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -6108,6 +6132,18 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
+        pub fn rowSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.rowSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
+        pub fn columnSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            var sums = try self.columnSums();
+            defer sums.deinit();
+            return sparseValueRangeInRange(T, sums.data, min_sum, max_sum);
+        }
+
         pub fn columnMins(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
@@ -7117,9 +7153,14 @@ test "coo sparse row and column statistics" {
     var row_sums = try coo.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    try std.testing.expect(try coo.rowSumsInRange(-1, 9));
+    try std.testing.expect(!(try coo.rowSumsInRange(0, 9)));
+    try std.testing.expectError(error.InvalidShape, coo.rowSumsInRange(10, 9));
     var col_sums = try coo.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try std.testing.expect(try coo.columnSumsInRange(3, 5));
+    try std.testing.expect(!(try coo.columnSumsInRange(4, 5)));
 
     var row_abs = try coo.rowAbsSums();
     defer row_abs.deinit();
@@ -8173,9 +8214,14 @@ test "csr sparse row and column statistics" {
     var row_sums = try csr.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    try std.testing.expect(try csr.rowSumsInRange(-1, 9));
+    try std.testing.expect(!(try csr.rowSumsInRange(0, 9)));
+    try std.testing.expectError(error.InvalidShape, csr.rowSumsInRange(10, 9));
     var col_sums = try csr.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try std.testing.expect(try csr.columnSumsInRange(3, 5));
+    try std.testing.expect(!(try csr.columnSumsInRange(4, 5)));
 
     var row_abs = try csr.rowAbsSums();
     defer row_abs.deinit();
@@ -8775,9 +8821,14 @@ test "csc sparse transpose products and row column stats" {
     var row_sums = try csc.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    try std.testing.expect(try csc.rowSumsInRange(-1, 9));
+    try std.testing.expect(!(try csc.rowSumsInRange(0, 9)));
+    try std.testing.expectError(error.InvalidShape, csc.rowSumsInRange(10, 9));
     var col_sums = try csc.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try std.testing.expect(try csc.columnSumsInRange(3, 5));
+    try std.testing.expect(!(try csc.columnSumsInRange(4, 5)));
     var row_abs = try csc.rowAbsSums();
     defer row_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
