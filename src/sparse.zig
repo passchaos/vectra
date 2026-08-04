@@ -815,6 +815,42 @@ fn sparseDenseNanargminAxis(comptime T: type, matrix: anytype, axis_opt: ?isize,
     return dense.nanargminAxis(axis_opt, keepdims);
 }
 
+fn sparseDenseMedian(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.median(axis_opt, keepdims);
+}
+
+fn sparseDenseMedianAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.medianAxes(axes, keepdims);
+}
+
+fn sparseDenseQuantile(comptime T: type, matrix: anytype, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.quantile(q, axis_opt, keepdims);
+}
+
+fn sparseDenseQuantileAxes(comptime T: type, matrix: anytype, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.quantileAxes(q, axes, keepdims);
+}
+
+fn sparseDensePercentile(comptime T: type, matrix: anytype, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.percentile(percentile_value, axis_opt, keepdims);
+}
+
+fn sparseDensePercentileAxes(comptime T: type, matrix: anytype, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.percentileAxes(percentile_value, axes, keepdims);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3751,6 +3787,54 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.median(dim_opt, keepdim);
+        }
+
+        pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantile(q, dim_opt, keepdim);
+        }
+
+        pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -7685,6 +7769,54 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.median(dim_opt, keepdim);
+        }
+
+        pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantile(q, dim_opt, keepdim);
+        }
+
+        pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -11830,6 +11962,54 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nanargminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.nanargminAxis(dim_opt, keepdim);
+        }
+
+        pub fn median(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.median(dim_opt, keepdim);
+        }
+
+        pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantile(q, dim_opt, keepdim);
+        }
+
+        pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.percentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -18269,6 +18449,93 @@ test "sparse dense nanarg reduction helpers" {
     defer all_nan.deinit();
     try std.testing.expectError(error.EmptyArray, all_nan.nanargmax());
     try std.testing.expectError(error.EmptyArray, all_nan.nanargminAxis(1, false));
+}
+
+test "sparse dense quantile helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectQuantiles = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var flat_median = try matrix.median(null, false);
+            defer flat_median.deinit();
+            try expectArray(flat_median, &.{}, &.{0.5});
+
+            var flat_upper_quartile = try matrix.quantile(0.75, null, true);
+            defer flat_upper_quartile.deinit();
+            try expectArray(flat_upper_quartile, &.{ 1, 1 }, &.{1.75});
+
+            var row_medians = try matrix.median(1, false);
+            defer row_medians.deinit();
+            try expectArray(row_medians, &.{2}, &.{ 0, 2 });
+
+            var row_median_dims = try matrix.medianDim(-1, true);
+            defer row_median_dims.deinit();
+            try expectArray(row_median_dims, &.{ 2, 1 }, row_medians.data);
+
+            var column_medians = try matrix.median(0, false);
+            defer column_medians.deinit();
+            try expectArray(column_medians, &.{3}, &.{ 0.5, 1, 1.5 });
+
+            var all_axes_median = try matrix.medianAxes(&.{ 0, 1 }, false);
+            defer all_axes_median.deinit();
+            try expectArray(all_axes_median, &.{}, flat_median.data);
+
+            var all_axes_median_keepdim = try matrix.medianDims(&.{ 0, 1 }, true);
+            defer all_axes_median_keepdim.deinit();
+            try expectArray(all_axes_median_keepdim, &.{ 1, 1 }, flat_median.data);
+
+            var lower_quartile = try matrix.quantile(0.25, null, false);
+            defer lower_quartile.deinit();
+            try expectArray(lower_quartile, &.{}, &.{0});
+
+            var row_upper_quartile = try matrix.quantileDim(0.75, -1, false);
+            defer row_upper_quartile.deinit();
+            try expectArray(row_upper_quartile, &.{2}, &.{ 0.5, 2.5 });
+
+            var all_axes_quantile = try matrix.quantileAxes(0.5, &.{ 0, 1 }, true);
+            defer all_axes_quantile.deinit();
+            try expectArray(all_axes_quantile, &.{ 1, 1 }, flat_median.data);
+
+            var all_axes_quantile_dims = try matrix.quantileDims(0.25, &.{ 0, 1 }, false);
+            defer all_axes_quantile_dims.deinit();
+            try expectArray(all_axes_quantile_dims, &.{}, lower_quartile.data);
+
+            var upper_percentile = try matrix.percentile(75, null, false);
+            defer upper_percentile.deinit();
+            try expectArray(upper_percentile, &.{}, &.{1.75});
+
+            var column_percentile = try matrix.percentileDim(50, 0, false);
+            defer column_percentile.deinit();
+            try expectArray(column_percentile, &.{3}, column_medians.data);
+
+            var all_axes_percentile = try matrix.percentileAxes(50, &.{ 0, 1 }, true);
+            defer all_axes_percentile.deinit();
+            try expectArray(all_axes_percentile, &.{ 1, 1 }, flat_median.data);
+
+            var all_axes_percentile_dims = try matrix.percentileDims(25, &.{ 0, 1 }, false);
+            defer all_axes_percentile_dims.deinit();
+            try expectArray(all_axes_percentile_dims, &.{}, lower_quartile.data);
+
+            try std.testing.expectError(error.InvalidShape, matrix.quantile(-0.1, null, false));
+            try std.testing.expectError(error.InvalidShape, matrix.percentile(101, null, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.median(2, false));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectQuantiles(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectQuantiles(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse stored rounding unary helpers preserve structure" {
