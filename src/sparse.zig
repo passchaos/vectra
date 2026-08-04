@@ -636,6 +636,12 @@ fn sparseDenseMatrixPower(comptime T: type, matrix: anytype, exponent: isize) Sp
     return dense.matrixPower(exponent);
 }
 
+fn sparseDenseSolve(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.solve(rhs);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3175,6 +3181,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
+        }
+
+        pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSolve(T, self, rhs);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6769,6 +6779,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
+        }
+
+        pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSolve(T, self, rhs);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10578,6 +10592,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
+        }
+
+        pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSolve(T, self, rhs);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15303,6 +15321,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectError(error.NonMatrixArray, matrix.det());
             try std.testing.expectError(error.NonMatrixArray, matrix.inverse());
             try std.testing.expectError(error.NonMatrixArray, matrix.matrixPower(2));
+            try std.testing.expectError(error.NonMatrixArray, matrix.solve(flattened));
 
             var unsqueezed = try matrix.unsqueeze(0);
             defer unsqueezed.deinit();
@@ -15579,6 +15598,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 8), squared.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), squared.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 9), squared.data[3], 1e-12);
+
+            var rhs = try array_mod.Array(f64).fromSlice(upper.allocator, &.{ 5, 6 }, &.{2});
+            defer rhs.deinit();
+            var solution = try upper.solve(rhs);
+            defer solution.deinit();
+            try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
         }
     }.check;
 
