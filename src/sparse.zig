@@ -727,6 +727,19 @@ fn sparseDenseArgsort(comptime T: type, matrix: anytype, axis_opt: ?isize, desce
     return dense.argsortAxis(axis_opt, descending);
 }
 
+fn sparseDensePartition(comptime T: type, matrix: anytype, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.partition(kth, axis_opt, descending);
+}
+
+fn sparseDenseArgpartition(comptime T: type, matrix: anytype, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.argpartition(kth, axis_opt, descending);
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3495,6 +3508,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return self.argpartition(kth, dim_opt, descending);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -7277,6 +7306,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return self.argpartition(kth, dim_opt, descending);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -11270,6 +11315,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn partitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
+            return self.partition(kth, dim_opt, descending);
+        }
+
+        pub fn argpartition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgpartition(T, self, kth, axis_opt, descending);
+        }
+
+        pub fn argpartitionDim(self: Self, kth: usize, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
+            return self.argpartition(kth, dim_opt, descending);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15735,6 +15796,27 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer argsorted_desc.deinit();
             try std.testing.expectEqualSlices(usize, &.{6}, argsorted_desc.shape);
             try std.testing.expectEqualSlices(usize, &.{ 5, 4, 0, 1, 2, 3 }, argsorted_desc.data);
+
+            var partitioned_flat = try matrix.partition(3, null, false);
+            defer partitioned_flat.deinit();
+            try expectArray(partitioned_flat, &.{6}, sorted_flat.data);
+
+            var partitioned_rows = try matrix.partitionDim(1, 1, false);
+            defer partitioned_rows.deinit();
+            try expectMatrix(partitioned_rows, sorted_rows.data);
+
+            var argpartitioned_flat = try matrix.argpartition(3, null, false);
+            defer argpartitioned_flat.deinit();
+            try std.testing.expectEqualSlices(usize, argsorted_flat.shape, argpartitioned_flat.shape);
+            try std.testing.expectEqualSlices(usize, argsorted_flat.data, argpartitioned_flat.data);
+
+            var argpartitioned_rows = try matrix.argpartitionDim(1, 1, false);
+            defer argpartitioned_rows.deinit();
+            try std.testing.expectEqualSlices(usize, argsorted_rows.shape, argpartitioned_rows.shape);
+            try std.testing.expectEqualSlices(usize, argsorted_rows.data, argpartitioned_rows.data);
+
+            try std.testing.expectError(error.InvalidShape, matrix.partition(6, null, false));
+            try std.testing.expectError(error.InvalidShape, matrix.argpartition(6, null, false));
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
