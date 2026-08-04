@@ -177,6 +177,37 @@ fn sparseFinitePredicateValue(comptime T: type, value: T, comptime predicate: Sp
     };
 }
 
+const SparseLogicalBinary = enum { and_, or_, xor_ };
+
+fn sparseDenseLogicalNot(matrix: anytype) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logicalNot();
+}
+
+fn sparseDenseLogicalBinary(lhs: anytype, rhs: @TypeOf(lhs), comptime op: SparseLogicalBinary) SparseError!array_mod.Array(bool) {
+    if (lhs.rows != rhs.rows or lhs.cols != rhs.cols) return error.ShapeMismatch;
+    var lhs_dense = try lhs.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return switch (op) {
+        .and_ => lhs_dense.logicalAnd(rhs_dense),
+        .or_ => lhs_dense.logicalOr(rhs_dense),
+        .xor_ => lhs_dense.logicalXor(rhs_dense),
+    };
+}
+
+fn sparseDenseLogicalScalar(matrix: anytype, scalar: bool, comptime op: SparseLogicalBinary) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .and_ => dense.logicalAndScalar(scalar),
+        .or_ => dense.logicalOrScalar(scalar),
+        .xor_ => dense.logicalXorScalar(scalar),
+    };
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2149,6 +2180,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalNot(self);
+        }
+
+        pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .or_);
+        }
+
+        pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .or_);
+        }
+
+        pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .xor_);
         }
 
         pub fn sameStructure(self: Self, rhs: Self) bool {
@@ -5215,6 +5274,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalNot(self);
+        }
+
+        pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .or_);
+        }
+
+        pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .or_);
+        }
+
+        pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .xor_);
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
@@ -8498,6 +8585,34 @@ pub fn CscMatrix(comptime T: type) type {
             return self.anyAxes(dims, keepdim);
         }
 
+        pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalNot(self);
+        }
+
+        pub fn logicalAnd(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .and_);
+        }
+
+        pub fn logicalAndScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .and_);
+        }
+
+        pub fn logicalOr(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .or_);
+        }
+
+        pub fn logicalOrScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .or_);
+        }
+
+        pub fn logicalXor(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalBinary(self, rhs, .xor_);
+        }
+
+        pub fn logicalXorScalar(self: Self, scalar: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseLogicalScalar(self, scalar, .xor_);
+        }
+
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
             return veyra.CscView(T).fromSlices(self.rows, self.cols, self.col_offsets, self.row_indices, self.values) catch return error.BackendFailure;
         }
@@ -11698,7 +11813,7 @@ test "sparse bool reductions use dense materialization" {
             try std.testing.expectEqualSlices(bool, values, mask.data);
         }
 
-        fn check(comptime Matrix: type, matrix: Matrix) !void {
+        fn checkReductions(comptime Matrix: type, matrix: Matrix) !void {
             try std.testing.expect(!(try matrix.all()));
             try std.testing.expect(try matrix.any());
 
@@ -11723,24 +11838,75 @@ test "sparse bool reductions use dense materialization" {
             defer any_axes.deinit();
             try expectMask(any_axes, &.{}, &.{true});
         }
-    }.check;
+
+        fn checkLogical(comptime Matrix: type, matrix: Matrix, rhs: Matrix) !void {
+            var not_mask = try matrix.logicalNot();
+            defer not_mask.deinit();
+            try expectMask(not_mask, &.{ 2, 3 }, &.{ false, true, true, true, true, false });
+
+            var and_mask = try matrix.logicalAnd(rhs);
+            defer and_mask.deinit();
+            try expectMask(and_mask, &.{ 2, 3 }, &.{ false, false, false, false, false, true });
+
+            var or_mask = try matrix.logicalOr(rhs);
+            defer or_mask.deinit();
+            try expectMask(or_mask, &.{ 2, 3 }, &.{ true, true, false, false, true, true });
+
+            var xor_mask = try matrix.logicalXor(rhs);
+            defer xor_mask.deinit();
+            try expectMask(xor_mask, &.{ 2, 3 }, &.{ true, true, false, false, true, false });
+
+            var and_true = try matrix.logicalAndScalar(true);
+            defer and_true.deinit();
+            try expectMask(and_true, &.{ 2, 3 }, &.{ true, false, false, false, false, true });
+
+            var and_false = try matrix.logicalAndScalar(false);
+            defer and_false.deinit();
+            try expectMask(and_false, &.{ 2, 3 }, &.{ false, false, false, false, false, false });
+
+            var or_true = try matrix.logicalOrScalar(true);
+            defer or_true.deinit();
+            try expectMask(or_true, &.{ 2, 3 }, &.{ true, true, true, true, true, true });
+
+            var or_false = try matrix.logicalOrScalar(false);
+            defer or_false.deinit();
+            try expectMask(or_false, &.{ 2, 3 }, &.{ true, false, false, false, false, true });
+
+            var xor_true = try matrix.logicalXorScalar(true);
+            defer xor_true.deinit();
+            try expectMask(xor_true, &.{ 2, 3 }, &.{ false, true, true, true, true, false });
+        }
+    };
 
     var coo = try cooFromSlices(bool, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ true, false, true });
     defer coo.deinit();
-    try expectBoolReductions(@TypeOf(coo), coo);
+    var rhs_coo = try cooFromSlices(bool, gpa, 2, 3, &.{ 0, 0, 1, 1 }, &.{ 0, 1, 1, 2 }, &.{ false, true, true, true });
+    defer rhs_coo.deinit();
+    try expectBoolReductions.checkReductions(@TypeOf(coo), coo);
+    try expectBoolReductions.checkLogical(@TypeOf(coo), coo, rhs_coo);
 
     var csr = try coo.toCsr();
     defer csr.deinit();
-    try expectBoolReductions(@TypeOf(csr), csr);
+    var rhs_csr = try rhs_coo.toCsr();
+    defer rhs_csr.deinit();
+    try expectBoolReductions.checkReductions(@TypeOf(csr), csr);
+    try expectBoolReductions.checkLogical(@TypeOf(csr), csr, rhs_csr);
 
     var csc = try coo.toCsc();
     defer csc.deinit();
-    try expectBoolReductions(@TypeOf(csc), csc);
+    var rhs_csc = try rhs_coo.toCsc();
+    defer rhs_csc.deinit();
+    try expectBoolReductions.checkReductions(@TypeOf(csc), csc);
+    try expectBoolReductions.checkLogical(@TypeOf(csc), csc, rhs_csc);
 
     var all_true = try cooFromSlices(bool, gpa, 1, 2, &.{ 0, 0 }, &.{ 0, 1 }, &.{ true, true });
     defer all_true.deinit();
     try std.testing.expect(try all_true.all());
     try std.testing.expect(try all_true.any());
+
+    var mismatched = try cooFromSlices(bool, gpa, 3, 3, &.{0}, &.{0}, &.{true});
+    defer mismatched.deinit();
+    try std.testing.expectError(error.ShapeMismatch, coo.logicalAnd(mismatched));
 }
 
 test "sparse stored non-finite diagnostics" {
