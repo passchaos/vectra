@@ -913,6 +913,42 @@ fn sparseDenseProdAxes(comptime T: type, matrix: anytype, axes: []const isize, k
     return dense.prodAxes(axes, keepdims);
 }
 
+fn sparseDenseMin(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.min(axis_opt, keepdims);
+}
+
+fn sparseDenseMinAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.minAxes(axes, keepdims);
+}
+
+fn sparseDenseMax(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.max(axis_opt, keepdims);
+}
+
+fn sparseDenseMaxAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.maxAxes(axes, keepdims);
+}
+
+fn sparseDensePtp(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ptp(axis_opt, keepdims);
+}
+
+fn sparseDensePtpAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ptpAxes(axes, keepdims);
+}
+
 fn sparseDenseNorm(comptime T: type, matrix: anytype, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4237,6 +4273,86 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMin(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.min(axis_opt, keepdims);
+        }
+
+        pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMinAxes(T, self, axes, keepdims);
+        }
+
+        pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.min(dim_opt, keepdim);
+        }
+
+        pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(dims, keepdim);
+        }
+
+        pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMax(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.max(axis_opt, keepdims);
+        }
+
+        pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMaxAxes(T, self, axes, keepdims);
+        }
+
+        pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn maxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.max(dim_opt, keepdim);
+        }
+
+        pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amax(dim_opt, keepdim);
+        }
+
+        pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(dims, keepdim);
+        }
+
+        pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amaxAxes(dims, keepdim);
+        }
+
+        pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtp(T, self, axis_opt, keepdims);
+        }
+
+        pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptp(dim_opt, keepdim);
+        }
+
+        pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptpAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -8655,6 +8771,86 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMin(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.min(axis_opt, keepdims);
+        }
+
+        pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMinAxes(T, self, axes, keepdims);
+        }
+
+        pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.min(dim_opt, keepdim);
+        }
+
+        pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(dims, keepdim);
+        }
+
+        pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMax(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.max(axis_opt, keepdims);
+        }
+
+        pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMaxAxes(T, self, axes, keepdims);
+        }
+
+        pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn maxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.max(dim_opt, keepdim);
+        }
+
+        pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amax(dim_opt, keepdim);
+        }
+
+        pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(dims, keepdim);
+        }
+
+        pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amaxAxes(dims, keepdim);
+        }
+
+        pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtp(T, self, axis_opt, keepdims);
+        }
+
+        pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptp(dim_opt, keepdim);
+        }
+
+        pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptpAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -13284,6 +13480,86 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMin(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.min(axis_opt, keepdims);
+        }
+
+        pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMinAxes(T, self, axes, keepdims);
+        }
+
+        pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(axes, keepdims);
+        }
+
+        pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.min(dim_opt, keepdim);
+        }
+
+        pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.minAxes(dims, keepdim);
+        }
+
+        pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMax(T, self, axis_opt, keepdims);
+        }
+
+        pub fn amax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.max(axis_opt, keepdims);
+        }
+
+        pub fn maxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseMaxAxes(T, self, axes, keepdims);
+        }
+
+        pub fn amaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(axes, keepdims);
+        }
+
+        pub fn maxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.max(dim_opt, keepdim);
+        }
+
+        pub fn amaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amax(dim_opt, keepdim);
+        }
+
+        pub fn maxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.maxAxes(dims, keepdim);
+        }
+
+        pub fn amaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.amaxAxes(dims, keepdim);
+        }
+
+        pub fn ptp(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtp(T, self, axis_opt, keepdims);
+        }
+
+        pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptp(dim_opt, keepdim);
+        }
+
+        pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.ptpAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -20280,7 +20556,7 @@ test "sparse dense fused elementwise helpers" {
     try expectFused(@TypeOf(matrix_csc), matrix_csc);
 }
 
-test "sparse dense sum axis aliases and product reductions" {
+test "sparse dense reduction helpers" {
     const gpa = std.testing.allocator;
 
     const expectReductions = struct {
@@ -20331,8 +20607,71 @@ test "sparse dense sum axis aliases and product reductions" {
             defer row_product_dims.deinit();
             try expectArray(row_product_dims, &.{2}, row_product.data);
 
+            var flat_min = try matrix.min(null, false);
+            defer flat_min.deinit();
+            try expectArray(flat_min, &.{}, &.{0});
+
+            var row_min = try matrix.amin(1, false);
+            defer row_min.deinit();
+            try expectArray(row_min, &.{2}, &.{ 0, 0 });
+
+            var column_min_keep = try matrix.minDim(0, true);
+            defer column_min_keep.deinit();
+            try expectArray(column_min_keep, &.{ 1, 3 }, &.{ 0, 0, 0 });
+
+            var all_min_keep = try matrix.minAxes(&.{ 0, 1 }, true);
+            defer all_min_keep.deinit();
+            try expectArray(all_min_keep, &.{ 1, 1 }, &.{0});
+
+            var row_min_dims = try matrix.aminDims(&.{1}, false);
+            defer row_min_dims.deinit();
+            try expectArray(row_min_dims, &.{2}, row_min.data);
+
+            var flat_max = try matrix.max(null, false);
+            defer flat_max.deinit();
+            try expectArray(flat_max, &.{}, &.{3});
+
+            var row_max = try matrix.amax(1, false);
+            defer row_max.deinit();
+            try expectArray(row_max, &.{2}, &.{ 1, 3 });
+
+            var column_max_keep = try matrix.maxDim(0, true);
+            defer column_max_keep.deinit();
+            try expectArray(column_max_keep, &.{ 1, 3 }, &.{ 1, 2, 3 });
+
+            var all_max_keep = try matrix.maxAxes(&.{ 0, 1 }, true);
+            defer all_max_keep.deinit();
+            try expectArray(all_max_keep, &.{ 1, 1 }, &.{3});
+
+            var column_max_dims = try matrix.amaxDims(&.{0}, false);
+            defer column_max_dims.deinit();
+            try expectArray(column_max_dims, &.{3}, column_max_keep.data);
+
+            var flat_ptp = try matrix.ptp(null, false);
+            defer flat_ptp.deinit();
+            try expectArray(flat_ptp, &.{}, &.{3});
+
+            var row_ptp = try matrix.ptp(1, false);
+            defer row_ptp.deinit();
+            try expectArray(row_ptp, &.{2}, &.{ 1, 3 });
+
+            var column_ptp_keep = try matrix.ptpDim(0, true);
+            defer column_ptp_keep.deinit();
+            try expectArray(column_ptp_keep, &.{ 1, 3 }, &.{ 1, 2, 3 });
+
+            var all_ptp_keep = try matrix.ptpAxes(&.{ 0, 1 }, true);
+            defer all_ptp_keep.deinit();
+            try expectArray(all_ptp_keep, &.{ 1, 1 }, &.{3});
+
+            var row_ptp_dims = try matrix.ptpDims(&.{1}, false);
+            defer row_ptp_dims.deinit();
+            try expectArray(row_ptp_dims, &.{2}, row_ptp.data);
+
             try std.testing.expectError(error.InvalidAxis, matrix.sumDim(2, false));
             try std.testing.expectError(error.InvalidAxis, matrix.prod(2, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.min(2, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.max(2, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.ptp(2, false));
         }
     }.check;
 
