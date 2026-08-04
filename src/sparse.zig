@@ -228,6 +228,42 @@ fn sparseDenseNonzero(matrix: anytype) SparseError!array_mod.Array(usize) {
     return dense.nonzero();
 }
 
+fn sparseDenseAll(matrix: anytype) SparseError!bool {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.all();
+}
+
+fn sparseDenseAny(matrix: anytype) SparseError!bool {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.any();
+}
+
+fn sparseDenseAllAxis(matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.allAxis(axis_opt, keepdims);
+}
+
+fn sparseDenseAllAxes(matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.allAxes(axes, keepdims);
+}
+
+fn sparseDenseAnyAxis(matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.anyAxis(axis_opt, keepdims);
+}
+
+fn sparseDenseAnyAxes(matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.anyAxes(axes, keepdims);
+}
+
 pub const SparseResidualSummary = struct {
     residual_norm: f64,
     relative_residual_norm: f64,
@@ -2073,6 +2109,46 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn all(self: Self) SparseError!bool {
+            return sparseDenseAll(self);
+        }
+
+        pub fn any(self: Self) SparseError!bool {
+            return sparseDenseAny(self);
+        }
+
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxis(dim_opt, keepdim);
+        }
+
+        pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxes(dims, keepdim);
+        }
+
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxis(dim_opt, keepdim);
+        }
+
+        pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxes(dims, keepdim);
         }
 
         pub fn sameStructure(self: Self, rhs: Self) bool {
@@ -5099,6 +5175,46 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
             return self.nonzero();
+        }
+
+        pub fn all(self: Self) SparseError!bool {
+            return sparseDenseAll(self);
+        }
+
+        pub fn any(self: Self) SparseError!bool {
+            return sparseDenseAny(self);
+        }
+
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxis(dim_opt, keepdim);
+        }
+
+        pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxes(dims, keepdim);
+        }
+
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxis(dim_opt, keepdim);
+        }
+
+        pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxes(dims, keepdim);
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
@@ -8342,6 +8458,46 @@ pub fn CscMatrix(comptime T: type) type {
             return self.nonzero();
         }
 
+        pub fn all(self: Self) SparseError!bool {
+            return sparseDenseAll(self);
+        }
+
+        pub fn any(self: Self) SparseError!bool {
+            return sparseDenseAny(self);
+        }
+
+        pub fn allAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxis(dim_opt, keepdim);
+        }
+
+        pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.allAxes(dims, keepdim);
+        }
+
+        pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
+            return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxis(dim_opt, keepdim);
+        }
+
+        pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
+            return self.anyAxes(dims, keepdim);
+        }
+
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
             return veyra.CscView(T).fromSlices(self.rows, self.cols, self.col_offsets, self.row_indices, self.values) catch return error.BackendFailure;
         }
@@ -11532,6 +11688,59 @@ test "coo sparse row and column statistics" {
     try std.testing.expect(try coo.densityInRange(5.0 / 9.0, 5.0 / 9.0));
     try std.testing.expect(!(try coo.densityInRange(0, 0.5)));
     try std.testing.expectError(error.InvalidShape, coo.densityInRange(std.math.nan(f64), 1));
+}
+
+test "sparse bool reductions use dense materialization" {
+    const gpa = std.testing.allocator;
+    const expectBoolReductions = struct {
+        fn expectMask(mask: array_mod.Array(bool), shape: []const usize, values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, shape, mask.shape);
+            try std.testing.expectEqualSlices(bool, values, mask.data);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            try std.testing.expect(!(try matrix.all()));
+            try std.testing.expect(try matrix.any());
+
+            var all_axis0 = try matrix.allAxis(0, false);
+            defer all_axis0.deinit();
+            try expectMask(all_axis0, &.{3}, &.{ false, false, false });
+            var any_axis0 = try matrix.anyAxis(0, false);
+            defer any_axis0.deinit();
+            try expectMask(any_axis0, &.{3}, &.{ true, false, true });
+
+            var all_axis1_keep = try matrix.allDim(1, true);
+            defer all_axis1_keep.deinit();
+            try expectMask(all_axis1_keep, &.{ 2, 1 }, &.{ false, false });
+            var any_axis1_keep = try matrix.anyDim(1, true);
+            defer any_axis1_keep.deinit();
+            try expectMask(any_axis1_keep, &.{ 2, 1 }, &.{ true, true });
+
+            var all_axes = try matrix.allAxes(&.{ 0, 1 }, false);
+            defer all_axes.deinit();
+            try expectMask(all_axes, &.{}, &.{false});
+            var any_axes = try matrix.anyDims(&.{ 0, 1 }, false);
+            defer any_axes.deinit();
+            try expectMask(any_axes, &.{}, &.{true});
+        }
+    }.check;
+
+    var coo = try cooFromSlices(bool, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ true, false, true });
+    defer coo.deinit();
+    try expectBoolReductions(@TypeOf(coo), coo);
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try expectBoolReductions(@TypeOf(csr), csr);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try expectBoolReductions(@TypeOf(csc), csc);
+
+    var all_true = try cooFromSlices(bool, gpa, 1, 2, &.{ 0, 0 }, &.{ 0, 1 }, &.{ true, true });
+    defer all_true.deinit();
+    try std.testing.expect(try all_true.all());
+    try std.testing.expect(try all_true.any());
 }
 
 test "sparse stored non-finite diagnostics" {
