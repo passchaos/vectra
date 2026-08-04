@@ -4698,6 +4698,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.scatterReduceScalar(axis_index, indices, value, .sum);
+        }
+
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDensePutFlat(T, self, indices, values);
         }
@@ -10148,6 +10152,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
+        }
+
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -15811,6 +15819,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
             return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
+        }
+
+        pub fn scatterAddScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.scatterReduceScalar(axis_index, indices, value, .sum);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -22358,6 +22370,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var scatter_scalar_sum = try matrix.scatterReduceScalar(1, scatter_indices, 2, .sum);
             defer scatter_scalar_sum.deinit();
             try expectArray(scatter_scalar_sum, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
+
+            var scatter_scalar_add = try matrix.scatterAddScalar(1, scatter_indices, 2);
+            defer scatter_scalar_add.deinit();
+            try expectArray(scatter_scalar_add, &.{ 2, 3 }, scatter_scalar_sum.data);
 
             var bad_scatter_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
                 0, 3, 0,
