@@ -124,6 +124,7 @@ const SparseDenseUnary = enum {
     hardswish,
     logsigmoid,
     selu,
+    gelu,
 };
 
 fn sparseComplexRealType(comptime T: type) type {
@@ -272,6 +273,7 @@ fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseU
         .hardswish => dense.hardswish(),
         .logsigmoid => dense.logsigmoid(),
         .selu => dense.selu(),
+        .gelu => dense.gelu(),
     };
 }
 
@@ -5123,6 +5125,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .gelu);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -10201,6 +10207,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .gelu);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -15490,6 +15500,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .gelu);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -23821,6 +23835,17 @@ test "sparse dense norm and logsumexp helpers" {
                 0,
                 0.5 * std.math.tanh(0.5 + std.math.log1p(std.math.exp(@as(f64, -0.5)))),
                 7 * std.math.tanh(7 + std.math.log1p(std.math.exp(@as(f64, -7)))),
+            });
+
+            var gelu_values = try activation_matrix.gelu();
+            defer gelu_values.deinit();
+            try expectArray(gelu_values, &.{ 2, 3 }, &.{
+                @as(f64, 0.5) * @as(f64, -2) * (1 + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, -2) + @as(f64, 0.044715) * @as(f64, -8)))),
+                0,
+                0,
+                0,
+                @as(f64, 0.5) * @as(f64, 0.5) * (1 + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, 0.5) + @as(f64, 0.044715) * @as(f64, 0.125)))),
+                @as(f64, 0.5) * @as(f64, 7) * (1 + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, 7) + @as(f64, 0.044715) * @as(f64, 343)))),
             });
 
             var hard_sigmoid_values = try activation_matrix.hardsigmoid();
