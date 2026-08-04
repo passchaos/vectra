@@ -768,6 +768,12 @@ fn sparseDenseMoveDim(comptime T: type, matrix: anytype, source: isize, destinat
     return dense.movedim(source, destination);
 }
 
+fn sparseDenseAdjoint(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.adjoint();
+}
+
 fn sparseDenseFlip(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3369,6 +3375,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
             return self.movedim(source, destination);
+        }
+
+        pub fn adjoint(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAdjoint(T, self);
+        }
+
+        pub fn mH(self: Self) SparseError!array_mod.Array(T) {
+            return self.adjoint();
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -7015,6 +7029,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
             return self.movedim(source, destination);
+        }
+
+        pub fn adjoint(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAdjoint(T, self);
+        }
+
+        pub fn mH(self: Self) SparseError!array_mod.Array(T) {
+            return self.adjoint();
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -10876,6 +10898,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
             return self.movedim(source, destination);
+        }
+
+        pub fn adjoint(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAdjoint(T, self);
+        }
+
+        pub fn mH(self: Self) SparseError!array_mod.Array(T) {
+            return self.adjoint();
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -15622,6 +15652,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var move_axis = try matrix.moveaxis(0, 1);
             defer move_axis.deinit();
             try expectArray(move_axis, &.{ 3, 2 }, permuted.data);
+
+            var adjointed = try matrix.adjoint();
+            defer adjointed.deinit();
+            try expectArray(adjointed, &.{ 3, 2 }, permuted.data);
+
+            var hermitian_alias = try matrix.mH();
+            defer hermitian_alias.deinit();
+            try expectArray(hermitian_alias, &.{ 3, 2 }, permuted.data);
 
             try std.testing.expectError(error.ShapeMismatch, matrix.broadcastTo(&.{ 2, 2 }));
             try std.testing.expectError(error.InvalidPermutation, matrix.permute(&.{ 0, 0 }));
