@@ -477,6 +477,10 @@ fn validateSparseValueRange(comptime T: type, min_value: T, max_value: T) Sparse
     if (!sparseValueIsFinite(T, min_value) or !sparseValueIsFinite(T, max_value) or min_value > max_value) return error.InvalidShape;
 }
 
+fn sparseValueInValidatedRange(comptime T: type, value: T, min_value: T, max_value: T) bool {
+    return value >= min_value and value <= max_value;
+}
+
 fn sparseValueRangeInRange(comptime T: type, values: []const T, min_value: T, max_value: T) SparseError!bool {
     try validateSparseValueRange(T, min_value, max_value);
     if (values.len == 0) return error.EmptyArray;
@@ -1521,6 +1525,16 @@ pub fn CooMatrix(comptime T: type) type {
             var total = zero(T);
             for (self.values) |value| total += absValue(T, value);
             return total;
+        }
+
+        pub fn sumInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_sum, max_sum);
+            return sparseValueInValidatedRange(T, self.sum(), min_sum, max_sum);
+        }
+
+        pub fn absSumInRange(self: Self, min_abs_sum: T, max_abs_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_abs_sum, max_abs_sum);
+            return sparseValueInValidatedRange(T, self.absSum(), min_abs_sum, max_abs_sum);
         }
 
         pub fn minValue(self: Self) SparseError!T {
@@ -3276,6 +3290,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn sumInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_sum, max_sum);
+            return sparseValueInValidatedRange(T, self.sum(), min_sum, max_sum);
+        }
+
+        pub fn absSumInRange(self: Self, min_abs_sum: T, max_abs_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_abs_sum, max_abs_sum);
+            return sparseValueInValidatedRange(T, self.absSum(), min_abs_sum, max_abs_sum);
+        }
+
         pub fn minValue(self: Self) SparseError!T {
             return minStoredValue(T, self.values);
         }
@@ -4915,6 +4939,16 @@ pub fn CscMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn sumInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_sum, max_sum);
+            return sparseValueInValidatedRange(T, self.sum(), min_sum, max_sum);
+        }
+
+        pub fn absSumInRange(self: Self, min_abs_sum: T, max_abs_sum: T) SparseError!bool {
+            try validateSparseValueRange(T, min_abs_sum, max_abs_sum);
+            return sparseValueInValidatedRange(T, self.absSum(), min_abs_sum, max_abs_sum);
+        }
+
         pub fn minValue(self: Self) SparseError!T {
             return minStoredValue(T, self.values);
         }
@@ -6060,7 +6094,16 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, coo.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, coo.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
+    try std.testing.expect(try coo.sumInRange(30, 30));
+    try std.testing.expect(try coo.sumInRange(29.5, 30.5));
+    try std.testing.expect(!(try coo.sumInRange(30.5, 31)));
+    try std.testing.expectError(error.InvalidShape, coo.sumInRange(31, 30));
+    try std.testing.expectError(error.InvalidShape, coo.sumInRange(std.math.inf(f64), 31));
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.absSum(), 1e-12);
+    try std.testing.expect(try coo.absSumInRange(30, 30));
+    try std.testing.expect(try coo.absSumInRange(29, 31));
+    try std.testing.expect(!(try coo.absSumInRange(31, 32)));
+    try std.testing.expectError(error.InvalidShape, coo.absSumInRange(31, 30));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), coo.frobeniusNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try coo.oneNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12), try coo.infNorm(), 1e-12);
@@ -7128,7 +7171,15 @@ test "csr sparse matmat transpose and statistics" {
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 3, 2, 0 }, transposed_dense.data);
 
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.sum(), 1e-12);
+    try std.testing.expect(try csr.sumInRange(6, 6));
+    try std.testing.expect(try csr.sumInRange(5.5, 6.5));
+    try std.testing.expect(!(try csr.sumInRange(6.5, 7)));
+    try std.testing.expectError(error.InvalidShape, csr.sumInRange(7, 6));
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.absSum(), 1e-12);
+    try std.testing.expect(try csr.absSumInRange(6, 6));
+    try std.testing.expect(try csr.absSumInRange(5, 7));
+    try std.testing.expect(!(try csr.absSumInRange(7, 8)));
+    try std.testing.expectError(error.InvalidShape, csr.absSumInRange(std.math.nan(f64), 6));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(14.0)), csr.frobeniusNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.oneNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), try csr.infNorm(), 1e-12);
@@ -7492,6 +7543,15 @@ test "csc sparse bridge dense roundtrip matvec matmat and csr transpose" {
     defer csr_dense.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csr_dense.data);
     try std.testing.expectApproxEqAbs(@as(f64, 30), csc.sum(), 1e-12);
+    try std.testing.expect(try csc.sumInRange(30, 30));
+    try std.testing.expect(try csc.sumInRange(29.5, 30.5));
+    try std.testing.expect(!(try csc.sumInRange(30.5, 31)));
+    try std.testing.expectError(error.InvalidShape, csc.sumInRange(31, 30));
+    try std.testing.expectApproxEqAbs(@as(f64, 30), csc.absSum(), 1e-12);
+    try std.testing.expect(try csc.absSumInRange(30, 30));
+    try std.testing.expect(try csc.absSumInRange(29, 31));
+    try std.testing.expect(!(try csc.absSumInRange(31, 32)));
+    try std.testing.expectError(error.InvalidShape, csc.absSumInRange(std.math.inf(f64), 31));
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(190.0)), csc.frobeniusNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try csc.oneNorm(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 12), try csc.infNorm(), 1e-12);
