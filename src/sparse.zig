@@ -496,6 +496,30 @@ fn sparseDenseUnsqueezeAxes(comptime T: type, matrix: anytype, axes: []const isi
     return dense.unsqueezeAxes(axes);
 }
 
+fn sparseDenseBroadcastTo(comptime T: type, matrix: anytype, dims: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.broadcastTo(dims);
+}
+
+fn sparseDensePermute(comptime T: type, matrix: anytype, axes: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.permute(axes);
+}
+
+fn sparseDenseSwapAxes(comptime T: type, matrix: anytype, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.swapaxes(dim0, dim1);
+}
+
+fn sparseDenseMoveDim(comptime T: type, matrix: anytype, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.movedim(source, destination);
+}
+
 fn sparseDenseFlip(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -2839,6 +2863,42 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn broadcastTo(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseBroadcastTo(T, self, dims);
+        }
+
+        pub fn expand(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.broadcastTo(dims);
+        }
+
+        pub fn expandAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expand(other.shape);
+        }
+
+        pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePermute(T, self, axes);
+        }
+
+        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSwapAxes(T, self, dim0, dim1);
+        }
+
+        pub fn swapDims(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn movedim(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseMoveDim(T, self, source, destination);
+        }
+
+        pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return self.movedim(source, destination);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -6237,6 +6297,42 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn broadcastTo(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseBroadcastTo(T, self, dims);
+        }
+
+        pub fn expand(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.broadcastTo(dims);
+        }
+
+        pub fn expandAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expand(other.shape);
+        }
+
+        pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePermute(T, self, axes);
+        }
+
+        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSwapAxes(T, self, dim0, dim1);
+        }
+
+        pub fn swapDims(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn movedim(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseMoveDim(T, self, source, destination);
+        }
+
+        pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return self.movedim(source, destination);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -9850,6 +9946,42 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn expandDims(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return self.unsqueezeAxes(axes);
+        }
+
+        pub fn broadcastTo(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseBroadcastTo(T, self, dims);
+        }
+
+        pub fn expand(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.broadcastTo(dims);
+        }
+
+        pub fn expandAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expand(other.shape);
+        }
+
+        pub fn broadcastAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.expandAs(other);
+        }
+
+        pub fn permute(self: Self, axes: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePermute(T, self, axes);
+        }
+
+        pub fn swapaxes(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSwapAxes(T, self, dim0, dim1);
+        }
+
+        pub fn swapDims(self: Self, dim0: isize, dim1: isize) SparseError!array_mod.Array(T) {
+            return self.swapaxes(dim0, dim1);
+        }
+
+        pub fn movedim(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseMoveDim(T, self, source, destination);
+        }
+
+        pub fn moveaxis(self: Self, source: isize, destination: isize) SparseError!array_mod.Array(T) {
+            return self.movedim(source, destination);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -14371,6 +14503,51 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var squeezed_axes = try expanded.squeezeAxes(&.{ 0, 3 });
             defer squeezed_axes.deinit();
             try expectArray(squeezed_axes, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var broadcasted = try matrix.broadcastTo(&.{ 1, 2, 3 });
+            defer broadcasted.deinit();
+            try expectArray(broadcasted, &.{ 1, 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var expanded_to = try matrix.expand(&.{ 1, 2, 3 });
+            defer expanded_to.deinit();
+            try expectArray(expanded_to, &.{ 1, 2, 3 }, broadcasted.data);
+
+            var broadcast_target = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 2, 3 });
+            defer broadcast_target.deinit();
+            var expanded_as = try matrix.expandAs(broadcast_target);
+            defer expanded_as.deinit();
+            try expectArray(expanded_as, &.{ 1, 2, 3 }, broadcasted.data);
+
+            var broadcast_as = try matrix.broadcastAs(broadcast_target);
+            defer broadcast_as.deinit();
+            try expectArray(broadcast_as, &.{ 1, 2, 3 }, broadcasted.data);
+
+            var permuted = try matrix.permute(&.{ 1, 0 });
+            defer permuted.deinit();
+            try expectArray(permuted, &.{ 3, 2 }, &.{
+                1, 0,
+                0, 2,
+                0, 3,
+            });
+
+            var swapped = try matrix.swapaxes(0, 1);
+            defer swapped.deinit();
+            try expectArray(swapped, &.{ 3, 2 }, permuted.data);
+
+            var swap_dims = try matrix.swapDims(0, 1);
+            defer swap_dims.deinit();
+            try expectArray(swap_dims, &.{ 3, 2 }, permuted.data);
+
+            var moved = try matrix.movedim(0, 1);
+            defer moved.deinit();
+            try expectArray(moved, &.{ 3, 2 }, permuted.data);
+
+            var move_axis = try matrix.moveaxis(0, 1);
+            defer move_axis.deinit();
+            try expectArray(move_axis, &.{ 3, 2 }, permuted.data);
+
+            try std.testing.expectError(error.ShapeMismatch, matrix.broadcastTo(&.{ 2, 2 }));
+            try std.testing.expectError(error.InvalidPermutation, matrix.permute(&.{ 0, 0 }));
 
             var flipped_rows = try matrix.flip(0);
             defer flipped_rows.deinit();
