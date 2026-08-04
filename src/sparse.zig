@@ -483,6 +483,21 @@ fn sparseMatrixSize(rows: usize, cols: usize, axis_opt: ?isize) SparseError!usiz
     return sparseElementCount(rows, cols);
 }
 
+fn sparseBroadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) SparseError![]usize {
+    const out_rank = @max(lhs_shape.len, rhs_shape.len);
+    const out_shape = try allocator.alloc(usize, out_rank);
+    errdefer allocator.free(out_shape);
+    const lhs_pad = out_rank - lhs_shape.len;
+    const rhs_pad = out_rank - rhs_shape.len;
+    for (out_shape, 0..) |*dim, axis| {
+        const lhs_dim: usize = if (axis < lhs_pad) 1 else lhs_shape[axis - lhs_pad];
+        const rhs_dim: usize = if (axis < rhs_pad) 1 else rhs_shape[axis - rhs_pad];
+        if (lhs_dim != rhs_dim and lhs_dim != 1 and rhs_dim != 1) return error.ShapeMismatch;
+        dim.* = @max(lhs_dim, rhs_dim);
+    }
+    return out_shape;
+}
+
 fn sparseValidateGatherShape(rows: usize, cols: usize, indices_shape: []const usize, axis_index: isize) SparseError!usize {
     if (indices_shape.len != 2) return error.ShapeMismatch;
     const axis = try sparseNormalizeMatrixAxis(axis_index);
@@ -4350,6 +4365,33 @@ pub fn CooMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn isBatchedMatrix(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isScalar(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isVector(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isRowVector(self: Self) bool {
+            return self.rows == 1;
+        }
+
+        pub fn isColumnVector(self: Self) bool {
+            return self.cols == 1;
+        }
+
+        pub fn isVectorLike(self: Self) bool {
+            return self.isRowVector() or self.isColumnVector();
+        }
+
         pub fn isSquare(self: Self) bool {
             return self.rows == self.cols;
         }
@@ -4368,6 +4410,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
             return sparseMatrixShapeEquals(self, rhs.shape);
+        }
+
+        pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) SparseError![]usize {
+            return sparseBroadcastShapes(allocator, lhs_shape, rhs_shape);
+        }
+
+        pub fn broadcastShape(self: Self, rhs: Self) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, &.{ rhs.rows, rhs.cols });
+        }
+
+        pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -9731,6 +9785,33 @@ pub fn CsrMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn isBatchedMatrix(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isScalar(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isVector(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isRowVector(self: Self) bool {
+            return self.rows == 1;
+        }
+
+        pub fn isColumnVector(self: Self) bool {
+            return self.cols == 1;
+        }
+
+        pub fn isVectorLike(self: Self) bool {
+            return self.isRowVector() or self.isColumnVector();
+        }
+
         pub fn isSquare(self: Self) bool {
             return self.rows == self.cols;
         }
@@ -9749,6 +9830,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
             return sparseMatrixShapeEquals(self, rhs.shape);
+        }
+
+        pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) SparseError![]usize {
+            return sparseBroadcastShapes(allocator, lhs_shape, rhs_shape);
+        }
+
+        pub fn broadcastShape(self: Self, rhs: Self) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, &.{ rhs.rows, rhs.cols });
+        }
+
+        pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -15323,6 +15416,33 @@ pub fn CscMatrix(comptime T: type) type {
             return true;
         }
 
+        pub fn isBatchedMatrix(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isScalar(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isVector(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isRowVector(self: Self) bool {
+            return self.rows == 1;
+        }
+
+        pub fn isColumnVector(self: Self) bool {
+            return self.cols == 1;
+        }
+
+        pub fn isVectorLike(self: Self) bool {
+            return self.isRowVector() or self.isColumnVector();
+        }
+
         pub fn isSquare(self: Self) bool {
             return self.rows == self.cols;
         }
@@ -15341,6 +15461,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
             return sparseMatrixShapeEquals(self, rhs.shape);
+        }
+
+        pub fn broadcastShapes(allocator: std.mem.Allocator, lhs_shape: []const usize, rhs_shape: []const usize) SparseError![]usize {
+            return sparseBroadcastShapes(allocator, lhs_shape, rhs_shape);
+        }
+
+        pub fn broadcastShape(self: Self, rhs: Self) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, &.{ rhs.rows, rhs.cols });
+        }
+
+        pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
+            return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -23036,13 +23168,38 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqual(@as(usize, 2), try lhs.len());
     try std.testing.expect(!lhs.isEmpty());
     try std.testing.expect(lhs.isMatrix());
+    try std.testing.expect(!lhs.isBatchedMatrix());
+    try std.testing.expect(!lhs.isScalar());
+    try std.testing.expect(!lhs.isVector());
+    try std.testing.expect(!lhs.isRowVector());
+    try std.testing.expect(!lhs.isColumnVector());
+    try std.testing.expect(!lhs.isVectorLike());
     try std.testing.expect(!lhs.isSquare());
     try std.testing.expect(lhs.shapeEquals(&.{ 2, 3 }));
     try std.testing.expect(lhs.hasShape(&.{ 2, 3 }));
     try std.testing.expect(lhs.sameShape(rhs));
     try std.testing.expect(lhs.sameShapeArray(coo_dense));
+    const coo_broadcast_shape = try lhs.broadcastShape(rhs);
+    defer lhs.allocator.free(coo_broadcast_shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, coo_broadcast_shape);
+    const coo_broadcast_shape_array = try lhs.broadcastShapeArray(coo_dense);
+    defer lhs.allocator.free(coo_broadcast_shape_array);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, coo_broadcast_shape_array);
+    const sparse_broadcast_shape = try @TypeOf(lhs).broadcastShapes(lhs.allocator, &.{ 2, 1 }, &.{ 1, 3 });
+    defer lhs.allocator.free(sparse_broadcast_shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, sparse_broadcast_shape);
     try std.testing.expect(!lhs.shapeEquals(&.{ 3, 2 }));
     try std.testing.expectError(error.InvalidAxis, lhs.size(2));
+    try std.testing.expectError(error.ShapeMismatch, @TypeOf(lhs).broadcastShapes(lhs.allocator, &.{2}, &.{3}));
+
+    var row_shape_probe = try cooFromSlices(f64, gpa, 1, 3, &.{0}, &.{1}, &.{1});
+    defer row_shape_probe.deinit();
+    try std.testing.expect(row_shape_probe.isRowVector());
+    try std.testing.expect(row_shape_probe.isVectorLike());
+    var column_shape_probe = try cooFromSlices(f64, gpa, 3, 1, &.{1}, &.{0}, &.{1});
+    defer column_shape_probe.deinit();
+    try std.testing.expect(column_shape_probe.isColumnVector());
+    try std.testing.expect(column_shape_probe.isVectorLike());
 
     var coo_pruned = try coo_sum.dropZeros();
     defer coo_pruned.deinit();
@@ -23189,6 +23346,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(upper_square_csr.isSquare());
     try std.testing.expect(upper_square_csr.sameShape(diagonal_square_csr));
     try std.testing.expect(upper_square_csr.sameShapeArray(upper_square_csr_dense));
+    const csr_broadcast_shape = try upper_square_csr.broadcastShape(diagonal_square_csr);
+    defer upper_square_csr.allocator.free(csr_broadcast_shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csr_broadcast_shape);
 
     var upper_square_csc = try upper_square.toCsc();
     defer upper_square_csc.deinit();
@@ -23201,6 +23361,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(upper_square_csc.isSquare());
     try std.testing.expect(upper_square_csc.sameShape(diagonal_square_csc));
     try std.testing.expect(upper_square_csc.sameShapeArray(upper_square_csc_dense));
+    const csc_broadcast_shape = try upper_square_csc.broadcastShape(diagonal_square_csc);
+    defer upper_square_csc.allocator.free(csc_broadcast_shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csc_broadcast_shape);
 
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
