@@ -4638,6 +4638,31 @@ pub fn CooMatrix(comptime T: type) type {
             return self.size(axis_index);
         }
 
+        pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) SparseError![]usize {
+            return array_mod.stridesFor(allocator, dims);
+        }
+
+        pub fn stride(self: Self, axis_index: isize) SparseError!usize {
+            return switch (try sparseNormalizeMatrixAxis(axis_index)) {
+                0 => self.cols,
+                1 => 1,
+                else => unreachable,
+            };
+        }
+
+        pub fn strideAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.stride(axis_index);
+        }
+
+        pub fn isContiguous(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn contiguous(self: Self) SparseError!array_mod.Array(T) {
+            return self.toDense();
+        }
+
         pub fn len(self: Self) SparseError!usize {
             _ = try self.numel();
             return self.rows;
@@ -10380,6 +10405,31 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn shapeAt(self: Self, axis_index: isize) SparseError!usize {
             return self.size(axis_index);
+        }
+
+        pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) SparseError![]usize {
+            return array_mod.stridesFor(allocator, dims);
+        }
+
+        pub fn stride(self: Self, axis_index: isize) SparseError!usize {
+            return switch (try sparseNormalizeMatrixAxis(axis_index)) {
+                0 => self.cols,
+                1 => 1,
+                else => unreachable,
+            };
+        }
+
+        pub fn strideAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.stride(axis_index);
+        }
+
+        pub fn isContiguous(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn contiguous(self: Self) SparseError!array_mod.Array(T) {
+            return self.toDense();
         }
 
         pub fn len(self: Self) SparseError!usize {
@@ -16337,6 +16387,31 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn shapeAt(self: Self, axis_index: isize) SparseError!usize {
             return self.size(axis_index);
+        }
+
+        pub fn stridesFor(allocator: std.mem.Allocator, dims: []const usize) SparseError![]usize {
+            return array_mod.stridesFor(allocator, dims);
+        }
+
+        pub fn stride(self: Self, axis_index: isize) SparseError!usize {
+            return switch (try sparseNormalizeMatrixAxis(axis_index)) {
+                0 => self.cols,
+                1 => 1,
+                else => unreachable,
+            };
+        }
+
+        pub fn strideAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.stride(axis_index);
+        }
+
+        pub fn isContiguous(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn contiguous(self: Self) SparseError!array_mod.Array(T) {
+            return self.toDense();
         }
 
         pub fn len(self: Self) SparseError!usize {
@@ -24374,6 +24449,15 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqual(@as(usize, 6), try lhs.size(null));
     try std.testing.expectEqual(@as(usize, 2), try lhs.size(0));
     try std.testing.expectEqual(@as(usize, 3), try lhs.shapeAt(-1));
+    const lhs_strides = try @TypeOf(lhs).stridesFor(lhs.allocator, &.{ 2, 3 });
+    defer lhs.allocator.free(lhs_strides);
+    try std.testing.expectEqualSlices(usize, &.{ 3, 1 }, lhs_strides);
+    try std.testing.expectEqual(@as(usize, 3), try lhs.stride(0));
+    try std.testing.expectEqual(@as(usize, 1), try lhs.strideAt(-1));
+    try std.testing.expect(lhs.isContiguous());
+    var lhs_contiguous = try lhs.contiguous();
+    defer lhs_contiguous.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 2, 3 }, lhs_contiguous.data);
     try std.testing.expectEqual(@as(usize, 2), try lhs.len());
     try std.testing.expect(!lhs.isEmpty());
     try std.testing.expect(lhs.isMatrix());
@@ -24570,6 +24654,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(upper_square_csr.isSquare());
     try std.testing.expect(upper_square_csr.sameShape(diagonal_square_csr));
     try std.testing.expect(upper_square_csr.sameShapeArray(upper_square_csr_dense));
+    try std.testing.expectEqual(@as(usize, 2), try upper_square_csr.stride(0));
+    try std.testing.expectEqual(@as(usize, 1), try upper_square_csr.strideAt(1));
+    try std.testing.expect(upper_square_csr.isContiguous());
+    var upper_square_csr_contiguous = try upper_square_csr.contiguous();
+    defer upper_square_csr_contiguous.deinit();
+    try std.testing.expectEqualSlices(f64, upper_square_csr_dense.data, upper_square_csr_contiguous.data);
     const csr_broadcast_shape = try upper_square_csr.broadcastShape(diagonal_square_csr);
     defer upper_square_csr.allocator.free(csr_broadcast_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csr_broadcast_shape);
@@ -24593,6 +24683,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(upper_square_csc.isSquare());
     try std.testing.expect(upper_square_csc.sameShape(diagonal_square_csc));
     try std.testing.expect(upper_square_csc.sameShapeArray(upper_square_csc_dense));
+    try std.testing.expectEqual(@as(usize, 2), try upper_square_csc.stride(0));
+    try std.testing.expectEqual(@as(usize, 1), try upper_square_csc.strideAt(1));
+    try std.testing.expect(upper_square_csc.isContiguous());
+    var upper_square_csc_contiguous = try upper_square_csc.contiguous();
+    defer upper_square_csc_contiguous.deinit();
+    try std.testing.expectEqualSlices(f64, upper_square_csc_dense.data, upper_square_csc_contiguous.data);
     const csc_broadcast_shape = try upper_square_csc.broadcastShape(diagonal_square_csc);
     defer upper_square_csc.allocator.free(csc_broadcast_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csc_broadcast_shape);
