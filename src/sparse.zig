@@ -913,6 +913,24 @@ fn sparseDenseLogsumexpAxes(comptime T: type, matrix: anytype, axes: []const isi
     return dense.logsumexpAxes(axes, keepdims);
 }
 
+fn sparseDenseNormalize(comptime T: type, matrix: anytype, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.normalize(p, axis_index, eps);
+}
+
+fn sparseDenseCosineSimilarity(comptime T: type, matrix: anytype, other: array_mod.Array(T), axis_index: isize, eps: T, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.cosineSimilarity(other, axis_index, eps, keepdims);
+}
+
+fn sparseDensePairwiseDistance(comptime T: type, matrix: anytype, other: array_mod.Array(T), p: T, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.pairwiseDistance(other, p, axis_index, keepdims);
+}
+
 fn sparseDenseCumulative(comptime T: type, matrix: anytype, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4145,6 +4163,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNormalize(T, self, p, axis_index, eps);
+        }
+
+        pub fn cosineSimilarity(self: Self, other: array_mod.Array(T), axis_index: isize, eps: T, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCosineSimilarity(T, self, other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosineSimilarityDim(self: Self, other: array_mod.Array(T), dim_index: isize, eps: T, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.cosineSimilarity(other, dim_index, eps, keepdim);
+        }
+
+        pub fn pairwiseDistance(self: Self, other: array_mod.Array(T), p: T, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePairwiseDistance(T, self, other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.pairwiseDistance(other, p, dim_index, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -8451,6 +8489,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNormalize(T, self, p, axis_index, eps);
+        }
+
+        pub fn cosineSimilarity(self: Self, other: array_mod.Array(T), axis_index: isize, eps: T, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCosineSimilarity(T, self, other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosineSimilarityDim(self: Self, other: array_mod.Array(T), dim_index: isize, eps: T, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.cosineSimilarity(other, dim_index, eps, keepdim);
+        }
+
+        pub fn pairwiseDistance(self: Self, other: array_mod.Array(T), p: T, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePairwiseDistance(T, self, other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.pairwiseDistance(other, p, dim_index, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -12968,6 +13026,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNormalize(T, self, p, axis_index, eps);
+        }
+
+        pub fn cosineSimilarity(self: Self, other: array_mod.Array(T), axis_index: isize, eps: T, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseCosineSimilarity(T, self, other, axis_index, eps, keepdims);
+        }
+
+        pub fn cosineSimilarityDim(self: Self, other: array_mod.Array(T), dim_index: isize, eps: T, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.cosineSimilarity(other, dim_index, eps, keepdim);
+        }
+
+        pub fn pairwiseDistance(self: Self, other: array_mod.Array(T), p: T, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDensePairwiseDistance(T, self, other, p, axis_index, keepdims);
+        }
+
+        pub fn pairwiseDistanceDim(self: Self, other: array_mod.Array(T), p: T, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.pairwiseDistance(other, p, dim_index, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -19804,6 +19882,37 @@ test "sparse dense norm and logsumexp helpers" {
             var all_lse_keep = try matrix.logsumexpDims(&.{ 0, 1 }, true);
             defer all_lse_keep.deinit();
             try expectArray(all_lse_keep, &.{ 1, 1 }, all_lse.data);
+
+            var normalized_rows = try matrix.normalize(2, 1, 1e-12);
+            defer normalized_rows.deinit();
+            try expectArray(normalized_rows, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2.0 / @sqrt(@as(f64, 13)), 3.0 / @sqrt(@as(f64, 13)) });
+
+            var other = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                1, 1, 0,
+                0, 2, 6,
+            }, &.{ 2, 3 });
+            defer other.deinit();
+            var cosine_rows = try matrix.cosineSimilarity(other, 1, 1e-12, false);
+            defer cosine_rows.deinit();
+            try expectArray(cosine_rows, &.{2}, &.{ 1.0 / @sqrt(@as(f64, 2)), 22.0 / @sqrt(@as(f64, 520)) });
+
+            var cosine_rows_keep = try matrix.cosineSimilarityDim(other, -1, 1e-12, true);
+            defer cosine_rows_keep.deinit();
+            try expectArray(cosine_rows_keep, &.{ 2, 1 }, cosine_rows.data);
+
+            var distance_rows = try matrix.pairwiseDistance(other, 2, 1, false);
+            defer distance_rows.deinit();
+            try expectArray(distance_rows, &.{2}, &.{ 1, 3 });
+
+            var distance_rows_l1 = try matrix.pairwiseDistanceDim(other, 1, -1, true);
+            defer distance_rows_l1.deinit();
+            try expectArray(distance_rows_l1, &.{ 2, 1 }, &.{ 1, 3 });
+
+            var bad_other = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer bad_other.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.cosineSimilarity(bad_other, 1, 1e-12, false));
+            try std.testing.expectError(error.InvalidShape, matrix.cosineSimilarity(other, 1, -1e-12, false));
+            try std.testing.expectError(error.InvalidShape, matrix.normalize(2, 1, -1e-12));
 
             try std.testing.expectError(error.InvalidShape, matrix.norm(0, null, false));
             try std.testing.expectError(error.InvalidAxis, matrix.logsumexp(2, false));
