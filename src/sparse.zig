@@ -1437,6 +1437,15 @@ pub fn CooMatrix(comptime T: type) type {
             self.fillStoredValues(value);
         }
 
+        pub fn scaleStoredValues(self: *Self, alpha: T) void {
+            ensureNumeric(T);
+            for (self.values) |*value| value.* = value.* * alpha;
+        }
+
+        pub fn scaleValues(self: *Self, alpha: T) void {
+            self.scaleStoredValues(alpha);
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const row_indices = try self.allocator.dupe(usize, self.row_indices);
             errdefer self.allocator.free(row_indices);
@@ -3931,6 +3940,15 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn fillValues(self: *Self, value: T) void {
             self.fillStoredValues(value);
+        }
+
+        pub fn scaleStoredValues(self: *Self, alpha: T) void {
+            ensureNumeric(T);
+            for (self.values) |*value| value.* = value.* * alpha;
+        }
+
+        pub fn scaleValues(self: *Self, alpha: T) void {
+            self.scaleStoredValues(alpha);
         }
 
         pub fn clone(self: Self) SparseError!Self {
@@ -6640,6 +6658,15 @@ pub fn CscMatrix(comptime T: type) type {
             self.fillStoredValues(value);
         }
 
+        pub fn scaleStoredValues(self: *Self, alpha: T) void {
+            ensureNumeric(T);
+            for (self.values) |*value| value.* = value.* * alpha;
+        }
+
+        pub fn scaleValues(self: *Self, alpha: T) void {
+            self.scaleStoredValues(alpha);
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
             errdefer self.allocator.free(col_offsets);
@@ -9306,6 +9333,8 @@ test "coo sparse dense roundtrip and compressed conversions" {
         }
     }.f);
     try std.testing.expectEqualSlices(f64, &.{ -6, -6, -6, -6, -6, -6 }, coo_filled.values);
+    coo_filled.scaleStoredValues(0.5);
+    try std.testing.expectEqualSlices(f64, &.{ -3, -3, -3, -3, -3, -3 }, coo_filled.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -9429,6 +9458,8 @@ test "coo sparse dense roundtrip and compressed conversions" {
         }
     }.f);
     try std.testing.expectEqualSlices(f64, &.{ 5, 5, 5, 5, 5, 5 }, csr_filled.values);
+    csr_filled.scaleValues(2);
+    try std.testing.expectEqualSlices(f64, &.{ 10, 10, 10, 10, 10, 10 }, csr_filled.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -9477,6 +9508,8 @@ test "coo sparse dense roundtrip and compressed conversions" {
         }
     }.f);
     try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4, 4, 4, 4 }, csc_filled.values);
+    csc_filled.scaleStoredValues(-0.25);
+    try std.testing.expectEqualSlices(f64, &.{ -1, -1, -1, -1, -1, -1 }, csc_filled.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
