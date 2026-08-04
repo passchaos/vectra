@@ -114,6 +114,15 @@ const SparseDenseUnary = enum {
     relu,
     relu6,
     tanhshrink,
+    expit,
+    logit,
+    softplus,
+    softsign,
+    silu,
+    mish,
+    hardsigmoid,
+    hardswish,
+    logsigmoid,
 };
 
 fn sparseComplexRealType(comptime T: type) type {
@@ -252,6 +261,15 @@ fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseU
         .relu => dense.relu(),
         .relu6 => dense.relu6(),
         .tanhshrink => dense.tanhshrink(),
+        .expit => dense.expit(),
+        .logit => dense.logit(),
+        .softplus => dense.softplus(),
+        .softsign => dense.softsign(),
+        .silu => dense.silu(),
+        .mish => dense.mish(),
+        .hardsigmoid => dense.hardsigmoid(),
+        .hardswish => dense.hardswish(),
+        .logsigmoid => dense.logsigmoid(),
     };
 }
 
@@ -5035,6 +5053,66 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn expit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expit);
+        }
+
+        pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.expit();
+        }
+
+        pub fn logit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softplus);
+        }
+
+        pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn silu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .silu);
+        }
+
+        pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn swish(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn mish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardsigmoid);
+        }
+
+        pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardsigmoid();
+        }
+
+        pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardswish);
+        }
+
+        pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardswish();
+        }
+
+        pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logsigmoid);
+        }
+
+        pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.logsigmoid();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -10029,6 +10107,66 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn expit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expit);
+        }
+
+        pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.expit();
+        }
+
+        pub fn logit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softplus);
+        }
+
+        pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn silu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .silu);
+        }
+
+        pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn swish(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn mish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardsigmoid);
+        }
+
+        pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardsigmoid();
+        }
+
+        pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardswish);
+        }
+
+        pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardswish();
+        }
+
+        pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logsigmoid);
+        }
+
+        pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.logsigmoid();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -15234,6 +15372,66 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn expit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expit);
+        }
+
+        pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.expit();
+        }
+
+        pub fn logit(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softplus);
+        }
+
+        pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn silu(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .silu);
+        }
+
+        pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn swish(self: Self) SparseError!array_mod.Array(T) {
+            return self.silu();
+        }
+
+        pub fn mish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .mish);
+        }
+
+        pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardsigmoid);
+        }
+
+        pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardsigmoid();
+        }
+
+        pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .hardswish);
+        }
+
+        pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
+            return self.hardswish();
+        }
+
+        pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .logsigmoid);
+        }
+
+        pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
+            return self.logsigmoid();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -23461,6 +23659,84 @@ test "sparse dense norm and logsumexp helpers" {
             var tanh_shrink_alias = try activation_matrix.tanhShrink();
             defer tanh_shrink_alias.deinit();
             try expectArray(tanh_shrink_alias, &.{ 2, 3 }, tanhshrink_values.data);
+
+            var expit_values = try activation_matrix.expit();
+            defer expit_values.deinit();
+            try expectArray(expit_values, &.{ 2, 3 }, &.{ 1.0 / (1.0 + std.math.exp(@as(f64, 2))), 0.5, 0.5, 0.5, 1.0 / (1.0 + std.math.exp(@as(f64, -0.5))), 1.0 / (1.0 + std.math.exp(@as(f64, -7))) });
+
+            var sigmoid_alias = try activation_matrix.sigmoid();
+            defer sigmoid_alias.deinit();
+            try expectArray(sigmoid_alias, &.{ 2, 3 }, expit_values.data);
+
+            var softplus_values = try activation_matrix.softplus();
+            defer softplus_values.deinit();
+            try expectArray(softplus_values, &.{ 2, 3 }, &.{ std.math.log1p(std.math.exp(@as(f64, -2))), std.math.log1p(@as(f64, 1)), std.math.log1p(@as(f64, 1)), std.math.log1p(@as(f64, 1)), 0.5 + std.math.log1p(std.math.exp(@as(f64, -0.5))), 7 + std.math.log1p(std.math.exp(@as(f64, -7))) });
+
+            var softsign_values = try activation_matrix.softsign();
+            defer softsign_values.deinit();
+            try expectArray(softsign_values, &.{ 2, 3 }, &.{ -2.0 / 3.0, 0, 0, 0, 0.5 / 1.5, 7.0 / 8.0 });
+
+            var silu_values = try activation_matrix.silu();
+            defer silu_values.deinit();
+            try expectArray(silu_values, &.{ 2, 3 }, &.{ -2.0 / (1.0 + std.math.exp(@as(f64, 2))), 0, 0, 0, 0.5 / (1.0 + std.math.exp(@as(f64, -0.5))), 7.0 / (1.0 + std.math.exp(@as(f64, -7))) });
+
+            var silu_alias = try activation_matrix.SiLU();
+            defer silu_alias.deinit();
+            try expectArray(silu_alias, &.{ 2, 3 }, silu_values.data);
+
+            var swish_alias = try activation_matrix.swish();
+            defer swish_alias.deinit();
+            try expectArray(swish_alias, &.{ 2, 3 }, silu_values.data);
+
+            var mish_values = try activation_matrix.mish();
+            defer mish_values.deinit();
+            try expectArray(mish_values, &.{ 2, 3 }, &.{
+                -2 * std.math.tanh(std.math.log1p(std.math.exp(@as(f64, -2)))),
+                0,
+                0,
+                0,
+                0.5 * std.math.tanh(0.5 + std.math.log1p(std.math.exp(@as(f64, -0.5)))),
+                7 * std.math.tanh(7 + std.math.log1p(std.math.exp(@as(f64, -7)))),
+            });
+
+            var hard_sigmoid_values = try activation_matrix.hardsigmoid();
+            defer hard_sigmoid_values.deinit();
+            try expectArray(hard_sigmoid_values, &.{ 2, 3 }, &.{ 1.0 / 6.0, 0.5, 0.5, 0.5, 3.5 / 6.0, 1 });
+
+            var hard_sigmoid_alias = try activation_matrix.hardSigmoid();
+            defer hard_sigmoid_alias.deinit();
+            try expectArray(hard_sigmoid_alias, &.{ 2, 3 }, hard_sigmoid_values.data);
+
+            var hard_swish_values = try activation_matrix.hardswish();
+            defer hard_swish_values.deinit();
+            try expectArray(hard_swish_values, &.{ 2, 3 }, &.{ -2.0 / 6.0, 0, 0, 0, 0.5 * 3.5 / 6.0, 7 });
+
+            var hard_swish_alias = try activation_matrix.hardSwish();
+            defer hard_swish_alias.deinit();
+            try expectArray(hard_swish_alias, &.{ 2, 3 }, hard_swish_values.data);
+
+            var log_sigmoid_values = try activation_matrix.logsigmoid();
+            defer log_sigmoid_values.deinit();
+            try expectArray(log_sigmoid_values, &.{ 2, 3 }, &.{ -(@as(f64, 2) + std.math.log1p(std.math.exp(@as(f64, -2)))), -std.math.log1p(@as(f64, 1)), -std.math.log1p(@as(f64, 1)), -std.math.log1p(@as(f64, 1)), -std.math.log1p(std.math.exp(@as(f64, -0.5))), -std.math.log1p(std.math.exp(@as(f64, -7))) });
+
+            var log_sigmoid_alias = try activation_matrix.logSigmoid();
+            defer log_sigmoid_alias.deinit();
+            try expectArray(log_sigmoid_alias, &.{ 2, 3 }, log_sigmoid_values.data);
+
+            var logit_source = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 0.25, 0.5, 0.75 });
+            defer logit_source.deinit();
+            var logit_matrix = if (comptime Matrix == CooMatrix(f64))
+                try logit_source.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try logit_source.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try logit_source.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer logit_matrix.deinit();
+            var logit_values = try logit_matrix.logit();
+            defer logit_values.deinit();
+            try expectArray(logit_values, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 0.25 / 0.75), -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), 0, std.math.log(f64, std.math.e, 0.75 / 0.25) });
 
             var row_lse = try matrix.logsumexp(1, false);
             defer row_lse.deinit();
