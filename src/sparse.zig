@@ -386,6 +386,20 @@ fn sparseDenseScatterScalar(comptime T: type, matrix: anytype, axis_index: isize
     return dense.scatterScalar(axis_index, indices, value);
 }
 
+fn sparseDenseScatterReduce(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+    try sparseValidateScatterIndices(matrix.rows, matrix.cols, axis_index, indices, src.shape);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.scatterReduce(axis_index, indices, src, reduction);
+}
+
+fn sparseDenseScatterReduceScalar(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+    try sparseValidateGatherIndices(matrix.rows, matrix.cols, indices, axis_index);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.scatterReduceScalar(axis_index, indices, value, reduction);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2527,6 +2541,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
+        }
+
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -5753,6 +5779,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
+        }
+
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9194,6 +9232,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduce(T, self, axis_index, indices, src, reduction);
+        }
+
+        pub fn scatterAdd(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.scatterReduce(axis_index, indices, src, .sum);
+        }
+
+        pub fn scatterReduceScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T, reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterReduceScalar(T, self, axis_index, indices, value, reduction);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -13410,6 +13460,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var scatter_scalar = try matrix.scatterScalar(1, scatter_indices, -5);
             defer scatter_scalar.deinit();
             try expectArray(scatter_scalar, &.{ 2, 3 }, &.{ -5, -5, -5, -5, -5, -5 });
+
+            var scatter_sum = try matrix.scatterReduce(1, scatter_indices, scatter_src, .sum);
+            defer scatter_sum.deinit();
+            try expectArray(scatter_sum, &.{ 2, 3 }, &.{ 10, 8, 7, 4, 7, 9 });
+
+            var scatter_add = try matrix.scatterAdd(1, scatter_indices, scatter_src);
+            defer scatter_add.deinit();
+            try expectArray(scatter_add, &.{ 2, 3 }, &.{ 10, 8, 7, 4, 7, 9 });
+
+            var scatter_max = try matrix.scatterReduce(1, scatter_indices, scatter_src, .max);
+            defer scatter_max.deinit();
+            try expectArray(scatter_max, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+
+            var scatter_scalar_sum = try matrix.scatterReduceScalar(1, scatter_indices, 2, .sum);
+            defer scatter_scalar_sum.deinit();
+            try expectArray(scatter_scalar_sum, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
 
             var bad_scatter_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
                 0, 3, 0,
