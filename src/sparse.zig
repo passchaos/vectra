@@ -7595,20 +7595,35 @@ pub fn CooMatrix(comptime T: type) type {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDense(rhs, rtol, atol), out);
+        }
+
         pub fn isCloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseDense(rhs, rtol, atol);
         }
 
+        pub fn isCloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseOut(rhs, rtol, atol, out);
+        }
+
         pub fn iscloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.iscloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!bool {
@@ -7620,8 +7635,7 @@ pub fn CooMatrix(comptime T: type) type {
         }
 
         pub fn allcloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!bool {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.allcloseEqualNan(rhs, rtol, atol, equal_nan);
@@ -7635,8 +7649,16 @@ pub fn CooMatrix(comptime T: type) type {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
         }
 
+        pub fn iscloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalar(scalar, rtol, atol), out);
+        }
+
         pub fn isCloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseScalar(scalar, rtol, atol);
+        }
+
+        pub fn isCloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarOut(scalar, rtol, atol, out);
         }
 
         pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -7645,8 +7667,16 @@ pub fn CooMatrix(comptime T: type) type {
             return dense.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarEqualNanOut(scalar, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!bool {
@@ -7671,8 +7701,16 @@ pub fn CooMatrix(comptime T: type) type {
             return self.iscloseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isclose(rhs, rtol, atol), out);
+        }
+
         pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn isCloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseOut(rhs, rtol, atol, out);
         }
 
         pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -7684,8 +7722,16 @@ pub fn CooMatrix(comptime T: type) type {
             return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
@@ -13544,20 +13590,35 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDense(rhs, rtol, atol), out);
+        }
+
         pub fn isCloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseDense(rhs, rtol, atol);
         }
 
+        pub fn isCloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseOut(rhs, rtol, atol, out);
+        }
+
         pub fn iscloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.iscloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!bool {
@@ -13569,8 +13630,7 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn allcloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!bool {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.allcloseEqualNan(rhs, rtol, atol, equal_nan);
@@ -13584,8 +13644,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
         }
 
+        pub fn iscloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalar(scalar, rtol, atol), out);
+        }
+
         pub fn isCloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseScalar(scalar, rtol, atol);
+        }
+
+        pub fn isCloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarOut(scalar, rtol, atol, out);
         }
 
         pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -13594,8 +13662,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return dense.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarEqualNanOut(scalar, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!bool {
@@ -13620,8 +13696,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.iscloseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isclose(rhs, rtol, atol), out);
+        }
+
         pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn isCloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseOut(rhs, rtol, atol, out);
         }
 
         pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -13633,8 +13717,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
@@ -19713,20 +19805,35 @@ pub fn CscMatrix(comptime T: type) type {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDense(rhs, rtol, atol), out);
+        }
+
         pub fn isCloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseDense(rhs, rtol, atol);
         }
 
+        pub fn isCloseDenseOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseOut(rhs, rtol, atol, out);
+        }
+
         pub fn iscloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.iscloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseDenseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseDenseEqualNanOut(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseDenseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseDense(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T) SparseError!bool {
@@ -19738,8 +19845,7 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn allcloseDenseEqualNan(self: Self, rhs: array_mod.Array(T), rtol: T, atol: T, equal_nan: bool) SparseError!bool {
-            if (rhs.shape.len != 2) return error.NonMatrixArray;
-            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             return lhs_dense.allcloseEqualNan(rhs, rtol, atol, equal_nan);
@@ -19753,8 +19859,16 @@ pub fn CscMatrix(comptime T: type) type {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, false);
         }
 
+        pub fn iscloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalar(scalar, rtol, atol), out);
+        }
+
         pub fn isCloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseScalar(scalar, rtol, atol);
+        }
+
+        pub fn isCloseScalarOut(self: Self, scalar: T, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarOut(scalar, rtol, atol, out);
         }
 
         pub fn iscloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -19763,8 +19877,16 @@ pub fn CscMatrix(comptime T: type) type {
             return dense.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseScalarEqualNan(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseScalarEqualNan(scalar, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseScalarEqualNanOut(self: Self, scalar: T, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseScalarEqualNanOut(scalar, rtol, atol, equal_nan, out);
         }
 
         pub fn allcloseScalar(self: Self, scalar: T, rtol: T, atol: T) SparseError!bool {
@@ -19789,8 +19911,16 @@ pub fn CscMatrix(comptime T: type) type {
             return self.iscloseEqualNan(rhs, rtol, atol, false);
         }
 
+        pub fn iscloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isclose(rhs, rtol, atol), out);
+        }
+
         pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn isCloseOut(self: Self, rhs: Self, rtol: T, atol: T, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseOut(rhs, rtol, atol, out);
         }
 
         pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
@@ -19802,8 +19932,16 @@ pub fn CscMatrix(comptime T: type) type {
             return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
+        pub fn iscloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscloseEqualNan(rhs, rtol, atol, equal_nan), out);
+        }
+
         pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
             return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNanOut(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool, out: array_mod.Array(bool)) SparseError!void {
+            return self.iscloseEqualNanOut(rhs, rtol, atol, equal_nan, out);
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
@@ -23660,6 +23798,48 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectMask(loose_zero_alias, loose_zero_mask.data);
             try std.testing.expect(try matrix.allcloseScalarEqualNan(0, 0, 3, false));
             try std.testing.expect(try matrix.allCloseScalarEqualNan(0, 0, 3, false));
+
+            var scalar_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{ 2, 3 });
+            defer scalar_out.deinit();
+            try matrix.iscloseScalarOut(0, 0, 0, scalar_out);
+            try expectMask(scalar_out, exact_zero_mask.data);
+            try matrix.isCloseScalarOut(0, 0, 0, scalar_out);
+            try expectMask(scalar_out, exact_zero_mask.data);
+            try matrix.iscloseScalarEqualNanOut(0, 0, 3, false, scalar_out);
+            try expectMask(scalar_out, loose_zero_mask.data);
+            try matrix.isCloseScalarEqualNanOut(0, 0, 3, false, scalar_out);
+            try expectMask(scalar_out, loose_zero_mask.data);
+        }
+    }.check;
+    const expectClosenessOutputs = struct {
+        fn expectMask(mask: array_mod.Array(bool), values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, mask.shape);
+            try std.testing.expectEqualSlices(bool, values, mask.data);
+        }
+
+        fn check(comptime Matrix: type, lhs_matrix: Matrix, rhs_matrix: Matrix, rhs_dense: array_mod.Array(f64)) !void {
+            const close_values = &.{ true, true, true, true, true, true };
+            const strict_values = &.{ false, true, true, true, false, false };
+            var out = try array_mod.Array(bool).zeros(lhs_matrix.allocator, &.{ 2, 3 });
+            defer out.deinit();
+
+            try lhs_matrix.iscloseOut(rhs_matrix, 1, 4, out);
+            try expectMask(out, close_values);
+            try lhs_matrix.isCloseOut(rhs_matrix, 1, 4, out);
+            try expectMask(out, close_values);
+            try lhs_matrix.iscloseEqualNanOut(rhs_matrix, 1e-12, 1e-12, false, out);
+            try expectMask(out, strict_values);
+            try lhs_matrix.isCloseEqualNanOut(rhs_matrix, 1e-12, 1e-12, false, out);
+            try expectMask(out, strict_values);
+
+            try lhs_matrix.iscloseDenseOut(rhs_dense, 1, 4, out);
+            try expectMask(out, close_values);
+            try lhs_matrix.isCloseDenseOut(rhs_dense, 1, 4, out);
+            try expectMask(out, close_values);
+            try lhs_matrix.iscloseDenseEqualNanOut(rhs_dense, 1e-12, 1e-12, false, out);
+            try expectMask(out, strict_values);
+            try lhs_matrix.isCloseDenseEqualNanOut(rhs_dense, 1e-12, 1e-12, false, out);
+            try expectMask(out, strict_values);
         }
     }.check;
     const expectNonzero = struct {
@@ -25304,6 +25484,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer rhs_dense_for_summary.deinit();
     try expectDenseComparisons(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs), lhs);
+    try expectClosenessOutputs(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary);
     try expectNonzero(@TypeOf(lhs), lhs);
     var where_mask = try array_mod.Array(bool).fromSlice(gpa, &.{
         true,  false, true,
@@ -25559,6 +25740,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs_csr.deinit();
     try expectDenseComparisons(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs_csr), lhs_csr);
+    try expectClosenessOutputs(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary);
     try expectNonzero(@TypeOf(lhs_csr), lhs_csr);
     try expectWhere(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary, where_mask);
     var sorted_for_search_csr = try sorted_for_search.toCsr();
@@ -25744,6 +25926,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs_csc.deinit();
     try expectDenseComparisons(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs_csc), lhs_csc);
+    try expectClosenessOutputs(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary);
     try expectNonzero(@TypeOf(lhs_csc), lhs_csc);
     try expectWhere(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary, where_mask);
     var sorted_for_search_csc = try sorted_for_search.toCsc();
