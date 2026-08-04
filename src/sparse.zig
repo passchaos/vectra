@@ -5069,6 +5069,14 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn matrixTranspose(self: Self) SparseError!Self {
+            return self.transpose();
+        }
+
+        pub fn mT(self: Self) SparseError!Self {
+            return self.matrixTranspose();
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -7235,6 +7243,14 @@ pub fn CsrMatrix(comptime T: type) type {
                 }
             }
             return .{ .allocator = self.allocator, .rows = self.cols, .cols = self.rows, .row_offsets = row_offsets, .col_indices = col_indices, .values = values };
+        }
+
+        pub fn matrixTranspose(self: Self) SparseError!Self {
+            return self.transpose();
+        }
+
+        pub fn mT(self: Self) SparseError!Self {
+            return self.matrixTranspose();
         }
 
         pub fn sum(self: Self) T {
@@ -10375,6 +10391,52 @@ pub fn CscMatrix(comptime T: type) type {
             return self.hadamard(rhs);
         }
 
+        pub fn transpose(self: Self) SparseError!Self {
+            var counts = try self.allocator.alloc(usize, self.rows);
+            defer self.allocator.free(counts);
+            @memset(counts, 0);
+            for (self.row_indices) |row| counts[row] += 1;
+
+            var col_offsets = try self.allocator.alloc(usize, self.rows + 1);
+            errdefer self.allocator.free(col_offsets);
+            col_offsets[0] = 0;
+            for (counts, 0..) |count, i| col_offsets[i + 1] = col_offsets[i] + count;
+
+            var next = try self.allocator.dupe(usize, col_offsets[0..self.rows]);
+            defer self.allocator.free(next);
+            var row_indices = try self.allocator.alloc(usize, self.values.len);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(T, self.values.len);
+            errdefer self.allocator.free(values);
+
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    const row = self.row_indices[pos];
+                    const dst_pos = next[row];
+                    next[row] += 1;
+                    row_indices[dst_pos] = col;
+                    values[dst_pos] = self.values[pos];
+                }
+            }
+
+            return .{
+                .allocator = self.allocator,
+                .rows = self.cols,
+                .cols = self.rows,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn matrixTranspose(self: Self) SparseError!Self {
+            return self.transpose();
+        }
+
+        pub fn mT(self: Self) SparseError!Self {
+            return self.matrixTranspose();
+        }
+
         pub fn toCsr(self: Self) SparseError!CsrMatrix(T) {
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -12480,6 +12542,16 @@ test "coo sparse dense roundtrip and compressed conversions" {
         2,  0, 0,
         0,  4, 6,
     }, transposed_dense.data);
+    var coo_mt = try coo.matrixTranspose();
+    defer coo_mt.deinit();
+    var coo_mt_dense = try coo_mt.toDense();
+    defer coo_mt_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, coo_mt_dense.data);
+    var coo_m_t = try coo.mT();
+    defer coo_m_t.deinit();
+    var coo_m_t_dense = try coo_m_t.toDense();
+    defer coo_m_t_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, coo_m_t_dense.data);
 
     var csr = try coo.toCsr();
     defer csr.deinit();
@@ -15158,6 +15230,32 @@ test "csr sparse matmat transpose and statistics" {
     var transposed_dense = try transposed.toDense();
     defer transposed_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 3, 2, 0 }, transposed_dense.data);
+    var csr_mt = try csr.matrixTranspose();
+    defer csr_mt.deinit();
+    var csr_mt_dense = try csr_mt.toDense();
+    defer csr_mt_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, csr_mt_dense.data);
+    var csr_m_t = try csr.mT();
+    defer csr_m_t.deinit();
+    var csr_m_t_dense = try csr_m_t.toDense();
+    defer csr_m_t_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, csr_m_t_dense.data);
+
+    var csc_transposed = try csc_lhs.transpose();
+    defer csc_transposed.deinit();
+    var csc_transposed_dense = try csc_transposed.toDense();
+    defer csc_transposed_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, csc_transposed_dense.data);
+    var csc_mt = try csc_lhs.matrixTranspose();
+    defer csc_mt.deinit();
+    var csc_mt_dense = try csc_mt.toDense();
+    defer csc_mt_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, csc_mt_dense.data);
+    var csc_m_t = try csc_lhs.mT();
+    defer csc_m_t.deinit();
+    var csc_m_t_dense = try csc_m_t.toDense();
+    defer csc_m_t_dense.deinit();
+    try std.testing.expectEqualSlices(f64, transposed_dense.data, csc_m_t_dense.data);
 
     try std.testing.expectApproxEqAbs(@as(f64, 6), csr.sum(), 1e-12);
     try std.testing.expect(try csr.sumInRange(6, 6));
