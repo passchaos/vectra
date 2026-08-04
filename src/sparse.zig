@@ -159,6 +159,36 @@ fn sparseCompareDenseArrays(
     };
 }
 
+fn sparseDenseCountNonzero(matrix: anytype) SparseError!usize {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.countNonzero();
+}
+
+fn sparseDenseCountNonzeroAxis(matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.countNonzeroAxis(axis_opt, keepdims);
+}
+
+fn sparseDenseCountNonzeroAxes(matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.countNonzeroAxes(axes, keepdims);
+}
+
+fn sparseDenseFlatNonzero(matrix: anytype) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.flatNonzero();
+}
+
+fn sparseDenseNonzero(matrix: anytype) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nonzero();
+}
+
 pub const SparseResidualSummary = struct {
     residual_norm: f64,
     relative_residual_norm: f64,
@@ -1912,6 +1942,42 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn countNonzero(self: Self) SparseError!usize {
+            return sparseDenseCountNonzero(self);
+        }
+
+        pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxis(dim_opt, keepdim);
+        }
+
+        pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseFlatNonzero(self);
+        }
+
+        pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseNonzero(self);
+        }
+
+        pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
         }
 
         pub fn sameStructure(self: Self, rhs: Self) bool {
@@ -4846,6 +4912,42 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn countNonzero(self: Self) SparseError!usize {
+            return sparseDenseCountNonzero(self);
+        }
+
+        pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxis(dim_opt, keepdim);
+        }
+
+        pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseFlatNonzero(self);
+        }
+
+        pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseNonzero(self);
+        }
+
+        pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CsrView(T) {
@@ -7995,6 +8097,42 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn countNonzero(self: Self) SparseError!usize {
+            return sparseDenseCountNonzero(self);
+        }
+
+        pub fn countNonzeroAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
+        }
+
+        pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxis(dim_opt, keepdim);
+        }
+
+        pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseFlatNonzero(self);
+        }
+
+        pub fn nonzero(self: Self) SparseError!array_mod.Array(usize) {
+            return sparseDenseNonzero(self);
+        }
+
+        pub fn argwhere(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
+        }
+
+        pub fn whereIndices(self: Self) SparseError!array_mod.Array(usize) {
+            return self.nonzero();
         }
 
         pub fn asVeyraView(self: Self) SparseError!veyra.CscView(T) {
@@ -11752,6 +11890,51 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expect(try matrix.allCloseScalarEqualNan(0, 0, 3, false));
         }
     }.check;
+    const expectNonzero = struct {
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            try std.testing.expectEqual(@as(usize, 3), try matrix.countNonzero());
+
+            var axis0 = try matrix.countNonzeroAxis(0, false);
+            defer axis0.deinit();
+            try std.testing.expectEqualSlices(usize, &.{3}, axis0.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, axis0.data);
+
+            var axis1_keepdim = try matrix.countNonzeroDim(1, true);
+            defer axis1_keepdim.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 1 }, axis1_keepdim.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 1, 2 }, axis1_keepdim.data);
+
+            var all_axes = try matrix.countNonzeroAxes(&.{ 0, 1 }, false);
+            defer all_axes.deinit();
+            try std.testing.expectEqualSlices(usize, &.{}, all_axes.shape);
+            try std.testing.expectEqualSlices(usize, &.{3}, all_axes.data);
+
+            var no_axes = try matrix.countNonzeroDims(&.{}, false);
+            defer no_axes.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, no_axes.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 1, 0, 0, 0, 1, 1 }, no_axes.data);
+
+            var flat = try matrix.flatNonzero();
+            defer flat.deinit();
+            try std.testing.expectEqualSlices(usize, &.{3}, flat.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 0, 4, 5 }, flat.data);
+
+            var nonzero = try matrix.nonzero();
+            defer nonzero.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, nonzero.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 1, 2 }, nonzero.data);
+
+            var argwhere = try matrix.argwhere();
+            defer argwhere.deinit();
+            try std.testing.expectEqualSlices(usize, nonzero.shape, argwhere.shape);
+            try std.testing.expectEqualSlices(usize, nonzero.data, argwhere.data);
+
+            var where_indices = try matrix.whereIndices();
+            defer where_indices.deinit();
+            try std.testing.expectEqualSlices(usize, nonzero.shape, where_indices.shape);
+            try std.testing.expectEqualSlices(usize, nonzero.data, where_indices.data);
+        }
+    }.check;
 
     var lhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 3, 1, 2 });
     defer lhs.deinit();
@@ -11885,6 +12068,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer rhs_dense_for_summary.deinit();
     try expectDenseComparisons(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs), lhs);
+    try expectNonzero(@TypeOf(lhs), lhs);
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, dense_summary.squared_distance, 1e-12);
@@ -12060,6 +12244,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs_csr.deinit();
     try expectDenseComparisons(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs_csr), lhs_csr);
+    try expectNonzero(@TypeOf(lhs_csr), lhs_csr);
     try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
     var csr_eq_same = try lhs_csr.eqSameStructure(dot_rhs_csr);
@@ -12239,6 +12424,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer dot_rhs_csc.deinit();
     try expectDenseComparisons(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary);
     try expectScalarCloseness(@TypeOf(lhs_csc), lhs_csc);
+    try expectNonzero(@TypeOf(lhs_csc), lhs_csc);
     var csc_sum = try lhs_csc.add(rhs_csc);
     defer csc_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
