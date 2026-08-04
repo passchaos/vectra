@@ -2304,6 +2304,30 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn rowMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
         pub fn rowAbsSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
             var sums = try self.rowAbsSums();
             defer sums.deinit();
@@ -4621,6 +4645,30 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
+        pub fn rowMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn rowMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
         pub fn rowAbsSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
             var sums = try self.rowAbsSums();
             defer sums.deinit();
@@ -6630,6 +6678,30 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
+        pub fn rowMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMinAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn rowMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.rowMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
+        pub fn columnMaxAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            var values = try self.columnMaxAbs();
+            defer values.deinit();
+            return sparseValueRangeInRange(T, values.data, min_value, max_value);
+        }
+
         pub fn rowAbsSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
             var sums = try self.rowAbsSums();
             defer sums.deinit();
@@ -7545,15 +7617,24 @@ test "coo sparse row and column statistics" {
     var row_min_abs = try coo.rowMinAbs();
     defer row_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, row_min_abs.data);
+    try std.testing.expect(try coo.rowMinAbsInRange(1, 4));
+    try std.testing.expect(!(try coo.rowMinAbsInRange(2, 4)));
+    try std.testing.expectError(error.InvalidShape, coo.rowMinAbsInRange(5, 4));
     var row_max_abs = try coo.rowMaxAbs();
     defer row_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5 }, row_max_abs.data);
+    try std.testing.expect(try coo.rowMaxAbsInRange(2, 5));
+    try std.testing.expect(!(try coo.rowMaxAbsInRange(3, 5)));
     var col_min_abs = try coo.columnMinAbs();
     defer col_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2 }, col_min_abs.data);
+    try std.testing.expect(try coo.columnMinAbsInRange(1, 3));
+    try std.testing.expect(!(try coo.columnMinAbsInRange(2, 3)));
     var col_max_abs = try coo.columnMaxAbs();
     defer col_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_max_abs.data);
+    try std.testing.expect(try coo.columnMaxAbsInRange(3, 5));
+    try std.testing.expect(!(try coo.columnMaxAbsInRange(4, 5)));
 
     var row_nnz = try coo.rowNnz();
     defer row_nnz.deinit();
@@ -8651,15 +8732,24 @@ test "csr sparse row and column statistics" {
     var row_min_abs = try csr.rowMinAbs();
     defer row_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, row_min_abs.data);
+    try std.testing.expect(try csr.rowMinAbsInRange(1, 4));
+    try std.testing.expect(!(try csr.rowMinAbsInRange(2, 4)));
+    try std.testing.expectError(error.InvalidShape, csr.rowMinAbsInRange(5, 4));
     var row_max_abs = try csr.rowMaxAbs();
     defer row_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5 }, row_max_abs.data);
+    try std.testing.expect(try csr.rowMaxAbsInRange(2, 5));
+    try std.testing.expect(!(try csr.rowMaxAbsInRange(3, 5)));
     var col_min_abs = try csr.columnMinAbs();
     defer col_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2 }, col_min_abs.data);
+    try std.testing.expect(try csr.columnMinAbsInRange(1, 3));
+    try std.testing.expect(!(try csr.columnMinAbsInRange(2, 3)));
     var col_max_abs = try csr.columnMaxAbs();
     defer col_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_max_abs.data);
+    try std.testing.expect(try csr.columnMaxAbsInRange(3, 5));
+    try std.testing.expect(!(try csr.columnMaxAbsInRange(4, 5)));
 
     var row_nnz = try csr.rowNnz();
     defer row_nnz.deinit();
@@ -9304,15 +9394,24 @@ test "csc sparse transpose products and row column stats" {
     var row_min_abs = try csc.rowMinAbs();
     defer row_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 4 }, row_min_abs.data);
+    try std.testing.expect(try csc.rowMinAbsInRange(1, 4));
+    try std.testing.expect(!(try csc.rowMinAbsInRange(2, 4)));
+    try std.testing.expectError(error.InvalidShape, csc.rowMinAbsInRange(5, 4));
     var row_max_abs = try csc.rowMaxAbs();
     defer row_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 3, 5 }, row_max_abs.data);
+    try std.testing.expect(try csc.rowMaxAbsInRange(2, 5));
+    try std.testing.expect(!(try csc.rowMaxAbsInRange(3, 5)));
     var col_min_abs = try csc.columnMinAbs();
     defer col_min_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 1, 3, 2 }, col_min_abs.data);
+    try std.testing.expect(try csc.columnMinAbsInRange(1, 3));
+    try std.testing.expect(!(try csc.columnMinAbsInRange(2, 3)));
     var col_max_abs = try csc.columnMaxAbs();
     defer col_max_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 3, 5 }, col_max_abs.data);
+    try std.testing.expect(try csc.columnMaxAbsInRange(3, 5));
+    try std.testing.expect(!(try csc.columnMaxAbsInRange(4, 5)));
 
     var row_nnz = try csc.rowNnz();
     defer row_nnz.deinit();
