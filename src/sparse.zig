@@ -1164,6 +1164,12 @@ fn sparseDenseLogSoftmin(comptime T: type, matrix: anytype, axis_index: isize) S
     return dense.logSoftmin(axis_index);
 }
 
+fn sparseDenseGlu(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.glu(axis_index);
+}
+
 fn sparseDenseNormalize(comptime T: type, matrix: anytype, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5233,6 +5239,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logSoftmin(dim_index);
+        }
+
+        pub fn glu(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGlu(T, self, axis_index);
+        }
+
+        pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.glu(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -10315,6 +10329,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logSoftmin(dim_index);
+        }
+
+        pub fn glu(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGlu(T, self, axis_index);
+        }
+
+        pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.glu(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -15608,6 +15630,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logSoftmin(dim_index);
+        }
+
+        pub fn glu(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGlu(T, self, axis_index);
+        }
+
+        pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.glu(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -23871,6 +23901,41 @@ test "sparse dense norm and logsumexp helpers" {
             var log_sigmoid_alias = try activation_matrix.logSigmoid();
             defer log_sigmoid_alias.deinit();
             try expectArray(log_sigmoid_alias, &.{ 2, 3 }, log_sigmoid_values.data);
+
+            var glu_source = try cooFromSlices(
+                f64,
+                matrix.allocator,
+                2,
+                4,
+                &.{ 0, 0, 0, 0, 1, 1, 1, 1 },
+                &.{ 0, 1, 2, 3, 0, 1, 2, 3 },
+                &.{ 1, 2, -1, 0.5, 3, 4, 1, -2 },
+            );
+            defer glu_source.deinit();
+            var glu_matrix = if (comptime Matrix == CooMatrix(f64))
+                try glu_source.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try glu_source.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try glu_source.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer glu_matrix.deinit();
+
+            var glu_values = try glu_matrix.glu(1);
+            defer glu_values.deinit();
+            try expectArray(glu_values, &.{ 2, 2 }, &.{
+                1.0 / (1.0 + std.math.exp(@as(f64, 1))),
+                2.0 / (1.0 + std.math.exp(@as(f64, -0.5))),
+                3.0 / (1.0 + std.math.exp(@as(f64, -1))),
+                4.0 / (1.0 + std.math.exp(@as(f64, 2))),
+            });
+
+            var glu_dim_alias = try glu_matrix.gluDim(-1);
+            defer glu_dim_alias.deinit();
+            try expectArray(glu_dim_alias, &.{ 2, 2 }, glu_values.data);
+
+            try std.testing.expectError(error.InvalidShape, activation_matrix.glu(1));
 
             var logit_source = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 0.25, 0.5, 0.75 });
             defer logit_source.deinit();
