@@ -1287,6 +1287,42 @@ fn sparseDenseDivPromote(comptime T: type, comptime U: type, matrix: anytype, rh
     return dense.divPromote(U, rhs);
 }
 
+fn sparseDenseAddScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.addScalarPromote(U, scalar);
+}
+
+fn sparseDenseSubScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.subScalarPromote(U, scalar);
+}
+
+fn sparseDenseMulScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.mulScalarPromote(U, scalar);
+}
+
+fn sparseDenseDivScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.divScalarPromote(U, scalar);
+}
+
+fn sparseDenseRsubScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.rsubScalarPromote(U, scalar);
+}
+
+fn sparseDenseRdivScalarPromote(comptime T: type, comptime U: type, matrix: anytype, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.rdivScalarPromote(U, scalar);
+}
+
 fn sparseDenseMaximumPromote(comptime T: type, comptime U: type, matrix: anytype, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5674,6 +5710,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseAddScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn subScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseSubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn mulScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMulScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn divScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseDivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rsubScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRsubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rdivScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRdivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn scalarSubPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rsubScalarPromote(U, scalar);
+        }
+
+        pub fn scalarDivPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rdivScalarPromote(U, scalar);
         }
 
         pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -10852,6 +10920,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseAddScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn subScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseSubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn mulScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMulScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn divScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseDivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rsubScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRsubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rdivScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRdivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn scalarSubPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rsubScalarPromote(U, scalar);
+        }
+
+        pub fn scalarDivPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rdivScalarPromote(U, scalar);
         }
 
         pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -16241,6 +16341,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseAddScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn subScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseSubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn mulScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMulScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn divScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseDivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rsubScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRsubScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn rdivScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseRdivScalarPromote(T, U, self, scalar);
+        }
+
+        pub fn scalarSubPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rsubScalarPromote(U, scalar);
+        }
+
+        pub fn scalarDivPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return self.rdivScalarPromote(U, scalar);
         }
 
         pub fn powScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -23681,7 +23813,13 @@ test "sparse dense numeric array helpers" {
 
         fn expectFloatArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
             try std.testing.expectEqualSlices(usize, shape, values.shape);
-            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+            for (expected, values.data) |want, got| {
+                if (std.math.isInf(want) or std.math.isInf(got)) {
+                    try std.testing.expectEqual(want, got);
+                } else {
+                    try std.testing.expectApproxEqAbs(want, got, 1e-12);
+                }
+            }
         }
 
         fn check(comptime Matrix: type, matrix: Matrix) !void {
@@ -23740,6 +23878,38 @@ test "sparse dense numeric array helpers" {
             var promoted_minimum = try matrix.minimumPromote(f64, promoted_rhs);
             defer promoted_minimum.deinit();
             try expectFloatArray(promoted_minimum, &.{ 2, 3 }, &.{ 0.5, 0, 0, 0, -1, 2 });
+
+            var promoted_scalar_sum = try matrix.addScalarPromote(f64, 0.5);
+            defer promoted_scalar_sum.deinit();
+            try expectFloatArray(promoted_scalar_sum, &.{ 2, 3 }, &.{ 2.5, 0.5, 0.5, 0.5, -0.5, 2.5 });
+
+            var promoted_scalar_diff = try matrix.subScalarPromote(f64, 0.5);
+            defer promoted_scalar_diff.deinit();
+            try expectFloatArray(promoted_scalar_diff, &.{ 2, 3 }, &.{ 1.5, -0.5, -0.5, -0.5, -1.5, 1.5 });
+
+            var promoted_scalar_product = try matrix.mulScalarPromote(f64, 0.5);
+            defer promoted_scalar_product.deinit();
+            try expectFloatArray(promoted_scalar_product, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -0.5, 1 });
+
+            var promoted_scalar_quotient = try matrix.divScalarPromote(f64, 0.5);
+            defer promoted_scalar_quotient.deinit();
+            try expectFloatArray(promoted_scalar_quotient, &.{ 2, 3 }, &.{ 4, 0, 0, 0, -2, 4 });
+
+            var promoted_rsub_scalar = try matrix.rsubScalarPromote(f64, 0.5);
+            defer promoted_rsub_scalar.deinit();
+            try expectFloatArray(promoted_rsub_scalar, &.{ 2, 3 }, &.{ -1.5, 0.5, 0.5, 0.5, 1.5, -1.5 });
+
+            var promoted_scalar_sub_alias = try matrix.scalarSubPromote(f64, 0.5);
+            defer promoted_scalar_sub_alias.deinit();
+            try expectFloatArray(promoted_scalar_sub_alias, &.{ 2, 3 }, promoted_rsub_scalar.data);
+
+            var promoted_rdiv_scalar = try matrix.rdivScalarPromote(f64, 2.0);
+            defer promoted_rdiv_scalar.deinit();
+            try expectFloatArray(promoted_rdiv_scalar, &.{ 2, 3 }, &.{ 1, std.math.inf(f64), std.math.inf(f64), std.math.inf(f64), -2, 1 });
+
+            var promoted_scalar_div_alias = try matrix.scalarDivPromote(f64, 2.0);
+            defer promoted_scalar_div_alias.deinit();
+            try expectFloatArray(promoted_scalar_div_alias, &.{ 2, 3 }, promoted_rdiv_scalar.data);
 
             var rhs_sparse = try cooFromSlices(
                 i32,
