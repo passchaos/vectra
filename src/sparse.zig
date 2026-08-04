@@ -1550,6 +1550,12 @@ fn sparseDenseLdexp(comptime T: type, matrix: anytype, exponents: array_mod.Arra
     return dense.ldexp(exponents);
 }
 
+fn sparseDenseFrexp(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T).FrexpResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.frexp();
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5580,6 +5586,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
+            return sparseDenseFrexp(T, self);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -10686,6 +10696,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
+            return sparseDenseFrexp(T, self);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -16003,6 +16017,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
+            return sparseDenseFrexp(T, self);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -23182,6 +23200,12 @@ test "sparse dense fused elementwise helpers" {
             var bad_exponents = try array_mod.Array(i32).zeros(matrix.allocator, &.{ 2, 2 });
             defer bad_exponents.deinit();
             try std.testing.expectError(error.ShapeMismatch, matrix.ldexp(bad_exponents));
+
+            var frexp_result = try matrix.frexp();
+            defer frexp_result.deinit();
+            try expectArray(frexp_result.significand, &.{ 2, 3 }, &.{ 0.5, 0, 0, 0, 0.5, 0.75 });
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, frexp_result.exponent.shape);
+            try std.testing.expectEqualSlices(i32, &.{ 1, 0, 0, 0, 2, 2 }, frexp_result.exponent.data);
 
             var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
