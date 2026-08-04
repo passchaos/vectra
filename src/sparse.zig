@@ -727,6 +727,12 @@ fn sparseDenseArgsort(comptime T: type, matrix: anytype, axis_opt: ?isize, desce
     return dense.argsortAxis(axis_opt, descending);
 }
 
+fn sparseDenseSortWithIndices(comptime T: type, matrix: anytype, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.sortWithIndices(axis_opt, descending);
+}
+
 fn sparseDensePartition(comptime T: type, matrix: anytype, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3520,6 +3526,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
+            return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
@@ -7334,6 +7344,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
+            return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
@@ -11359,6 +11373,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
+            return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
@@ -15856,6 +15874,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer argsorted_desc.deinit();
             try std.testing.expectEqualSlices(usize, &.{6}, argsorted_desc.shape);
             try std.testing.expectEqualSlices(usize, &.{ 5, 4, 0, 1, 2, 3 }, argsorted_desc.data);
+
+            var sorted_with_indices = try matrix.sortWithIndices(null, false);
+            defer sorted_with_indices.deinit();
+            try expectArray(sorted_with_indices.values, &.{6}, sorted_flat.data);
+            try std.testing.expectEqualSlices(usize, argsorted_flat.shape, sorted_with_indices.indices.shape);
+            try std.testing.expectEqualSlices(usize, argsorted_flat.data, sorted_with_indices.indices.data);
+
+            var row_sort_with_indices = try matrix.sortWithIndices(1, false);
+            defer row_sort_with_indices.deinit();
+            try expectMatrix(row_sort_with_indices.values, sorted_rows.data);
+            try std.testing.expectEqualSlices(usize, argsorted_rows.shape, row_sort_with_indices.indices.shape);
+            try std.testing.expectEqualSlices(usize, argsorted_rows.data, row_sort_with_indices.indices.data);
 
             var partitioned_flat = try matrix.partition(3, null, false);
             defer partitioned_flat.deinit();
