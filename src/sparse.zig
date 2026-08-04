@@ -1274,6 +1274,46 @@ pub fn CooMatrix(comptime T: type) type {
             );
         }
 
+        pub fn maxAbsDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_abs_diff;
+        }
+
+        pub fn maxRelDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_rel_diff;
+        }
+
+        pub fn squaredDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).squared_distance;
+        }
+
+        pub fn frobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).frobeniusDistance();
+        }
+
+        pub fn relativeFrobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistance();
+        }
+
+        pub fn maxAbsDiffMeetsBound(self: Self, rhs: Self, max_absolute_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxAbsDiffMeetsBound(max_absolute_diff);
+        }
+
+        pub fn maxRelDiffMeetsBound(self: Self, rhs: Self, max_relative_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxRelDiffMeetsBound(max_relative_diff);
+        }
+
+        pub fn squaredDistanceMeetsBound(self: Self, rhs: Self, max_squared_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).squaredDistanceMeetsBound(max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceMeetsBound(self: Self, rhs: Self, max_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).frobeniusDistanceMeetsBound(max_distance);
+        }
+
+        pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
+        }
+
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
             if (rhs.shape.len != 2) return error.NonMatrixArray;
             if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
@@ -3350,6 +3390,46 @@ pub fn CsrMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn maxAbsDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_abs_diff;
+        }
+
+        pub fn maxRelDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_rel_diff;
+        }
+
+        pub fn squaredDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).squared_distance;
+        }
+
+        pub fn frobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).frobeniusDistance();
+        }
+
+        pub fn relativeFrobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistance();
+        }
+
+        pub fn maxAbsDiffMeetsBound(self: Self, rhs: Self, max_absolute_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxAbsDiffMeetsBound(max_absolute_diff);
+        }
+
+        pub fn maxRelDiffMeetsBound(self: Self, rhs: Self, max_relative_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxRelDiffMeetsBound(max_relative_diff);
+        }
+
+        pub fn squaredDistanceMeetsBound(self: Self, rhs: Self, max_squared_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).squaredDistanceMeetsBound(max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceMeetsBound(self: Self, rhs: Self, max_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).frobeniusDistanceMeetsBound(max_distance);
+        }
+
+        pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
         }
 
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
@@ -5641,6 +5721,46 @@ pub fn CscMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn maxAbsDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_abs_diff;
+        }
+
+        pub fn maxRelDiff(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).max_rel_diff;
+        }
+
+        pub fn squaredDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).squared_distance;
+        }
+
+        pub fn frobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).frobeniusDistance();
+        }
+
+        pub fn relativeFrobeniusDistance(self: Self, rhs: Self) SparseError!f64 {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistance();
+        }
+
+        pub fn maxAbsDiffMeetsBound(self: Self, rhs: Self, max_absolute_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxAbsDiffMeetsBound(max_absolute_diff);
+        }
+
+        pub fn maxRelDiffMeetsBound(self: Self, rhs: Self, max_relative_diff: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).maxRelDiffMeetsBound(max_relative_diff);
+        }
+
+        pub fn squaredDistanceMeetsBound(self: Self, rhs: Self, max_squared_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).squaredDistanceMeetsBound(max_squared_distance);
+        }
+
+        pub fn frobeniusDistanceMeetsBound(self: Self, rhs: Self, max_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).frobeniusDistanceMeetsBound(max_distance);
+        }
+
+        pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
+            return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
         }
 
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
@@ -8575,6 +8695,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs.diffSummaryMeetsBounds(rhs, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     try std.testing.expect(!(try lhs.diffSummaryMeetsBounds(rhs, 3.999, 2, 34, @sqrt(@as(f64, 34)), full_relative)));
     try std.testing.expectError(error.InvalidShape, lhs.diffSummaryMeetsBounds(rhs, 4, std.math.nan(f64), 34, @sqrt(@as(f64, 34)), full_relative));
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try lhs.maxAbsDiff(rhs), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try lhs.maxRelDiff(rhs), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 34), try lhs.squaredDistance(rhs), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 34)), try lhs.frobeniusDistance(rhs), 1e-12);
+    try std.testing.expectApproxEqAbs(full_relative, try lhs.relativeFrobeniusDistance(rhs), 1e-12);
+    try std.testing.expect(try lhs.maxAbsDiffMeetsBound(rhs, 4));
+    try std.testing.expect(!(try lhs.maxAbsDiffMeetsBound(rhs, 3.999)));
+    try std.testing.expect(try lhs.maxRelDiffMeetsBound(rhs, 2));
+    try std.testing.expect(try lhs.squaredDistanceMeetsBound(rhs, 34));
+    try std.testing.expect(try lhs.frobeniusDistanceMeetsBound(rhs, @sqrt(@as(f64, 34))));
+    try std.testing.expect(try lhs.relativeFrobeniusDistanceMeetsBound(rhs, full_relative));
+    try std.testing.expectError(error.InvalidShape, lhs.maxAbsDiffMeetsBound(rhs, std.math.nan(f64)));
     var rhs_dense_for_summary = try rhs.toDense();
     defer rhs_dense_for_summary.deinit();
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
@@ -8756,6 +8888,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(full_summary.dot, csr_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csr_full_summary.squared_distance, 1e-12);
     try std.testing.expect(try lhs_csr.diffSummaryMeetsBounds(rhs_csr, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try lhs_csr.maxAbsDiff(rhs_csr), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try lhs_csr.maxRelDiff(rhs_csr), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 34), try lhs_csr.squaredDistance(rhs_csr), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 34)), try lhs_csr.frobeniusDistance(rhs_csr), 1e-12);
+    try std.testing.expectApproxEqAbs(full_relative, try lhs_csr.relativeFrobeniusDistance(rhs_csr), 1e-12);
+    try std.testing.expect(try lhs_csr.maxAbsDiffMeetsBound(rhs_csr, 4));
+    try std.testing.expect(!(try lhs_csr.maxAbsDiffMeetsBound(rhs_csr, 3.999)));
     const csr_dense_summary = try lhs_csr.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(csr_full_summary.dot, csr_dense_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(csr_full_summary.squared_distance, csr_dense_summary.squared_distance, 1e-12);
@@ -8808,6 +8947,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(full_summary.dot, csc_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csc_full_summary.squared_distance, 1e-12);
     try std.testing.expect(try lhs_csc.diffSummaryMeetsBounds(rhs_csc, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    try std.testing.expectApproxEqAbs(@as(f64, 4), try lhs_csc.maxAbsDiff(rhs_csc), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), try lhs_csc.maxRelDiff(rhs_csc), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 34), try lhs_csc.squaredDistance(rhs_csc), 1e-12);
+    try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 34)), try lhs_csc.frobeniusDistance(rhs_csc), 1e-12);
+    try std.testing.expectApproxEqAbs(full_relative, try lhs_csc.relativeFrobeniusDistance(rhs_csc), 1e-12);
+    try std.testing.expect(try lhs_csc.maxAbsDiffMeetsBound(rhs_csc, 4));
+    try std.testing.expect(!(try lhs_csc.maxAbsDiffMeetsBound(rhs_csc, 3.999)));
     const csc_dense_summary = try lhs_csc.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(csc_full_summary.dot, csc_dense_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(csc_full_summary.squared_distance, csc_dense_summary.squared_distance, 1e-12);
