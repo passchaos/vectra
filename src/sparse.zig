@@ -1506,6 +1506,14 @@ pub fn CooMatrix(comptime T: type) type {
             return self.mapValues(U, map);
         }
 
+        pub fn mapValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            for (self.values) |*value| value.* = map(value.*);
+        }
+
+        pub fn mapStoredValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            self.mapValuesInPlace(map);
+        }
+
         pub fn positive(self: Self) SparseError!Self {
             ensureNumeric(T);
             return self.clone();
@@ -3992,6 +4000,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn mapStoredValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CsrMatrix(U) {
             return self.mapValues(U, map);
+        }
+
+        pub fn mapValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            for (self.values) |*value| value.* = map(value.*);
+        }
+
+        pub fn mapStoredValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            self.mapValuesInPlace(map);
         }
 
         pub fn positive(self: Self) SparseError!Self {
@@ -6693,6 +6709,14 @@ pub fn CscMatrix(comptime T: type) type {
             return self.mapValues(U, map);
         }
 
+        pub fn mapValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            for (self.values) |*value| value.* = map(value.*);
+        }
+
+        pub fn mapStoredValuesInPlace(self: *Self, comptime map: fn (T) T) void {
+            self.mapValuesInPlace(map);
+        }
+
         pub fn positive(self: Self) SparseError!Self {
             ensureNumeric(T);
             return self.clone();
@@ -9276,6 +9300,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, coo.row_indices, coo_filled.row_indices);
     try std.testing.expectEqualSlices(usize, coo.col_indices, coo_filled.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ -2, -2, -2, -2, -2, -2 }, coo_filled.values);
+    coo_filled.mapValuesInPlace(struct {
+        fn f(value: f64) f64 {
+            return value * 3;
+        }
+    }.f);
+    try std.testing.expectEqualSlices(f64, &.{ -6, -6, -6, -6, -6, -6 }, coo_filled.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -9393,6 +9423,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_filled.row_offsets);
     try std.testing.expectEqualSlices(usize, csr.col_indices, csr_filled.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 7, 7, 7, 7, 7, 7 }, csr_filled.values);
+    csr_filled.mapStoredValuesInPlace(struct {
+        fn f(value: f64) f64 {
+            return value - 2;
+        }
+    }.f);
+    try std.testing.expectEqualSlices(f64, &.{ 5, 5, 5, 5, 5, 5 }, csr_filled.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -9435,6 +9471,12 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_filled.col_offsets);
     try std.testing.expectEqualSlices(usize, csc.row_indices, csc_filled.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 8, 8, 8, 8, 8, 8 }, csc_filled.values);
+    csc_filled.mapValuesInPlace(struct {
+        fn f(value: f64) f64 {
+            return value / 2;
+        }
+    }.f);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4, 4, 4, 4 }, csc_filled.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
