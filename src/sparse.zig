@@ -672,6 +672,18 @@ fn sparseDenseContractAxes(comptime T: type, matrix: anytype, rhs: anytype, axes
     }
 }
 
+fn sparseDenseCross(comptime T: type, matrix: anytype, rhs: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return dense.cross(rhs, axis_index);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return dense.cross(rhs_dense, axis_index);
+    }
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3337,6 +3349,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn cross(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -7023,6 +7043,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn cross(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -10920,6 +10948,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn contractAxesArray(self: Self, rhs: array_mod.Array(T), axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseContractAxes(T, self, rhs, axes_self, axes_other);
+        }
+
+        pub fn cross(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCross(T, self, rhs, axis_index);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15302,6 +15338,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer compressed_flat.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, compressed_flat.data);
+
+            var crossed = try matrix.cross(rhs_matrix, 1);
+            defer crossed.deinit();
+            try expectMatrix(crossed, &.{ 0, 0, 0, 18, 0, 0 });
+
+            var crossed_array = try matrix.crossArray(rhs_dense, 1);
+            defer crossed_array.deinit();
+            try expectMatrix(crossed_array, crossed.data);
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
