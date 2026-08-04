@@ -466,6 +466,42 @@ fn sparseDenseReshape(comptime T: type, matrix: anytype, dims: []const usize) Sp
     return dense.reshape(dims);
 }
 
+fn sparseDenseReshapeInfer(comptime T: type, matrix: anytype, dims: []const isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.reshapeInfer(dims);
+}
+
+fn sparseDenseFlattenAxes(comptime T: type, matrix: anytype, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.flattenAxes(start_axis, end_axis);
+}
+
+fn sparseDenseAtLeast1d(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.atLeast1d();
+}
+
+fn sparseDenseAtLeast2d(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.atLeast2d();
+}
+
+fn sparseDenseAtLeast3d(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.atLeast3d();
+}
+
+fn sparseDenseUnflatten(comptime T: type, matrix: anytype, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.unflatten(axis_index, dims);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -2859,12 +2895,60 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshape(other.shape);
+        }
+
+        pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.reshape(dims);
+        }
+
+        pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return self.reshapeInfer(dims);
+        }
+
+        pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.view(other.shape);
+        }
+
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, -1);
+        }
+
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast2d(T, self);
+        }
+
+        pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast3d(T, self);
+        }
+
+        pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnflatten(T, self, axis_index, dims);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6313,12 +6397,60 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshape(other.shape);
+        }
+
+        pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.reshape(dims);
+        }
+
+        pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return self.reshapeInfer(dims);
+        }
+
+        pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.view(other.shape);
+        }
+
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, -1);
+        }
+
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast2d(T, self);
+        }
+
+        pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast3d(T, self);
+        }
+
+        pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnflatten(T, self, axis_index, dims);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -7295,12 +7427,12 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn matvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
             defer rhs.deinit();
             var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.csrMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.csrMatvec(f64, veyra_view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
@@ -7356,12 +7488,12 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn matmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_matrix.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.csrMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.csrMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
 
@@ -7507,12 +7639,12 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn transposeMatvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
             defer rhs.deinit();
             var dst = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.csrTransposeMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.csrTransposeMatvec(f64, veyra_view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
         }
 
@@ -7565,12 +7697,12 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn transposeMatmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_matrix.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.cols, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.csrTransposeMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.csrTransposeMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
         }
 
@@ -7981,8 +8113,8 @@ pub fn CsrMatrix(comptime T: type) type {
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (T == f64) {
-                const view = @as(CsrMatrix(f64), self).asVeyraView() catch return 0;
-                return @as(T, @floatCast(veyra.csrFrobeniusNorm(f64, view)));
+                const veyra_view = @as(CsrMatrix(f64), self).asVeyraView() catch return 0;
+                return @as(T, @floatCast(veyra.csrFrobeniusNorm(f64, veyra_view)));
             }
             var total = zero(T);
             for (self.values) |value| total += value * value;
@@ -7999,8 +8131,8 @@ pub fn CsrMatrix(comptime T: type) type {
             const total = self.rows * self.cols;
             if (total == 0) return 0;
             if (T == f64) {
-                const view = try @as(CsrMatrix(f64), self).asVeyraView();
-                return veyra.csrDensity(f64, view) catch return error.BackendFailure;
+                const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
+                return veyra.csrDensity(f64, veyra_view) catch return error.BackendFailure;
             }
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
@@ -8201,10 +8333,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn rowSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrRowSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrRowSums(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -8220,10 +8352,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn columnSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrColumnSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrColumnSumsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -8383,10 +8515,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn rowAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrRowAbsSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrRowAbsSums(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -8402,10 +8534,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn columnAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrColumnAbsSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrColumnAbsSumsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -8459,10 +8591,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn rowNormsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrRowNorms(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrRowNorms(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -8482,10 +8614,10 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn columnNormsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.csrColumnNormsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.csrColumnNormsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -9021,20 +9153,20 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
-            const view = try @as(CsrMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             if (rhs.shape.len == 1) {
                 var rhs_vec = veyra.Vector(f64).fromSlice(self.allocator, rhs.data) catch return error.BackendFailure;
                 defer rhs_vec.deinit();
                 var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
                 defer dst.deinit();
-                veyra.csrSolveTriangular(f64, view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+                veyra.csrSolveTriangular(f64, veyra_view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
                 return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
             }
             var rhs_mat = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_mat.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.csrSolveTriangularMatrix(f64, view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+            veyra.csrSolveTriangularMatrix(f64, veyra_view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
 
@@ -9982,12 +10114,60 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.reshape(other.shape);
+        }
+
+        pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
+            return self.reshape(dims);
+        }
+
+        pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
+            return self.reshapeInfer(dims);
+        }
+
+        pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.view(other.shape);
+        }
+
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, end_axis);
+        }
+
+        pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
+            return self.flattenAxes(start_axis, -1);
+        }
+
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast2d(T, self);
+        }
+
+        pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseAtLeast3d(T, self);
+        }
+
+        pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnflatten(T, self, axis_index, dims);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -11003,12 +11183,12 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn matvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
             defer rhs.deinit();
             var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.cscMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.cscMatvec(f64, veyra_view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
@@ -11062,12 +11242,12 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn matmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_matrix.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.cscMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.cscMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
 
@@ -11129,12 +11309,12 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn transposeMatvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var rhs = veyra.Vector(f64).fromSlice(self.allocator, x.data) catch return error.BackendFailure;
             defer rhs.deinit();
             var dst = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.cscTransposeMatvec(f64, view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.cscTransposeMatvec(f64, veyra_view, rhs.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
         }
 
@@ -11188,12 +11368,12 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn transposeMatmatF64(self: Self, rhs: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var rhs_matrix = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_matrix.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.cols, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.cscTransposeMatmat(f64, view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
+            veyra.cscTransposeMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
         }
 
@@ -11565,8 +11745,8 @@ pub fn CscMatrix(comptime T: type) type {
         pub fn frobeniusNorm(self: Self) T {
             ensureFloat(T);
             if (comptime T == f64) {
-                const view = @as(CscMatrix(f64), self).asVeyraView() catch return 0;
-                return @as(T, @floatCast(veyra.cscFrobeniusNorm(f64, view)));
+                const veyra_view = @as(CscMatrix(f64), self).asVeyraView() catch return 0;
+                return @as(T, @floatCast(veyra.cscFrobeniusNorm(f64, veyra_view)));
             }
             var total = zero(T);
             for (self.values) |value| total += value * value;
@@ -11583,8 +11763,8 @@ pub fn CscMatrix(comptime T: type) type {
             const total = self.rows * self.cols;
             if (total == 0) return 0;
             if (comptime T == f64) {
-                const view = try @as(CscMatrix(f64), self).asVeyraView();
-                return veyra.cscDensity(f64, view) catch return error.BackendFailure;
+                const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
+                return veyra.cscDensity(f64, veyra_view) catch return error.BackendFailure;
             }
             return @as(f64, @floatFromInt(self.values.len)) / @as(f64, @floatFromInt(total));
         }
@@ -11785,10 +11965,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn columnSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscColumnSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscColumnSums(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -11804,10 +11984,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn rowSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscRowSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscRowSumsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -11967,10 +12147,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn columnAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscColumnAbsSums(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscColumnAbsSums(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -11986,10 +12166,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn rowAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscRowAbsSumsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscRowAbsSumsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -12043,10 +12223,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn columnNormsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscColumnNorms(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscColumnNorms(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.cols});
         }
 
@@ -12066,10 +12246,10 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn rowNormsF64(self: Self) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
             defer out.deinit();
-            veyra.cscRowNormsWithWorkspace(f64, view, out.asMut()) catch return error.BackendFailure;
+            veyra.cscRowNormsWithWorkspace(f64, veyra_view, out.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, out.data, &.{self.rows});
         }
 
@@ -12608,20 +12788,20 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
-            const view = try @as(CscMatrix(f64), self).asVeyraView();
+            const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             if (rhs.shape.len == 1) {
                 var rhs_vec = veyra.Vector(f64).fromSlice(self.allocator, rhs.data) catch return error.BackendFailure;
                 defer rhs_vec.deinit();
                 var dst = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
                 defer dst.deinit();
-                veyra.cscSolveTriangular(f64, view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+                veyra.cscSolveTriangular(f64, veyra_view, rhs_vec.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
                 return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
             }
             var rhs_mat = veyra.Matrix(f64).fromSlice(self.allocator, rhs.shape[0], rhs.shape[1], .row_major, rhs.data) catch return error.BackendFailure;
             defer rhs_mat.deinit();
             var dst = veyra.Matrix(f64).zeros(self.allocator, self.rows, rhs.shape[1], .row_major) catch return error.BackendFailure;
             defer dst.deinit();
-            veyra.cscSolveTriangularMatrix(f64, view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
+            veyra.cscSolveTriangularMatrix(f64, veyra_view, rhs_mat.asView(), dst.asMut(), toVeyraTriangle(triangle), toVeyraDiagonal(diag_kind)) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
         }
     };
@@ -14558,13 +14738,63 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer reshaped.deinit();
             try expectArray(reshaped, &.{ 3, 2 }, &.{ 1, 0, 0, 0, 2, 3 });
 
+            var reshaped_infer = try matrix.reshapeInfer(&.{ -1, 2 });
+            defer reshaped_infer.deinit();
+            try expectArray(reshaped_infer, &.{ 3, 2 }, reshaped.data);
+
+            var reshape_target = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 2 });
+            defer reshape_target.deinit();
+            var reshaped_as = try matrix.reshapeAs(reshape_target);
+            defer reshaped_as.deinit();
+            try expectArray(reshaped_as, &.{ 3, 2 }, reshaped.data);
+
+            var viewed = try matrix.view(&.{ 3, 2 });
+            defer viewed.deinit();
+            try expectArray(viewed, &.{ 3, 2 }, reshaped.data);
+
+            var viewed_infer = try matrix.viewInfer(&.{ -1, 2 });
+            defer viewed_infer.deinit();
+            try expectArray(viewed_infer, &.{ 3, 2 }, reshaped.data);
+
+            var viewed_as = try matrix.viewAs(reshape_target);
+            defer viewed_as.deinit();
+            try expectArray(viewed_as, &.{ 3, 2 }, reshaped.data);
+
             var flattened = try matrix.flatten();
             defer flattened.deinit();
             try expectArray(flattened, &.{6}, &.{ 1, 0, 0, 0, 2, 3 });
 
+            var flatten_axes = try matrix.flattenAxes(0, 1);
+            defer flatten_axes.deinit();
+            try expectArray(flatten_axes, &.{6}, flattened.data);
+
+            var flatten_range = try matrix.flattenRange(0, -1);
+            defer flatten_range.deinit();
+            try expectArray(flatten_range, &.{6}, flattened.data);
+
+            var flatten_from = try matrix.flattenFrom(0);
+            defer flatten_from.deinit();
+            try expectArray(flatten_from, &.{6}, flattened.data);
+
             var raveled = try matrix.ravel();
             defer raveled.deinit();
             try expectArray(raveled, &.{6}, flattened.data);
+
+            var at_least_1d = try matrix.atLeast1d();
+            defer at_least_1d.deinit();
+            try expectArray(at_least_1d, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var at_least_2d = try matrix.atLeast2d();
+            defer at_least_2d.deinit();
+            try expectArray(at_least_2d, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var at_least_3d = try matrix.atLeast3d();
+            defer at_least_3d.deinit();
+            try expectArray(at_least_3d, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var unflattened = try matrix.unflatten(1, &.{ 3, 1 });
+            defer unflattened.deinit();
+            try expectArray(unflattened, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
 
             var unsqueezed = try matrix.unsqueeze(0);
             defer unsqueezed.deinit();
