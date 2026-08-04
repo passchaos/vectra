@@ -889,6 +889,30 @@ fn sparseDenseWeightedMedian(comptime T: type, matrix: anytype, weights: array_m
     return dense.weightedMedian(weights, axis_opt, keepdims);
 }
 
+fn sparseDenseNorm(comptime T: type, matrix: anytype, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.norm(p, axis_opt, keepdims);
+}
+
+fn sparseDenseNormAxes(comptime T: type, matrix: anytype, p: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.normAxes(p, axes, keepdims);
+}
+
+fn sparseDenseLogsumexp(comptime T: type, matrix: anytype, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logsumexp(axis_index, keepdims);
+}
+
+fn sparseDenseLogsumexpAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logsumexpAxes(axes, keepdims);
+}
+
 fn sparseDenseCumulative(comptime T: type, matrix: anytype, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4089,6 +4113,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNorm(T, self, p, axis_opt, keepdims);
+        }
+
+        pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNormAxes(T, self, p, axes, keepdims);
+        }
+
+        pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.norm(p, dim_opt, keepdim);
+        }
+
+        pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.normAxes(p, dims, keepdim);
+        }
+
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexp(T, self, axis_index, keepdims);
+        }
+
+        pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexp(dim_index, keepdim);
+        }
+
+        pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexpAxes(dims, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -8363,6 +8419,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNorm(T, self, p, axis_opt, keepdims);
+        }
+
+        pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNormAxes(T, self, p, axes, keepdims);
+        }
+
+        pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.norm(p, dim_opt, keepdim);
+        }
+
+        pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.normAxes(p, dims, keepdim);
+        }
+
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexp(T, self, axis_index, keepdims);
+        }
+
+        pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexp(dim_index, keepdim);
+        }
+
+        pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexpAxes(dims, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -12848,6 +12936,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNorm(T, self, p, axis_opt, keepdims);
+        }
+
+        pub fn normAxes(self: Self, p: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNormAxes(T, self, p, axes, keepdims);
+        }
+
+        pub fn normDim(self: Self, p: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.norm(p, dim_opt, keepdim);
+        }
+
+        pub fn normDims(self: Self, p: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.normAxes(p, dims, keepdim);
+        }
+
+        pub fn logsumexp(self: Self, axis_index: isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexp(T, self, axis_index, keepdims);
+        }
+
+        pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexp(dim_index, keepdim);
+        }
+
+        pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.logsumexpAxes(dims, keepdim);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -19634,6 +19754,71 @@ test "sparse dense quantile helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense norm and logsumexp helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectNorms = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var flat_l1 = try matrix.norm(1, null, false);
+            defer flat_l1.deinit();
+            try expectArray(flat_l1, &.{}, &.{6});
+
+            var row_l2 = try matrix.norm(2, 1, false);
+            defer row_l2.deinit();
+            try expectArray(row_l2, &.{2}, &.{ 1, @sqrt(@as(f64, 13)) });
+
+            var row_l2_keep = try matrix.normDim(2, -1, true);
+            defer row_l2_keep.deinit();
+            try expectArray(row_l2_keep, &.{ 2, 1 }, row_l2.data);
+
+            var all_axes_l2 = try matrix.normAxes(2, &.{ 0, 1 }, true);
+            defer all_axes_l2.deinit();
+            try expectArray(all_axes_l2, &.{ 1, 1 }, &.{@sqrt(@as(f64, 14))});
+
+            var all_axes_l1 = try matrix.normDims(1, &.{ 0, 1 }, false);
+            defer all_axes_l1.deinit();
+            try expectArray(all_axes_l1, &.{}, flat_l1.data);
+
+            var row_lse = try matrix.logsumexp(1, false);
+            defer row_lse.deinit();
+            try expectArray(row_lse, &.{2}, &.{
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + 2),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 3))),
+            });
+
+            var row_lse_dim = try matrix.logsumexpDim(-1, true);
+            defer row_lse_dim.deinit();
+            try expectArray(row_lse_dim, &.{ 2, 1 }, row_lse.data);
+
+            var all_lse = try matrix.logsumexpAxes(&.{ 0, 1 }, false);
+            defer all_lse.deinit();
+            try expectArray(all_lse, &.{}, &.{std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 3)) + 3)});
+
+            var all_lse_keep = try matrix.logsumexpDims(&.{ 0, 1 }, true);
+            defer all_lse_keep.deinit();
+            try expectArray(all_lse_keep, &.{ 1, 1 }, all_lse.data);
+
+            try std.testing.expectError(error.InvalidShape, matrix.norm(0, null, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.logsumexp(2, false));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectNorms(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectNorms(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectNorms(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense weighted statistic helpers" {
