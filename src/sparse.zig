@@ -532,6 +532,36 @@ fn sparseDenseRot90(comptime T: type, matrix: anytype, k: isize, axes: [2]isize)
     return dense.rot90(k, axes);
 }
 
+fn sparseDensePadConstant(comptime T: type, matrix: anytype, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.padConstant(before, after, value);
+}
+
+fn sparseDensePadEdge(comptime T: type, matrix: anytype, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.padEdge(before, after);
+}
+
+fn sparseDensePadReflect(comptime T: type, matrix: anytype, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.padReflect(before, after);
+}
+
+fn sparseDensePadWrap(comptime T: type, matrix: anytype, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.padWrap(before, after);
+}
+
+fn sparseDensePadSymmetric(comptime T: type, matrix: anytype, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.padSymmetric(before, after);
+}
+
 fn sparseDenseRepeat(comptime T: type, matrix: anytype, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -2841,6 +2871,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePadConstant(T, self, before, after, value);
+        }
+
+        pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadReflect(T, self, before, after);
+        }
+
+        pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadWrap(T, self, before, after);
+        }
+
+        pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadSymmetric(T, self, before, after);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -6219,6 +6269,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePadConstant(T, self, before, after, value);
+        }
+
+        pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadReflect(T, self, before, after);
+        }
+
+        pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadWrap(T, self, before, after);
+        }
+
+        pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadSymmetric(T, self, before, after);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -9812,6 +9882,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePadConstant(T, self, before, after, value);
+        }
+
+        pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadReflect(T, self, before, after);
+        }
+
+        pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadWrap(T, self, before, after);
+        }
+
+        pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
+            return sparseDensePadSymmetric(T, self, before, after);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -14318,6 +14408,49 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 1, 0,
             });
             try std.testing.expectError(error.InvalidAxis, matrix.rot90(1, .{ 0, 0 }));
+
+            var padded_constant = try matrix.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, -1);
+            defer padded_constant.deinit();
+            try expectArray(padded_constant, &.{ 3, 5 }, &.{
+                -1, -1, -1, -1, -1,
+                -1, 1,  0,  0,  -1,
+                -1, 0,  2,  3,  -1,
+            });
+
+            var padded_edge = try matrix.padEdge(&.{ 1, 1 }, &.{ 0, 1 });
+            defer padded_edge.deinit();
+            try expectArray(padded_edge, &.{ 3, 5 }, &.{
+                1, 1, 0, 0, 0,
+                1, 1, 0, 0, 0,
+                0, 0, 2, 3, 3,
+            });
+
+            var padded_reflect = try matrix.padReflect(&.{ 1, 1 }, &.{ 0, 1 });
+            defer padded_reflect.deinit();
+            try expectArray(padded_reflect, &.{ 3, 5 }, &.{
+                2, 0, 2, 3, 2,
+                0, 1, 0, 0, 0,
+                2, 0, 2, 3, 2,
+            });
+
+            var padded_wrap = try matrix.padWrap(&.{ 1, 1 }, &.{ 0, 1 });
+            defer padded_wrap.deinit();
+            try expectArray(padded_wrap, &.{ 3, 5 }, &.{
+                3, 0, 2, 3, 0,
+                0, 1, 0, 0, 1,
+                3, 0, 2, 3, 0,
+            });
+
+            var padded_symmetric = try matrix.padSymmetric(&.{ 1, 1 }, &.{ 0, 1 });
+            defer padded_symmetric.deinit();
+            try expectArray(padded_symmetric, &.{ 3, 5 }, &.{
+                1, 1, 0, 0, 0,
+                1, 1, 0, 0, 0,
+                0, 0, 2, 3, 3,
+            });
+
+            try std.testing.expectError(error.ShapeMismatch, matrix.padConstant(&.{1}, &.{ 0, 0 }, -1));
+            try std.testing.expectError(error.InvalidShape, matrix.padReflect(&.{ 2, 0 }, &.{ 0, 0 }));
 
             var repeated_rows = try matrix.repeat(2, 0);
             defer repeated_rows.deinit();
