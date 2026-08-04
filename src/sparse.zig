@@ -110,6 +110,7 @@ const SparseDenseUnary = enum {
     asinh,
     acosh,
     atanh,
+    lgamma,
 };
 
 fn sparseComplexRealType(comptime T: type) type {
@@ -244,6 +245,7 @@ fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseU
         .asinh => dense.asinh(),
         .acosh => dense.acosh(),
         .atanh => dense.atanh(),
+        .lgamma => dense.lgamma(),
     };
 }
 
@@ -4953,6 +4955,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
+        }
+
+        pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .lgamma);
+        }
+
+        pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -9891,6 +9909,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
+        }
+
+        pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .lgamma);
+        }
+
+        pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -15040,6 +15074,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
+        }
+
+        pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .lgamma);
+        }
+
+        pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
+        }
+
+        pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
+            return self.lgamma();
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -23199,6 +23249,22 @@ test "sparse dense norm and logsumexp helpers" {
             var acosh_values = try acosh_matrix.acosh();
             defer acosh_values.deinit();
             try expectArray(acosh_values, &.{ 2, 3 }, &.{ 0, std.math.nan(f64), std.math.nan(f64), std.math.nan(f64), std.math.acosh(@as(f64, 2)), std.math.acosh(@as(f64, 3)) });
+
+            var lgamma_values = try matrix.lgamma();
+            defer lgamma_values.deinit();
+            try expectArray(lgamma_values, &.{ 2, 3 }, &.{ 0, std.math.inf(f64), std.math.inf(f64), std.math.inf(f64), 0, std.math.log(f64, std.math.e, 2) });
+
+            var gammaln_alias = try matrix.gammaln();
+            defer gammaln_alias.deinit();
+            try expectArray(gammaln_alias, &.{ 2, 3 }, lgamma_values.data);
+
+            var log_gamma_alias = try matrix.logGamma();
+            defer log_gamma_alias.deinit();
+            try expectArray(log_gamma_alias, &.{ 2, 3 }, lgamma_values.data);
+
+            var loggamma_alias = try matrix.loggamma();
+            defer loggamma_alias.deinit();
+            try expectArray(loggamma_alias, &.{ 2, 3 }, lgamma_values.data);
 
             var row_lse = try matrix.logsumexp(1, false);
             defer row_lse.deinit();
