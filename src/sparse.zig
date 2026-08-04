@@ -660,6 +660,18 @@ fn sparseDensePinv(comptime T: type, matrix: anytype, tolerance: T) SparseError!
     return dense.pinv(tolerance);
 }
 
+fn sparseDenseSingularValues(comptime T: type, matrix: anytype, tolerance: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.singularValues(tolerance);
+}
+
+fn sparseDenseCond(comptime T: type, matrix: anytype, tolerance: T) SparseError!T {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.cond(tolerance);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3215,6 +3227,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDensePinv(T, self, tolerance);
+        }
+
+        pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn cond(self: Self, tolerance: T) SparseError!T {
+            return sparseDenseCond(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6825,6 +6845,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDensePinv(T, self, tolerance);
+        }
+
+        pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn cond(self: Self, tolerance: T) SparseError!T {
+            return sparseDenseCond(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10650,6 +10678,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn pinv(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDensePinv(T, self, tolerance);
+        }
+
+        pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn cond(self: Self, tolerance: T) SparseError!T {
+            return sparseDenseCond(T, self, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15682,6 +15718,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             for (inverse.data, pseudo_inverse.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
+
+            var singular_values = try upper.singularValues(1e-12);
+            defer singular_values.deinit();
+            try std.testing.expectEqualSlices(usize, &.{2}, singular_values.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 3.6502815398728847), singular_values.data[0], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 0.8218544151266947), singular_values.data[1], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 4.441518440112253), try upper.cond(1e-12), 1e-10);
         }
     }.check;
 
