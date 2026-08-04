@@ -889,6 +889,30 @@ fn sparseDenseWeightedMedian(comptime T: type, matrix: anytype, weights: array_m
     return dense.weightedMedian(weights, axis_opt, keepdims);
 }
 
+fn sparseDenseSumAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.sumAxes(axes, keepdims);
+}
+
+fn sparseDenseSumDim(comptime T: type, matrix: anytype, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.sumDim(dim_opt, keepdim);
+}
+
+fn sparseDenseProd(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.prod(axis_opt, keepdims);
+}
+
+fn sparseDenseProdAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.prodAxes(axes, keepdims);
+}
+
 fn sparseDenseNorm(comptime T: type, matrix: anytype, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4185,6 +4209,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumAxes(T, self, axes, keepdims);
+        }
+
+        pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProd(T, self, axis_opt, keepdims);
+        }
+
+        pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prod(dim_opt, keepdim);
+        }
+
+        pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prodAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -8575,6 +8627,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumAxes(T, self, axes, keepdims);
+        }
+
+        pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProd(T, self, axis_opt, keepdims);
+        }
+
+        pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prod(dim_opt, keepdim);
+        }
+
+        pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prodAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -13176,6 +13256,34 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
+        }
+
+        pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumAxes(T, self, axes, keepdims);
+        }
+
+        pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.sumAxes(dims, keepdim);
+        }
+
+        pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProd(T, self, axis_opt, keepdims);
+        }
+
+        pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prod(dim_opt, keepdim);
+        }
+
+        pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.prodAxes(dims, keepdim);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -20170,6 +20278,73 @@ test "sparse dense fused elementwise helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectFused(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense sum axis aliases and product reductions" {
+    const gpa = std.testing.allocator;
+
+    const expectReductions = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            // The legacy sparse sum() API intentionally remains a stored-value
+            // scalar reduction; axis-aware sum helpers below mirror dense Array
+            // semantics after materializing implicit zeros.
+            try std.testing.expectEqual(@as(f64, 6), matrix.sum());
+
+            var row_sum = try matrix.sumDim(1, false);
+            defer row_sum.deinit();
+            try expectArray(row_sum, &.{2}, &.{ 1, 5 });
+
+            var column_sum = try matrix.sumDim(0, false);
+            defer column_sum.deinit();
+            try expectArray(column_sum, &.{3}, &.{ 1, 2, 3 });
+
+            var all_sum_keep = try matrix.sumAxes(&.{ 0, 1 }, true);
+            defer all_sum_keep.deinit();
+            try expectArray(all_sum_keep, &.{ 1, 1 }, &.{6});
+
+            var all_sum_dims = try matrix.sumDims(&.{ 0, 1 }, false);
+            defer all_sum_dims.deinit();
+            try expectArray(all_sum_dims, &.{}, all_sum_keep.data);
+
+            var flat_product = try matrix.prod(null, false);
+            defer flat_product.deinit();
+            try expectArray(flat_product, &.{}, &.{0});
+
+            var row_product = try matrix.prod(1, false);
+            defer row_product.deinit();
+            try expectArray(row_product, &.{2}, &.{ 0, 0 });
+
+            var column_product_keep = try matrix.prodDim(0, true);
+            defer column_product_keep.deinit();
+            try expectArray(column_product_keep, &.{ 1, 3 }, &.{ 0, 0, 0 });
+
+            var all_product_keep = try matrix.prodAxes(&.{ 0, 1 }, true);
+            defer all_product_keep.deinit();
+            try expectArray(all_product_keep, &.{ 1, 1 }, &.{0});
+
+            var row_product_dims = try matrix.prodDims(&.{1}, false);
+            defer row_product_dims.deinit();
+            try expectArray(row_product_dims, &.{2}, row_product.data);
+
+            try std.testing.expectError(error.InvalidAxis, matrix.sumDim(2, false));
+            try std.testing.expectError(error.InvalidAxis, matrix.prod(2, false));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectReductions(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectReductions(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectReductions(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense norm and logsumexp helpers" {
