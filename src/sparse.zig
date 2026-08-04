@@ -591,6 +591,33 @@ fn sparseDenseTril(comptime T: type, matrix: anytype, diagonal_offset: isize) Sp
     return dense.tril(diagonal_offset);
 }
 
+fn sparseDenseIsDiagonalMatrix(comptime T: type, matrix: anytype) SparseError!bool {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isDiagonalMatrix();
+}
+
+fn sparseDenseIsUpperTriangular(comptime T: type, matrix: anytype) SparseError!bool {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isUpperTriangular();
+}
+
+fn sparseDenseIsLowerTriangular(comptime T: type, matrix: anytype) SparseError!bool {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isLowerTriangular();
+}
+
+fn sparseDenseIsSymmetric(comptime T: type, matrix: anytype, rtol: T, atol: T) SparseError!bool {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isSymmetric(rtol, atol);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3098,6 +3125,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn isDiagonalMatrix(self: Self) SparseError!bool {
+            return sparseDenseIsDiagonalMatrix(T, self);
+        }
+
+        pub fn isUpperTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsUpperTriangular(T, self);
+        }
+
+        pub fn isLowerTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsLowerTriangular(T, self);
+        }
+
+        pub fn isSymmetric(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsSymmetric(T, self, rtol, atol);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6660,6 +6703,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn isDiagonalMatrix(self: Self) SparseError!bool {
+            return sparseDenseIsDiagonalMatrix(T, self);
+        }
+
+        pub fn isUpperTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsUpperTriangular(T, self);
+        }
+
+        pub fn isLowerTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsLowerTriangular(T, self);
+        }
+
+        pub fn isSymmetric(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsSymmetric(T, self, rtol, atol);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10437,6 +10496,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn isDiagonalMatrix(self: Self) SparseError!bool {
+            return sparseDenseIsDiagonalMatrix(T, self);
+        }
+
+        pub fn isUpperTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsUpperTriangular(T, self);
+        }
+
+        pub fn isLowerTriangular(self: Self) SparseError!bool {
+            return sparseDenseIsLowerTriangular(T, self);
+        }
+
+        pub fn isSymmetric(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsSymmetric(T, self, rtol, atol);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15155,6 +15230,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             try std.testing.expectError(error.InvalidAxis, matrix.diagonalAxes(0, 0, 0));
             try std.testing.expectError(error.InvalidAxis, matrix.traceAxes(0, 0, 0));
+            try std.testing.expectError(error.NonMatrixArray, matrix.isDiagonalMatrix());
+            try std.testing.expectError(error.NonMatrixArray, matrix.isUpperTriangular());
+            try std.testing.expectError(error.NonMatrixArray, matrix.isLowerTriangular());
+            try std.testing.expectError(error.NonMatrixArray, matrix.isSymmetric(1e-12, 1e-12));
 
             var unsqueezed = try matrix.unsqueeze(0);
             defer unsqueezed.deinit();
@@ -15399,6 +15478,19 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectError(error.IndexOutOfBounds, matrix.putFlat(bad_take_indices, scalar_values));
         }
     }.check;
+    const expectMatrixPredicates = struct {
+        fn check(comptime Matrix: type, upper: Matrix, diagonal: Matrix) !void {
+            try std.testing.expect(!(try upper.isDiagonalMatrix()));
+            try std.testing.expect(try upper.isUpperTriangular());
+            try std.testing.expect(!(try upper.isLowerTriangular()));
+            try std.testing.expect(!(try upper.isSymmetric(1e-12, 1e-12)));
+
+            try std.testing.expect(try diagonal.isDiagonalMatrix());
+            try std.testing.expect(try diagonal.isUpperTriangular());
+            try std.testing.expect(try diagonal.isLowerTriangular());
+            try std.testing.expect(try diagonal.isSymmetric(1e-12, 1e-12));
+        }
+    }.check;
 
     var lhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 3, 1, 2 });
     defer lhs.deinit();
@@ -15539,6 +15631,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     }, &.{ 2, 3 });
     defer where_mask.deinit();
     try expectWhere(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary, where_mask);
+    var upper_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 1 }, &.{ 1, 2, 3 });
+    defer upper_square.deinit();
+    var diagonal_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ 1, 3 });
+    defer diagonal_square.deinit();
+    try expectMatrixPredicates(@TypeOf(upper_square), upper_square, diagonal_square);
+
+    var upper_square_csr = try upper_square.toCsr();
+    defer upper_square_csr.deinit();
+    var diagonal_square_csr = try diagonal_square.toCsr();
+    defer diagonal_square_csr.deinit();
+    try expectMatrixPredicates(@TypeOf(upper_square_csr), upper_square_csr, diagonal_square_csr);
+
+    var upper_square_csc = try upper_square.toCsc();
+    defer upper_square_csc.deinit();
+    var diagonal_square_csc = try diagonal_square.toCsc();
+    defer diagonal_square_csc.deinit();
+    try expectMatrixPredicates(@TypeOf(upper_square_csc), upper_square_csc, diagonal_square_csc);
+
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, dense_summary.squared_distance, 1e-12);
