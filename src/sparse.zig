@@ -24,6 +24,19 @@ pub const SparseProfile = struct {
     }
 };
 
+pub fn SparseBroadcastPair(comptime T: type) type {
+    return struct {
+        first: array_mod.Array(T),
+        second: array_mod.Array(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.first.deinit();
+            self.second.deinit();
+            self.* = undefined;
+        }
+    };
+}
+
 pub const SparseDiffSummary = struct {
     dot: f64,
     max_abs_diff: f64,
@@ -4620,6 +4633,32 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
             return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
+        }
+
+        pub fn broadcastWith(self: Self, rhs: Self) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShape(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs_dense.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
+        }
+
+        pub fn broadcastWithArray(self: Self, rhs: array_mod.Array(T)) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShapeArray(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -10270,6 +10309,32 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
             return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
+        }
+
+        pub fn broadcastWith(self: Self, rhs: Self) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShape(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs_dense.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
+        }
+
+        pub fn broadcastWithArray(self: Self, rhs: array_mod.Array(T)) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShapeArray(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -16133,6 +16198,32 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn broadcastShapeArray(self: Self, rhs: array_mod.Array(T)) SparseError![]usize {
             return Self.broadcastShapes(self.allocator, &.{ self.rows, self.cols }, rhs.shape);
+        }
+
+        pub fn broadcastWith(self: Self, rhs: Self) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShape(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs_dense.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
+        }
+
+        pub fn broadcastWithArray(self: Self, rhs: array_mod.Array(T)) SparseError!SparseBroadcastPair(T) {
+            const out_shape = try self.broadcastShapeArray(rhs);
+            defer self.allocator.free(out_shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var first = try lhs_dense.broadcastTo(out_shape);
+            errdefer first.deinit();
+            var second = try rhs.broadcastTo(out_shape);
+            errdefer second.deinit();
+            return .{ .first = first, .second = second };
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -24050,6 +24141,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     const coo_broadcast_shape_array = try lhs.broadcastShapeArray(coo_dense);
     defer lhs.allocator.free(coo_broadcast_shape_array);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, coo_broadcast_shape_array);
+    var coo_broadcast_pair = try lhs.broadcastWith(rhs);
+    defer coo_broadcast_pair.deinit();
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, coo_broadcast_pair.first.shape);
+    try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, coo_broadcast_pair.second.shape);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 0, 2, 3 }, coo_broadcast_pair.first.data);
+    try std.testing.expectEqualSlices(f64, &.{ 4, 0, 0, 0, -2, 6 }, coo_broadcast_pair.second.data);
+    var coo_broadcast_pair_array = try lhs.broadcastWithArray(coo_dense);
+    defer coo_broadcast_pair_array.deinit();
+    try std.testing.expectEqualSlices(f64, coo_broadcast_pair.first.data, coo_broadcast_pair_array.first.data);
+    try std.testing.expectEqualSlices(f64, coo_dense.data, coo_broadcast_pair_array.second.data);
     const sparse_broadcast_shape = try @TypeOf(lhs).broadcastShapes(lhs.allocator, &.{ 2, 1 }, &.{ 1, 3 });
     defer lhs.allocator.free(sparse_broadcast_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, sparse_broadcast_shape);
@@ -24219,6 +24320,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     const csr_broadcast_shape = try upper_square_csr.broadcastShape(diagonal_square_csr);
     defer upper_square_csr.allocator.free(csr_broadcast_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csr_broadcast_shape);
+    var csr_broadcast_pair = try upper_square_csr.broadcastWith(diagonal_square_csr);
+    defer csr_broadcast_pair.deinit();
+    try std.testing.expectEqualSlices(f64, upper_square_csr_dense.data, csr_broadcast_pair.first.data);
 
     var upper_square_csc = try upper_square.toCsc();
     defer upper_square_csc.deinit();
@@ -24239,6 +24343,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     const csc_broadcast_shape = try upper_square_csc.broadcastShape(diagonal_square_csc);
     defer upper_square_csc.allocator.free(csc_broadcast_shape);
     try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, csc_broadcast_shape);
+    var csc_broadcast_pair = try upper_square_csc.broadcastWith(diagonal_square_csc);
+    defer csc_broadcast_pair.deinit();
+    try std.testing.expectEqualSlices(f64, upper_square_csc_dense.data, csc_broadcast_pair.first.data);
 
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
