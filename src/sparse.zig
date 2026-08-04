@@ -642,6 +642,20 @@ fn sparseDenseSolve(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) 
     return dense.solve(rhs);
 }
 
+fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    const dense_triangle: array_mod.Triangle = switch (triangle) {
+        .lower => .lower,
+        .upper => .upper,
+    };
+    const dense_diagonal: array_mod.Diagonal = switch (diagonal_kind) {
+        .non_unit => .non_unit,
+        .unit => .unit,
+    };
+    return dense.solveTriangular(rhs, dense_triangle, dense_diagonal);
+}
+
 fn sparseDenseMatrixNorm(comptime T: type, matrix: anytype, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3269,6 +3283,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
+            return sparseDenseSolveTriangular(T, self, rhs, triangle, diagonal_kind);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15897,6 +15915,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
+
+            var triangular_solution = try upper.solveTriangular(rhs, .upper, .non_unit);
+            defer triangular_solution.deinit();
+            try std.testing.expectEqualSlices(usize, solution.shape, triangular_solution.shape);
+            for (solution.data, triangular_solution.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var least_squares = try upper.lstsq(rhs, 1e-12);
             defer least_squares.deinit();
