@@ -7320,6 +7320,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseCompress(T, self, condition, axis_opt);
         }
 
+        pub fn compressOut(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.compress(condition, axis_opt), out);
+        }
+
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, self, mask, other);
         }
@@ -13464,6 +13468,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return sparseDenseCompress(T, self, condition, axis_opt);
+        }
+
+        pub fn compressOut(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.compress(condition, axis_opt), out);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -19833,6 +19841,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseCompress(T, self, condition, axis_opt);
         }
 
+        pub fn compressOut(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.compress(condition, axis_opt), out);
+        }
+
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
             return sparseDenseWhere(T, self, mask, other);
         }
@@ -24533,6 +24545,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer compressed_rows.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, compressed_rows.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0 }, compressed_rows.data);
+            var compressed_rows_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 3 });
+            defer compressed_rows_out.deinit();
+            try matrix.compressOut(row_condition, 0, compressed_rows_out);
+            try std.testing.expectEqualSlices(f64, compressed_rows.data, compressed_rows_out.data);
 
             var column_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false, true }, &.{3});
             defer column_condition.deinit();
@@ -24540,6 +24556,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer compressed_cols.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, compressed_cols.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 3 }, compressed_cols.data);
+            var compressed_cols_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer compressed_cols_out.deinit();
+            try matrix.compressOut(column_condition, 1, compressed_cols_out);
+            try std.testing.expectEqualSlices(f64, compressed_cols.data, compressed_cols_out.data);
 
             var flat_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false, true, false, true, false }, &.{6});
             defer flat_condition.deinit();
@@ -24547,6 +24567,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer compressed_flat.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, compressed_flat.data);
+            try matrix.compressOut(flat_condition, null, masked_out);
+            try std.testing.expectEqualSlices(f64, compressed_flat.data, masked_out.data);
 
             var crossed = try matrix.cross(rhs_matrix, 1);
             defer crossed.deinit();
