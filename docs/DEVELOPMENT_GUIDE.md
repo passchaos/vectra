@@ -156,7 +156,7 @@ Array IO / serialization 当前支持：
 - `cooFromDense` / `cooFromSlices` / `cooEye` / `cooIdentity` / `cooFromDiagonal`：构建 COO。
 - `isclose()/isClose()/iscloseEqualNan()/isCloseEqualNan()/allclose()/allClose()/allcloseEqualNan()/allCloseEqualNan()`：按 dense materialization 语义比较同形状稀疏矩阵，`*Dense` variants 支持与 dense `Array` 比较；`diffSummary()/diffSummaryMeetsBounds()/maxAbsDiff()/maxAbsDiffMeetsBound()/maxRelDiff()/maxRelDiffMeetsBound()/squaredDistance()/squaredDistanceMeetsBound()/frobeniusDistance()/frobeniusDistanceMeetsBound()/relativeFrobeniusDistance()/relativeFrobeniusDistanceMeetsBound()/diffSummaryDense()/diffSummaryDenseMeetsBounds()/maxAbsDiffDense()/maxAbsDiffDenseMeetsBound()/maxRelDiffDense()/maxRelDiffDenseMeetsBound()/squaredDistanceDense()/squaredDistanceDenseMeetsBound()/frobeniusDistanceDense()/frobeniusDistanceDenseMeetsBound()/relativeFrobeniusDistanceDense()/relativeFrobeniusDistanceDenseMeetsBound()/sameStructure()/dotSameStructure()/sameStructureDiffSummary()/maxAbsDiffSameStructure()/maxAbsDiffSameStructureMeetsBound()/maxRelDiffSameStructure()/maxRelDiffSameStructureMeetsBound()/squaredDistanceSameStructure()/squaredDistanceSameStructureMeetsBound()/frobeniusDistanceSameStructure()/frobeniusDistanceSameStructureMeetsBound()/relativeFrobeniusDistanceSameStructure()/relativeFrobeniusDistanceSameStructureMeetsBound()`：COO 精确结构比较、同结构存储值点积与距离诊断；`coalesced()`：返回按 `(row, col)` 排序且重复坐标已聚合的 COO 副本，便于生成规范化 sparse 结构。
 - `add()`：COO 同形状加法，结果会按坐标规范化并聚合重复项。
-- `dropZeros()`：移除显式存储的零值，适合在加法/聚合后压缩结构。
+- `dropZeros()`：移除显式存储的零值；`pruneZeros(tolerance)`：按绝对值阈值移除近零存储值，适合在加法/聚合后压缩结构。
 - `scale()`：COO 标量缩放，保留当前结构；需要压缩时可随后调用 `dropZeros()`。
 - `scaleRows/scaleColumns/scaleRowsAndColumns()`：COO 行/列向量缩放，保留当前结构。
 - `neg/negative`、`sub()`：COO 符号翻转与同形状减法，减法复用规范化加法语义。
@@ -173,7 +173,7 @@ Array IO / serialization 当前支持：
 - `CsrMatrix.isclose()/isClose()/iscloseEqualNan()/isCloseEqualNan()/allclose()/allClose()/allcloseEqualNan()/allCloseEqualNan()`：按 dense materialization 语义比较同形状 CSR，`*Dense` variants 支持与 dense `Array` 比较；`CsrMatrix.diffSummary()/diffSummaryMeetsBounds()/maxAbsDiff()/maxAbsDiffMeetsBound()/maxRelDiff()/maxRelDiffMeetsBound()/squaredDistance()/squaredDistanceMeetsBound()/frobeniusDistance()/frobeniusDistanceMeetsBound()/relativeFrobeniusDistance()/relativeFrobeniusDistanceMeetsBound()/diffSummaryDense()/diffSummaryDenseMeetsBounds()/maxAbsDiffDense()/maxAbsDiffDenseMeetsBound()/maxRelDiffDense()/maxRelDiffDenseMeetsBound()/squaredDistanceDense()/squaredDistanceDenseMeetsBound()/frobeniusDistanceDense()/frobeniusDistanceDenseMeetsBound()/relativeFrobeniusDistanceDense()/relativeFrobeniusDistanceDenseMeetsBound()/sameStructure()/dotSameStructure()/sameStructureDiffSummary()/maxAbsDiffSameStructure()/maxAbsDiffSameStructureMeetsBound()/maxRelDiffSameStructure()/maxRelDiffSameStructureMeetsBound()/squaredDistanceSameStructure()/squaredDistanceSameStructureMeetsBound()/frobeniusDistanceSameStructure()/frobeniusDistanceSameStructureMeetsBound()/relativeFrobeniusDistanceSameStructure()/relativeFrobeniusDistanceSameStructureMeetsBound()`：CSR 精确压缩结构比较、同结构存储值点积与距离诊断。
 - `CsrMatrix.coalesced()`：返回每行列索引有序、重复坐标已聚合的 CSR 副本。
 - `CsrMatrix.add()`：CSR 同形状加法，结果保持 CSR 所有权并复用 COO 规范化语义。
-- `CsrMatrix.dropZeros()`：移除显式零值并保持 CSR 行压缩结构。
+- `CsrMatrix.dropZeros()`：移除显式零值并保持 CSR 行压缩结构；`pruneZeros(tolerance)` 按绝对值阈值移除近零存储值。
 - `CsrMatrix.scale()`：CSR 标量缩放并保留行压缩结构。
 - `CsrMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSR 行/列向量缩放并保留行压缩结构。
 - `CsrMatrix.neg/negative/sub()`：CSR 符号翻转与同形状减法。
@@ -194,7 +194,7 @@ CSC 当前支持：
 - `CscMatrix.isclose()/isClose()/iscloseEqualNan()/isCloseEqualNan()/allclose()/allClose()/allcloseEqualNan()/allCloseEqualNan()`：按 dense materialization 语义比较同形状 CSC，`*Dense` variants 支持与 dense `Array` 比较；`CscMatrix.diffSummary()/diffSummaryMeetsBounds()/maxAbsDiff()/maxAbsDiffMeetsBound()/maxRelDiff()/maxRelDiffMeetsBound()/squaredDistance()/squaredDistanceMeetsBound()/frobeniusDistance()/frobeniusDistanceMeetsBound()/relativeFrobeniusDistance()/relativeFrobeniusDistanceMeetsBound()/diffSummaryDense()/diffSummaryDenseMeetsBounds()/maxAbsDiffDense()/maxAbsDiffDenseMeetsBound()/maxRelDiffDense()/maxRelDiffDenseMeetsBound()/squaredDistanceDense()/squaredDistanceDenseMeetsBound()/frobeniusDistanceDense()/frobeniusDistanceDenseMeetsBound()/relativeFrobeniusDistanceDense()/relativeFrobeniusDistanceDenseMeetsBound()/sameStructure()/dotSameStructure()/sameStructureDiffSummary()/maxAbsDiffSameStructure()/maxAbsDiffSameStructureMeetsBound()/maxRelDiffSameStructure()/maxRelDiffSameStructureMeetsBound()/squaredDistanceSameStructure()/squaredDistanceSameStructureMeetsBound()/frobeniusDistanceSameStructure()/frobeniusDistanceSameStructureMeetsBound()/relativeFrobeniusDistanceSameStructure()/relativeFrobeniusDistanceSameStructureMeetsBound()`：CSC 精确压缩结构比较、同结构存储值点积与距离诊断。
 - `CscMatrix.coalesced()`：返回每列行索引有序、重复坐标已聚合的 CSC 副本。
 - `CscMatrix.add()`：CSC 同形状加法，结果保持 CSC 所有权并复用 COO 规范化语义。
-- `CscMatrix.dropZeros()`：移除显式零值并保持 CSC 列压缩结构。
+- `CscMatrix.dropZeros()`：移除显式零值并保持 CSC 列压缩结构；`pruneZeros(tolerance)` 按绝对值阈值移除近零存储值。
 - `CscMatrix.scale()`：CSC 标量缩放并保留列压缩结构。
 - `CscMatrix.scaleRows/scaleColumns/scaleRowsAndColumns()`：CSC 行/列向量缩放并保留列压缩结构。
 - `CscMatrix.neg/negative/sub()`：CSC 符号翻转与同形状减法。
