@@ -323,6 +323,44 @@ fn sparseNormalizeSignedIndex(index: isize, len: usize) SparseError!usize {
     return @intCast(normalized);
 }
 
+fn sparseValidateGatherShape(rows: usize, cols: usize, indices_shape: []const usize, axis_index: isize) SparseError!usize {
+    if (indices_shape.len != 2) return error.ShapeMismatch;
+    const axis = try sparseNormalizeMatrixAxis(axis_index);
+    const major_extent = if (axis == 0) cols else rows;
+    if (indices_shape[1 - axis] > major_extent) return error.ShapeMismatch;
+    return axis;
+}
+
+fn sparseValidateGatherIndices(rows: usize, cols: usize, indices: array_mod.Array(usize), axis_index: isize) SparseError!void {
+    const axis = try sparseValidateGatherShape(rows, cols, indices.shape, axis_index);
+    const extent = if (axis == 0) rows else cols;
+    for (indices.data) |index| {
+        if (index >= extent) return error.IndexOutOfBounds;
+    }
+}
+
+fn sparseValidateGatherSignedIndices(rows: usize, cols: usize, indices: array_mod.Array(isize), axis_index: isize) SparseError!void {
+    const axis = try sparseValidateGatherShape(rows, cols, indices.shape, axis_index);
+    const extent = if (axis == 0) rows else cols;
+    for (indices.data) |index| {
+        _ = try sparseNormalizeSignedIndex(index, extent);
+    }
+}
+
+fn sparseDenseGather(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+    try sparseValidateGatherIndices(matrix.rows, matrix.cols, indices, axis_index);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.gather(axis_index, indices);
+}
+
+fn sparseDenseGatherSigned(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+    try sparseValidateGatherSignedIndices(matrix.rows, matrix.cols, indices, axis_index);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.gatherSigned(axis_index, indices);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2375,6 +2413,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGather(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gather(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -5541,6 +5595,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGather(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gather(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -8922,6 +8992,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return self.takeSigned(indices, axis_index);
+        }
+
+        pub fn gather(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGather(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gather(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.gatherSigned(axis_index, indices);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -13045,6 +13131,43 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var bad_take_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{6}, &.{1});
             defer bad_take_indices.deinit();
             try std.testing.expectError(error.IndexOutOfBounds, matrix.take(bad_take_indices, null));
+
+            var gather_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
+                0, 0, 0,
+                2, 1, 0,
+            }, &.{ 2, 3 });
+            defer gather_indices.deinit();
+            var gathered = try matrix.gather(1, gather_indices);
+            defer gathered.deinit();
+            try expectArray(gathered, &.{ 2, 3 }, &.{ 1, 1, 1, 3, 2, 0 });
+
+            var take_along = try matrix.takeAlongAxis(gather_indices, 1);
+            defer take_along.deinit();
+            try expectArray(take_along, &.{ 2, 3 }, &.{ 1, 1, 1, 3, 2, 0 });
+
+            var signed_gather_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{
+                -1, 0,  -2,
+                0,  -2, -1,
+            }, &.{ 2, 3 });
+            defer signed_gather_indices.deinit();
+            var signed_gathered = try matrix.gatherSigned(1, signed_gather_indices);
+            defer signed_gathered.deinit();
+            try expectArray(signed_gathered, &.{ 2, 3 }, &.{ 0, 1, 0, 0, 2, 3 });
+
+            var signed_take_along = try matrix.takeAlongAxisSigned(signed_gather_indices, 1);
+            defer signed_take_along.deinit();
+            try expectArray(signed_take_along, &.{ 2, 3 }, &.{ 0, 1, 0, 0, 2, 3 });
+
+            var bad_gather_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
+                0, 3, 0,
+                0, 0, 0,
+            }, &.{ 2, 3 });
+            defer bad_gather_indices.deinit();
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.gather(1, bad_gather_indices));
+
+            var bad_gather_shape = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 0, 0, 0 }, &.{3});
+            defer bad_gather_shape.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.takeAlongAxis(bad_gather_shape, 1));
         }
     }.check;
 
