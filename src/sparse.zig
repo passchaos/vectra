@@ -2288,6 +2288,12 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleRowsInPlace(self: *Self, row_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            for (self.values, self.row_indices) |*value, row| value.* *= row_scale[row];
+        }
+
         pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
             ensureNumeric(T);
             if (col_scale.len != self.cols) return error.ShapeMismatch;
@@ -2310,6 +2316,12 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleColumnsInPlace(self: *Self, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            for (self.values, self.col_indices) |*value, col| value.* *= col_scale[col];
+        }
+
         pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
             ensureNumeric(T);
             if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
@@ -2330,6 +2342,12 @@ pub fn CooMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn scaleRowsAndColumnsInPlace(self: *Self, row_scale: []const T, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            for (self.values, self.row_indices, self.col_indices) |*value, row, col| value.* *= row_scale[row] * col_scale[col];
         }
 
         pub fn sum(self: Self) T {
@@ -4812,6 +4830,14 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleRowsInPlace(self: *Self, row_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| self.values[pos] *= row_scale[row];
+            }
+        }
+
         pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
             ensureNumeric(T);
             if (col_scale.len != self.cols) return error.ShapeMismatch;
@@ -4832,6 +4858,12 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn scaleColumnsInPlace(self: *Self, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            for (self.values, self.col_indices) |*value, col| value.* *= col_scale[col];
         }
 
         pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
@@ -4858,6 +4890,14 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn scaleRowsAndColumnsInPlace(self: *Self, row_scale: []const T, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| self.values[pos] *= row_scale[row] * col_scale[self.col_indices[pos]];
+            }
         }
 
         pub fn neg(self: Self) SparseError!Self {
@@ -7640,6 +7680,12 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleRowsInPlace(self: *Self, row_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows) return error.ShapeMismatch;
+            for (self.values, self.row_indices) |*value, row| value.* *= row_scale[row];
+        }
+
         pub fn scaleColumns(self: Self, col_scale: []const T) SparseError!Self {
             ensureNumeric(T);
             if (col_scale.len != self.cols) return error.ShapeMismatch;
@@ -7664,6 +7710,14 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn scaleColumnsInPlace(self: *Self, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (col_scale.len != self.cols) return error.ShapeMismatch;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| self.values[pos] *= col_scale[col];
+            }
+        }
+
         pub fn scaleRowsAndColumns(self: Self, row_scale: []const T, col_scale: []const T) SparseError!Self {
             ensureNumeric(T);
             if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
@@ -7686,6 +7740,14 @@ pub fn CscMatrix(comptime T: type) type {
                 .row_indices = row_indices,
                 .values = values,
             };
+        }
+
+        pub fn scaleRowsAndColumnsInPlace(self: *Self, row_scale: []const T, col_scale: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (row_scale.len != self.rows or col_scale.len != self.cols) return error.ShapeMismatch;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| self.values[pos] *= row_scale[self.row_indices[pos]] * col_scale[col];
+            }
         }
 
         pub fn neg(self: Self) SparseError!Self {
@@ -10598,9 +10660,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_row_scaled = try coo_pruned.scaleRows(&.{ 2, 3 });
     defer coo_row_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 27 }, coo_row_scaled.values);
+    var coo_row_scaled_inplace = try coo_pruned.clone();
+    defer coo_row_scaled_inplace.deinit();
+    try coo_row_scaled_inplace.scaleRowsInPlace(&.{ 2, 3 });
+    try std.testing.expectEqualSlices(usize, coo_pruned.row_indices, coo_row_scaled_inplace.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_pruned.col_indices, coo_row_scaled_inplace.col_indices);
+    try std.testing.expectEqualSlices(f64, coo_row_scaled.values, coo_row_scaled_inplace.values);
     var coo_col_scaled = try coo_pruned.scaleColumns(&.{ 4, 5, 6 });
     defer coo_col_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 20, 54 }, coo_col_scaled.values);
+    var coo_col_scaled_inplace = try coo_pruned.clone();
+    defer coo_col_scaled_inplace.deinit();
+    try coo_col_scaled_inplace.scaleColumnsInPlace(&.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(f64, coo_col_scaled.values, coo_col_scaled_inplace.values);
+    var coo_rc_scaled_inplace = try coo_pruned.clone();
+    defer coo_rc_scaled_inplace.deinit();
+    try coo_rc_scaled_inplace.scaleRowsAndColumnsInPlace(&.{ 2, 3 }, &.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(f64, &.{ 40, 162 }, coo_rc_scaled_inplace.values);
+    try std.testing.expectError(error.ShapeMismatch, coo_rc_scaled_inplace.scaleRowsInPlace(&.{1}));
     var coo_neg = try coo_pruned.neg();
     defer coo_neg.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -5, -9 }, coo_neg.values);
@@ -10870,6 +10947,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_rc_scaled.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_pruned.col_indices, csr_rc_scaled.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 40, 162 }, csr_rc_scaled.values);
+    var csr_rc_scaled_inplace = try csr_pruned.clone();
+    defer csr_rc_scaled_inplace.deinit();
+    try csr_rc_scaled_inplace.scaleRowsAndColumnsInPlace(&.{ 2, 3 }, &.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_rc_scaled_inplace.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_pruned.col_indices, csr_rc_scaled_inplace.col_indices);
+    try std.testing.expectEqualSlices(f64, csr_rc_scaled.values, csr_rc_scaled_inplace.values);
+    var csr_row_scaled_inplace = try csr_pruned.clone();
+    defer csr_row_scaled_inplace.deinit();
+    try csr_row_scaled_inplace.scaleRowsInPlace(&.{ 2, 3 });
+    try std.testing.expectEqualSlices(f64, &.{ 10, 27 }, csr_row_scaled_inplace.values);
+    var csr_col_scaled_inplace = try csr_pruned.clone();
+    defer csr_col_scaled_inplace.deinit();
+    try csr_col_scaled_inplace.scaleColumnsInPlace(&.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(f64, &.{ 20, 54 }, csr_col_scaled_inplace.values);
+    try std.testing.expectError(error.ShapeMismatch, csr_col_scaled_inplace.scaleColumnsInPlace(&.{1}));
     var csr_diff = try lhs_csr.sub(rhs_csr);
     defer csr_diff.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_diff.row_offsets);
@@ -10985,7 +11077,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var csc_row_scaled = try csc_pruned.scaleRows(&.{ 2, 3 });
     defer csc_row_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 27 }, csc_row_scaled.values);
+    var csc_row_scaled_inplace = try csc_pruned.clone();
+    defer csc_row_scaled_inplace.deinit();
+    try csc_row_scaled_inplace.scaleRowsInPlace(&.{ 2, 3 });
+    try std.testing.expectEqualSlices(usize, csc_pruned.col_offsets, csc_row_scaled_inplace.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_pruned.row_indices, csc_row_scaled_inplace.row_indices);
+    try std.testing.expectEqualSlices(f64, csc_row_scaled.values, csc_row_scaled_inplace.values);
+    var csc_col_scaled_inplace = try csc_pruned.clone();
+    defer csc_col_scaled_inplace.deinit();
+    try csc_col_scaled_inplace.scaleColumnsInPlace(&.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(f64, &.{ 20, 54 }, csc_col_scaled_inplace.values);
+    var csc_rc_scaled_inplace = try csc_pruned.clone();
+    defer csc_rc_scaled_inplace.deinit();
+    try csc_rc_scaled_inplace.scaleRowsAndColumnsInPlace(&.{ 2, 3 }, &.{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(f64, &.{ 40, 162 }, csc_rc_scaled_inplace.values);
     try std.testing.expectError(error.ShapeMismatch, csc_pruned.scaleColumns(&.{1}));
+    try std.testing.expectError(error.ShapeMismatch, csc_rc_scaled_inplace.scaleRowsAndColumnsInPlace(&.{2}, &.{ 4, 5, 6 }));
     var csc_diff = try lhs_csc.sub(rhs_csc);
     defer csc_diff.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_diff.col_offsets);
