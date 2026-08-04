@@ -162,6 +162,42 @@ fn signbitSparseValue(comptime T: type, value: T) bool {
     };
 }
 
+fn floorSparseValue(comptime T: type, value: T) T {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => @floor(value),
+        .int => value,
+        else => @compileError("sparse floor requires numeric values"),
+    };
+}
+
+fn ceilSparseValue(comptime T: type, value: T) T {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => @ceil(value),
+        .int => value,
+        else => @compileError("sparse ceil requires numeric values"),
+    };
+}
+
+fn roundSparseValue(comptime T: type, value: T) T {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => @round(value),
+        .int => value,
+        else => @compileError("sparse round requires numeric values"),
+    };
+}
+
+fn truncSparseValue(comptime T: type, value: T) T {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => @trunc(value),
+        .int => value,
+        else => @compileError("sparse trunc requires numeric values"),
+    };
+}
+
 fn isNonZero(comptime T: type, value: T) bool {
     return switch (@typeInfo(T)) {
         .bool => value,
@@ -1467,6 +1503,34 @@ pub fn CooMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn floor(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = floorSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn ceil(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = ceilSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn round(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = roundSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn trunc(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = truncSparseValue(T, value.*);
             return out;
         }
 
@@ -3822,6 +3886,34 @@ pub fn CsrMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn floor(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = floorSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn ceil(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = ceilSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn round(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = roundSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn trunc(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = truncSparseValue(T, value.*);
             return out;
         }
 
@@ -6388,6 +6480,34 @@ pub fn CscMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn floor(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = floorSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn ceil(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = ceilSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn round(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = roundSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn trunc(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = truncSparseValue(T, value.*);
             return out;
         }
 
@@ -10131,6 +10251,61 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectError(error.ShapeMismatch, lhs.sub(mismatched));
     try std.testing.expectError(error.ShapeMismatch, lhs.hadamard(mismatched));
     try std.testing.expectError(error.ShapeMismatch, lhs.diffSummary(mismatched));
+}
+
+test "sparse stored rounding unary helpers preserve structure" {
+    const gpa = std.testing.allocator;
+    var coo = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 1 }, &.{ -1.7, 2.2, 3.8 });
+    defer coo.deinit();
+
+    var coo_floor = try coo.floor();
+    defer coo_floor.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_floor.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_floor.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 3 }, coo_floor.values);
+    var coo_ceil = try coo.ceil();
+    defer coo_ceil.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 3, 4 }, coo_ceil.values);
+    var coo_round = try coo.round();
+    defer coo_round.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 4 }, coo_round.values);
+    var coo_trunc = try coo.trunc();
+    defer coo_trunc.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, coo_trunc.values);
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    var csr_floor = try csr.floor();
+    defer csr_floor.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_floor.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_floor.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 3 }, csr_floor.values);
+    var csr_ceil = try csr.ceil();
+    defer csr_ceil.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 3, 4 }, csr_ceil.values);
+    var csr_round = try csr.round();
+    defer csr_round.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 4 }, csr_round.values);
+    var csr_trunc = try csr.trunc();
+    defer csr_trunc.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, csr_trunc.values);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    var csc_floor = try csc.floor();
+    defer csc_floor.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_floor.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_floor.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 3 }, csc_floor.values);
+    var csc_ceil = try csc.ceil();
+    defer csc_ceil.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 3, 4 }, csc_ceil.values);
+    var csc_round = try csc.round();
+    defer csc_round.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -2, 2, 4 }, csc_round.values);
+    var csc_trunc = try csc.trunc();
+    defer csc_trunc.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ -1, 2, 3 }, csc_trunc.values);
 }
 
 test "coo sparse diagnostics and duplicate coordinate access" {
