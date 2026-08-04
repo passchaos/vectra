@@ -1249,6 +1249,12 @@ fn sparseDenseXlogyScalar(comptime T: type, matrix: anytype, scalar: T) SparseEr
     return dense.xlogyScalar(scalar);
 }
 
+fn sparseDenseLdexpScalar(comptime T: type, matrix: anytype, exponent: i32) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ldexpScalar(exponent);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4887,6 +4893,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexpScalar(T, self, exponent);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9601,6 +9611,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexpScalar(T, self, exponent);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -14526,6 +14540,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexpScalar(T, self, exponent);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -21484,6 +21502,10 @@ test "sparse dense fused elementwise helpers" {
             var xlogy = try matrix.xlogyScalar(2);
             defer xlogy.deinit();
             try expectArray(xlogy, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 2), 0, 0, 0, 2 * std.math.log(f64, std.math.e, 2), 3 * std.math.log(f64, std.math.e, 2) });
+
+            var ldexp = try matrix.ldexpScalar(2);
+            defer ldexp.deinit();
+            try expectArray(ldexp, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 8, 12 });
 
             var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
