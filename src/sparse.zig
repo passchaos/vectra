@@ -4820,16 +4820,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
         }
 
+        pub fn countNonzeroAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxis(axis_opt, keepdims), out);
+        }
+
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxes(axes, keepdims), out);
         }
 
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxis(dim_opt, keepdim);
         }
 
+        pub fn countNonzeroDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn countNonzeroDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxesOut(dims, keepdim, out);
         }
 
         pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
@@ -10942,16 +10958,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
         }
 
+        pub fn countNonzeroAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxis(axis_opt, keepdims), out);
+        }
+
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxes(axes, keepdims), out);
         }
 
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxis(dim_opt, keepdim);
         }
 
+        pub fn countNonzeroDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn countNonzeroDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxesOut(dims, keepdim, out);
         }
 
         pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
@@ -17277,16 +17309,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseCountNonzeroAxis(self, axis_opt, keepdims);
         }
 
+        pub fn countNonzeroAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxis(axis_opt, keepdims), out);
+        }
+
         pub fn countNonzeroAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseCountNonzeroAxes(self, axes, keepdims);
+        }
+
+        pub fn countNonzeroAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.countNonzeroAxes(axes, keepdims), out);
         }
 
         pub fn countNonzeroDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxis(dim_opt, keepdim);
         }
 
+        pub fn countNonzeroDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn countNonzeroDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(usize) {
             return self.countNonzeroAxes(dims, keepdim);
+        }
+
+        pub fn countNonzeroDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.countNonzeroAxesOut(dims, keepdim, out);
         }
 
         pub fn flatNonzero(self: Self) SparseError!array_mod.Array(usize) {
@@ -24273,6 +24321,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer no_axes.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, no_axes.shape);
             try std.testing.expectEqualSlices(usize, &.{ 1, 0, 0, 0, 1, 1 }, no_axes.data);
+
+            var count_axis_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{3});
+            defer count_axis_out.deinit();
+            try matrix.countNonzeroAxisOut(0, false, count_axis_out);
+            try std.testing.expectEqualSlices(usize, axis0.data, count_axis_out.data);
+
+            var count_keepdim_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 1 });
+            defer count_keepdim_out.deinit();
+            try matrix.countNonzeroDimOut(1, true, count_keepdim_out);
+            try std.testing.expectEqualSlices(usize, axis1_keepdim.data, count_keepdim_out.data);
+
+            var count_scalar_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{});
+            defer count_scalar_out.deinit();
+            try matrix.countNonzeroAxesOut(&.{ 0, 1 }, false, count_scalar_out);
+            try std.testing.expectEqualSlices(usize, all_axes.data, count_scalar_out.data);
+
+            var count_no_axes_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 3 });
+            defer count_no_axes_out.deinit();
+            try matrix.countNonzeroDimsOut(&.{}, false, count_no_axes_out);
+            try std.testing.expectEqualSlices(usize, no_axes.data, count_no_axes_out.data);
 
             var flat = try matrix.flatNonzero();
             defer flat.deinit();
