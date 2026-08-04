@@ -666,6 +666,12 @@ fn sparseDenseSingularValues(comptime T: type, matrix: anytype, tolerance: T) Sp
     return dense.singularValues(tolerance);
 }
 
+fn sparseDenseSvd(comptime T: type, matrix: anytype, tolerance: T) SparseError!array_mod.SvdResult(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.svd(tolerance);
+}
+
 fn sparseDenseCond(comptime T: type, matrix: anytype, tolerance: T) SparseError!T {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3267,6 +3273,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
+            return sparseDenseSvd(T, self, tolerance);
         }
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
@@ -6909,6 +6919,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
+            return sparseDenseSvd(T, self, tolerance);
         }
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
@@ -10766,6 +10780,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
+            return sparseDenseSvd(T, self, tolerance);
         }
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
@@ -15862,6 +15880,19 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, singular_values.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 3.6502815398728847), singular_values.data[0], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 0.8218544151266947), singular_values.data[1], 1e-10);
+            var svd_result = try upper.svd(1e-12);
+            defer svd_result.deinit();
+            var singular_diagonal = try svd_result.s.diagEmbed(0);
+            defer singular_diagonal.deinit();
+            var svd_left = try svd_result.u.matmul(singular_diagonal);
+            defer svd_left.deinit();
+            var svd_reconstructed = try svd_left.matmul(svd_result.vt);
+            defer svd_reconstructed.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, svd_reconstructed.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), svd_reconstructed.data[0], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 2), svd_reconstructed.data[1], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), svd_reconstructed.data[2], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), svd_reconstructed.data[3], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 4.441518440112253), try upper.cond(1e-12), 1e-10);
 
             var diagonal_cholesky = try diagonal.cholesky();
