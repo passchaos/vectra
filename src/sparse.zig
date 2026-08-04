@@ -8768,12 +8768,25 @@ pub fn CooMatrix(comptime T: type) type {
         }
 
         pub fn trace(self: Self) SparseError!T {
-            ensureNumeric(T);
             if (self.rows != self.cols) return error.NonMatrixArray;
+            return self.traceOffset(0);
+        }
+
+        pub fn traceOffset(self: Self, offset: isize) SparseError!T {
+            ensureNumeric(T);
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= self.rows) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= self.cols) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(self.rows - start_row, self.cols - start_col);
             var total = zero(T);
-            for (self.values, 0..) |value, i| {
-                if (self.row_indices[i] == self.col_indices[i]) total += value;
-            }
+            for (0..count) |i| total = addSparseValue(T, total, self.get(start_row + i, start_col + i) orelse zero(T));
             return total;
         }
 
@@ -14769,10 +14782,25 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn trace(self: Self) SparseError!T {
-            ensureNumeric(T);
             if (self.rows != self.cols) return error.NonMatrixArray;
+            return self.traceOffset(0);
+        }
+
+        pub fn traceOffset(self: Self, offset: isize) SparseError!T {
+            ensureNumeric(T);
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= self.rows) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= self.cols) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(self.rows - start_row, self.cols - start_col);
             var total = zero(T);
-            for (0..self.rows) |r| total = addSparseValue(T, total, self.get(r, r) orelse zero(T));
+            for (0..count) |i| total = addSparseValue(T, total, self.get(start_row + i, start_col + i) orelse zero(T));
             return total;
         }
 
@@ -20606,10 +20634,25 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn trace(self: Self) SparseError!T {
-            ensureNumeric(T);
             if (self.rows != self.cols) return error.NonMatrixArray;
+            return self.traceOffset(0);
+        }
+
+        pub fn traceOffset(self: Self, offset: isize) SparseError!T {
+            ensureNumeric(T);
+            const start_row: usize = if (offset < 0) blk: {
+                const offset_abs: usize = @intCast(-offset);
+                if (offset_abs >= self.rows) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const start_col: usize = if (offset > 0) blk: {
+                const offset_abs: usize = @intCast(offset);
+                if (offset_abs >= self.cols) return zero(T);
+                break :blk offset_abs;
+            } else 0;
+            const count = @min(self.rows - start_row, self.cols - start_col);
             var total = zero(T);
-            for (0..self.rows) |i| total = addSparseValue(T, total, self.get(i, i) orelse zero(T));
+            for (0..count) |i| total = addSparseValue(T, total, self.get(start_row + i, start_col + i) orelse zero(T));
             return total;
         }
 
@@ -27256,6 +27299,10 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, diagonal_mul_vector_values.data);
     try std.testing.expectError(error.ShapeMismatch, diagonal_mut.setDiagonalVector(&.{1}));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.traceOffset(0), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try symmetric.traceOffset(1), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try symmetric.traceOffset(-1), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try symmetric.traceOffset(9), 1e-12);
     try std.testing.expect(try symmetric.traceInRange(15, 15));
     try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
     try std.testing.expect(!(try symmetric.traceInRange(15.5, 16)));
@@ -27550,6 +27597,8 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csr_vector_diag = try square_csr.diagonal();
     defer square_csr_vector_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, square_csr_vector_diag.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try square_csr.traceOffset(1), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try square_csr.traceOffset(-1), 1e-12);
     try std.testing.expectError(error.ShapeMismatch, square_csr.addDiagonalValues(&.{1}));
     var missing_csr = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
     defer missing_csr.deinit();
@@ -27591,6 +27640,8 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csc_vector_diag = try square_csc.diagonal();
     defer square_csc_vector_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, square_csc_vector_diag.data);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try square_csc.traceOffset(1), 1e-12);
+    try std.testing.expectApproxEqAbs(@as(f64, 3), try square_csc.traceOffset(-1), 1e-12);
     try std.testing.expectError(error.ShapeMismatch, square_csc.multiplyDiagonalValues(&.{1}));
     var missing_csc = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
     defer missing_csc.deinit();
