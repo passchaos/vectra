@@ -185,6 +185,11 @@ fn sparseDropZerosNnz(comptime T: type, values: []const T) usize {
     return nonzero_count;
 }
 
+fn sparseDenseNnz(comptime T: type, input: array_mod.Array(T)) SparseError!usize {
+    if (input.shape.len != 2) return error.NonMatrixArray;
+    return sparseDropZerosNnz(T, input.data);
+}
+
 fn sparsePruneZerosNnz(comptime T: type, values: []const T, tolerance: T) SparseError!usize {
     try validateSparseValueRange(T, zero(T), tolerance);
     var keep_count: usize = 0;
@@ -192,6 +197,11 @@ fn sparsePruneZerosNnz(comptime T: type, values: []const T, tolerance: T) Sparse
         if (sparseAbsValueExceedsTolerance(T, value, tolerance)) keep_count += 1;
     }
     return keep_count;
+}
+
+fn sparseDensePrunedNnz(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!usize {
+    if (input.shape.len != 2) return error.NonMatrixArray;
+    return sparsePruneZerosNnz(T, input.data, tolerance);
 }
 
 fn valueLess(comptime T: type, lhs: T, rhs: T) bool {
@@ -1197,7 +1207,7 @@ pub fn CooMatrix(comptime T: type) type {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const nonzero_count = sparseDropZerosNnz(T, input.data);
+            const nonzero_count = try Self.fromDenseNnz(input);
 
             var row_indices = try input.allocator.alloc(usize, nonzero_count);
             errdefer input.allocator.free(row_indices);
@@ -1228,11 +1238,15 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn fromDenseNnz(input: array_mod.Array(T)) SparseError!usize {
+            return sparseDenseNnz(T, input);
+        }
+
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const keep_count = try sparsePruneZerosNnz(T, input.data, tolerance);
+            const keep_count = try Self.fromDensePrunedNnz(input, tolerance);
 
             var row_indices = try input.allocator.alloc(usize, keep_count);
             errdefer input.allocator.free(row_indices);
@@ -1262,6 +1276,10 @@ pub fn CooMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn fromDensePrunedNnz(input: array_mod.Array(T), tolerance: T) SparseError!usize {
+            return sparseDensePrunedNnz(T, input, tolerance);
         }
 
         pub fn deinit(self: *Self) void {
@@ -3414,7 +3432,7 @@ pub fn CsrMatrix(comptime T: type) type {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const nonzero_count = sparseDropZerosNnz(T, input.data);
+            const nonzero_count = try Self.fromDenseNnz(input);
 
             var row_offsets = try input.allocator.alloc(usize, rows + 1);
             errdefer input.allocator.free(row_offsets);
@@ -3446,11 +3464,15 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
+        pub fn fromDenseNnz(input: array_mod.Array(T)) SparseError!usize {
+            return sparseDenseNnz(T, input);
+        }
+
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const keep_count = try sparsePruneZerosNnz(T, input.data, tolerance);
+            const keep_count = try Self.fromDensePrunedNnz(input, tolerance);
 
             var row_offsets = try input.allocator.alloc(usize, rows + 1);
             errdefer input.allocator.free(row_offsets);
@@ -3481,6 +3503,10 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn fromDensePrunedNnz(input: array_mod.Array(T), tolerance: T) SparseError!usize {
+            return sparseDensePrunedNnz(T, input, tolerance);
         }
 
         pub fn deinit(self: *Self) void {
@@ -5860,7 +5886,7 @@ pub fn CscMatrix(comptime T: type) type {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const nonzero_count = sparseDropZerosNnz(T, input.data);
+            const nonzero_count = try Self.fromDenseNnz(input);
             var col_offsets = try input.allocator.alloc(usize, cols + 1);
             errdefer input.allocator.free(col_offsets);
             var row_indices = try input.allocator.alloc(usize, nonzero_count);
@@ -5883,11 +5909,15 @@ pub fn CscMatrix(comptime T: type) type {
             return .{ .allocator = input.allocator, .rows = rows, .cols = cols, .col_offsets = col_offsets, .row_indices = row_indices, .values = values };
         }
 
+        pub fn fromDenseNnz(input: array_mod.Array(T)) SparseError!usize {
+            return sparseDenseNnz(T, input);
+        }
+
         pub fn fromDensePruned(input: array_mod.Array(T), tolerance: T) SparseError!Self {
             if (input.shape.len != 2) return error.NonMatrixArray;
             const rows = input.shape[0];
             const cols = input.shape[1];
-            const keep_count = try sparsePruneZerosNnz(T, input.data, tolerance);
+            const keep_count = try Self.fromDensePrunedNnz(input, tolerance);
 
             var col_offsets = try input.allocator.alloc(usize, cols + 1);
             errdefer input.allocator.free(col_offsets);
@@ -5911,6 +5941,10 @@ pub fn CscMatrix(comptime T: type) type {
             }
             std.debug.assert(write == keep_count);
             return .{ .allocator = input.allocator, .rows = rows, .cols = cols, .col_offsets = col_offsets, .row_indices = row_indices, .values = values };
+        }
+
+        pub fn fromDensePrunedNnz(input: array_mod.Array(T), tolerance: T) SparseError!usize {
+            return sparseDensePrunedNnz(T, input, tolerance);
         }
 
         pub fn deinit(self: *Self) void {
@@ -8040,8 +8074,16 @@ pub fn cscFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!Csc
     return CscMatrix(T).fromDense(input);
 }
 
+pub fn cscFromDenseNnz(comptime T: type, input: array_mod.Array(T)) SparseError!usize {
+    return CscMatrix(T).fromDenseNnz(input);
+}
+
 pub fn cscFromDensePruned(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!CscMatrix(T) {
     return CscMatrix(T).fromDensePruned(input, tolerance);
+}
+
+pub fn cscFromDensePrunedNnz(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!usize {
+    return CscMatrix(T).fromDensePrunedNnz(input, tolerance);
 }
 
 pub fn cooEye(comptime T: type, allocator: std.mem.Allocator, rows: usize, cols: usize) SparseError!CooMatrix(T) {
@@ -8060,8 +8102,16 @@ pub fn cooFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!Coo
     return CooMatrix(T).fromDense(input);
 }
 
+pub fn cooFromDenseNnz(comptime T: type, input: array_mod.Array(T)) SparseError!usize {
+    return CooMatrix(T).fromDenseNnz(input);
+}
+
 pub fn cooFromDensePruned(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!CooMatrix(T) {
     return CooMatrix(T).fromDensePruned(input, tolerance);
+}
+
+pub fn cooFromDensePrunedNnz(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!usize {
+    return CooMatrix(T).fromDensePrunedNnz(input, tolerance);
 }
 
 pub fn cooFromSlices(
@@ -8104,8 +8154,16 @@ pub fn csrFromDense(comptime T: type, input: array_mod.Array(T)) SparseError!Csr
     return CsrMatrix(T).fromDense(input);
 }
 
+pub fn csrFromDenseNnz(comptime T: type, input: array_mod.Array(T)) SparseError!usize {
+    return CsrMatrix(T).fromDenseNnz(input);
+}
+
 pub fn csrFromDensePruned(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!CsrMatrix(T) {
     return CsrMatrix(T).fromDensePruned(input, tolerance);
+}
+
+pub fn csrFromDensePrunedNnz(comptime T: type, input: array_mod.Array(T), tolerance: T) SparseError!usize {
+    return CsrMatrix(T).fromDensePrunedNnz(input, tolerance);
 }
 
 pub fn csrFromCompressed(
@@ -8217,6 +8275,7 @@ test "coo sparse dense roundtrip and compressed conversions" {
 
     var coo = try cooFromDense(f64, dense);
     defer coo.deinit();
+    try std.testing.expectEqual(@as(usize, 6), try cooFromDenseNnz(f64, dense));
     try std.testing.expectEqual(@as(usize, 6), coo.nnz());
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, coo.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, coo.col_indices);
@@ -8248,11 +8307,13 @@ test "coo sparse dense roundtrip and compressed conversions" {
 
     var coo_pruned_dense = try cooFromDensePruned(f64, dense, 4);
     defer coo_pruned_dense.deinit();
+    try std.testing.expectEqual(@as(usize, 3), try cooFromDensePrunedNnz(f64, dense, 4));
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 2 }, coo_pruned_dense.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 3 }, coo_pruned_dense.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 6 }, coo_pruned_dense.values);
     try std.testing.expectEqual(@as(usize, 3), try coo_pruned_dense.pruneZerosNnz(4));
     try std.testing.expectError(error.InvalidShape, cooFromDensePruned(f64, dense, std.math.nan(f64)));
+    try std.testing.expectError(error.InvalidShape, cooFromDensePrunedNnz(f64, dense, std.math.nan(f64)));
 
     var dense_roundtrip = try coo.toDense();
     defer dense_roundtrip.deinit();
@@ -8305,27 +8366,33 @@ test "coo sparse dense roundtrip and compressed conversions" {
 
     var csr = try coo.toCsr();
     defer csr.deinit();
+    try std.testing.expectEqual(@as(usize, 6), try csrFromDenseNnz(f64, dense));
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
+    try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1, 3 }, csr_pruned_dense.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 3 }, csr_pruned_dense.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 6 }, csr_pruned_dense.values);
     try std.testing.expectError(error.InvalidShape, csrFromDensePruned(f64, dense, std.math.inf(f64)));
+    try std.testing.expectError(error.InvalidShape, csrFromDensePrunedNnz(f64, dense, std.math.inf(f64)));
 
     var csc = try coo.toCsc();
     defer csc.deinit();
+    try std.testing.expectEqual(@as(usize, 6), try cscFromDenseNnz(f64, dense));
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
+    try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 2, 2, 3 }, csc_pruned_dense.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 2 }, csc_pruned_dense.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 6 }, csc_pruned_dense.values);
     try std.testing.expectError(error.InvalidShape, cscFromDensePruned(f64, dense, -1));
+    try std.testing.expectError(error.InvalidShape, cscFromDensePrunedNnz(f64, dense, -1));
 
     var coo_from_csr = try csr.toCoo();
     defer coo_from_csr.deinit();
