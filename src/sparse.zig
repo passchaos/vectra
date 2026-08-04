@@ -538,6 +538,18 @@ fn sparseDenseTile(comptime T: type, matrix: anytype, repeats: []const usize) Sp
     return dense.tile(repeats);
 }
 
+fn sparseDenseRepeatInterleave(comptime T: type, matrix: anytype, repeats: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.repeatInterleave(repeats, axis_opt);
+}
+
+fn sparseDenseRepeatInterleaveScalar(comptime T: type, matrix: anytype, repeat_count: usize, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.repeatInterleaveScalar(repeat_count, axis_opt);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2823,6 +2835,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn repeatInterleave(self: Self, repeats: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleave(T, self, repeats, axis_opt);
+        }
+
+        pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleaveScalar(T, self, repeat_count, axis_opt);
         }
 
         pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
@@ -6189,6 +6209,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn repeatInterleave(self: Self, repeats: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleave(T, self, repeats, axis_opt);
+        }
+
+        pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleaveScalar(T, self, repeat_count, axis_opt);
         }
 
         pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
@@ -9770,6 +9798,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRepeat(T, self, repeats, axis_index);
+        }
+
+        pub fn repeatInterleave(self: Self, repeats: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleave(T, self, repeats, axis_opt);
+        }
+
+        pub fn repeatInterleaveScalar(self: Self, repeat_count: usize, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseRepeatInterleaveScalar(T, self, repeat_count, axis_opt);
         }
 
         pub fn tile(self: Self, repeats: []const usize) SparseError!array_mod.Array(T) {
@@ -14271,6 +14307,27 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 1, 1, 0, 0, 0, 0,
                 0, 0, 2, 2, 3, 3,
             });
+
+            var column_repeats = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 0, 2 }, &.{3});
+            defer column_repeats.deinit();
+            var interleaved_columns = try matrix.repeatInterleave(column_repeats, 1);
+            defer interleaved_columns.deinit();
+            try expectArray(interleaved_columns, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 3, 3 });
+
+            var interleaved_flat = try matrix.repeatInterleaveScalar(2, null);
+            defer interleaved_flat.deinit();
+            try expectArray(interleaved_flat, &.{12}, &.{ 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 3, 3 });
+
+            var interleaved_axis_scalar = try matrix.repeatInterleaveScalar(2, -1);
+            defer interleaved_axis_scalar.deinit();
+            try expectArray(interleaved_axis_scalar, &.{ 2, 6 }, &.{
+                1, 1, 0, 0, 0, 0,
+                0, 0, 2, 2, 3, 3,
+            });
+
+            var bad_repeats = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
+            defer bad_repeats.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.repeatInterleave(bad_repeats, 1));
 
             var tiled = try matrix.tile(&.{ 2, 1 });
             defer tiled.deinit();
