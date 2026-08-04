@@ -1566,6 +1566,14 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn maximumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMin(scalar);
+        }
+
+        pub fn maxScalar(self: Self, scalar: T) SparseError!Self {
+            return self.maximumScalar(scalar);
+        }
+
         pub fn clampMin(self: Self, min_value: T) SparseError!Self {
             return self.clipMin(min_value);
         }
@@ -1577,6 +1585,14 @@ pub fn CooMatrix(comptime T: type) type {
                 if (value.* > max_value) value.* = max_value;
             }
             return out;
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMax(scalar);
+        }
+
+        pub fn minScalar(self: Self, scalar: T) SparseError!Self {
+            return self.minimumScalar(scalar);
         }
 
         pub fn clampMax(self: Self, max_value: T) SparseError!Self {
@@ -4006,6 +4022,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn maximumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMin(scalar);
+        }
+
+        pub fn maxScalar(self: Self, scalar: T) SparseError!Self {
+            return self.maximumScalar(scalar);
+        }
+
         pub fn clampMin(self: Self, min_value: T) SparseError!Self {
             return self.clipMin(min_value);
         }
@@ -4017,6 +4041,14 @@ pub fn CsrMatrix(comptime T: type) type {
                 if (value.* > max_value) value.* = max_value;
             }
             return out;
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMax(scalar);
+        }
+
+        pub fn minScalar(self: Self, scalar: T) SparseError!Self {
+            return self.minimumScalar(scalar);
         }
 
         pub fn clampMax(self: Self, max_value: T) SparseError!Self {
@@ -6657,6 +6689,14 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn maximumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMin(scalar);
+        }
+
+        pub fn maxScalar(self: Self, scalar: T) SparseError!Self {
+            return self.maximumScalar(scalar);
+        }
+
         pub fn clampMin(self: Self, min_value: T) SparseError!Self {
             return self.clipMin(min_value);
         }
@@ -6668,6 +6708,14 @@ pub fn CscMatrix(comptime T: type) type {
                 if (value.* > max_value) value.* = max_value;
             }
             return out;
+        }
+
+        pub fn minimumScalar(self: Self, scalar: T) SparseError!Self {
+            return self.clipMax(scalar);
+        }
+
+        pub fn minScalar(self: Self, scalar: T) SparseError!Self {
+            return self.minimumScalar(scalar);
         }
 
         pub fn clampMax(self: Self, max_value: T) SparseError!Self {
@@ -10493,9 +10541,15 @@ test "sparse stored rounding unary helpers preserve structure" {
     try std.testing.expectEqualSlices(usize, coo.row_indices, coo_clip_min.row_indices);
     try std.testing.expectEqualSlices(usize, coo.col_indices, coo_clip_min.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, coo_clip_min.values);
+    var coo_max_scalar = try coo.maximumScalar(0);
+    defer coo_max_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, coo_clip_min.values, coo_max_scalar.values);
     var coo_clip_max = try coo.clipMax(3);
     defer coo_clip_max.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, coo_clip_max.values);
+    var coo_min_scalar = try coo.minimumScalar(3);
+    defer coo_min_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, coo_clip_max.values, coo_min_scalar.values);
     var coo_clip = try coo.clip(-1, 3);
     defer coo_clip.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, coo_clip.values);
@@ -10522,9 +10576,15 @@ test "sparse stored rounding unary helpers preserve structure" {
     try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_clip_min.row_offsets);
     try std.testing.expectEqualSlices(usize, csr.col_indices, csr_clip_min.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, csr_clip_min.values);
+    var csr_max_scalar = try csr.maxScalar(0);
+    defer csr_max_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, csr_clip_min.values, csr_max_scalar.values);
     var csr_clip_max = try csr.clampMax(3);
     defer csr_clip_max.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, csr_clip_max.values);
+    var csr_min_scalar = try csr.minScalar(3);
+    defer csr_min_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, csr_clip_max.values, csr_min_scalar.values);
     var csr_clip = try csr.clamp(-1, 3);
     defer csr_clip.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, csr_clip.values);
@@ -10551,9 +10611,15 @@ test "sparse stored rounding unary helpers preserve structure" {
     try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_clip_min.col_offsets);
     try std.testing.expectEqualSlices(usize, csc.row_indices, csc_clip_min.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 0, 2.2, 3.8 }, csc_clip_min.values);
+    var csc_max_scalar = try csc.maximumScalar(0);
+    defer csc_max_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, csc_clip_min.values, csc_max_scalar.values);
     var csc_clip_max = try csc.clipMax(3);
     defer csc_clip_max.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1.7, 2.2, 3 }, csc_clip_max.values);
+    var csc_min_scalar = try csc.minimumScalar(3);
+    defer csc_min_scalar.deinit();
+    try std.testing.expectEqualSlices(f64, csc_clip_max.values, csc_min_scalar.values);
     var csc_clip = try csc.clip(-1, 3);
     defer csc_clip.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 2.2, 3 }, csc_clip.values);
