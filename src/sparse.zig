@@ -284,6 +284,38 @@ fn validateNonNegativeRange(min_value: f64, max_value: f64) SparseError!void {
     if (!std.math.isFinite(min_value) or !std.math.isFinite(max_value) or min_value < 0 or max_value < 0 or min_value > max_value) return error.InvalidShape;
 }
 
+fn validateFiniteRange(min_value: f64, max_value: f64) SparseError!void {
+    if (!std.math.isFinite(min_value) or !std.math.isFinite(max_value) or min_value > max_value) return error.InvalidShape;
+}
+
+fn sparseNormalizedTraceFromTrace(comptime T: type, trace_value: T, size: usize) SparseError!f64 {
+    ensureNumeric(T);
+    if (size == 0) return error.EmptyArray;
+    return sparseValueToF64(T, trace_value) / sparseSizeToF64(size);
+}
+
+fn sparseNormalizedTraceInRangeFromTrace(
+    comptime T: type,
+    trace_value: T,
+    size: usize,
+    min_value: f64,
+    max_value: f64,
+) SparseError!bool {
+    if (size == 0) return error.EmptyArray;
+    const trace_f64 = sparseValueToF64(T, trace_value);
+    const size_f64 = sparseSizeToF64(size);
+    const scaled_min = min_value * size_f64;
+    const scaled_max = max_value * size_f64;
+    // Compare on the unnormalized trace when scaling remains finite; this
+    // avoids one rounding step and preserves the Veyra-style overflow fallback
+    // for extremely large user bounds.
+    if (std.math.isFinite(scaled_min) and std.math.isFinite(scaled_max)) {
+        return trace_f64 >= scaled_min and trace_f64 <= scaled_max;
+    }
+    const normalized = trace_f64 / size_f64;
+    return normalized >= min_value and normalized <= max_value;
+}
+
 fn sparseCountAverage(count: usize, divisor: usize) SparseError!f64 {
     if (divisor == 0) return error.EmptyArray;
     return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(divisor));
@@ -2041,6 +2073,21 @@ pub fn CooMatrix(comptime T: type) type {
                 if (self.row_indices[i] == self.col_indices[i]) total += value;
             }
             return total;
+        }
+
+        pub fn traceInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            try validateSparseValueRange(T, min_value, max_value);
+            const trace_value = try self.trace();
+            return trace_value >= min_value and trace_value <= max_value;
+        }
+
+        pub fn normalizedTrace(self: Self) SparseError!f64 {
+            return sparseNormalizedTraceFromTrace(T, try self.trace(), self.rows);
+        }
+
+        pub fn normalizedTraceInRange(self: Self, min_value: f64, max_value: f64) SparseError!bool {
+            try validateFiniteRange(min_value, max_value);
+            return sparseNormalizedTraceInRangeFromTrace(T, try self.trace(), self.rows, min_value, max_value);
         }
 
         pub fn missingDiagonalCount(self: Self) SparseError!usize {
@@ -3828,6 +3875,21 @@ pub fn CsrMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn traceInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            try validateSparseValueRange(T, min_value, max_value);
+            const trace_value = try self.trace();
+            return trace_value >= min_value and trace_value <= max_value;
+        }
+
+        pub fn normalizedTrace(self: Self) SparseError!f64 {
+            return sparseNormalizedTraceFromTrace(T, try self.trace(), self.rows);
+        }
+
+        pub fn normalizedTraceInRange(self: Self, min_value: f64, max_value: f64) SparseError!bool {
+            try validateFiniteRange(min_value, max_value);
+            return sparseNormalizedTraceInRangeFromTrace(T, try self.trace(), self.rows, min_value, max_value);
+        }
+
         pub fn missingDiagonalCount(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -5460,6 +5522,21 @@ pub fn CscMatrix(comptime T: type) type {
             return total;
         }
 
+        pub fn traceInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
+            try validateSparseValueRange(T, min_value, max_value);
+            const trace_value = try self.trace();
+            return trace_value >= min_value and trace_value <= max_value;
+        }
+
+        pub fn normalizedTrace(self: Self) SparseError!f64 {
+            return sparseNormalizedTraceFromTrace(T, try self.trace(), self.rows);
+        }
+
+        pub fn normalizedTraceInRange(self: Self, min_value: f64, max_value: f64) SparseError!bool {
+            try validateFiniteRange(min_value, max_value);
+            return sparseNormalizedTraceInRangeFromTrace(T, try self.trace(), self.rows, min_value, max_value);
+        }
+
         pub fn missingDiagonalCount(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -6764,6 +6841,15 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer diagonal.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expect(try symmetric.traceInRange(15, 15));
+    try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
+    try std.testing.expect(!(try symmetric.traceInRange(15.5, 16)));
+    try std.testing.expectError(error.InvalidShape, symmetric.traceInRange(std.math.nan(f64), 15));
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try symmetric.normalizedTrace(), 1e-12);
+    try std.testing.expect(try symmetric.normalizedTraceInRange(5, 5));
+    try std.testing.expect(try symmetric.normalizedTraceInRange(4.9, 5.1));
+    try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
+    try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(6, 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
@@ -6823,6 +6909,9 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
@@ -6836,10 +6925,19 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer duplicate_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 0 }, duplicate_diag.data);
     try std.testing.expectApproxEqAbs(@as(f64, 3), try duplicate_diagonal.trace(), 1e-12);
+    try std.testing.expect(try duplicate_diagonal.traceInRange(3, 3));
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), try duplicate_diagonal.normalizedTrace(), 1e-12);
+    try std.testing.expect(try duplicate_diagonal.normalizedTraceInRange(1.4, 1.6));
     try std.testing.expectEqual(@as(usize, 0), try duplicate_diagonal.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try duplicate_diagonal.zeroDiagonalCount());
     try std.testing.expectApproxEqAbs(@as(f64, 3), duplicate_diagonal.get(0, 0).?, 1e-12);
     try std.testing.expect(!(try duplicate_diagonal.structurallySymmetric()));
+
+    var empty_square = try cooFromSlices(f64, gpa, 0, 0, &.{}, &.{}, &.{});
+    defer empty_square.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try empty_square.trace(), 1e-12);
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTrace());
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTraceInRange(0, 1));
 
     var duplicate_symmetric = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1 }, &.{ 1, 1, 0, 0 }, &.{ 1, 2, 1.5, 1.5 });
     defer duplicate_symmetric.deinit();
@@ -7098,6 +7196,15 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer diagonal.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expect(try symmetric.traceInRange(15, 15));
+    try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
+    try std.testing.expect(!(try symmetric.traceInRange(15.5, 16)));
+    try std.testing.expectError(error.InvalidShape, symmetric.traceInRange(std.math.inf(f64), 15));
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try symmetric.normalizedTrace(), 1e-12);
+    try std.testing.expect(try symmetric.normalizedTraceInRange(5, 5));
+    try std.testing.expect(try symmetric.normalizedTraceInRange(4.9, 5.1));
+    try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
+    try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(std.math.nan(f64), 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
@@ -7155,6 +7262,9 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
@@ -7169,6 +7279,9 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer duplicate_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, duplicate_diag.data);
     try std.testing.expectApproxEqAbs(@as(f64, 0), try duplicate.trace(), 1e-12);
+    try std.testing.expect(try duplicate.traceInRange(0, 0));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try duplicate.normalizedTrace(), 1e-12);
+    try std.testing.expect(try duplicate.normalizedTraceInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try duplicate.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 2), try duplicate.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
@@ -7183,6 +7296,12 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     var duplicate_coalesced_dense = try duplicate_coalesced.toDense();
     defer duplicate_coalesced_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced_dense.data);
+
+    var empty_square = try csrFromCompressed(f64, gpa, 0, 0, &.{0}, &.{}, &.{});
+    defer empty_square.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try empty_square.trace(), 1e-12);
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTrace());
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTraceInRange(0, 1));
 }
 
 test "csr sparse transpose products and triangular solves" {
@@ -7431,6 +7550,15 @@ test "csc sparse diagnostics and triangular solve" {
     defer diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diag.data);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
+    try std.testing.expect(try symmetric.traceInRange(15, 15));
+    try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
+    try std.testing.expect(!(try symmetric.traceInRange(15.5, 16)));
+    try std.testing.expectError(error.InvalidShape, symmetric.traceInRange(16, 15));
+    try std.testing.expectApproxEqAbs(@as(f64, 5), try symmetric.normalizedTrace(), 1e-12);
+    try std.testing.expect(try symmetric.normalizedTraceInRange(5, 5));
+    try std.testing.expect(try symmetric.normalizedTraceInRange(4.9, 5.1));
+    try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
+    try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(std.math.inf(f64), 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
@@ -7474,6 +7602,9 @@ test "csc sparse diagnostics and triangular solve" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
+    try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.bandwidthMeetsBound(1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnzMeetsBound(false, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnzInRange(false, 0, 1));
@@ -7488,6 +7619,9 @@ test "csc sparse diagnostics and triangular solve" {
     defer duplicate_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 0 }, duplicate_diag.data);
     try std.testing.expectApproxEqAbs(@as(f64, 0), try duplicate.trace(), 1e-12);
+    try std.testing.expect(try duplicate.traceInRange(0, 0));
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try duplicate.normalizedTrace(), 1e-12);
+    try std.testing.expect(try duplicate.normalizedTraceInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try duplicate.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 2), try duplicate.zeroDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
@@ -7502,6 +7636,12 @@ test "csc sparse diagnostics and triangular solve" {
     var duplicate_coalesced_dense = try duplicate_coalesced.toDense();
     defer duplicate_coalesced_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 0, 2, 2, 0 }, duplicate_coalesced_dense.data);
+
+    var empty_square = try cscFromCompressed(f64, gpa, 0, 0, &.{0}, &.{}, &.{});
+    defer empty_square.deinit();
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try empty_square.trace(), 1e-12);
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTrace());
+    try std.testing.expectError(error.EmptyArray, empty_square.normalizedTraceInRange(0, 1));
 
     var lower_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         2,  0, 0,
