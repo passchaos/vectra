@@ -1474,6 +1474,30 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn mapValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CooMatrix(U) {
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = map(value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn mapStoredValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CooMatrix(U) {
+            return self.mapValues(U, map);
+        }
+
         pub fn positive(self: Self) SparseError!Self {
             ensureNumeric(T);
             return self.clone();
@@ -3928,6 +3952,30 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        pub fn mapValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CsrMatrix(U) {
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = map(value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn mapStoredValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CsrMatrix(U) {
+            return self.mapValues(U, map);
         }
 
         pub fn positive(self: Self) SparseError!Self {
@@ -6597,6 +6645,30 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn mapValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CscMatrix(U) {
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = map(value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn mapStoredValues(self: Self, comptime U: type, comptime map: fn (T) U) SparseError!CscMatrix(U) {
+            return self.mapValues(U, map);
+        }
+
         pub fn positive(self: Self) SparseError!Self {
             ensureNumeric(T);
             return self.clone();
@@ -9165,6 +9237,15 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, coo.row_indices, coo_i32.row_indices);
     try std.testing.expectEqualSlices(usize, coo.col_indices, coo_i32.col_indices);
     try std.testing.expectEqualSlices(i32, &.{ 10, 2, 3, 4, 5, 6 }, coo_i32.values);
+    var coo_mapped = try coo.mapValues(f64, struct {
+        fn f(value: f64) f64 {
+            return value + 1;
+        }
+    }.f);
+    defer coo_mapped.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_mapped.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_mapped.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 11, 3, 4, 5, 6, 7 }, coo_mapped.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -9267,6 +9348,15 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_f32.row_offsets);
     try std.testing.expectEqualSlices(usize, csr.col_indices, csr_f32.col_indices);
     try std.testing.expectEqualSlices(f32, &.{ 10, 2, 3, 4, 5, 6 }, csr_f32.values);
+    var csr_mapped = try csr.mapStoredValues(f64, struct {
+        fn f(value: f64) f64 {
+            return value * 2;
+        }
+    }.f);
+    defer csr_mapped.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_mapped.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_mapped.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 20, 4, 6, 8, 10, 12 }, csr_mapped.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -9294,6 +9384,15 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_bool.col_offsets);
     try std.testing.expectEqualSlices(usize, csc.row_indices, csc_bool.row_indices);
     try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, csc_bool.values);
+    var csc_mapped = try csc.mapValues(f64, struct {
+        fn f(value: f64) f64 {
+            return value - 1;
+        }
+    }.f);
+    defer csc_mapped.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_mapped.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_mapped.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 9, 4, 2, 1, 3, 5 }, csc_mapped.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
