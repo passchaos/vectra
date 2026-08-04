@@ -758,6 +758,18 @@ fn sparseDenseKthValue(comptime T: type, matrix: anytype, k: usize, axis_opt: ?i
     return dense.kthValue(k, axis_opt, keepdims);
 }
 
+fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.unique();
+}
+
+fn sparseDenseUniqueWithCounts(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T).UniqueCounts {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.uniqueWithCounts();
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3562,6 +3574,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn unique(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
+            return sparseDenseUniqueWithCounts(T, self);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -7380,6 +7400,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn unique(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
+            return sparseDenseUniqueWithCounts(T, self);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -11409,6 +11437,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn unique(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
+            return sparseDenseUniqueWithCounts(T, self);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15934,6 +15970,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             try std.testing.expectError(error.InvalidShape, matrix.topk(7, null, true, true));
             try std.testing.expectError(error.InvalidShape, matrix.kthValue(0, null, false));
+
+            var unique_values = try matrix.unique();
+            defer unique_values.deinit();
+            try expectArray(unique_values, &.{4}, &.{ 0, 1, 2, 3 });
+
+            var unique_counts = try matrix.uniqueWithCounts();
+            defer unique_counts.deinit();
+            try expectArray(unique_counts.values, &.{4}, unique_values.data);
+            try std.testing.expectEqualSlices(usize, &.{4}, unique_counts.counts.shape);
+            try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 1 }, unique_counts.counts.data);
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
