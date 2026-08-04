@@ -1275,16 +1275,24 @@ pub fn CooMatrix(comptime T: type) type {
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
+        }
+
+        pub fn allcloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
             if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             var rhs_dense = try rhs.toDense();
             defer rhs_dense.deinit();
-            return lhs_dense.allclose(rhs_dense, rtol, atol);
+            return lhs_dense.allcloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
-        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
-            return self.allclose(rhs, rtol, atol);
+        pub fn allCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -3251,16 +3259,24 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
+        }
+
+        pub fn allcloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
             if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             var rhs_dense = try rhs.toDense();
             defer rhs_dense.deinit();
-            return lhs_dense.allclose(rhs_dense, rtol, atol);
+            return lhs_dense.allcloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
-        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
-            return self.allclose(rhs, rtol, atol);
+        pub fn allCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -5440,16 +5456,24 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
+            return self.allclose(rhs, rtol, atol);
+        }
+
+        pub fn allcloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
             if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
             var lhs_dense = try self.toDense();
             defer lhs_dense.deinit();
             var rhs_dense = try rhs.toDense();
             defer rhs_dense.deinit();
-            return lhs_dense.allclose(rhs_dense, rtol, atol);
+            return lhs_dense.allcloseEqualNan(rhs_dense, rtol, atol, equal_nan);
         }
 
-        pub fn allClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
-            return self.allclose(rhs, rtol, atol);
+        pub fn allCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!bool {
+            return self.allcloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
         pub fn maxAbsDiffSameStructure(self: Self, rhs: Self) SparseError!T {
@@ -8312,6 +8336,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs.allClose(lhs, 1e-12, 1e-12));
     try std.testing.expect(!(try lhs.allclose(rhs, 1e-12, 1e-12)));
     try std.testing.expect(try lhs.allclose(rhs, 1, 4));
+
+    var nan_lhs = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ std.math.nan(f64), 2 });
+    defer nan_lhs.deinit();
+    var nan_rhs = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ std.math.nan(f64), 2 });
+    defer nan_rhs.deinit();
+    try std.testing.expect(!(try nan_lhs.allclose(nan_rhs, 0, 0)));
+    try std.testing.expect(try nan_lhs.allcloseEqualNan(nan_rhs, 0, 0, true));
+    try std.testing.expect(try nan_lhs.allCloseEqualNan(nan_rhs, 0, 0, true));
+    var nan_lhs_csr = try nan_lhs.toCsr();
+    defer nan_lhs_csr.deinit();
+    var nan_rhs_csr = try nan_rhs.toCsr();
+    defer nan_rhs_csr.deinit();
+    try std.testing.expect(!(try nan_lhs_csr.allclose(nan_rhs_csr, 0, 0)));
+    try std.testing.expect(try nan_lhs_csr.allcloseEqualNan(nan_rhs_csr, 0, 0, true));
+    var nan_lhs_csc = try nan_lhs.toCsc();
+    defer nan_lhs_csc.deinit();
+    var nan_rhs_csc = try nan_rhs.toCsc();
+    defer nan_rhs_csc.deinit();
+    try std.testing.expect(!(try nan_lhs_csc.allclose(nan_rhs_csc, 0, 0)));
+    try std.testing.expect(try nan_lhs_csc.allCloseEqualNan(nan_rhs_csc, 0, 0, true));
 
     var different_structure = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 4, 5, 6 });
     defer different_structure.deinit();
