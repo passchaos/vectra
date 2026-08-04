@@ -759,6 +759,34 @@ fn sparseDenseKthValue(comptime T: type, matrix: anytype, k: usize, axis_opt: ?i
     return dense.kthValue(k, axis_opt, keepdims);
 }
 
+fn sparseDenseArgmax(comptime T: type, matrix: anytype) SparseError!usize {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.argmax();
+}
+
+fn sparseDenseArgmin(comptime T: type, matrix: anytype) SparseError!usize {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.argmin();
+}
+
+fn sparseDenseArgmaxAxis(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.argmaxAxis(axis_opt, keepdims);
+}
+
+fn sparseDenseArgminAxis(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+    _ = T;
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.argminAxis(axis_opt, keepdims);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3647,6 +3675,30 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn argmax(self: Self) SparseError!usize {
+            return sparseDenseArgmax(T, self);
+        }
+
+        pub fn argmin(self: Self) SparseError!usize {
+            return sparseDenseArgmin(T, self);
+        }
+
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argminAxis(dim_opt, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -7533,6 +7585,30 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn argmax(self: Self) SparseError!usize {
+            return sparseDenseArgmax(T, self);
+        }
+
+        pub fn argmin(self: Self) SparseError!usize {
+            return sparseDenseArgmin(T, self);
+        }
+
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argminAxis(dim_opt, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -11630,6 +11706,30 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn kthValueDim(self: Self, k: usize, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T).KthValue {
             return self.kthValue(k, dim_opt, keepdim);
+        }
+
+        pub fn argmax(self: Self) SparseError!usize {
+            return sparseDenseArgmax(T, self);
+        }
+
+        pub fn argmin(self: Self) SparseError!usize {
+            return sparseDenseArgmin(T, self);
+        }
+
+        pub fn argmaxAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgmaxAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argmaxAxis(dim_opt, keepdim);
+        }
+
+        pub fn argminAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(usize) {
+            return sparseDenseArgminAxis(T, self, axis_opt, keepdims);
+        }
+
+        pub fn argminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(usize) {
+            return self.argminAxis(dim_opt, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -16983,6 +17083,47 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectUsizeArray(digits_right_open, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 1, 2 });
         }
     }.check;
+    const expectArgReductions = struct {
+        fn expectUsizeArray(values: array_mod.Array(usize), shape: []const usize, expected: []const usize) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            try std.testing.expectEqualSlices(usize, expected, values.data);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            try std.testing.expectEqual(@as(usize, 5), try matrix.argmax());
+            try std.testing.expectEqual(@as(usize, 1), try matrix.argmin());
+
+            var flat_argmax = try matrix.argmaxAxis(null, false);
+            defer flat_argmax.deinit();
+            try expectUsizeArray(flat_argmax, &.{}, &.{5});
+            var flat_argmin_keepdim = try matrix.argminAxis(null, true);
+            defer flat_argmin_keepdim.deinit();
+            try expectUsizeArray(flat_argmin_keepdim, &.{ 1, 1 }, &.{1});
+
+            var row_argmax = try matrix.argmaxAxis(1, false);
+            defer row_argmax.deinit();
+            try expectUsizeArray(row_argmax, &.{2}, &.{ 0, 2 });
+            var row_argmax_dim = try matrix.argmaxDim(-1, true);
+            defer row_argmax_dim.deinit();
+            try expectUsizeArray(row_argmax_dim, &.{ 2, 1 }, &.{ 0, 2 });
+
+            var row_argmin = try matrix.argminAxis(1, false);
+            defer row_argmin.deinit();
+            try expectUsizeArray(row_argmin, &.{2}, &.{ 1, 0 });
+            var row_argmin_dim = try matrix.argminDim(-1, true);
+            defer row_argmin_dim.deinit();
+            try expectUsizeArray(row_argmin_dim, &.{ 2, 1 }, row_argmin.data);
+
+            var column_argmax = try matrix.argmaxAxis(0, false);
+            defer column_argmax.deinit();
+            try expectUsizeArray(column_argmax, &.{3}, &.{ 0, 1, 1 });
+            var column_argmin = try matrix.argminDim(0, false);
+            defer column_argmin.deinit();
+            try expectUsizeArray(column_argmin, &.{3}, &.{ 1, 0, 0 });
+
+            try std.testing.expectError(error.InvalidAxis, matrix.argmaxAxis(2, false));
+        }
+    }.check;
     const expectMatrixPredicates = struct {
         fn check(comptime Matrix: type, upper: Matrix, diagonal: Matrix) !void {
             try std.testing.expect(!(try upper.isDiagonalMatrix()));
@@ -17332,6 +17473,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer where_mask.deinit();
     try expectWhere(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary, where_mask);
     try expectSearchMembership(@TypeOf(lhs), lhs, sorted_for_search);
+    try expectArgReductions(@TypeOf(lhs), lhs);
     var upper_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1 }, &.{ 0, 1, 1 }, &.{ 1, 2, 3 });
     defer upper_square.deinit();
     var diagonal_square = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ 1, 3 });
@@ -17537,6 +17679,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var sorted_for_search_csr = try sorted_for_search.toCsr();
     defer sorted_for_search_csr.deinit();
     try expectSearchMembership(@TypeOf(lhs_csr), lhs_csr, sorted_for_search_csr);
+    try expectArgReductions(@TypeOf(lhs_csr), lhs_csr);
     try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
     var csr_eq_same = try lhs_csr.eqSameStructure(dot_rhs_csr);
@@ -17721,6 +17864,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var sorted_for_search_csc = try sorted_for_search.toCsc();
     defer sorted_for_search_csc.deinit();
     try expectSearchMembership(@TypeOf(lhs_csc), lhs_csc, sorted_for_search_csc);
+    try expectArgReductions(@TypeOf(lhs_csc), lhs_csc);
     var csc_sum = try lhs_csc.add(rhs_csc);
     defer csc_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
