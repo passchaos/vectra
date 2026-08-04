@@ -87,7 +87,30 @@ const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal 
 const SparseDenseSetOp = enum { union1d, intersect1d, setdiff1d, setxor1d };
 const SparseDenseCumulative = enum { cumsum, cumprod, cummax, cummin, logcumsumexp };
 const SparseDenseNanReduction = enum { sum, mean, min, max };
-const SparseDenseUnary = enum { exp, exp2, expm1, log, log2, log10, log1p, deg2rad, rad2deg, sinc, sin, cos, tan };
+const SparseDenseUnary = enum {
+    exp,
+    exp2,
+    expm1,
+    log,
+    log2,
+    log10,
+    log1p,
+    deg2rad,
+    rad2deg,
+    sinc,
+    sin,
+    cos,
+    tan,
+    asin,
+    acos,
+    atan,
+    sinh,
+    cosh,
+    tanh,
+    asinh,
+    acosh,
+    atanh,
+};
 
 fn sparseComplexRealType(comptime T: type) type {
     if (comptime T == array_mod.Complex64) return f32;
@@ -212,6 +235,15 @@ fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseU
         .sin => dense.sin(),
         .cos => dense.cos(),
         .tan => dense.tan(),
+        .asin => dense.asin(),
+        .acos => dense.acos(),
+        .atan => dense.atan(),
+        .sinh => dense.sinh(),
+        .cosh => dense.cosh(),
+        .tanh => dense.tanh(),
+        .asinh => dense.asinh(),
+        .acosh => dense.acosh(),
+        .atanh => dense.atanh(),
     };
 }
 
@@ -4873,6 +4905,54 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn tan(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tan);
+        }
+
+        pub fn asin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asin);
+        }
+
+        pub fn arcsin(self: Self) SparseError!array_mod.Array(T) {
+            return self.asin();
+        }
+
+        pub fn acos(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acos);
+        }
+
+        pub fn arccos(self: Self) SparseError!array_mod.Array(T) {
+            return self.acos();
+        }
+
+        pub fn atan(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atan);
+        }
+
+        pub fn arctan(self: Self) SparseError!array_mod.Array(T) {
+            return self.atan();
+        }
+
+        pub fn sinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .sinh);
+        }
+
+        pub fn cosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .cosh);
+        }
+
+        pub fn tanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .tanh);
+        }
+
+        pub fn asinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asinh);
+        }
+
+        pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acosh);
+        }
+
+        pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atanh);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -9763,6 +9843,54 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn tan(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tan);
+        }
+
+        pub fn asin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asin);
+        }
+
+        pub fn arcsin(self: Self) SparseError!array_mod.Array(T) {
+            return self.asin();
+        }
+
+        pub fn acos(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acos);
+        }
+
+        pub fn arccos(self: Self) SparseError!array_mod.Array(T) {
+            return self.acos();
+        }
+
+        pub fn atan(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atan);
+        }
+
+        pub fn arctan(self: Self) SparseError!array_mod.Array(T) {
+            return self.atan();
+        }
+
+        pub fn sinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .sinh);
+        }
+
+        pub fn cosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .cosh);
+        }
+
+        pub fn tanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .tanh);
+        }
+
+        pub fn asinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asinh);
+        }
+
+        pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acosh);
+        }
+
+        pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atanh);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -14864,6 +14992,54 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn tan(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tan);
+        }
+
+        pub fn asin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asin);
+        }
+
+        pub fn arcsin(self: Self) SparseError!array_mod.Array(T) {
+            return self.asin();
+        }
+
+        pub fn acos(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acos);
+        }
+
+        pub fn arccos(self: Self) SparseError!array_mod.Array(T) {
+            return self.acos();
+        }
+
+        pub fn atan(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atan);
+        }
+
+        pub fn arctan(self: Self) SparseError!array_mod.Array(T) {
+            return self.atan();
+        }
+
+        pub fn sinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .sinh);
+        }
+
+        pub fn cosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .cosh);
+        }
+
+        pub fn tanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .tanh);
+        }
+
+        pub fn asinh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .asinh);
+        }
+
+        pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .acosh);
+        }
+
+        pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .atanh);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -22621,7 +22797,15 @@ test "sparse dense reduction helpers" {
     const expectReductions = struct {
         fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
             try std.testing.expectEqualSlices(usize, shape, values.shape);
-            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+            for (expected, values.data) |want, got| {
+                if (std.math.isInf(want) or std.math.isInf(got)) {
+                    try std.testing.expectEqual(want, got);
+                } else if (std.math.isNan(want) or std.math.isNan(got)) {
+                    try std.testing.expect(std.math.isNan(want) and std.math.isNan(got));
+                } else {
+                    try std.testing.expectApproxEqAbs(want, got, 1e-12);
+                }
+            }
         }
 
         fn check(comptime Matrix: type, matrix: Matrix) !void {
@@ -22815,7 +22999,15 @@ test "sparse dense norm and logsumexp helpers" {
     const expectNorms = struct {
         fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
             try std.testing.expectEqualSlices(usize, shape, values.shape);
-            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+            for (expected, values.data) |want, got| {
+                if (std.math.isInf(want) or std.math.isInf(got)) {
+                    try std.testing.expectEqual(want, got);
+                } else if (std.math.isNan(want) or std.math.isNan(got)) {
+                    try std.testing.expect(std.math.isNan(want) and std.math.isNan(got));
+                } else {
+                    try std.testing.expectApproxEqAbs(want, got, 1e-12);
+                }
+            }
         }
 
         fn check(comptime Matrix: type, matrix: Matrix) !void {
@@ -22936,6 +23128,77 @@ test "sparse dense norm and logsumexp helpers" {
             var tan_values = try matrix.tan();
             defer tan_values.deinit();
             try expectArray(tan_values, &.{ 2, 3 }, &.{ std.math.tan(@as(f64, 1)), 0, 0, 0, std.math.tan(@as(f64, 2)), std.math.tan(@as(f64, 3)) });
+
+            var domain_values = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 0.25, -0.5, 0.75 });
+            defer domain_values.deinit();
+            var domain_matrix = if (comptime Matrix == CooMatrix(f64))
+                try domain_values.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try domain_values.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try domain_values.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer domain_matrix.deinit();
+
+            var asin_values = try domain_matrix.asin();
+            defer asin_values.deinit();
+            try expectArray(asin_values, &.{ 2, 3 }, &.{ std.math.asin(@as(f64, 0.25)), 0, 0, 0, std.math.asin(@as(f64, -0.5)), std.math.asin(@as(f64, 0.75)) });
+
+            var arcsin_alias = try domain_matrix.arcsin();
+            defer arcsin_alias.deinit();
+            try expectArray(arcsin_alias, &.{ 2, 3 }, asin_values.data);
+
+            var acos_values = try domain_matrix.acos();
+            defer acos_values.deinit();
+            try expectArray(acos_values, &.{ 2, 3 }, &.{ std.math.acos(@as(f64, 0.25)), std.math.pi / 2.0, std.math.pi / 2.0, std.math.pi / 2.0, std.math.acos(@as(f64, -0.5)), std.math.acos(@as(f64, 0.75)) });
+
+            var arccos_alias = try domain_matrix.arccos();
+            defer arccos_alias.deinit();
+            try expectArray(arccos_alias, &.{ 2, 3 }, acos_values.data);
+
+            var atan_values = try domain_matrix.atan();
+            defer atan_values.deinit();
+            try expectArray(atan_values, &.{ 2, 3 }, &.{ std.math.atan(@as(f64, 0.25)), 0, 0, 0, std.math.atan(@as(f64, -0.5)), std.math.atan(@as(f64, 0.75)) });
+
+            var arctan_alias = try domain_matrix.arctan();
+            defer arctan_alias.deinit();
+            try expectArray(arctan_alias, &.{ 2, 3 }, atan_values.data);
+
+            var tanh_values = try domain_matrix.tanh();
+            defer tanh_values.deinit();
+            try expectArray(tanh_values, &.{ 2, 3 }, &.{ std.math.tanh(@as(f64, 0.25)), 0, 0, 0, std.math.tanh(@as(f64, -0.5)), std.math.tanh(@as(f64, 0.75)) });
+
+            var atanh_values = try domain_matrix.atanh();
+            defer atanh_values.deinit();
+            try expectArray(atanh_values, &.{ 2, 3 }, &.{ std.math.atanh(@as(f64, 0.25)), 0, 0, 0, std.math.atanh(@as(f64, -0.5)), std.math.atanh(@as(f64, 0.75)) });
+
+            var sinh_values = try matrix.sinh();
+            defer sinh_values.deinit();
+            try expectArray(sinh_values, &.{ 2, 3 }, &.{ std.math.sinh(@as(f64, 1)), 0, 0, 0, std.math.sinh(@as(f64, 2)), std.math.sinh(@as(f64, 3)) });
+
+            var cosh_values = try matrix.cosh();
+            defer cosh_values.deinit();
+            try expectArray(cosh_values, &.{ 2, 3 }, &.{ std.math.cosh(@as(f64, 1)), 1, 1, 1, std.math.cosh(@as(f64, 2)), std.math.cosh(@as(f64, 3)) });
+
+            var asinh_values = try matrix.asinh();
+            defer asinh_values.deinit();
+            try expectArray(asinh_values, &.{ 2, 3 }, &.{ std.math.asinh(@as(f64, 1)), 0, 0, 0, std.math.asinh(@as(f64, 2)), std.math.asinh(@as(f64, 3)) });
+
+            var acosh_source = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+            defer acosh_source.deinit();
+            var acosh_matrix = if (comptime Matrix == CooMatrix(f64))
+                try acosh_source.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try acosh_source.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try acosh_source.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer acosh_matrix.deinit();
+            var acosh_values = try acosh_matrix.acosh();
+            defer acosh_values.deinit();
+            try expectArray(acosh_values, &.{ 2, 3 }, &.{ 0, std.math.nan(f64), std.math.nan(f64), std.math.nan(f64), std.math.acosh(@as(f64, 2)), std.math.acosh(@as(f64, 3)) });
 
             var row_lse = try matrix.logsumexp(1, false);
             defer row_lse.deinit();
