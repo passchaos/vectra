@@ -1274,6 +1274,39 @@ pub fn CooMatrix(comptime T: type) type {
             );
         }
 
+        pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs.data);
+        }
+
+        pub fn diffSummaryDenseMeetsBounds(
+            self: Self,
+            rhs: array_mod.Array(T),
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
+        }
+
         pub fn isclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
             return self.iscloseEqualNan(rhs, rtol, atol, false);
         }
@@ -3271,6 +3304,39 @@ pub fn CsrMatrix(comptime T: type) type {
                 T,
                 lhs_dense.data,
                 rhs_dense.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
+        }
+
+        pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs.data);
+        }
+
+        pub fn diffSummaryDenseMeetsBounds(
+            self: Self,
+            rhs: array_mod.Array(T),
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs.data,
                 max_absolute_diff,
                 max_relative_diff,
                 max_squared_distance,
@@ -5489,6 +5555,39 @@ pub fn CscMatrix(comptime T: type) type {
                 T,
                 lhs_dense.data,
                 rhs_dense.data,
+                max_absolute_diff,
+                max_relative_diff,
+                max_squared_distance,
+                max_frobenius_distance,
+                max_relative_frobenius_distance,
+            );
+        }
+
+        pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummary(T, lhs_dense.data, rhs.data);
+        }
+
+        pub fn diffSummaryDenseMeetsBounds(
+            self: Self,
+            rhs: array_mod.Array(T),
+            max_absolute_diff: f64,
+            max_relative_diff: f64,
+            max_squared_distance: f64,
+            max_frobenius_distance: f64,
+            max_relative_frobenius_distance: f64,
+        ) SparseError!bool {
+            if (rhs.shape.len != 2) return error.NonMatrixArray;
+            if (self.rows != rhs.shape[0] or self.cols != rhs.shape[1]) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return denseDiffSummaryMeetsBounds(
+                T,
+                lhs_dense.data,
+                rhs.data,
                 max_absolute_diff,
                 max_relative_diff,
                 max_squared_distance,
@@ -8356,6 +8455,17 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs.diffSummaryMeetsBounds(rhs, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     try std.testing.expect(!(try lhs.diffSummaryMeetsBounds(rhs, 3.999, 2, 34, @sqrt(@as(f64, 34)), full_relative)));
     try std.testing.expectError(error.InvalidShape, lhs.diffSummaryMeetsBounds(rhs, 4, std.math.nan(f64), 34, @sqrt(@as(f64, 34)), full_relative));
+    var rhs_dense_for_summary = try rhs.toDense();
+    defer rhs_dense_for_summary.deinit();
+    const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
+    try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(full_summary.squared_distance, dense_summary.squared_distance, 1e-12);
+    try std.testing.expect(try lhs.diffSummaryDenseMeetsBounds(rhs_dense_for_summary, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    try std.testing.expect(!(try lhs.diffSummaryDenseMeetsBounds(rhs_dense_for_summary, 3.999, 2, 34, @sqrt(@as(f64, 34)), full_relative)));
+    try std.testing.expectError(error.InvalidShape, lhs.diffSummaryDenseMeetsBounds(rhs_dense_for_summary, 4, std.math.nan(f64), 34, @sqrt(@as(f64, 34)), full_relative));
+    var mismatched_dense_for_summary = try array_mod.Array(f64).zeros(gpa, &.{ 3, 3 });
+    defer mismatched_dense_for_summary.deinit();
+    try std.testing.expectError(error.ShapeMismatch, lhs.diffSummaryDense(mismatched_dense_for_summary));
     var coo_product = try lhs.hadamard(rhs);
     defer coo_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
@@ -8506,6 +8616,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(full_summary.dot, csr_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csr_full_summary.squared_distance, 1e-12);
     try std.testing.expect(try lhs_csr.diffSummaryMeetsBounds(rhs_csr, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    const csr_dense_summary = try lhs_csr.diffSummaryDense(rhs_dense_for_summary);
+    try std.testing.expectApproxEqAbs(csr_full_summary.dot, csr_dense_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(csr_full_summary.squared_distance, csr_dense_summary.squared_distance, 1e-12);
+    try std.testing.expect(try lhs_csr.diffSummaryDenseMeetsBounds(rhs_dense_for_summary, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     var csr_product = try lhs_csr.multiply(rhs_csr);
     defer csr_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 3 }, csr_product.row_offsets);
@@ -8549,6 +8663,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectApproxEqAbs(full_summary.dot, csc_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csc_full_summary.squared_distance, 1e-12);
     try std.testing.expect(try lhs_csc.diffSummaryMeetsBounds(rhs_csc, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
+    const csc_dense_summary = try lhs_csc.diffSummaryDense(rhs_dense_for_summary);
+    try std.testing.expectApproxEqAbs(csc_full_summary.dot, csc_dense_summary.dot, 1e-12);
+    try std.testing.expectApproxEqAbs(csc_full_summary.squared_distance, csc_dense_summary.squared_distance, 1e-12);
+    try std.testing.expect(try lhs_csc.diffSummaryDenseMeetsBounds(rhs_dense_for_summary, 4, 2, 34, @sqrt(@as(f64, 34)), full_relative));
     var csc_product = try lhs_csc.mul(rhs_csc);
     defer csc_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_product.col_offsets);
