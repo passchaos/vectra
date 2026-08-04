@@ -5906,16 +5906,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMedian(T, self, axis_opt, keepdims);
         }
 
+        pub fn medianOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.median(axis_opt, keepdims), out);
+        }
+
         pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.medianAxes(axes, keepdims), out);
         }
 
         pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.median(dim_opt, keepdim);
         }
 
+        pub fn medianDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianOut(dim_opt, keepdim, out);
+        }
+
         pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn medianDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianAxesOut(dims, keepdim, out);
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12330,16 +12346,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMedian(T, self, axis_opt, keepdims);
         }
 
+        pub fn medianOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.median(axis_opt, keepdims), out);
+        }
+
         pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.medianAxes(axes, keepdims), out);
         }
 
         pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.median(dim_opt, keepdim);
         }
 
+        pub fn medianDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianOut(dim_opt, keepdim, out);
+        }
+
         pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn medianDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianAxesOut(dims, keepdim, out);
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -18967,16 +18999,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMedian(T, self, axis_opt, keepdims);
         }
 
+        pub fn medianOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.median(axis_opt, keepdims), out);
+        }
+
         pub fn medianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn medianAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.medianAxes(axes, keepdims), out);
         }
 
         pub fn medianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.median(dim_opt, keepdim);
         }
 
+        pub fn medianDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianOut(dim_opt, keepdim, out);
+        }
+
         pub fn medianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.medianAxes(dims, keepdim);
+        }
+
+        pub fn medianDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.medianAxesOut(dims, keepdim, out);
         }
 
         pub fn quantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -27869,6 +27917,10 @@ test "sparse dense quantile helpers" {
             var flat_median = try matrix.median(null, false);
             defer flat_median.deinit();
             try expectArray(flat_median, &.{}, &.{0.5});
+            var scalar_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
+            defer scalar_out.deinit();
+            try matrix.medianOut(null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_median.data);
 
             var flat_upper_quartile = try matrix.quantile(0.75, null, true);
             defer flat_upper_quartile.deinit();
@@ -27877,22 +27929,40 @@ test "sparse dense quantile helpers" {
             var row_medians = try matrix.median(1, false);
             defer row_medians.deinit();
             try expectArray(row_medians, &.{2}, &.{ 0, 2 });
+            var row_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer row_out.deinit();
+            try matrix.medianOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_medians.data);
 
             var row_median_dims = try matrix.medianDim(-1, true);
             defer row_median_dims.deinit();
             try expectArray(row_median_dims, &.{ 2, 1 }, row_medians.data);
+            var row_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer row_keepdim_out.deinit();
+            try matrix.medianDimOut(-1, true, row_keepdim_out);
+            try expectArray(row_keepdim_out, &.{ 2, 1 }, row_median_dims.data);
 
             var column_medians = try matrix.median(0, false);
             defer column_medians.deinit();
             try expectArray(column_medians, &.{3}, &.{ 0.5, 1, 1.5 });
+            var column_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer column_out.deinit();
+            try matrix.medianOut(0, false, column_out);
+            try expectArray(column_out, &.{3}, column_medians.data);
 
             var all_axes_median = try matrix.medianAxes(&.{ 0, 1 }, false);
             defer all_axes_median.deinit();
             try expectArray(all_axes_median, &.{}, flat_median.data);
+            try matrix.medianAxesOut(&.{ 0, 1 }, false, scalar_out);
+            try expectArray(scalar_out, &.{}, all_axes_median.data);
 
             var all_axes_median_keepdim = try matrix.medianDims(&.{ 0, 1 }, true);
             defer all_axes_median_keepdim.deinit();
             try expectArray(all_axes_median_keepdim, &.{ 1, 1 }, flat_median.data);
+            var all_axes_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
+            defer all_axes_keepdim_out.deinit();
+            try matrix.medianDimsOut(&.{ 0, 1 }, true, all_axes_keepdim_out);
+            try expectArray(all_axes_keepdim_out, &.{ 1, 1 }, all_axes_median_keepdim.data);
 
             var lower_quartile = try matrix.quantile(0.25, null, false);
             defer lower_quartile.deinit();
