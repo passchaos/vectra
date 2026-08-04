@@ -361,6 +361,67 @@ fn sparseDenseGatherSigned(comptime T: type, matrix: anytype, axis_index: isize,
     return dense.gatherSigned(axis_index, indices);
 }
 
+fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
+    if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+}
+
+fn sparseValidatePutFlatIndices(rows: usize, cols: usize, indices: array_mod.Array(usize)) SparseError!void {
+    const extent = try sparseElementCount(rows, cols);
+    for (indices.data) |index| {
+        if (index >= extent) return error.IndexOutOfBounds;
+    }
+}
+
+fn sparseValidatePutFlatSignedIndices(rows: usize, cols: usize, indices: array_mod.Array(isize)) SparseError!void {
+    const extent = try sparseElementCount(rows, cols);
+    for (indices.data) |index| {
+        _ = try sparseNormalizeSignedIndex(index, extent);
+    }
+}
+
+fn sparseDensePutFlat(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    try sparseValidatePutFlatValues(T, indices, values);
+    try sparseValidatePutFlatIndices(matrix.rows, matrix.cols, indices);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlat(indices, values);
+}
+
+fn sparseDensePutFlatMode(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+    try sparseValidatePutFlatValues(T, indices, values);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlatMode(indices, values, mode);
+}
+
+fn sparseDensePutFlatScalar(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+    try sparseValidatePutFlatIndices(matrix.rows, matrix.cols, indices);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlatScalar(indices, value);
+}
+
+fn sparseDensePutFlatScalarMode(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlatScalarMode(indices, value, mode);
+}
+
+fn sparseDensePutFlatSigned(comptime T: type, matrix: anytype, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
+    try sparseValidatePutFlatSignedIndices(matrix.rows, matrix.cols, indices);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlatSigned(indices, values);
+}
+
+fn sparseDensePutFlatScalarSigned(comptime T: type, matrix: anytype, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
+    try sparseValidatePutFlatSignedIndices(matrix.rows, matrix.cols, indices);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putFlatScalarSigned(indices, value);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2429,6 +2490,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlat(T, self, indices, values);
+        }
+
+        pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalar(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatSigned(T, self, indices, values);
+        }
+
+        pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.putFlat(indices, values);
+        }
+
+        pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.putFlatScalar(indices, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -5611,6 +5704,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlat(T, self, indices, values);
+        }
+
+        pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalar(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatSigned(T, self, indices, values);
+        }
+
+        pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.putFlat(indices, values);
+        }
+
+        pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.putFlatScalar(indices, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -9008,6 +9133,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlat(T, self, indices, values);
+        }
+
+        pub fn putFlatMode(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T), mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatMode(T, self, indices, values, mode);
+        }
+
+        pub fn putFlatScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalar(T, self, indices, value);
+        }
+
+        pub fn putFlatScalarMode(self: Self, indices: array_mod.Array(usize), value: T, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarMode(T, self, indices, value, mode);
+        }
+
+        pub fn putFlatSigned(self: Self, indices: array_mod.Array(isize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatSigned(T, self, indices, values);
+        }
+
+        pub fn putFlatScalarSigned(self: Self, indices: array_mod.Array(isize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutFlatScalarSigned(T, self, indices, value);
+        }
+
+        pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.putFlat(indices, values);
+        }
+
+        pub fn indexPutScalar(self: Self, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return self.putFlatScalar(indices, value);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -13168,6 +13325,61 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var bad_gather_shape = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 0, 0, 0 }, &.{3});
             defer bad_gather_shape.deinit();
             try std.testing.expectError(error.ShapeMismatch, matrix.takeAlongAxis(bad_gather_shape, 1));
+
+            var put_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 3, 5 }, &.{3});
+            defer put_indices.deinit();
+            var put_flat_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 20, 21, 22 }, &.{3});
+            defer put_flat_values.deinit();
+            var put_flat = try matrix.putFlat(put_indices, put_flat_values);
+            defer put_flat.deinit();
+            try expectArray(put_flat, &.{ 2, 3 }, &.{ 1, 20, 0, 21, 2, 22 });
+
+            var put_flat_alias = try matrix.indexPut(put_indices, put_flat_values);
+            defer put_flat_alias.deinit();
+            try expectArray(put_flat_alias, &.{ 2, 3 }, &.{ 1, 20, 0, 21, 2, 22 });
+
+            var put_flat_scalar = try matrix.putFlatScalar(put_indices, 30);
+            defer put_flat_scalar.deinit();
+            try expectArray(put_flat_scalar, &.{ 2, 3 }, &.{ 1, 30, 0, 30, 2, 30 });
+
+            var put_flat_scalar_alias = try matrix.indexPutScalar(put_indices, 31);
+            defer put_flat_scalar_alias.deinit();
+            try expectArray(put_flat_scalar_alias, &.{ 2, 3 }, &.{ 1, 31, 0, 31, 2, 31 });
+
+            var scalar_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{40}, &.{1});
+            defer scalar_values.deinit();
+            var put_flat_broadcast = try matrix.putFlat(put_indices, scalar_values);
+            defer put_flat_broadcast.deinit();
+            try expectArray(put_flat_broadcast, &.{ 2, 3 }, &.{ 1, 40, 0, 40, 2, 40 });
+
+            var wrapped_put_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 6, 7 }, &.{2});
+            defer wrapped_put_indices.deinit();
+            var mode_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 50, 51 }, &.{2});
+            defer mode_values.deinit();
+            var put_mode = try matrix.putFlatMode(wrapped_put_indices, mode_values, .wrap);
+            defer put_mode.deinit();
+            try expectArray(put_mode, &.{ 2, 3 }, &.{ 50, 51, 0, 0, 2, 3 });
+
+            var put_flat_scalar_mode = try matrix.putFlatScalarMode(wrapped_put_indices, 60, .wrap);
+            defer put_flat_scalar_mode.deinit();
+            try expectArray(put_flat_scalar_mode, &.{ 2, 3 }, &.{ 60, 60, 0, 0, 2, 3 });
+
+            var signed_put_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
+            defer signed_put_indices.deinit();
+            var signed_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 70, 71 }, &.{2});
+            defer signed_values.deinit();
+            var put_signed = try matrix.putFlatSigned(signed_put_indices, signed_values);
+            defer put_signed.deinit();
+            try expectArray(put_signed, &.{ 2, 3 }, &.{ 71, 0, 0, 0, 2, 70 });
+
+            var put_signed_scalar = try matrix.putFlatScalarSigned(signed_put_indices, 80);
+            defer put_signed_scalar.deinit();
+            try expectArray(put_signed_scalar, &.{ 2, 3 }, &.{ 80, 0, 0, 0, 2, 80 });
+
+            var bad_put_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
+            defer bad_put_values.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.putFlat(put_indices, bad_put_values));
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.putFlat(bad_take_indices, scalar_values));
         }
     }.check;
 
