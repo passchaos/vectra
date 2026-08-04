@@ -240,6 +240,12 @@ fn sparseDenseMaskedSelect(comptime T: type, matrix: anytype, mask: array_mod.Ar
     return dense.maskedSelect(mask);
 }
 
+fn sparseDenseCompress(comptime T: type, matrix: anytype, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.compress(condition, axis_opt);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2244,6 +2250,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCompress(T, self, condition, axis_opt);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -5358,6 +5368,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCompress(T, self, condition, axis_opt);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -8687,6 +8701,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn maskedSelect(self: Self, mask: array_mod.Array(bool)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedSelect(T, self, mask);
+        }
+
+        pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCompress(T, self, condition, axis_opt);
         }
 
         pub fn where(self: Self, mask: array_mod.Array(bool), other: Self) SparseError!array_mod.Array(T) {
@@ -12696,6 +12714,27 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer masked.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, masked.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, masked.data);
+
+            var row_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false }, &.{2});
+            defer row_condition.deinit();
+            var compressed_rows = try matrix.compress(row_condition, 0);
+            defer compressed_rows.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 1, 3 }, compressed_rows.shape);
+            try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0 }, compressed_rows.data);
+
+            var column_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false, true }, &.{3});
+            defer column_condition.deinit();
+            var compressed_cols = try matrix.compress(column_condition, 1);
+            defer compressed_cols.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, compressed_cols.shape);
+            try std.testing.expectEqualSlices(f64, &.{ 1, 0, 0, 3 }, compressed_cols.data);
+
+            var flat_condition = try array_mod.Array(bool).fromSlice(matrix.allocator, &.{ true, false, true, false, true, false }, &.{6});
+            defer flat_condition.deinit();
+            var compressed_flat = try matrix.compress(flat_condition, null);
+            defer compressed_flat.deinit();
+            try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
+            try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, compressed_flat.data);
         }
     }.check;
 
