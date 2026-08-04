@@ -642,6 +642,12 @@ fn sparseDenseSolve(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) 
     return dense.solve(rhs);
 }
 
+fn sparseDenseMatmul(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.matmul(rhs);
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3283,6 +3289,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -6945,6 +6959,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -10818,6 +10840,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
+        }
+
+        pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15915,6 +15945,23 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
+
+            var identity_rhs = try array_mod.Array(f64).fromSlice(upper.allocator, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
+            defer identity_rhs.deinit();
+            var matmul_identity = try upper.matmul(identity_rhs);
+            defer matmul_identity.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, matmul_identity.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), matmul_identity.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 2), matmul_identity.data[1], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), matmul_identity.data[2], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), matmul_identity.data[3], 1e-12);
+
+            var mm_identity = try upper.mm(identity_rhs);
+            defer mm_identity.deinit();
+            try std.testing.expectEqualSlices(usize, matmul_identity.shape, mm_identity.shape);
+            for (matmul_identity.data, mm_identity.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var triangular_solution = try upper.solveTriangular(rhs, .upper, .non_unit);
             defer triangular_solution.deinit();
