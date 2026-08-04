@@ -177,6 +177,15 @@ fn sparseAbsValueExceedsTolerance(comptime T: type, value: T, tolerance: T) bool
     return absValue(T, value) > tolerance;
 }
 
+fn sparsePruneZerosNnz(comptime T: type, values: []const T, tolerance: T) SparseError!usize {
+    try validateSparseValueRange(T, zero(T), tolerance);
+    var keep_count: usize = 0;
+    for (values) |value| {
+        if (sparseAbsValueExceedsTolerance(T, value, tolerance)) keep_count += 1;
+    }
+    return keep_count;
+}
+
 fn valueLess(comptime T: type, lhs: T, rhs: T) bool {
     return lhs < rhs;
 }
@@ -1647,12 +1656,12 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn pruneZerosNnz(self: Self, tolerance: T) SparseError!usize {
+            return sparsePruneZerosNnz(T, self.values, tolerance);
+        }
+
         pub fn pruneZeros(self: Self, tolerance: T) SparseError!Self {
-            try validateSparseValueRange(T, zero(T), tolerance);
-            var keep_count: usize = 0;
-            for (self.values) |value| {
-                if (sparseAbsValueExceedsTolerance(T, value, tolerance)) keep_count += 1;
-            }
+            const keep_count = try self.pruneZerosNnz(tolerance);
 
             var row_indices = try self.allocator.alloc(usize, keep_count);
             errdefer self.allocator.free(row_indices);
@@ -3816,12 +3825,12 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
+        pub fn pruneZerosNnz(self: Self, tolerance: T) SparseError!usize {
+            return sparsePruneZerosNnz(T, self.values, tolerance);
+        }
+
         pub fn pruneZeros(self: Self, tolerance: T) SparseError!Self {
-            try validateSparseValueRange(T, zero(T), tolerance);
-            var keep_count: usize = 0;
-            for (self.values) |value| {
-                if (sparseAbsValueExceedsTolerance(T, value, tolerance)) keep_count += 1;
-            }
+            const keep_count = try self.pruneZerosNnz(tolerance);
 
             var row_offsets = try self.allocator.alloc(usize, self.rows + 1);
             errdefer self.allocator.free(row_offsets);
@@ -6217,12 +6226,12 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn pruneZerosNnz(self: Self, tolerance: T) SparseError!usize {
+            return sparsePruneZerosNnz(T, self.values, tolerance);
+        }
+
         pub fn pruneZeros(self: Self, tolerance: T) SparseError!Self {
-            try validateSparseValueRange(T, zero(T), tolerance);
-            var keep_count: usize = 0;
-            for (self.values) |value| {
-                if (sparseAbsValueExceedsTolerance(T, value, tolerance)) keep_count += 1;
-            }
+            const keep_count = try self.pruneZerosNnz(tolerance);
 
             var col_offsets = try self.allocator.alloc(usize, self.cols + 1);
             errdefer self.allocator.free(col_offsets);
@@ -8887,7 +8896,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{1}, coo_tolerance_pruned.row_indices);
     try std.testing.expectEqualSlices(usize, &.{2}, coo_tolerance_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{9}, coo_tolerance_pruned.values);
+    try std.testing.expectEqual(@as(usize, 1), try coo_sum.pruneZerosNnz(5));
     try std.testing.expectError(error.InvalidShape, coo_sum.pruneZeros(std.math.nan(f64)));
+    try std.testing.expectError(error.InvalidShape, coo_sum.pruneZerosNnz(std.math.nan(f64)));
     var coo_scaled = try coo_pruned.scale(2);
     defer coo_scaled.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 10, 18 }, coo_scaled.values);
@@ -9105,7 +9116,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1 }, csr_tolerance_pruned.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{2}, csr_tolerance_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{9}, csr_tolerance_pruned.values);
+    try std.testing.expectEqual(@as(usize, 1), try csr_sum.pruneZerosNnz(5));
     try std.testing.expectError(error.InvalidShape, csr_sum.pruneZeros(std.math.inf(f64)));
+    try std.testing.expectError(error.InvalidShape, csr_sum.pruneZerosNnz(std.math.inf(f64)));
     var csr_scaled = try csr_pruned.scale(3);
     defer csr_scaled.deinit();
     try std.testing.expectEqualSlices(usize, csr_pruned.row_offsets, csr_scaled.row_offsets);
@@ -9174,7 +9187,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 0, 1 }, csc_tolerance_pruned.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{1}, csc_tolerance_pruned.row_indices);
     try std.testing.expectEqualSlices(f64, &.{9}, csc_tolerance_pruned.values);
+    try std.testing.expectEqual(@as(usize, 1), try csc_sum.pruneZerosNnz(5));
     try std.testing.expectError(error.InvalidShape, csc_sum.pruneZeros(std.math.nan(f64)));
+    try std.testing.expectError(error.InvalidShape, csc_sum.pruneZerosNnz(std.math.nan(f64)));
     var csc_scaled_zero = try csc_pruned.scale(0);
     defer csc_scaled_zero.deinit();
     try std.testing.expectEqualSlices(usize, csc_pruned.col_offsets, csc_scaled_zero.col_offsets);
