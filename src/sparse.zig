@@ -876,6 +876,24 @@ fn sparseDenseCumulativeAxis(comptime T: type, matrix: anytype, axis_index: isiz
     };
 }
 
+fn sparseDenseDiff(comptime T: type, matrix: anytype, axis_index: isize, n: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.diff(axis_index, n);
+}
+
+fn sparseDenseDiffWith(comptime T: type, matrix: anytype, axis_index: isize, n: usize, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.diffWith(axis_index, n, prepend, append);
+}
+
+fn sparseDenseEdiff1d(comptime T: type, matrix: anytype, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ediff1d(prepend, append);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3920,6 +3938,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logcumsumexpAxis(dim_index);
+        }
+
+        pub fn diff(self: Self, axis_index: isize, n: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiff(T, self, axis_index, n);
+        }
+
+        pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDiffWith(T, self, axis_index, n, prepend, append);
+        }
+
+        pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseEdiff1d(T, self, prepend, append);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -7962,6 +7992,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logcumsumexpAxis(dim_index);
+        }
+
+        pub fn diff(self: Self, axis_index: isize, n: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiff(T, self, axis_index, n);
+        }
+
+        pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDiffWith(T, self, axis_index, n, prepend, append);
+        }
+
+        pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseEdiff1d(T, self, prepend, append);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -12215,6 +12257,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.logcumsumexpAxis(dim_index);
+        }
+
+        pub fn diff(self: Self, axis_index: isize, n: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiff(T, self, axis_index, n);
+        }
+
+        pub fn diffWith(self: Self, axis_index: isize, n: usize, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDiffWith(T, self, axis_index, n, prepend, append);
+        }
+
+        pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseEdiff1d(T, self, prepend, append);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -18829,8 +18883,41 @@ test "sparse dense cumulative helpers" {
             try std.testing.expectApproxEqAbs(@as(f64, 1), log_columns.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(log_e_plus_one, log_columns.data[3], 1e-12);
 
+            var diff_rows = try matrix.diff(1, 1);
+            defer diff_rows.deinit();
+            try expectArray(diff_rows, &.{ 2, 2 }, &.{ -1, 0, 2, 1 });
+
+            var diff_columns = try matrix.diff(0, 1);
+            defer diff_columns.deinit();
+            try expectArray(diff_columns, &.{ 1, 3 }, &.{ -1, 2, 3 });
+
+            var diff_rows_twice = try matrix.diff(1, 2);
+            defer diff_rows_twice.deinit();
+            try expectArray(diff_rows_twice, &.{ 2, 1 }, &.{ 1, -1 });
+
+            var diff_zero = try matrix.diff(1, 0);
+            defer diff_zero.deinit();
+            try expectArray(diff_zero, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var prepend = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ -1, -2 }, &.{ 2, 1 });
+            defer prepend.deinit();
+            var append = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 4, 5 }, &.{ 2, 1 });
+            defer append.deinit();
+            var diff_with = try matrix.diffWith(1, 1, prepend, append);
+            defer diff_with.deinit();
+            try expectArray(diff_with, &.{ 2, 4 }, &.{ 2, -1, 0, 4, 2, 2, 1, 2 });
+
+            var ediff_prepend = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{-9}, &.{1});
+            defer ediff_prepend.deinit();
+            var ediff_append = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 9, 10 }, &.{2});
+            defer ediff_append.deinit();
+            var edge_diff = try matrix.ediff1d(ediff_prepend, ediff_append);
+            defer edge_diff.deinit();
+            try expectArray(edge_diff, &.{8}, &.{ -9, -1, 0, 0, 2, 1, 9, 10 });
+
             try std.testing.expectError(error.InvalidAxis, matrix.cumsumAxis(2));
             try std.testing.expectError(error.InvalidAxis, matrix.logcumsumexpAxis(2));
+            try std.testing.expectError(error.InvalidAxis, matrix.diff(2, 1));
         }
     }.check;
 
