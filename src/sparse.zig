@@ -361,6 +361,31 @@ fn sparseDenseGatherSigned(comptime T: type, matrix: anytype, axis_index: isize,
     return dense.gatherSigned(axis_index, indices);
 }
 
+fn sparseValidateScatterShapes(rows: usize, cols: usize, axis_index: isize, indices_shape: []const usize, src_shape: []const usize) SparseError!void {
+    const axis = try sparseValidateGatherShape(rows, cols, indices_shape, axis_index);
+    if (!std.mem.eql(usize, indices_shape, src_shape)) return error.ShapeMismatch;
+    _ = axis;
+}
+
+fn sparseValidateScatterIndices(rows: usize, cols: usize, axis_index: isize, indices: array_mod.Array(usize), src_shape: []const usize) SparseError!void {
+    try sparseValidateScatterShapes(rows, cols, axis_index, indices.shape, src_shape);
+    try sparseValidateGatherIndices(rows, cols, indices, axis_index);
+}
+
+fn sparseDenseScatter(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    try sparseValidateScatterIndices(matrix.rows, matrix.cols, axis_index, indices, src.shape);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.scatter(axis_index, indices, src);
+}
+
+fn sparseDenseScatterScalar(comptime T: type, matrix: anytype, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+    try sparseValidateGatherIndices(matrix.rows, matrix.cols, indices, axis_index);
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.scatterScalar(axis_index, indices, value);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2490,6 +2515,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseScatter(T, self, axis_index, indices, src);
+        }
+
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterScalar(T, self, axis_index, indices, value);
+        }
+
+        pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.scatter(axis_index, indices, src);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -5704,6 +5741,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseScatter(T, self, axis_index, indices, src);
+        }
+
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterScalar(T, self, axis_index, indices, value);
+        }
+
+        pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.scatter(axis_index, indices, src);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9133,6 +9182,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseScatter(T, self, axis_index, indices, src);
+        }
+
+        pub fn scatterScalar(self: Self, axis_index: isize, indices: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseScatterScalar(T, self, axis_index, indices, value);
+        }
+
+        pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.scatter(axis_index, indices, src);
         }
 
         pub fn putFlat(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -13328,6 +13389,39 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var put_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 3, 5 }, &.{3});
             defer put_indices.deinit();
+            var scatter_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
+                0, 1, 2,
+                2, 1, 0,
+            }, &.{ 2, 3 });
+            defer scatter_indices.deinit();
+            var scatter_src = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                9, 8, 7,
+                6, 5, 4,
+            }, &.{ 2, 3 });
+            defer scatter_src.deinit();
+            var scatter_out = try matrix.scatter(1, scatter_indices, scatter_src);
+            defer scatter_out.deinit();
+            try expectArray(scatter_out, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+
+            var put_along = try matrix.putAlongAxis(scatter_indices, scatter_src, 1);
+            defer put_along.deinit();
+            try expectArray(put_along, &.{ 2, 3 }, &.{ 9, 8, 7, 4, 5, 6 });
+
+            var scatter_scalar = try matrix.scatterScalar(1, scatter_indices, -5);
+            defer scatter_scalar.deinit();
+            try expectArray(scatter_scalar, &.{ 2, 3 }, &.{ -5, -5, -5, -5, -5, -5 });
+
+            var bad_scatter_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
+                0, 3, 0,
+                0, 0, 0,
+            }, &.{ 2, 3 });
+            defer bad_scatter_indices.deinit();
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.scatter(1, bad_scatter_indices, scatter_src));
+
+            var bad_scatter_src = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2, 3 }, &.{3});
+            defer bad_scatter_src.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.scatter(1, scatter_indices, bad_scatter_src));
+
             var put_flat_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 20, 21, 22 }, &.{3});
             defer put_flat_values.deinit();
             var put_flat = try matrix.putFlat(put_indices, put_flat_values);
