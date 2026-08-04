@@ -3115,6 +3115,36 @@ pub fn CooMatrix(comptime T: type) type {
             return false;
         }
 
+        pub fn setDiagonal(self: *Self, value: T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.rows) |index| {
+                var found = false;
+                for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                    if (entry_row == index and entry_col == index) {
+                        entry_value.* = value;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addToDiagonal(self: *Self, alpha: T) SparseError!void {
+            ensureNumeric(T);
+            if (alpha == zero(T)) return;
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.rows) |index| {
+                var found = false;
+                for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                    if (entry_row == index and entry_col == index) {
+                        entry_value.* += alpha;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
         pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -6036,6 +6066,36 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn setDiagonal(self: *Self, value: T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.rows) |row| {
+                var found = false;
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (self.col_indices[pos] == row) {
+                        self.values[pos] = value;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addToDiagonal(self: *Self, alpha: T) SparseError!void {
+            ensureNumeric(T);
+            if (alpha == zero(T)) return;
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.rows) |row| {
+                var found = false;
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (self.col_indices[pos] == row) {
+                        self.values[pos] += alpha;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
         pub fn minAbsDiagonal(self: Self) SparseError!T {
             var diagonal_values = try self.diagonal();
             defer diagonal_values.deinit();
@@ -8654,6 +8714,36 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn setDiagonal(self: *Self, value: T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.cols) |col| {
+                var found = false;
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (self.row_indices[pos] == col) {
+                        self.values[pos] = value;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addToDiagonal(self: *Self, alpha: T) SparseError!void {
+            ensureNumeric(T);
+            if (alpha == zero(T)) return;
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            for (0..self.cols) |col| {
+                var found = false;
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (self.row_indices[pos] == col) {
+                        self.values[pos] += alpha;
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
         pub fn minAbsDiagonal(self: Self) SparseError!T {
             var diagonal_values = try self.diagonal();
             defer diagonal_values.deinit();
@@ -9255,6 +9345,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(usize, &.{4}, upper_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{3}, upper_pruned.values);
     try std.testing.expectError(error.InvalidShape, cooFromDiagonalPrunedNnz(f64, &.{ 2, 0, 3 }, 2, std.math.nan(f64)));
+    try std.testing.expectError(error.InvalidShape, upper_diag.setDiagonal(1));
 
     var lower_csr = try csrFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
     defer lower_csr.deinit();
@@ -9269,6 +9360,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(usize, &.{1}, lower_csr_pruned.col_indices);
     try std.testing.expectEqualSlices(f64, &.{5}, lower_csr_pruned.values);
     try std.testing.expectError(error.InvalidShape, csrFromDiagonalPrunedNnz(f64, &.{ 4, 5 }, -1, std.math.inf(f64)));
+    try std.testing.expectError(error.InvalidShape, lower_csr.addToDiagonal(1));
     var lower_csc = try cscFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
     defer lower_csc.deinit();
     try std.testing.expectEqual(@as(usize, 2), try cscFromDiagonalNnz(f64, &.{ 4, 5 }, -1));
@@ -9282,6 +9374,7 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(usize, &.{2}, lower_csc_pruned.row_indices);
     try std.testing.expectEqualSlices(f64, &.{5}, lower_csc_pruned.values);
     try std.testing.expectError(error.InvalidShape, cscFromDiagonalPrunedNnz(f64, &.{ 4, 5 }, -1, -1));
+    try std.testing.expectError(error.InvalidShape, lower_csc.setDiagonal(1));
 }
 
 test "coo sparse dense roundtrip and compressed conversions" {
@@ -10856,6 +10949,16 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var diagonal = try symmetric.diagonal();
     defer diagonal.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
+    var diagonal_mut = try symmetric.clone();
+    defer diagonal_mut.deinit();
+    try diagonal_mut.addToDiagonal(1);
+    var diagonal_mut_values = try diagonal_mut.diagonal();
+    defer diagonal_mut_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 5, 6, 7 }, diagonal_mut_values.data);
+    try diagonal_mut.setDiagonal(9);
+    var diagonal_set_values = try diagonal_mut.diagonal();
+    defer diagonal_set_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9 }, diagonal_set_values.data);
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
     try std.testing.expect(try symmetric.traceInRange(15, 15));
     try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
@@ -10967,6 +11070,12 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var duplicate_diag = try duplicate_diagonal.diagonal();
     defer duplicate_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 0 }, duplicate_diag.data);
+    var duplicate_diagonal_mut = try duplicate_diagonal.clone();
+    defer duplicate_diagonal_mut.deinit();
+    try duplicate_diagonal_mut.addToDiagonal(1);
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 3, 5, -3 }, duplicate_diagonal_mut.values);
+    try duplicate_diagonal_mut.setDiagonal(7);
+    try std.testing.expectEqualSlices(f64, &.{ 7, 7, 3, 7, 7 }, duplicate_diagonal_mut.values);
     try std.testing.expectApproxEqAbs(@as(f64, 3), try duplicate_diagonal.trace(), 1e-12);
     try std.testing.expect(try duplicate_diagonal.traceInRange(3, 3));
     try std.testing.expectApproxEqAbs(@as(f64, 1.5), try duplicate_diagonal.normalizedTrace(), 1e-12);
@@ -10989,6 +11098,7 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var duplicate_symmetric = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 0, 1, 1 }, &.{ 1, 1, 0, 0 }, &.{ 1, 2, 1.5, 1.5 });
     defer duplicate_symmetric.deinit();
     try std.testing.expectEqual(@as(usize, 2), try duplicate_symmetric.missingDiagonalCount());
+    try std.testing.expectError(error.InvalidShape, duplicate_symmetric.addToDiagonal(1));
     try std.testing.expect(try duplicate_symmetric.structurallySymmetric());
     try std.testing.expect(try duplicate_symmetric.numericallySymmetric(1e-12));
 }
@@ -11008,6 +11118,25 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
+    var square_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        4, 1, 0,
+        1, 5, 2,
+        0, 2, 6,
+    }, &.{ 3, 3 });
+    defer square_dense.deinit();
+    var square_csr = try csrFromDense(f64, square_dense);
+    defer square_csr.deinit();
+    try square_csr.addToDiagonal(2);
+    var square_csr_diag = try square_csr.diagonal();
+    defer square_csr_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 7, 8 }, square_csr_diag.data);
+    try square_csr.setDiagonal(3);
+    var square_csr_set_diag = try square_csr.diagonal();
+    defer square_csr_set_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, square_csr_set_diag.data);
+    var missing_csr = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
+    defer missing_csr.deinit();
+    try std.testing.expectError(error.InvalidShape, missing_csr.setDiagonal(1));
 
     var dense2 = try csr.toDense();
     defer dense2.deinit();
@@ -11018,6 +11147,19 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+    var square_csc = try cscFromDense(f64, square_dense);
+    defer square_csc.deinit();
+    try square_csc.addToDiagonal(2);
+    var square_csc_diag = try square_csc.diagonal();
+    defer square_csc_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 6, 7, 8 }, square_csc_diag.data);
+    try square_csc.setDiagonal(3);
+    var square_csc_set_diag = try square_csc.diagonal();
+    defer square_csc_set_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, square_csc_set_diag.data);
+    var missing_csc = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
+    defer missing_csc.deinit();
+    try std.testing.expectError(error.InvalidShape, missing_csc.addToDiagonal(1));
     var csc_dense = try csc.toDense();
     defer csc_dense.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csc_dense.data);
