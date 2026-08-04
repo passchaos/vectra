@@ -87,6 +87,7 @@ const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal 
 const SparseDenseSetOp = enum { union1d, intersect1d, setdiff1d, setxor1d };
 const SparseDenseCumulative = enum { cumsum, cumprod, cummax, cummin, logcumsumexp };
 const SparseDenseNanReduction = enum { sum, mean, min, max };
+const SparseDenseUnary = enum { exp, exp2, expm1, log, log2, log10, log1p };
 
 fn sparseComplexRealType(comptime T: type) type {
     if (comptime T == array_mod.Complex64) return f32;
@@ -192,6 +193,20 @@ fn sparseDenseLogicalNot(matrix: anytype) SparseError!array_mod.Array(bool) {
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.logicalNot();
+}
+
+fn sparseDenseUnary(comptime T: type, matrix: anytype, comptime op: SparseDenseUnary) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .exp => dense.exp(),
+        .exp2 => dense.exp2(),
+        .expm1 => dense.expm1(),
+        .log => dense.log(),
+        .log2 => dense.log2(),
+        .log10 => dense.log10(),
+        .log1p => dense.log1p(),
+    };
 }
 
 fn sparseDenseLogicalBinary(lhs: anytype, rhs: @TypeOf(lhs), comptime op: SparseLogicalBinary) SparseError!array_mod.Array(bool) {
@@ -4792,6 +4807,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn exp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp);
+        }
+
+        pub fn exp2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp2);
+        }
+
+        pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn log(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log);
+        }
+
+        pub fn log2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log2);
+        }
+
+        pub fn log10(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log10);
+        }
+
+        pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log1p);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -9622,6 +9665,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn exp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp);
+        }
+
+        pub fn exp2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp2);
+        }
+
+        pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn log(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log);
+        }
+
+        pub fn log2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log2);
+        }
+
+        pub fn log10(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log10);
+        }
+
+        pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log1p);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -14663,6 +14734,34 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn exp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp);
+        }
+
+        pub fn exp2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .exp2);
+        }
+
+        pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn log(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log);
+        }
+
+        pub fn log2(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log2);
+        }
+
+        pub fn log10(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log10);
+        }
+
+        pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseUnary(T, self, .log1p);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -21849,7 +21948,15 @@ test "sparse dense fused elementwise helpers" {
     const expectFused = struct {
         fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
             try std.testing.expectEqualSlices(usize, shape, values.shape);
-            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+            for (expected, values.data) |want, got| {
+                if (std.math.isInf(want) or std.math.isInf(got)) {
+                    try std.testing.expectEqual(want, got);
+                } else if (std.math.isNan(want) or std.math.isNan(got)) {
+                    try std.testing.expect(std.math.isNan(want) and std.math.isNan(got));
+                } else {
+                    try std.testing.expectApproxEqAbs(want, got, 1e-12);
+                }
+            }
         }
 
         fn check(comptime Matrix: type, matrix: Matrix) !void {
@@ -22629,6 +22736,48 @@ test "sparse dense norm and logsumexp helpers" {
             var all_axes_l1 = try matrix.normDims(1, &.{ 0, 1 }, false);
             defer all_axes_l1.deinit();
             try expectArray(all_axes_l1, &.{}, flat_l1.data);
+
+            var exp_values = try matrix.exp();
+            defer exp_values.deinit();
+            try expectArray(exp_values, &.{ 2, 3 }, &.{
+                std.math.exp(@as(f64, 1)),
+                1,
+                1,
+                1,
+                std.math.exp(@as(f64, 2)),
+                std.math.exp(@as(f64, 3)),
+            });
+
+            var exp2_values = try matrix.exp2();
+            defer exp2_values.deinit();
+            try expectArray(exp2_values, &.{ 2, 3 }, &.{ 2, 1, 1, 1, 4, 8 });
+
+            var expm1_values = try matrix.expm1();
+            defer expm1_values.deinit();
+            try expectArray(expm1_values, &.{ 2, 3 }, &.{
+                std.math.exp(@as(f64, 1)) - 1,
+                0,
+                0,
+                0,
+                std.math.exp(@as(f64, 2)) - 1,
+                std.math.exp(@as(f64, 3)) - 1,
+            });
+
+            var log_values = try matrix.log();
+            defer log_values.deinit();
+            try expectArray(log_values, &.{ 2, 3 }, &.{ 0, -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), std.math.log(f64, std.math.e, 2), std.math.log(f64, std.math.e, 3) });
+
+            var log2_values = try matrix.log2();
+            defer log2_values.deinit();
+            try expectArray(log2_values, &.{ 2, 3 }, &.{ 0, -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), 1, std.math.log2(@as(f64, 3)) });
+
+            var log10_values = try matrix.log10();
+            defer log10_values.deinit();
+            try expectArray(log10_values, &.{ 2, 3 }, &.{ 0, -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), std.math.log10(@as(f64, 2)), std.math.log10(@as(f64, 3)) });
+
+            var log1p_values = try matrix.log1p();
+            defer log1p_values.deinit();
+            try expectArray(log1p_values, &.{ 2, 3 }, &.{ std.math.log1p(@as(f64, 1)), 0, 0, 0, std.math.log1p(@as(f64, 2)), std.math.log1p(@as(f64, 3)) });
 
             var row_lse = try matrix.logsumexp(1, false);
             defer row_lse.deinit();
