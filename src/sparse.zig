@@ -853,6 +853,34 @@ fn sparseDenseCross(comptime T: type, matrix: anytype, rhs: anytype, axis_index:
     }
 }
 
+fn sparseDenseConvolve2d(comptime T: type, matrix: anytype, rhs: @TypeOf(matrix), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+    var lhs_dense = try matrix.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.convolve2d(rhs_dense, mode);
+}
+
+fn sparseDenseConvolve2dArray(comptime T: type, matrix: anytype, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.convolve2d(kernel, mode);
+}
+
+fn sparseDenseCorrelate2d(comptime T: type, matrix: anytype, rhs: @TypeOf(matrix), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+    var lhs_dense = try matrix.toDense();
+    defer lhs_dense.deinit();
+    var rhs_dense = try rhs.toDense();
+    defer rhs_dense.deinit();
+    return lhs_dense.correlate2d(rhs_dense, mode);
+}
+
+fn sparseDenseCorrelate2dArray(comptime T: type, matrix: anytype, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.correlate2d(kernel, mode);
+}
+
 fn sparseDenseSort(comptime T: type, matrix: anytype, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4598,6 +4626,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2d(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2d(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2dArray(T, self, kernel, mode);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -9708,6 +9752,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2d(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2d(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2dArray(T, self, kernel, mode);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15029,6 +15089,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2d(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2d(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
+            return sparseDenseCorrelate2dArray(T, self, kernel, mode);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -23294,6 +23370,76 @@ test "sparse dense fused elementwise helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectFused(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense 2d signal helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectSignal = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var kernel_coo = try cooFromSlices(
+                f64,
+                matrix.allocator,
+                2,
+                2,
+                &.{ 0, 0, 1, 1 },
+                &.{ 0, 1, 0, 1 },
+                &.{ 1, 2, 3, 4 },
+            );
+            defer kernel_coo.deinit();
+            var kernel_same_format = if (comptime Matrix == CooMatrix(f64))
+                try kernel_coo.clone()
+            else if (comptime Matrix == CsrMatrix(f64))
+                try kernel_coo.toCsr()
+            else if (comptime Matrix == CscMatrix(f64))
+                try kernel_coo.toCsc()
+            else
+                @compileError("unexpected sparse matrix format");
+            defer kernel_same_format.deinit();
+            var kernel_dense = try kernel_coo.toDense();
+            defer kernel_dense.deinit();
+
+            var convolved = try matrix.convolve2d(kernel_same_format, .full);
+            defer convolved.deinit();
+            try expectArray(convolved, &.{ 3, 3 }, &.{ 1, 2, 0, 3, 6, 4, 0, 6, 8 });
+
+            var convolved_array = try matrix.convolve2dArray(kernel_dense, .full);
+            defer convolved_array.deinit();
+            try expectArray(convolved_array, &.{ 3, 3 }, convolved.data);
+
+            var correlated = try matrix.correlate2d(kernel_same_format, .full);
+            defer correlated.deinit();
+            try expectArray(correlated, &.{ 3, 3 }, &.{ 4, 3, 0, 2, 9, 6, 0, 4, 2 });
+
+            var correlated_array = try matrix.correlate2dArray(kernel_dense, .full);
+            defer correlated_array.deinit();
+            try expectArray(correlated_array, &.{ 3, 3 }, correlated.data);
+
+            var same_convolution = try matrix.convolve2d(kernel_same_format, .same);
+            defer same_convolution.deinit();
+            try expectArray(same_convolution, &.{ 2, 2 }, &.{ 1, 2, 3, 6 });
+
+            var bad_kernel = try array_mod.Array(f64).ones(matrix.allocator, &.{2});
+            defer bad_kernel.deinit();
+            try std.testing.expectError(error.NonMatrixArray, matrix.convolve2dArray(bad_kernel, .full));
+            try std.testing.expectError(error.NonMatrixArray, matrix.correlate2dArray(bad_kernel, .full));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ 1, 2 });
+    defer matrix.deinit();
+    try expectSignal(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectSignal(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectSignal(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse dense numeric array helpers" {
