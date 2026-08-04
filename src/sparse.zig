@@ -1153,6 +1153,36 @@ fn sparseDenseNextAfterArray(comptime T: type, matrix: anytype, rhs: array_mod.A
     return dense.nextAfter(rhs);
 }
 
+fn sparseDenseCopysignArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.copysign(rhs);
+}
+
+fn sparseDenseHeavisideArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.heaviside(rhs);
+}
+
+fn sparseDenseLogAddExpArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logAddExp(rhs);
+}
+
+fn sparseDenseLogAddExp2Array(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logAddExp2(rhs);
+}
+
+fn sparseDenseXlogyArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.xlogy(rhs);
+}
+
 fn sparseDenseAddScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4827,6 +4857,34 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysignArray(T, self, rhs);
+        }
+
+        pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpArray(T, self, rhs);
+        }
+
+        pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExpArray(rhs);
+        }
+
+        pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Array(T, self, rhs);
+        }
+
+        pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Array(rhs);
+        }
+
+        pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyArray(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -9565,6 +9623,34 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysignArray(T, self, rhs);
+        }
+
+        pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpArray(T, self, rhs);
+        }
+
+        pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExpArray(rhs);
+        }
+
+        pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Array(T, self, rhs);
+        }
+
+        pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Array(rhs);
+        }
+
+        pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyArray(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -14514,6 +14600,34 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn copysignArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseCopysignArray(T, self, rhs);
+        }
+
+        pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpArray(T, self, rhs);
+        }
+
+        pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExpArray(rhs);
+        }
+
+        pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Array(T, self, rhs);
+        }
+
+        pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Array(rhs);
+        }
+
+        pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyArray(T, self, rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -21530,6 +21644,58 @@ test "sparse dense fused elementwise helpers" {
             defer nextafter_array.deinit();
             try expectArray(nextafter_array, &.{ 2, 3 }, next_after_array.data);
 
+            var sign_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                -1, 1,  -1,
+                1,  -1, 1,
+            }, &.{ 2, 3 });
+            defer sign_values.deinit();
+            var copied_sign_array = try matrix.copysignArray(sign_values);
+            defer copied_sign_array.deinit();
+            try expectArray(copied_sign_array, &.{ 2, 3 }, &.{ -1, 0, -0.0, 0, -2, 3 });
+
+            var zero_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
+                0.25, 0.5, 0.75,
+                1.25, 1.5, 1.75,
+            }, &.{ 2, 3 });
+            defer zero_values.deinit();
+            var heaviside_array = try matrix.heavisideArray(zero_values);
+            defer heaviside_array.deinit();
+            try expectArray(heaviside_array, &.{ 2, 3 }, &.{ 1, 0.5, 0.75, 1.25, 1, 1 });
+
+            var logaddexp_array = try matrix.logAddExpArray(end_values);
+            defer logaddexp_array.deinit();
+            try expectArray(logaddexp_array, &.{ 2, 3 }, &.{
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + std.math.exp(@as(f64, 3))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 4))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 5))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 6))),
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 7))),
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 3)) + std.math.exp(@as(f64, 8))),
+            });
+
+            var logaddexp_array_alias = try matrix.logaddexpArray(end_values);
+            defer logaddexp_array_alias.deinit();
+            try expectArray(logaddexp_array_alias, &.{ 2, 3 }, logaddexp_array.data);
+
+            var logaddexp2_array = try matrix.logAddExp2Array(end_values);
+            defer logaddexp2_array.deinit();
+            try expectArray(logaddexp2_array, &.{ 2, 3 }, &.{
+                std.math.log2(@as(f64, 2) + 8),
+                std.math.log2(@as(f64, 1) + 16),
+                std.math.log2(@as(f64, 1) + 32),
+                std.math.log2(@as(f64, 1) + 64),
+                std.math.log2(@as(f64, 4) + 128),
+                std.math.log2(@as(f64, 8) + 256),
+            });
+
+            var logaddexp2_array_alias = try matrix.logaddexp2Array(end_values);
+            defer logaddexp2_array_alias.deinit();
+            try expectArray(logaddexp2_array_alias, &.{ 2, 3 }, logaddexp2_array.data);
+
+            var xlogy_array = try matrix.xlogyArray(end_values);
+            defer xlogy_array.deinit();
+            try expectArray(xlogy_array, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 3), 0, 0, 0, 2 * std.math.log(f64, std.math.e, 7), 3 * std.math.log(f64, std.math.e, 8) });
+
             var added_scalar = try matrix.addScalar(2);
             defer added_scalar.deinit();
             try expectArray(added_scalar, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
@@ -21677,6 +21843,11 @@ test "sparse dense fused elementwise helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.hypotArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.atan2Array(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.nextAfterArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.copysignArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.heavisideArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.logAddExpArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.logAddExp2Array(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.xlogyArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.clipArray(lower, bad));
         }
     }.check;
