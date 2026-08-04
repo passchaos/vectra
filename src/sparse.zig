@@ -468,6 +468,21 @@ fn sparseNormalizeSignedIndex(index: isize, len: usize) SparseError!usize {
     return @intCast(normalized);
 }
 
+fn sparseMatrixShapeEquals(matrix: anytype, dims: []const usize) bool {
+    return dims.len == 2 and dims[0] == matrix.rows and dims[1] == matrix.cols;
+}
+
+fn sparseMatrixSize(rows: usize, cols: usize, axis_opt: ?isize) SparseError!usize {
+    if (axis_opt) |axis_index| {
+        return switch (try sparseNormalizeMatrixAxis(axis_index)) {
+            0 => rows,
+            1 => cols,
+            else => unreachable,
+        };
+    }
+    return sparseElementCount(rows, cols);
+}
+
 fn sparseValidateGatherShape(rows: usize, cols: usize, indices_shape: []const usize, axis_index: isize) SparseError!usize {
     if (indices_shape.len != 2) return error.ShapeMismatch;
     const axis = try sparseNormalizeMatrixAxis(axis_index);
@@ -3631,8 +3646,8 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
-        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
-            return Self.eye(allocator, size, size);
+        pub fn identity(allocator: std.mem.Allocator, matrix_size: usize) SparseError!Self {
+            return Self.eye(allocator, matrix_size, matrix_size);
         }
 
         pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
@@ -4286,6 +4301,73 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn ndim(self: Self) usize {
+            _ = self;
+            return 2;
+        }
+
+        pub fn dim(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn rank(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numDims(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numel(self: Self) SparseError!usize {
+            return sparseElementCount(self.rows, self.cols);
+        }
+
+        pub fn nelement(self: Self) SparseError!usize {
+            return self.numel();
+        }
+
+        pub fn size(self: Self, axis_opt: ?isize) SparseError!usize {
+            return sparseMatrixSize(self.rows, self.cols, axis_opt);
+        }
+
+        pub fn shapeAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.size(axis_index);
+        }
+
+        pub fn len(self: Self) SparseError!usize {
+            _ = try self.numel();
+            return self.rows;
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.rows == 0 or self.cols == 0;
+        }
+
+        pub fn isMatrix(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isSquare(self: Self) bool {
+            return self.rows == self.cols;
+        }
+
+        pub fn shapeEquals(self: Self, dims: []const usize) bool {
+            return sparseMatrixShapeEquals(self, dims);
+        }
+
+        pub fn hasShape(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn sameShape(self: Self, rhs: Self) bool {
+            return self.rows == rhs.rows and self.cols == rhs.cols;
+        }
+
+        pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
+            return sparseMatrixShapeEquals(self, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -8999,8 +9081,8 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
-        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
-            return Self.eye(allocator, size, size);
+        pub fn identity(allocator: std.mem.Allocator, matrix_size: usize) SparseError!Self {
+            return Self.eye(allocator, matrix_size, matrix_size);
         }
 
         pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
@@ -9600,6 +9682,73 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn ndim(self: Self) usize {
+            _ = self;
+            return 2;
+        }
+
+        pub fn dim(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn rank(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numDims(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numel(self: Self) SparseError!usize {
+            return sparseElementCount(self.rows, self.cols);
+        }
+
+        pub fn nelement(self: Self) SparseError!usize {
+            return self.numel();
+        }
+
+        pub fn size(self: Self, axis_opt: ?isize) SparseError!usize {
+            return sparseMatrixSize(self.rows, self.cols, axis_opt);
+        }
+
+        pub fn shapeAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.size(axis_index);
+        }
+
+        pub fn len(self: Self) SparseError!usize {
+            _ = try self.numel();
+            return self.rows;
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.rows == 0 or self.cols == 0;
+        }
+
+        pub fn isMatrix(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isSquare(self: Self) bool {
+            return self.rows == self.cols;
+        }
+
+        pub fn shapeEquals(self: Self, dims: []const usize) bool {
+            return sparseMatrixShapeEquals(self, dims);
+        }
+
+        pub fn hasShape(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn sameShape(self: Self, rhs: Self) bool {
+            return self.rows == rhs.rows and self.cols == rhs.cols;
+        }
+
+        pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
+            return sparseMatrixShapeEquals(self, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -14540,8 +14689,8 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
-        pub fn identity(allocator: std.mem.Allocator, size: usize) SparseError!Self {
-            return Self.eye(allocator, size, size);
+        pub fn identity(allocator: std.mem.Allocator, matrix_size: usize) SparseError!Self {
+            return Self.eye(allocator, matrix_size, matrix_size);
         }
 
         pub fn fromDiagonal(allocator: std.mem.Allocator, diagonal_values: []const T, offset: isize) SparseError!Self {
@@ -15125,6 +15274,73 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn ndim(self: Self) usize {
+            _ = self;
+            return 2;
+        }
+
+        pub fn dim(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn rank(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numDims(self: Self) usize {
+            return self.ndim();
+        }
+
+        pub fn numel(self: Self) SparseError!usize {
+            return sparseElementCount(self.rows, self.cols);
+        }
+
+        pub fn nelement(self: Self) SparseError!usize {
+            return self.numel();
+        }
+
+        pub fn size(self: Self, axis_opt: ?isize) SparseError!usize {
+            return sparseMatrixSize(self.rows, self.cols, axis_opt);
+        }
+
+        pub fn shapeAt(self: Self, axis_index: isize) SparseError!usize {
+            return self.size(axis_index);
+        }
+
+        pub fn len(self: Self) SparseError!usize {
+            _ = try self.numel();
+            return self.rows;
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.rows == 0 or self.cols == 0;
+        }
+
+        pub fn isMatrix(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isSquare(self: Self) bool {
+            return self.rows == self.cols;
+        }
+
+        pub fn shapeEquals(self: Self, dims: []const usize) bool {
+            return sparseMatrixShapeEquals(self, dims);
+        }
+
+        pub fn hasShape(self: Self, dims: []const usize) bool {
+            return self.shapeEquals(dims);
+        }
+
+        pub fn sameShape(self: Self, rhs: Self) bool {
+            return self.rows == rhs.rows and self.cols == rhs.cols;
+        }
+
+        pub fn sameShapeArray(self: Self, rhs: array_mod.Array(T)) bool {
+            return sparseMatrixShapeEquals(self, rhs.shape);
         }
 
         pub fn countNonzero(self: Self) SparseError!usize {
@@ -22808,6 +23024,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_dense = try coo_sum.toDense();
     defer coo_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 0, 0, 0, 0, 9 }, coo_dense.data);
+    try std.testing.expectEqual(@as(usize, 2), lhs.ndim());
+    try std.testing.expectEqual(@as(usize, 2), lhs.dim());
+    try std.testing.expectEqual(@as(usize, 2), lhs.rank());
+    try std.testing.expectEqual(@as(usize, 2), lhs.numDims());
+    try std.testing.expectEqual(@as(usize, 6), try lhs.numel());
+    try std.testing.expectEqual(@as(usize, 6), try lhs.nelement());
+    try std.testing.expectEqual(@as(usize, 6), try lhs.size(null));
+    try std.testing.expectEqual(@as(usize, 2), try lhs.size(0));
+    try std.testing.expectEqual(@as(usize, 3), try lhs.shapeAt(-1));
+    try std.testing.expectEqual(@as(usize, 2), try lhs.len());
+    try std.testing.expect(!lhs.isEmpty());
+    try std.testing.expect(lhs.isMatrix());
+    try std.testing.expect(!lhs.isSquare());
+    try std.testing.expect(lhs.shapeEquals(&.{ 2, 3 }));
+    try std.testing.expect(lhs.hasShape(&.{ 2, 3 }));
+    try std.testing.expect(lhs.sameShape(rhs));
+    try std.testing.expect(lhs.sameShapeArray(coo_dense));
+    try std.testing.expect(!lhs.shapeEquals(&.{ 3, 2 }));
+    try std.testing.expectError(error.InvalidAxis, lhs.size(2));
+
     var coo_pruned = try coo_sum.dropZeros();
     defer coo_pruned.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1 }, coo_pruned.row_indices);
@@ -22947,12 +23183,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var diagonal_square_csr = try diagonal_square.toCsr();
     defer diagonal_square_csr.deinit();
     try expectMatrixPredicates(@TypeOf(upper_square_csr), upper_square_csr, diagonal_square_csr);
+    var upper_square_csr_dense = try upper_square_csr.toDense();
+    defer upper_square_csr_dense.deinit();
+    try std.testing.expectEqual(@as(usize, 4), try upper_square_csr.numel());
+    try std.testing.expect(upper_square_csr.isSquare());
+    try std.testing.expect(upper_square_csr.sameShape(diagonal_square_csr));
+    try std.testing.expect(upper_square_csr.sameShapeArray(upper_square_csr_dense));
 
     var upper_square_csc = try upper_square.toCsc();
     defer upper_square_csc.deinit();
     var diagonal_square_csc = try diagonal_square.toCsc();
     defer diagonal_square_csc.deinit();
     try expectMatrixPredicates(@TypeOf(upper_square_csc), upper_square_csc, diagonal_square_csc);
+    var upper_square_csc_dense = try upper_square_csc.toDense();
+    defer upper_square_csc_dense.deinit();
+    try std.testing.expectEqual(@as(usize, 4), try upper_square_csc.numel());
+    try std.testing.expect(upper_square_csc.isSquare());
+    try std.testing.expect(upper_square_csc.sameShape(diagonal_square_csc));
+    try std.testing.expect(upper_square_csc.sameShapeArray(upper_square_csc_dense));
 
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
