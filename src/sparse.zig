@@ -144,6 +144,24 @@ fn negSparseValue(comptime T: type, value: T) T {
     };
 }
 
+fn signSparseValue(comptime T: type, value: T) T {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => if (std.math.isNan(value)) value else if (value > zero(T)) oneValue(T) else if (value < zero(T)) -oneValue(T) else zero(T),
+        .int => |info| if (value == zero(T)) zero(T) else if (info.signedness == .signed) (if (value < zero(T)) -oneValue(T) else oneValue(T)) else oneValue(T),
+        else => @compileError("sparse sign requires numeric values"),
+    };
+}
+
+fn signbitSparseValue(comptime T: type, value: T) bool {
+    ensureNumeric(T);
+    return switch (@typeInfo(T)) {
+        .float => std.math.signbit(value),
+        .int => |info| if (info.signedness == .signed) value < zero(T) else false,
+        else => @compileError("sparse signbit requires numeric values"),
+    };
+}
+
 fn isNonZero(comptime T: type, value: T) bool {
     return switch (@typeInfo(T)) {
         .bool => value,
@@ -1411,6 +1429,11 @@ pub fn CooMatrix(comptime T: type) type {
             };
         }
 
+        pub fn positive(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.clone();
+        }
+
         pub fn abs(self: Self) SparseError!Self {
             ensureNumeric(T);
             const out = try self.clone();
@@ -1431,6 +1454,34 @@ pub fn CooMatrix(comptime T: type) type {
             const out = try self.clone();
             for (out.values) |*value| value.* = value.* * value.*;
             return out;
+        }
+
+        pub fn sign(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = signSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn signbit(self: Self) SparseError!CooMatrix(bool) {
+            ensureNumeric(T);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(bool, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = signbitSparseValue(T, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn nnz(self: Self) usize {
@@ -3719,6 +3770,11 @@ pub fn CsrMatrix(comptime T: type) type {
             };
         }
 
+        pub fn positive(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.clone();
+        }
+
         pub fn abs(self: Self) SparseError!Self {
             ensureNumeric(T);
             const out = try self.clone();
@@ -3739,6 +3795,34 @@ pub fn CsrMatrix(comptime T: type) type {
             const out = try self.clone();
             for (out.values) |*value| value.* = value.* * value.*;
             return out;
+        }
+
+        pub fn sign(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = signSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn signbit(self: Self) SparseError!CsrMatrix(bool) {
+            ensureNumeric(T);
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(bool, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = signbitSparseValue(T, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn nnz(self: Self) usize {
@@ -6238,6 +6322,11 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        pub fn positive(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            return self.clone();
+        }
+
         pub fn abs(self: Self) SparseError!Self {
             ensureNumeric(T);
             const out = try self.clone();
@@ -6258,6 +6347,34 @@ pub fn CscMatrix(comptime T: type) type {
             const out = try self.clone();
             for (out.values) |*value| value.* = value.* * value.*;
             return out;
+        }
+
+        pub fn sign(self: Self) SparseError!Self {
+            ensureNumeric(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = signSparseValue(T, value.*);
+            return out;
+        }
+
+        pub fn signbit(self: Self) SparseError!CscMatrix(bool) {
+            ensureNumeric(T);
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(bool, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = signbitSparseValue(T, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
         }
 
         pub fn nnz(self: Self) usize {
@@ -9533,6 +9650,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_squared.row_indices);
     try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_squared.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, coo_squared.values);
+    var coo_positive = try coo_diff.positive();
+    defer coo_positive.deinit();
+    try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_positive.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_positive.col_indices);
+    try std.testing.expectEqualSlices(f64, coo_diff.values, coo_positive.values);
+    var coo_sign = try coo_diff.sign();
+    defer coo_sign.deinit();
+    try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_sign.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_sign.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -1, 1, -1 }, coo_sign.values);
+    var coo_signbit = try coo_diff.signbit();
+    defer coo_signbit.deinit();
+    try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_signbit.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_diff.col_indices, coo_signbit.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, coo_signbit.values);
     const full_summary = try lhs.diffSummary(rhs);
     try std.testing.expectApproxEqAbs(@as(f64, 18), full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 4), full_summary.max_abs_diff, 1e-12);
@@ -9762,6 +9894,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_squared.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_diff.col_indices, csr_squared.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, csr_squared.values);
+    var csr_sign = try csr_diff.sign();
+    defer csr_sign.deinit();
+    try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_sign.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_diff.col_indices, csr_sign.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -1, 1, -1 }, csr_sign.values);
+    var csr_signbit = try csr_diff.signbit();
+    defer csr_signbit.deinit();
+    try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_signbit.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_diff.col_indices, csr_signbit.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, csr_signbit.values);
     const csr_full_summary = try lhs_csr.diffSummary(rhs_csr);
     try std.testing.expectApproxEqAbs(full_summary.dot, csr_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csr_full_summary.squared_distance, 1e-12);
@@ -9846,6 +9988,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_squared.col_offsets);
     try std.testing.expectEqualSlices(usize, csc_diff.row_indices, csc_squared.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 9, 16, 9 }, csc_squared.values);
+    var csc_sign = try csc_diff.sign();
+    defer csc_sign.deinit();
+    try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_sign.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_diff.row_indices, csc_sign.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ -1, 1, -1 }, csc_sign.values);
+    var csc_signbit = try csc_diff.signbit();
+    defer csc_signbit.deinit();
+    try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_signbit.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_diff.row_indices, csc_signbit.row_indices);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true }, csc_signbit.values);
     const csc_full_summary = try lhs_csc.diffSummary(rhs_csc);
     try std.testing.expectApproxEqAbs(full_summary.dot, csc_full_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, csc_full_summary.squared_distance, 1e-12);
