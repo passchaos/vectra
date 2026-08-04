@@ -84,6 +84,7 @@ pub const SparseDiffSummary = struct {
 
 const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
 const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal };
+const SparseDenseSetOp = enum { union1d, intersect1d, setdiff1d, setxor1d };
 
 fn sparseComplexRealType(comptime T: type) type {
     if (comptime T == array_mod.Complex64) return f32;
@@ -768,6 +769,28 @@ fn sparseDenseUniqueWithCounts(comptime T: type, matrix: anytype) SparseError!ar
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.uniqueWithCounts();
+}
+
+fn sparseDenseSetOp(comptime T: type, matrix: anytype, rhs: anytype, comptime op: SparseDenseSetOp) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return switch (op) {
+            .union1d => dense.union1d(rhs),
+            .intersect1d => dense.intersect1d(rhs),
+            .setdiff1d => dense.setdiff1d(rhs),
+            .setxor1d => dense.setxor1d(rhs),
+        };
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return switch (op) {
+            .union1d => dense.union1d(rhs_dense),
+            .intersect1d => dense.intersect1d(rhs_dense),
+            .setdiff1d => dense.setdiff1d(rhs_dense),
+            .setxor1d => dense.setxor1d(rhs_dense),
+        };
+    }
 }
 
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -3582,6 +3605,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -7408,6 +7463,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -11445,6 +11532,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
             return sparseDenseUniqueWithCounts(T, self);
+        }
+
+        pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15980,6 +16099,38 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectArray(unique_counts.values, &.{4}, unique_values.data);
             try std.testing.expectEqualSlices(usize, &.{4}, unique_counts.counts.shape);
             try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 1 }, unique_counts.counts.data);
+
+            var union_values = try matrix.union1d(rhs_matrix);
+            defer union_values.deinit();
+            try expectArray(union_values, &.{7}, &.{ -2, 0, 1, 2, 3, 4, 6 });
+
+            var union_array_values = try matrix.union1dArray(rhs_dense);
+            defer union_array_values.deinit();
+            try expectArray(union_array_values, &.{7}, union_values.data);
+
+            var intersection_values = try matrix.intersect1d(rhs_matrix);
+            defer intersection_values.deinit();
+            try expectArray(intersection_values, &.{1}, &.{0});
+
+            var intersection_array_values = try matrix.intersect1dArray(rhs_dense);
+            defer intersection_array_values.deinit();
+            try expectArray(intersection_array_values, &.{1}, intersection_values.data);
+
+            var difference_values = try matrix.setdiff1d(rhs_matrix);
+            defer difference_values.deinit();
+            try expectArray(difference_values, &.{3}, &.{ 1, 2, 3 });
+
+            var difference_array_values = try matrix.setdiff1dArray(rhs_dense);
+            defer difference_array_values.deinit();
+            try expectArray(difference_array_values, &.{3}, difference_values.data);
+
+            var xor_values = try matrix.setxor1d(rhs_matrix);
+            defer xor_values.deinit();
+            try expectArray(xor_values, &.{6}, &.{ -2, 1, 2, 3, 4, 6 });
+
+            var xor_array_values = try matrix.setxor1dArray(rhs_dense);
+            defer xor_array_values.deinit();
+            try expectArray(xor_array_values, &.{6}, xor_values.data);
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
