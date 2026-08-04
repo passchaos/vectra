@@ -1287,6 +1287,18 @@ fn sparseDenseDivPromote(comptime T: type, comptime U: type, matrix: anytype, rh
     return dense.divPromote(U, rhs);
 }
 
+fn sparseDenseMaximumPromote(comptime T: type, comptime U: type, matrix: anytype, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.maximumPromote(U, rhs);
+}
+
+fn sparseDenseMinimumPromote(comptime T: type, comptime U: type, matrix: anytype, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.minimumPromote(U, rhs);
+}
+
 fn sparseDensePowArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5462,6 +5474,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn divPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseDivPromote(T, U, self, rhs);
+        }
+
+        pub fn maximumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMaximumPromote(T, U, self, rhs);
+        }
+
+        pub fn minimumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMinimumPromote(T, U, self, rhs);
         }
 
         pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -10632,6 +10652,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn divPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseDivPromote(T, U, self, rhs);
+        }
+
+        pub fn maximumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMaximumPromote(T, U, self, rhs);
+        }
+
+        pub fn minimumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMinimumPromote(T, U, self, rhs);
         }
 
         pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -16013,6 +16041,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn divPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseDivPromote(T, U, self, rhs);
+        }
+
+        pub fn maximumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMaximumPromote(T, U, self, rhs);
+        }
+
+        pub fn minimumPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
+            return sparseDenseMinimumPromote(T, U, self, rhs);
         }
 
         pub fn powArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -23697,6 +23733,14 @@ test "sparse dense numeric array helpers" {
             defer promoted_quotient.deinit();
             try expectFloatArray(promoted_quotient, &.{ 2, 3 }, &.{ 4, 0, 0, 0, -0.25, 0.4 });
 
+            var promoted_maximum = try matrix.maximumPromote(f64, promoted_rhs);
+            defer promoted_maximum.deinit();
+            try expectFloatArray(promoted_maximum, &.{ 2, 3 }, &.{ 2, 1, 2, 3, 4, 5 });
+
+            var promoted_minimum = try matrix.minimumPromote(f64, promoted_rhs);
+            defer promoted_minimum.deinit();
+            try expectFloatArray(promoted_minimum, &.{ 2, 3 }, &.{ 0.5, 0, 0, 0, -1, 2 });
+
             var rhs_sparse = try cooFromSlices(
                 i32,
                 matrix.allocator,
@@ -23806,6 +23850,8 @@ test "sparse dense numeric array helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.subPromote(f64, bad_promoted));
             try std.testing.expectError(error.ShapeMismatch, matrix.mulPromote(f64, bad_promoted));
             try std.testing.expectError(error.ShapeMismatch, matrix.divPromote(f64, bad_promoted));
+            try std.testing.expectError(error.ShapeMismatch, matrix.maximumPromote(f64, bad_promoted));
+            try std.testing.expectError(error.ShapeMismatch, matrix.minimumPromote(f64, bad_promoted));
             try std.testing.expectError(error.ShapeMismatch, matrix.maximumArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.minimumArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.fmaxArray(bad));
