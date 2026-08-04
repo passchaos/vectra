@@ -5672,36 +5672,72 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSort(T, self, axis_opt, false);
         }
 
+        pub fn sortOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sort(axis_opt), out);
+        }
+
         pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSort(T, self, axis_opt, descending);
+        }
+
+        pub fn sortByOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sortBy(axis_opt, descending), out);
         }
 
         pub fn sortDescending(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sortBy(axis_opt, true);
         }
 
+        pub fn sortDescendingOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(axis_opt, true, out);
+        }
+
         pub fn sortDim(self: Self, dim_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sort(dim_opt);
+        }
+
+        pub fn sortDimOut(self: Self, dim_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortOut(dim_opt, out);
         }
 
         pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.sortBy(dim_opt, descending);
         }
 
+        pub fn sortByDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(dim_opt, descending, out);
+        }
+
         pub fn argsort(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, false);
+        }
+
+        pub fn argsortOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsort(), out);
         }
 
         pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, axis_opt, descending);
         }
 
+        pub fn argsortAxisOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortAxis(axis_opt, descending), out);
+        }
+
         pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argsortAxis(dim_opt, descending);
         }
 
+        pub fn argsortDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argsortAxisOut(dim_opt, descending, out);
+        }
+
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn argsortDescendingOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortDescending(), out);
         }
 
         pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
@@ -11982,36 +12018,72 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSort(T, self, axis_opt, false);
         }
 
+        pub fn sortOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sort(axis_opt), out);
+        }
+
         pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSort(T, self, axis_opt, descending);
+        }
+
+        pub fn sortByOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sortBy(axis_opt, descending), out);
         }
 
         pub fn sortDescending(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sortBy(axis_opt, true);
         }
 
+        pub fn sortDescendingOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(axis_opt, true, out);
+        }
+
         pub fn sortDim(self: Self, dim_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sort(dim_opt);
+        }
+
+        pub fn sortDimOut(self: Self, dim_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortOut(dim_opt, out);
         }
 
         pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.sortBy(dim_opt, descending);
         }
 
+        pub fn sortByDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(dim_opt, descending, out);
+        }
+
         pub fn argsort(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, false);
+        }
+
+        pub fn argsortOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsort(), out);
         }
 
         pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, axis_opt, descending);
         }
 
+        pub fn argsortAxisOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortAxis(axis_opt, descending), out);
+        }
+
         pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argsortAxis(dim_opt, descending);
         }
 
+        pub fn argsortDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argsortAxisOut(dim_opt, descending, out);
+        }
+
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn argsortDescendingOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortDescending(), out);
         }
 
         pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
@@ -18505,36 +18577,72 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSort(T, self, axis_opt, false);
         }
 
+        pub fn sortOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sort(axis_opt), out);
+        }
+
         pub fn sortBy(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSort(T, self, axis_opt, descending);
+        }
+
+        pub fn sortByOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sortBy(axis_opt, descending), out);
         }
 
         pub fn sortDescending(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sortBy(axis_opt, true);
         }
 
+        pub fn sortDescendingOut(self: Self, axis_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(axis_opt, true, out);
+        }
+
         pub fn sortDim(self: Self, dim_opt: ?isize) SparseError!array_mod.Array(T) {
             return self.sort(dim_opt);
+        }
+
+        pub fn sortDimOut(self: Self, dim_opt: ?isize, out: array_mod.Array(T)) SparseError!void {
+            try self.sortOut(dim_opt, out);
         }
 
         pub fn sortByDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return self.sortBy(dim_opt, descending);
         }
 
+        pub fn sortByDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sortByOut(dim_opt, descending, out);
+        }
+
         pub fn argsort(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, false);
+        }
+
+        pub fn argsortOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsort(), out);
         }
 
         pub fn argsortAxis(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, axis_opt, descending);
         }
 
+        pub fn argsortAxisOut(self: Self, axis_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortAxis(axis_opt, descending), out);
+        }
+
         pub fn argsortDim(self: Self, dim_opt: ?isize, descending: bool) SparseError!array_mod.Array(usize) {
             return self.argsortAxis(dim_opt, descending);
         }
 
+        pub fn argsortDimOut(self: Self, dim_opt: ?isize, descending: bool, out: array_mod.Array(usize)) SparseError!void {
+            try self.argsortAxisOut(dim_opt, descending, out);
+        }
+
         pub fn argsortDescending(self: Self) SparseError!array_mod.Array(usize) {
             return sparseDenseArgsort(T, self, null, true);
+        }
+
+        pub fn argsortDescendingOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.argsortDescending(), out);
         }
 
         pub fn sortWithIndices(self: Self, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T).SortResult {
@@ -25037,42 +25145,68 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var sorted_flat = try matrix.sort(null);
             defer sorted_flat.deinit();
             try expectArray(sorted_flat, &.{6}, &.{ 0, 0, 0, 1, 2, 3 });
+            var sorted_flat_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{6});
+            defer sorted_flat_out.deinit();
+            try matrix.sortOut(null, sorted_flat_out);
+            try std.testing.expectEqualSlices(f64, sorted_flat.data, sorted_flat_out.data);
 
             var sorted_rows = try matrix.sortBy(1, false);
             defer sorted_rows.deinit();
             try expectMatrix(sorted_rows, &.{ 0, 0, 1, 0, 2, 3 });
+            var sorted_rows_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer sorted_rows_out.deinit();
+            try matrix.sortByOut(1, false, sorted_rows_out);
+            try std.testing.expectEqualSlices(f64, sorted_rows.data, sorted_rows_out.data);
 
             var sorted_rows_dim = try matrix.sortDim(1);
             defer sorted_rows_dim.deinit();
             try expectMatrix(sorted_rows_dim, sorted_rows.data);
+            try matrix.sortDimOut(1, sorted_rows_out);
+            try std.testing.expectEqualSlices(f64, sorted_rows_dim.data, sorted_rows_out.data);
 
             var sorted_columns_desc = try matrix.sortByDim(0, true);
             defer sorted_columns_desc.deinit();
             try expectMatrix(sorted_columns_desc, &.{ 1, 2, 3, 0, 0, 0 });
+            try matrix.sortByDimOut(0, true, sorted_rows_out);
+            try std.testing.expectEqualSlices(f64, sorted_columns_desc.data, sorted_rows_out.data);
 
             var sorted_desc = try matrix.sortDescending(null);
             defer sorted_desc.deinit();
             try expectArray(sorted_desc, &.{6}, &.{ 3, 2, 1, 0, 0, 0 });
+            try matrix.sortDescendingOut(null, sorted_flat_out);
+            try std.testing.expectEqualSlices(f64, sorted_desc.data, sorted_flat_out.data);
 
             var argsorted_flat = try matrix.argsort();
             defer argsorted_flat.deinit();
             try std.testing.expectEqualSlices(usize, &.{6}, argsorted_flat.shape);
             try std.testing.expectEqualSlices(usize, &.{ 1, 2, 3, 0, 4, 5 }, argsorted_flat.data);
+            var argsorted_flat_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{6});
+            defer argsorted_flat_out.deinit();
+            try matrix.argsortOut(argsorted_flat_out);
+            try std.testing.expectEqualSlices(usize, argsorted_flat.data, argsorted_flat_out.data);
 
             var argsorted_rows = try matrix.argsortAxis(1, false);
             defer argsorted_rows.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, argsorted_rows.shape);
             try std.testing.expectEqualSlices(usize, &.{ 1, 2, 0, 0, 1, 2 }, argsorted_rows.data);
+            var argsorted_rows_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 3 });
+            defer argsorted_rows_out.deinit();
+            try matrix.argsortAxisOut(1, false, argsorted_rows_out);
+            try std.testing.expectEqualSlices(usize, argsorted_rows.data, argsorted_rows_out.data);
 
             var argsorted_rows_dim = try matrix.argsortDim(1, false);
             defer argsorted_rows_dim.deinit();
             try std.testing.expectEqualSlices(usize, argsorted_rows.shape, argsorted_rows_dim.shape);
             try std.testing.expectEqualSlices(usize, argsorted_rows.data, argsorted_rows_dim.data);
+            try matrix.argsortDimOut(1, false, argsorted_rows_out);
+            try std.testing.expectEqualSlices(usize, argsorted_rows_dim.data, argsorted_rows_out.data);
 
             var argsorted_desc = try matrix.argsortDescending();
             defer argsorted_desc.deinit();
             try std.testing.expectEqualSlices(usize, &.{6}, argsorted_desc.shape);
             try std.testing.expectEqualSlices(usize, &.{ 5, 4, 0, 1, 2, 3 }, argsorted_desc.data);
+            try matrix.argsortDescendingOut(argsorted_flat_out);
+            try std.testing.expectEqualSlices(usize, argsorted_desc.data, argsorted_flat_out.data);
 
             var sorted_with_indices = try matrix.sortWithIndices(null, false);
             defer sorted_with_indices.deinit();
