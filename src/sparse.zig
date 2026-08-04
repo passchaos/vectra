@@ -1544,6 +1544,12 @@ fn sparseDenseLdexpScalar(comptime T: type, matrix: anytype, exponent: i32) Spar
     return dense.ldexpScalar(exponent);
 }
 
+fn sparseDenseLdexp(comptime T: type, matrix: anytype, exponents: array_mod.Array(i32)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ldexp(exponents);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -5566,6 +5572,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexp(self: Self, exponents: array_mod.Array(i32)) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexp(T, self, exponents);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
@@ -10668,6 +10678,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexp(self: Self, exponents: array_mod.Array(i32)) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexp(T, self, exponents);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
@@ -15981,6 +15995,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyScalar(T, self, scalar);
+        }
+
+        pub fn ldexp(self: Self, exponents: array_mod.Array(i32)) SparseError!array_mod.Array(T) {
+            return sparseDenseLdexp(T, self, exponents);
         }
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
@@ -23145,6 +23163,25 @@ test "sparse dense fused elementwise helpers" {
             var ldexp = try matrix.ldexpScalar(2);
             defer ldexp.deinit();
             try expectArray(ldexp, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 8, 12 });
+
+            var exponents = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
+                0, 1, 2,
+                3, 4, 5,
+            }, &.{ 2, 3 });
+            defer exponents.deinit();
+            var ldexp_array = try matrix.ldexp(exponents);
+            defer ldexp_array.deinit();
+            try expectArray(ldexp_array, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 32, 96 });
+
+            var exponent_columns = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{ 0, 1, 2 }, &.{ 1, 3 });
+            defer exponent_columns.deinit();
+            var ldexp_broadcast = try matrix.ldexp(exponent_columns);
+            defer ldexp_broadcast.deinit();
+            try expectArray(ldexp_broadcast, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 4, 12 });
+
+            var bad_exponents = try array_mod.Array(i32).zeros(matrix.allocator, &.{ 2, 2 });
+            defer bad_exponents.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.ldexp(bad_exponents));
 
             var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
