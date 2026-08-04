@@ -859,6 +859,22 @@ fn sparseDenseInner(comptime T: type, matrix: anytype, rhs: anytype) SparseError
     }
 }
 
+fn sparseDenseDot(comptime T: type, matrix: anytype, rhs: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    var lhs_vector = try dense.flatten();
+    defer lhs_vector.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return lhs_vector.dot(rhs);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        var rhs_vector = try rhs_dense.flatten();
+        defer rhs_vector.deinit();
+        return lhs_vector.dot(rhs_vector);
+    }
+}
+
 fn sparseDenseVdot(comptime T: type, matrix: anytype, rhs: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -904,6 +920,22 @@ fn sparseDenseCross(comptime T: type, matrix: anytype, rhs: anytype, axis_index:
         var rhs_dense = try rhs.toDense();
         defer rhs_dense.deinit();
         return dense.cross(rhs_dense, axis_index);
+    }
+}
+
+fn sparseDenseOuter(comptime T: type, matrix: anytype, rhs: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    var lhs_vector = try dense.flatten();
+    defer lhs_vector.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return lhs_vector.outer(rhs);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        var rhs_vector = try rhs_dense.flatten();
+        defer rhs_vector.deinit();
+        return lhs_vector.outer(rhs_vector);
     }
 }
 
@@ -4918,6 +4950,14 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseInner(T, self, rhs);
         }
 
+        pub fn dot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
+        pub fn dotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
         pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseVdot(T, self, rhs);
         }
@@ -4948,6 +4988,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn outer(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
+        }
+
+        pub fn outerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
         }
 
         pub fn convolve1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
@@ -10354,6 +10402,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseInner(T, self, rhs);
         }
 
+        pub fn dot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
+        pub fn dotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
         pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseVdot(T, self, rhs);
         }
@@ -10384,6 +10440,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn outer(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
+        }
+
+        pub fn outerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
         }
 
         pub fn convolve1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
@@ -16001,6 +16065,14 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseInner(T, self, rhs);
         }
 
+        pub fn dot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
+        pub fn dotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseDot(T, self, rhs);
+        }
+
         pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseVdot(T, self, rhs);
         }
@@ -16031,6 +16103,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn crossArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseCross(T, self, rhs, axis_index);
+        }
+
+        pub fn outer(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
+        }
+
+        pub fn outerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseOuter(T, self, rhs);
         }
 
         pub fn convolve1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
@@ -23054,12 +23134,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var upper_dense = try upper.toDense();
             defer upper_dense.deinit();
+            var upper_dense_flat = try upper_dense.flatten();
+            defer upper_dense_flat.deinit();
             var inner_array = try upper.innerArray(upper_dense);
             defer inner_array.deinit();
             try std.testing.expectEqualSlices(usize, inner_self.shape, inner_array.shape);
             for (inner_self.data, inner_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
+
+            var dot_self = try upper.dot(upper);
+            defer dot_self.deinit();
+            try std.testing.expectEqualSlices(usize, &.{}, dot_self.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 14), dot_self.data[0], 1e-12);
+
+            var dot_array = try upper.dotArray(upper_dense_flat);
+            defer dot_array.deinit();
+            try std.testing.expectEqualSlices(usize, dot_self.shape, dot_array.shape);
+            try std.testing.expectApproxEqAbs(dot_self.data[0], dot_array.data[0], 1e-12);
 
             var vdot_self = try upper.vdot(upper);
             defer vdot_self.deinit();
@@ -23101,6 +23193,20 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer contracted_array.deinit();
             try std.testing.expectEqualSlices(usize, contracted.shape, contracted_array.shape);
             for (contracted.data, contracted_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var outer_self = try upper.outer(upper);
+            defer outer_self.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 4, 4 }, outer_self.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), outer_self.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), outer_self.data[3], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 9), outer_self.data[15], 1e-12);
+
+            var outer_array = try upper.outerArray(upper_dense_flat);
+            defer outer_array.deinit();
+            try std.testing.expectEqualSlices(usize, outer_self.shape, outer_array.shape);
+            for (outer_self.data, outer_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
