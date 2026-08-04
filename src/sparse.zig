@@ -1506,6 +1506,13 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn reciprocal(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = oneValue(T) / value.*;
+            return out;
+        }
+
         pub fn floor(self: Self) SparseError!Self {
             ensureNumeric(T);
             const out = try self.clone();
@@ -3886,6 +3893,13 @@ pub fn CsrMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn reciprocal(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = oneValue(T) / value.*;
             return out;
         }
 
@@ -6480,6 +6494,13 @@ pub fn CscMatrix(comptime T: type) type {
             ensureFloat(T);
             const out = try self.clone();
             for (out.values) |*value| value.* = oneValue(T) / @sqrt(value.*);
+            return out;
+        }
+
+        pub fn reciprocal(self: Self) SparseError!Self {
+            ensureFloat(T);
+            const out = try self.clone();
+            for (out.values) |*value| value.* = oneValue(T) / value.*;
             return out;
         }
 
@@ -9822,6 +9843,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, coo_squared.row_indices, coo_rsqrt.row_indices);
     try std.testing.expectEqualSlices(usize, coo_squared.col_indices, coo_rsqrt.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 3.0, 0.25, 1.0 / 3.0 }, coo_rsqrt.values);
+    var coo_reciprocal = try coo_squared.reciprocal();
+    defer coo_reciprocal.deinit();
+    try std.testing.expectEqualSlices(usize, coo_squared.row_indices, coo_reciprocal.row_indices);
+    try std.testing.expectEqualSlices(usize, coo_squared.col_indices, coo_reciprocal.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, coo_reciprocal.values);
     var coo_positive = try coo_diff.positive();
     defer coo_positive.deinit();
     try std.testing.expectEqualSlices(usize, coo_diff.row_indices, coo_positive.row_indices);
@@ -10076,6 +10102,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csr_squared.row_offsets, csr_rsqrt.row_offsets);
     try std.testing.expectEqualSlices(usize, csr_squared.col_indices, csr_rsqrt.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 3.0, 0.25, 1.0 / 3.0 }, csr_rsqrt.values);
+    var csr_reciprocal = try csr_squared.reciprocal();
+    defer csr_reciprocal.deinit();
+    try std.testing.expectEqualSlices(usize, csr_squared.row_offsets, csr_reciprocal.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr_squared.col_indices, csr_reciprocal.col_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, csr_reciprocal.values);
     var csr_sign = try csr_diff.sign();
     defer csr_sign.deinit();
     try std.testing.expectEqualSlices(usize, csr_diff.row_offsets, csr_sign.row_offsets);
@@ -10180,6 +10211,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualSlices(usize, csc_squared.col_offsets, csc_rsqrt.col_offsets);
     try std.testing.expectEqualSlices(usize, csc_squared.row_indices, csc_rsqrt.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 1.0 / 3.0, 0.25, 1.0 / 3.0 }, csc_rsqrt.values);
+    var csc_reciprocal = try csc_squared.reciprocal();
+    defer csc_reciprocal.deinit();
+    try std.testing.expectEqualSlices(usize, csc_squared.col_offsets, csc_reciprocal.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc_squared.row_indices, csc_reciprocal.row_indices);
+    try std.testing.expectEqualSlices(f64, &.{ 1.0 / 9.0, 1.0 / 16.0, 1.0 / 9.0 }, csc_reciprocal.values);
     var csc_sign = try csc_diff.sign();
     defer csc_sign.deinit();
     try std.testing.expectEqualSlices(usize, csc_diff.col_offsets, csc_sign.col_offsets);
