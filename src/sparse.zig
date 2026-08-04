@@ -82,6 +82,31 @@ pub const SparseDiffSummary = struct {
     }
 };
 
+const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
+
+fn sparseCompareScalarValues(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    values: []const T,
+    scalar: T,
+    comptime comparison: SparseScalarComparison,
+) SparseError![]bool {
+    ensureNumeric(T);
+    var out = try allocator.alloc(bool, values.len);
+    errdefer allocator.free(out);
+    for (values, 0..) |value, index| {
+        out[index] = switch (comparison) {
+            .eq => value == scalar,
+            .ne => value != scalar,
+            .gt => value > scalar,
+            .ge => value >= scalar,
+            .lt => value < scalar,
+            .le => value <= scalar,
+        };
+    }
+    return out;
+}
+
 pub const SparseResidualSummary = struct {
     residual_norm: f64,
     relative_residual_norm: f64,
@@ -1699,6 +1724,71 @@ pub fn CooMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CooMatrix(bool) {
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try sparseCompareScalarValues(T, self.allocator, self.values, scalar, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .eq);
+        }
+
+        pub fn eqScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.equalScalar(scalar);
+        }
+
+        pub fn notEqualScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .ne);
+        }
+
+        pub fn neScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.notEqualScalar(scalar);
+        }
+
+        pub fn greaterScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .gt);
+        }
+
+        pub fn gtScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.greaterScalar(scalar);
+        }
+
+        pub fn greaterEqualScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .ge);
+        }
+
+        pub fn geScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.greaterEqualScalar(scalar);
+        }
+
+        pub fn lessScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .lt);
+        }
+
+        pub fn ltScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.lessScalar(scalar);
+        }
+
+        pub fn lessEqualScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.compareScalar(scalar, .le);
+        }
+
+        pub fn leScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
+            return self.lessEqualScalar(scalar);
         }
 
         pub fn nnz(self: Self) usize {
@@ -4353,6 +4443,71 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CsrMatrix(bool) {
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try sparseCompareScalarValues(T, self.allocator, self.values, scalar, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .eq);
+        }
+
+        pub fn eqScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.equalScalar(scalar);
+        }
+
+        pub fn notEqualScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .ne);
+        }
+
+        pub fn neScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.notEqualScalar(scalar);
+        }
+
+        pub fn greaterScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .gt);
+        }
+
+        pub fn gtScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.greaterScalar(scalar);
+        }
+
+        pub fn greaterEqualScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .ge);
+        }
+
+        pub fn geScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.greaterEqualScalar(scalar);
+        }
+
+        pub fn lessScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .lt);
+        }
+
+        pub fn ltScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.lessScalar(scalar);
+        }
+
+        pub fn lessEqualScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.compareScalar(scalar, .le);
+        }
+
+        pub fn leScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
+            return self.lessEqualScalar(scalar);
         }
 
         pub fn nnz(self: Self) usize {
@@ -7224,6 +7379,71 @@ pub fn CscMatrix(comptime T: type) type {
             };
         }
 
+        fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CscMatrix(bool) {
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const values = try sparseCompareScalarValues(T, self.allocator, self.values, scalar, comparison);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn equalScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .eq);
+        }
+
+        pub fn eqScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.equalScalar(scalar);
+        }
+
+        pub fn notEqualScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .ne);
+        }
+
+        pub fn neScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.notEqualScalar(scalar);
+        }
+
+        pub fn greaterScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .gt);
+        }
+
+        pub fn gtScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.greaterScalar(scalar);
+        }
+
+        pub fn greaterEqualScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .ge);
+        }
+
+        pub fn geScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.greaterEqualScalar(scalar);
+        }
+
+        pub fn lessScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .lt);
+        }
+
+        pub fn ltScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.lessScalar(scalar);
+        }
+
+        pub fn lessEqualScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.compareScalar(scalar, .le);
+        }
+
+        pub fn leScalar(self: Self, scalar: T) SparseError!CscMatrix(bool) {
+            return self.lessEqualScalar(scalar);
+        }
+
         pub fn nnz(self: Self) usize {
             return self.values.len;
         }
@@ -9777,6 +9997,14 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, coo.row_indices, coo_mapped.row_indices);
     try std.testing.expectEqualSlices(usize, coo.col_indices, coo_mapped.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 11, 3, 4, 5, 6, 7 }, coo_mapped.values);
+    var coo_equal_scalar = try coo.equalScalar(3);
+    defer coo_equal_scalar.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_equal_scalar.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_equal_scalar.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, false }, coo_equal_scalar.values);
+    var coo_gt_scalar = try coo.gtScalar(4);
+    defer coo_gt_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true, true }, coo_gt_scalar.values);
     var coo_filled = try coo.clone();
     defer coo_filled.deinit();
     coo_filled.fillStoredValues(-2);
@@ -9913,6 +10141,14 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_mapped.row_offsets);
     try std.testing.expectEqualSlices(usize, csr.col_indices, csr_mapped.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 20, 4, 6, 8, 10, 12 }, csr_mapped.values);
+    var csr_le_scalar = try csr.lessEqualScalar(4);
+    defer csr_le_scalar.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_le_scalar.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_le_scalar.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false, false }, csr_le_scalar.values);
+    var csr_ne_scalar = try csr.neScalar(3);
+    defer csr_ne_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, true, true }, csr_ne_scalar.values);
     var csr_filled = try csr.clone();
     defer csr_filled.deinit();
     csr_filled.fillValues(7);
@@ -9966,6 +10202,14 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_mapped.col_offsets);
     try std.testing.expectEqualSlices(usize, csc.row_indices, csc_mapped.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 9, 4, 2, 1, 3, 5 }, csc_mapped.values);
+    var csc_ne_scalar = try csc.notEqualScalar(3);
+    defer csc_ne_scalar.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_ne_scalar.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_ne_scalar.row_indices);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, true, true, true }, csc_ne_scalar.values);
+    var csc_ge_scalar = try csc.geScalar(5);
+    defer csc_ge_scalar.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false, false, false, true }, csc_ge_scalar.values);
     var csc_filled = try csc.clone();
     defer csc_filled.deinit();
     csc_filled.fillStoredValues(8);
