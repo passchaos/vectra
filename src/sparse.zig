@@ -648,6 +648,18 @@ fn sparseDenseMatmul(comptime T: type, matrix: anytype, rhs: array_mod.Array(T))
     return dense.matmul(rhs);
 }
 
+fn sparseDenseInner(comptime T: type, matrix: anytype, rhs: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return dense.inner(rhs);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return dense.inner(rhs_dense);
+    }
+}
+
 fn sparseDenseSolveTriangular(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3297,6 +3309,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.matmul(rhs);
+        }
+
+        pub fn inner(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -6969,6 +6989,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.matmul(rhs);
         }
 
+        pub fn inner(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
+        }
+
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
             return sparseDenseMatrixNorm(T, self, order, tolerance);
         }
@@ -8186,9 +8214,9 @@ pub fn CsrMatrix(comptime T: type) type {
         ) usize {
             var touched_count: usize = 0;
             for (self.row_offsets[row]..self.row_offsets[row + 1]) |lhs_pos| {
-                const inner = self.col_indices[lhs_pos];
+                const inner_col = self.col_indices[lhs_pos];
                 const lhs_value = self.values[lhs_pos];
-                for (rhs.row_offsets[inner]..rhs.row_offsets[inner + 1]) |rhs_pos| {
+                for (rhs.row_offsets[inner_col]..rhs.row_offsets[inner_col + 1]) |rhs_pos| {
                     const col = rhs.col_indices[rhs_pos];
                     if (!markers[col]) {
                         markers[col] = true;
@@ -10848,6 +10876,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.matmul(rhs);
+        }
+
+        pub fn inner(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseInner(T, self, rhs);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -15960,6 +15996,23 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer mm_identity.deinit();
             try std.testing.expectEqualSlices(usize, matmul_identity.shape, mm_identity.shape);
             for (matmul_identity.data, mm_identity.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var inner_self = try upper.inner(upper);
+            defer inner_self.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, inner_self.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 5), inner_self.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 6), inner_self.data[1], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 6), inner_self.data[2], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 9), inner_self.data[3], 1e-12);
+
+            var upper_dense = try upper.toDense();
+            defer upper_dense.deinit();
+            var inner_array = try upper.innerArray(upper_dense);
+            defer inner_array.deinit();
+            try std.testing.expectEqualSlices(usize, inner_self.shape, inner_array.shape);
+            for (inner_self.data, inner_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
