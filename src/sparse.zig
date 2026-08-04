@@ -696,6 +696,18 @@ fn sparseDenseLu(comptime T: type, matrix: anytype) SparseError!array_mod.LuResu
     return dense.lu();
 }
 
+fn sparseDenseEigh(comptime T: type, matrix: anytype, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.eigh(max_sweeps, tolerance);
+}
+
+fn sparseDenseEigvalsh(comptime T: type, matrix: anytype, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.eigvalsh(max_sweeps, tolerance);
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3275,6 +3287,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
+        }
+
+        pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
+            return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6909,6 +6929,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
+        }
+
+        pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
+            return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10758,6 +10786,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
+        }
+
+        pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
+            return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
+            return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15835,6 +15871,20 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 3)), diagonal_cholesky.data[3], 1e-12);
+
+            var eigen = try diagonal.eigh(64, 1e-12);
+            defer eigen.deinit();
+            try std.testing.expectEqualSlices(usize, &.{2}, eigen.values.shape);
+            const eigen_min = @min(eigen.values.data[0], eigen.values.data[1]);
+            const eigen_max = @max(eigen.values.data[0], eigen.values.data[1]);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), eigen_min, 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), eigen_max, 1e-10);
+            var eigenvalues = try diagonal.eigvalsh(64, 1e-12);
+            defer eigenvalues.deinit();
+            try std.testing.expectEqualSlices(usize, eigen.values.shape, eigenvalues.shape);
+            for (eigen.values.data, eigenvalues.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
         }
     }.check;
 
