@@ -400,6 +400,30 @@ fn sparseDenseScatterReduceScalar(comptime T: type, matrix: anytype, axis_index:
     return dense.scatterReduceScalar(axis_index, indices, value, reduction);
 }
 
+fn sparseDenseSelect(comptime T: type, matrix: anytype, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.select(axis_index, index);
+}
+
+fn sparseDenseSelectSigned(comptime T: type, matrix: anytype, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.selectSigned(axis_index, index);
+}
+
+fn sparseDenseNarrow(comptime T: type, matrix: anytype, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.narrow(axis_index, start, length);
+}
+
+fn sparseDenseNarrowSigned(comptime T: type, matrix: anytype, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.narrowSigned(axis_index, start, length);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2541,6 +2565,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelect(T, self, axis_index, index);
+        }
+
+        pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrow(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrowSigned(T, self, axis_index, start, length);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -5779,6 +5819,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelect(T, self, axis_index, index);
+        }
+
+        pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrow(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrowSigned(T, self, axis_index, start, length);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -9232,6 +9288,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn putAlongAxis(self: Self, indices: array_mod.Array(usize), src: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.scatter(axis_index, indices, src);
+        }
+
+        pub fn select(self: Self, axis_index: isize, index: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelect(T, self, axis_index, index);
+        }
+
+        pub fn selectSigned(self: Self, axis_index: isize, index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSelectSigned(T, self, axis_index, index);
+        }
+
+        pub fn narrow(self: Self, axis_index: isize, start: usize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrow(T, self, axis_index, start, length);
+        }
+
+        pub fn narrowSigned(self: Self, axis_index: isize, start: isize, length: usize) SparseError!array_mod.Array(T) {
+            return sparseDenseNarrowSigned(T, self, axis_index, start, length);
         }
 
         pub fn scatterReduce(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T), reduction: array_mod.ScatterReduce) SparseError!array_mod.Array(T) {
@@ -13487,6 +13559,25 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var bad_scatter_src = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2, 3 }, &.{3});
             defer bad_scatter_src.deinit();
             try std.testing.expectError(error.ShapeMismatch, matrix.scatter(1, scatter_indices, bad_scatter_src));
+
+            var selected_row = try matrix.select(0, 1);
+            defer selected_row.deinit();
+            try expectArray(selected_row, &.{3}, &.{ 0, 2, 3 });
+
+            var selected_column = try matrix.selectSigned(1, -1);
+            defer selected_column.deinit();
+            try expectArray(selected_column, &.{2}, &.{ 0, 3 });
+
+            var narrowed_rows = try matrix.narrow(0, 0, 1);
+            defer narrowed_rows.deinit();
+            try expectArray(narrowed_rows, &.{ 1, 3 }, &.{ 1, 0, 0 });
+
+            var narrowed_columns = try matrix.narrowSigned(1, -2, 2);
+            defer narrowed_columns.deinit();
+            try expectArray(narrowed_columns, &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.select(0, 2));
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.narrow(1, 2, 2));
 
             var put_flat_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 20, 21, 22 }, &.{3});
             defer put_flat_values.deinit();
