@@ -566,6 +566,19 @@ fn sparseDenseDiagEmbed(comptime T: type, matrix: anytype, offset: isize) Sparse
     return dense.diagEmbed(offset);
 }
 
+fn sparseDenseFillDiagonal(comptime T: type, matrix: anytype, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    errdefer dense.deinit();
+    try dense.fillDiagonal(value, offset, axis1, axis2);
+    return dense;
+}
+
+fn sparseDenseDiagonalScatter(comptime T: type, matrix: anytype, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.diagonalScatter(values, offset, axis1, axis2);
+}
+
 fn sparseDenseTriu(comptime T: type, matrix: anytype, diagonal_offset: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3069,6 +3082,14 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
@@ -6623,6 +6644,14 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
@@ -10392,6 +10421,14 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
         }
 
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
@@ -15094,6 +15131,19 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var diag_embed = try diagonal_axes.diagEmbed(0);
             defer diag_embed.deinit();
             try expectArray(diag_embed, &.{ 2, 2 }, &.{ 1, 0, 0, 2 });
+
+            var filled_diagonal = try matrix.fillDiagonal(9, 0, 0, 1);
+            defer filled_diagonal.deinit();
+            try expectArray(filled_diagonal, &.{ 2, 3 }, &.{ 9, 0, 0, 0, 9, 3 });
+
+            var scatter_diagonal_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 7, 8 }, &.{2});
+            defer scatter_diagonal_values.deinit();
+            var scattered_diagonal = try matrix.diagonalScatter(scatter_diagonal_values, 0, 0, 1);
+            defer scattered_diagonal.deinit();
+            try expectArray(scattered_diagonal, &.{ 2, 3 }, &.{ 7, 0, 0, 0, 8, 3 });
+
+            try std.testing.expectError(error.InvalidAxis, matrix.fillDiagonal(0, 0, 0, 0));
+            try std.testing.expectError(error.ShapeMismatch, matrix.diagonalScatter(flattened, 0, 0, 1));
 
             var upper_triangular = try matrix.triu(0);
             defer upper_triangular.deinit();
