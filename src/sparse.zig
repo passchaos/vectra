@@ -4368,6 +4368,84 @@ pub fn CooMatrix(comptime T: type) type {
             return self.values.len;
         }
 
+        pub fn dtypeName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.DType.of(T).name();
+        }
+
+        pub fn dtypeTag(self: Self) u8 {
+            _ = self;
+            return array_mod.DType.of(T).tag();
+        }
+
+        pub fn dtypeByteSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).byteSize();
+        }
+
+        pub fn dtypeBitSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).bitSize();
+        }
+
+        pub fn elementSize(self: Self) usize {
+            _ = self;
+            return @sizeOf(T);
+        }
+
+        pub fn itemsize(self: Self) usize {
+            return self.elementSize();
+        }
+
+        pub fn nbytes(self: Self) SparseError!usize {
+            return std.math.mul(usize, try self.numel(), @sizeOf(T)) catch return error.InvalidShape;
+        }
+
+        pub fn isFloatDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isFloat();
+        }
+
+        pub fn isIntegerDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isInteger();
+        }
+
+        pub fn isSignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isSigned();
+        }
+
+        pub fn isUnsignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isUnsigned();
+        }
+
+        pub fn isComplexDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isComplex();
+        }
+
+        pub fn isBoolDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isBool();
+        }
+
+        pub fn isRealDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isReal();
+        }
+
+        pub fn isNumericDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
+            _ = self;
+            return array_mod.DType.of(T).canCast(target);
+        }
+
         pub fn ndim(self: Self) usize {
             _ = self;
             return 2;
@@ -9826,6 +9904,84 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn dtypeName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.DType.of(T).name();
+        }
+
+        pub fn dtypeTag(self: Self) u8 {
+            _ = self;
+            return array_mod.DType.of(T).tag();
+        }
+
+        pub fn dtypeByteSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).byteSize();
+        }
+
+        pub fn dtypeBitSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).bitSize();
+        }
+
+        pub fn elementSize(self: Self) usize {
+            _ = self;
+            return @sizeOf(T);
+        }
+
+        pub fn itemsize(self: Self) usize {
+            return self.elementSize();
+        }
+
+        pub fn nbytes(self: Self) SparseError!usize {
+            return std.math.mul(usize, try self.numel(), @sizeOf(T)) catch return error.InvalidShape;
+        }
+
+        pub fn isFloatDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isFloat();
+        }
+
+        pub fn isIntegerDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isInteger();
+        }
+
+        pub fn isSignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isSigned();
+        }
+
+        pub fn isUnsignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isUnsigned();
+        }
+
+        pub fn isComplexDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isComplex();
+        }
+
+        pub fn isBoolDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isBool();
+        }
+
+        pub fn isRealDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isReal();
+        }
+
+        pub fn isNumericDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
+            _ = self;
+            return array_mod.DType.of(T).canCast(target);
         }
 
         pub fn ndim(self: Self) usize {
@@ -15497,6 +15653,84 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nnz(self: Self) usize {
             return self.values.len;
+        }
+
+        pub fn dtypeName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.DType.of(T).name();
+        }
+
+        pub fn dtypeTag(self: Self) u8 {
+            _ = self;
+            return array_mod.DType.of(T).tag();
+        }
+
+        pub fn dtypeByteSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).byteSize();
+        }
+
+        pub fn dtypeBitSize(self: Self) usize {
+            _ = self;
+            return array_mod.DType.of(T).bitSize();
+        }
+
+        pub fn elementSize(self: Self) usize {
+            _ = self;
+            return @sizeOf(T);
+        }
+
+        pub fn itemsize(self: Self) usize {
+            return self.elementSize();
+        }
+
+        pub fn nbytes(self: Self) SparseError!usize {
+            return std.math.mul(usize, try self.numel(), @sizeOf(T)) catch return error.InvalidShape;
+        }
+
+        pub fn isFloatDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isFloat();
+        }
+
+        pub fn isIntegerDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isInteger();
+        }
+
+        pub fn isSignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isSigned();
+        }
+
+        pub fn isUnsignedDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isUnsigned();
+        }
+
+        pub fn isComplexDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isComplex();
+        }
+
+        pub fn isBoolDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isBool();
+        }
+
+        pub fn isRealDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isReal();
+        }
+
+        pub fn isNumericDtype(self: Self) bool {
+            _ = self;
+            return array_mod.DType.of(T).isNumeric();
+        }
+
+        pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
+            _ = self;
+            return array_mod.DType.of(T).canCast(target);
         }
 
         pub fn ndim(self: Self) usize {
@@ -23360,6 +23594,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var coo_dense = try coo_sum.toDense();
     defer coo_dense.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 0, 0, 0, 0, 9 }, coo_dense.data);
+    try std.testing.expectEqualStrings("f64", lhs.dtypeName());
+    try std.testing.expectEqual(array_mod.DType.f64.tag(), lhs.dtypeTag());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.dtypeByteSize());
+    try std.testing.expectEqual(@as(usize, @bitSizeOf(f64)), lhs.dtypeBitSize());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.elementSize());
+    try std.testing.expectEqual(@as(usize, @sizeOf(f64)), lhs.itemsize());
+    try std.testing.expectEqual(@as(usize, 6 * @sizeOf(f64)), try lhs.nbytes());
+    try std.testing.expect(lhs.isFloatDtype());
+    try std.testing.expect(!lhs.isIntegerDtype());
+    try std.testing.expect(!lhs.isSignedDtype());
+    try std.testing.expect(!lhs.isUnsignedDtype());
+    try std.testing.expect(!lhs.isComplexDtype());
+    try std.testing.expect(!lhs.isBoolDtype());
+    try std.testing.expect(lhs.isRealDtype());
+    try std.testing.expect(lhs.isNumericDtype());
+    try std.testing.expect(lhs.canCastToDtype(.f32));
     try std.testing.expectEqual(@as(usize, 2), lhs.ndim());
     try std.testing.expectEqual(@as(usize, 2), lhs.dim());
     try std.testing.expectEqual(@as(usize, 2), lhs.rank());
@@ -23546,6 +23796,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try expectMatrixPredicates(@TypeOf(upper_square_csr), upper_square_csr, diagonal_square_csr);
     var upper_square_csr_dense = try upper_square_csr.toDense();
     defer upper_square_csr_dense.deinit();
+    try std.testing.expectEqualStrings("f64", upper_square_csr.dtypeName());
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), try upper_square_csr.nbytes());
+    try std.testing.expect(upper_square_csr.isFloatDtype());
     try std.testing.expectEqual(@as(usize, 4), try upper_square_csr.numel());
     try std.testing.expect(upper_square_csr.isSquare());
     try std.testing.expect(upper_square_csr.sameShape(diagonal_square_csr));
@@ -23561,6 +23814,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try expectMatrixPredicates(@TypeOf(upper_square_csc), upper_square_csc, diagonal_square_csc);
     var upper_square_csc_dense = try upper_square_csc.toDense();
     defer upper_square_csc_dense.deinit();
+    try std.testing.expectEqualStrings("f64", upper_square_csc.dtypeName());
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), try upper_square_csc.nbytes());
+    try std.testing.expect(upper_square_csc.isFloatDtype());
     try std.testing.expectEqual(@as(usize, 4), try upper_square_csc.numel());
     try std.testing.expect(upper_square_csc.isSquare());
     try std.testing.expect(upper_square_csc.sameShape(diagonal_square_csc));
