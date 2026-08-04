@@ -1231,6 +1231,24 @@ fn sparseDenseHeavisideScalar(comptime T: type, matrix: anytype, value_at_zero: 
     return dense.heavisideScalar(value_at_zero);
 }
 
+fn sparseDenseLogAddExpScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logAddExpScalar(scalar);
+}
+
+fn sparseDenseLogAddExp2Scalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logAddExp2Scalar(scalar);
+}
+
+fn sparseDenseXlogyScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.xlogyScalar(scalar);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4849,6 +4867,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn heavisideScalar(self: Self, value_at_zero: T) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideScalar(T, self, value_at_zero);
+        }
+
+        pub fn logAddExpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpScalar(T, self, scalar);
+        }
+
+        pub fn logaddexpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExpScalar(scalar);
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Scalar(T, self, scalar);
+        }
+
+        pub fn logaddexp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Scalar(scalar);
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9543,6 +9581,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn heavisideScalar(self: Self, value_at_zero: T) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideScalar(T, self, value_at_zero);
+        }
+
+        pub fn logAddExpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpScalar(T, self, scalar);
+        }
+
+        pub fn logaddexpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExpScalar(scalar);
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Scalar(T, self, scalar);
+        }
+
+        pub fn logaddexp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Scalar(scalar);
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -14448,6 +14506,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn heavisideScalar(self: Self, value_at_zero: T) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideScalar(T, self, value_at_zero);
+        }
+
+        pub fn logAddExpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExpScalar(T, self, scalar);
+        }
+
+        pub fn logaddexpScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExpScalar(scalar);
+        }
+
+        pub fn logAddExp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseLogAddExp2Scalar(T, self, scalar);
+        }
+
+        pub fn logaddexp2Scalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return self.logAddExp2Scalar(scalar);
+        }
+
+        pub fn xlogyScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
+            return sparseDenseXlogyScalar(T, self, scalar);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -21372,6 +21450,40 @@ test "sparse dense fused elementwise helpers" {
             var heaviside = try matrix.heavisideScalar(0.5);
             defer heaviside.deinit();
             try expectArray(heaviside, &.{ 2, 3 }, &.{ 1, 0.5, 0.5, 0.5, 1, 1 });
+
+            var logaddexp = try matrix.logAddExpScalar(1);
+            defer logaddexp.deinit();
+            try expectArray(logaddexp, &.{ 2, 3 }, &.{
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + std.math.exp(@as(f64, 1))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 1))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 1))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 1))),
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 1))),
+                std.math.log(f64, std.math.e, std.math.exp(@as(f64, 3)) + std.math.exp(@as(f64, 1))),
+            });
+
+            var logaddexp_alias = try matrix.logaddexpScalar(1);
+            defer logaddexp_alias.deinit();
+            try expectArray(logaddexp_alias, &.{ 2, 3 }, logaddexp.data);
+
+            var logaddexp2 = try matrix.logAddExp2Scalar(1);
+            defer logaddexp2.deinit();
+            try expectArray(logaddexp2, &.{ 2, 3 }, &.{
+                std.math.log2(@as(f64, 2) + 2),
+                std.math.log2(@as(f64, 1) + 2),
+                std.math.log2(@as(f64, 1) + 2),
+                std.math.log2(@as(f64, 1) + 2),
+                std.math.log2(@as(f64, 4) + 2),
+                std.math.log2(@as(f64, 8) + 2),
+            });
+
+            var logaddexp2_alias = try matrix.logaddexp2Scalar(1);
+            defer logaddexp2_alias.deinit();
+            try expectArray(logaddexp2_alias, &.{ 2, 3 }, logaddexp2.data);
+
+            var xlogy = try matrix.xlogyScalar(2);
+            defer xlogy.deinit();
+            try expectArray(xlogy, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 2), 0, 0, 0, 2 * std.math.log(f64, std.math.e, 2), 3 * std.math.log(f64, std.math.e, 2) });
 
             var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
