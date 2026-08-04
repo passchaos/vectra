@@ -605,6 +605,30 @@ fn sparseDensePutCoordsScalar(comptime T: type, matrix: anytype, coords: array_m
     return dense.putCoordsScalar(coords, value);
 }
 
+fn sparseDenseRavelMultiIndex(matrix: anytype, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.ravelMultiIndex(indices);
+}
+
+fn sparseDenseTakeMultiIndex(comptime T: type, matrix: anytype, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.takeMultiIndex(indices);
+}
+
+fn sparseDensePutMultiIndex(comptime T: type, matrix: anytype, indices: []const array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putMultiIndex(indices, values);
+}
+
+fn sparseDensePutMultiIndexScalar(comptime T: type, matrix: anytype, indices: []const array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.putMultiIndexScalar(indices, value);
+}
+
 fn sparseDenseReshape(comptime T: type, matrix: anytype, dims: []const usize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4530,6 +4554,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn ravelMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
+            return sparseDenseRavelMultiIndex(self, indices);
+        }
+
+        pub fn takeMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMultiIndex(T, self, indices);
+        }
+
+        pub fn putMultiIndex(self: Self, indices: []const array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndex(T, self, indices, values);
+        }
+
+        pub fn putMultiIndexScalar(self: Self, indices: []const array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndexScalar(T, self, indices, value);
         }
 
         pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
@@ -9828,6 +9868,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn ravelMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
+            return sparseDenseRavelMultiIndex(self, indices);
+        }
+
+        pub fn takeMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMultiIndex(T, self, indices);
+        }
+
+        pub fn putMultiIndex(self: Self, indices: []const array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndex(T, self, indices, values);
+        }
+
+        pub fn putMultiIndexScalar(self: Self, indices: []const array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndexScalar(T, self, indices, value);
         }
 
         pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
@@ -15337,6 +15393,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn putCoordsScalar(self: Self, coords: array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
             return sparseDensePutCoordsScalar(T, self, coords, value);
+        }
+
+        pub fn ravelMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(usize) {
+            return sparseDenseRavelMultiIndex(self, indices);
+        }
+
+        pub fn takeMultiIndex(self: Self, indices: []const array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMultiIndex(T, self, indices);
+        }
+
+        pub fn putMultiIndex(self: Self, indices: []const array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndex(T, self, indices, values);
+        }
+
+        pub fn putMultiIndexScalar(self: Self, indices: []const array_mod.Array(usize), value: T) SparseError!array_mod.Array(T) {
+            return sparseDensePutMultiIndexScalar(T, self, indices, value);
         }
 
         pub fn reshape(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
@@ -21900,6 +21972,31 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var coord_scalar_put = try matrix.putCoordsScalar(coords, 99);
             defer coord_scalar_put.deinit();
             try expectArray(coord_scalar_put, &.{ 2, 3 }, &.{ 99, 0, 0, 0, 99, 99 });
+
+            var multi_rows = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 0, 1, 1 }, &.{3});
+            defer multi_rows.deinit();
+            var multi_cols = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 0, 1, 2 }, &.{3});
+            defer multi_cols.deinit();
+            const multi_indices = [_]array_mod.Array(usize){ multi_rows, multi_cols };
+
+            var flat_multi = try matrix.ravelMultiIndex(multi_indices[0..]);
+            defer flat_multi.deinit();
+            try std.testing.expectEqualSlices(usize, &.{3}, flat_multi.shape);
+            try std.testing.expectEqualSlices(usize, flat_from_coords.data, flat_multi.data);
+
+            var multi_values = try matrix.takeMultiIndex(multi_indices[0..]);
+            defer multi_values.deinit();
+            try expectArray(multi_values, &.{3}, coord_values.data);
+
+            var multi_replacements = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 70, 71, 72 }, &.{3});
+            defer multi_replacements.deinit();
+            var multi_put = try matrix.putMultiIndex(multi_indices[0..], multi_replacements);
+            defer multi_put.deinit();
+            try expectArray(multi_put, &.{ 2, 3 }, &.{ 70, 0, 0, 0, 71, 72 });
+
+            var multi_scalar_put = try matrix.putMultiIndexScalar(multi_indices[0..], 55);
+            defer multi_scalar_put.deinit();
+            try expectArray(multi_scalar_put, &.{ 2, 3 }, &.{ 55, 0, 0, 0, 55, 55 });
 
             var bad_coords = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 0, 3 }, &.{ 1, 2 });
             defer bad_coords.deinit();
