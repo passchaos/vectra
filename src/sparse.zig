@@ -684,6 +684,12 @@ fn sparseDenseLstsq(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), 
     return dense.lstsq(rhs, tolerance);
 }
 
+fn sparseDenseQr(comptime T: type, matrix: anytype) SparseError!array_mod.QrResult(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.qr();
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3255,6 +3261,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
+        }
+
+        pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
+            return sparseDenseQr(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6881,6 +6891,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
+        }
+
+        pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
+            return sparseDenseQr(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10722,6 +10736,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
+        }
+
+        pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
+            return sparseDenseQr(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15753,6 +15771,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
             for (solution.data, least_squares.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
+
+            var qr_result = try upper.qr();
+            defer qr_result.deinit();
+            var qr_reconstructed = try qr_result.q.matmul(qr_result.r);
+            defer qr_reconstructed.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, qr_reconstructed.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), qr_reconstructed.data[0], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 2), qr_reconstructed.data[1], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), qr_reconstructed.data[2], 1e-10);
+            try std.testing.expectApproxEqAbs(@as(f64, 3), qr_reconstructed.data[3], 1e-10);
 
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try upper.matrixNorm(.fro, 1e-12), 1e-12);
             try std.testing.expectEqual(@as(usize, 2), try upper.matrixRank(1e-12));
