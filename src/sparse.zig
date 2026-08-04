@@ -1111,6 +1111,30 @@ fn sparseDenseModArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T
     return dense.mod(rhs);
 }
 
+fn sparseDenseMaximumArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.maximum(rhs);
+}
+
+fn sparseDenseMinimumArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.minimum(rhs);
+}
+
+fn sparseDenseFmaxArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.fmax(rhs);
+}
+
+fn sparseDenseFminArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.fmin(rhs);
+}
+
 fn sparseDenseAddcmul(comptime T: type, matrix: anytype, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4629,6 +4653,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximumArray(T, self, rhs);
+        }
+
+        pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxArray(T, self, rhs);
+        }
+
+        pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFminArray(T, self, rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -9223,6 +9263,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximumArray(T, self, rhs);
+        }
+
+        pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxArray(T, self, rhs);
+        }
+
+        pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFminArray(T, self, rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -14028,6 +14084,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMaximumArray(T, self, rhs);
+        }
+
+        pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFmaxArray(T, self, rhs);
+        }
+
+        pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseFminArray(T, self, rhs);
         }
 
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
@@ -20982,12 +21054,37 @@ test "sparse dense numeric array helpers" {
             defer remainder_alias.deinit();
             try expectArray(remainder_alias, &.{ 2, 3 }, modded.data);
 
+            var bounds = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
+                1, -1, 3,
+                0, 4,  5,
+            }, &.{ 2, 3 });
+            defer bounds.deinit();
+            var maximum = try matrix.maximumArray(bounds);
+            defer maximum.deinit();
+            try expectArray(maximum, &.{ 2, 3 }, &.{ 2, 0, 3, 0, 4, 5 });
+
+            var minimum = try matrix.minimumArray(bounds);
+            defer minimum.deinit();
+            try expectArray(minimum, &.{ 2, 3 }, &.{ 1, -1, 0, 0, -1, 2 });
+
+            var fmax = try matrix.fmaxArray(bounds);
+            defer fmax.deinit();
+            try expectArray(fmax, &.{ 2, 3 }, maximum.data);
+
+            var fmin = try matrix.fminArray(bounds);
+            defer fmin.deinit();
+            try expectArray(fmin, &.{ 2, 3 }, minimum.data);
+
             var bad = try array_mod.Array(i32).ones(matrix.allocator, &.{ 3, 2 });
             defer bad.deinit();
             try std.testing.expectError(error.ShapeMismatch, matrix.powArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.floorDivArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.modArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.remainderArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.maximumArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.minimumArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.fmaxArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.fminArray(bad));
         }
     }.check;
 
