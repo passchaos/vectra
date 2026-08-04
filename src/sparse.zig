@@ -913,6 +913,30 @@ fn sparseDenseLogsumexpAxes(comptime T: type, matrix: anytype, axes: []const isi
     return dense.logsumexpAxes(axes, keepdims);
 }
 
+fn sparseDenseSoftmax(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.softmax(axis_index);
+}
+
+fn sparseDenseSoftmin(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.softmin(axis_index);
+}
+
+fn sparseDenseLogSoftmax(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logSoftmax(axis_index);
+}
+
+fn sparseDenseLogSoftmin(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.logSoftmin(axis_index);
+}
+
 fn sparseDenseNormalize(comptime T: type, matrix: anytype, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4163,6 +4187,38 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmax(T, self, axis_index);
+        }
+
+        pub fn softmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmax(dim_index);
+        }
+
+        pub fn softmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmin(T, self, axis_index);
+        }
+
+        pub fn softminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmin(dim_index);
+        }
+
+        pub fn logSoftmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmax(T, self, axis_index);
+        }
+
+        pub fn logSoftmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmax(dim_index);
+        }
+
+        pub fn logSoftmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmin(T, self, axis_index);
+        }
+
+        pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmin(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -8489,6 +8545,38 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmax(T, self, axis_index);
+        }
+
+        pub fn softmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmax(dim_index);
+        }
+
+        pub fn softmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmin(T, self, axis_index);
+        }
+
+        pub fn softminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmin(dim_index);
+        }
+
+        pub fn logSoftmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmax(T, self, axis_index);
+        }
+
+        pub fn logSoftmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmax(dim_index);
+        }
+
+        pub fn logSoftmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmin(T, self, axis_index);
+        }
+
+        pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmin(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -13026,6 +13114,38 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmax(T, self, axis_index);
+        }
+
+        pub fn softmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmax(dim_index);
+        }
+
+        pub fn softmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSoftmin(T, self, axis_index);
+        }
+
+        pub fn softminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.softmin(dim_index);
+        }
+
+        pub fn logSoftmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmax(T, self, axis_index);
+        }
+
+        pub fn logSoftmaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmax(dim_index);
+        }
+
+        pub fn logSoftmin(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseLogSoftmin(T, self, axis_index);
+        }
+
+        pub fn logSoftminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logSoftmin(dim_index);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -19882,6 +20002,50 @@ test "sparse dense norm and logsumexp helpers" {
             var all_lse_keep = try matrix.logsumexpDims(&.{ 0, 1 }, true);
             defer all_lse_keep.deinit();
             try expectArray(all_lse_keep, &.{ 1, 1 }, all_lse.data);
+
+            var softmax_rows = try matrix.softmax(1);
+            defer softmax_rows.deinit();
+            var softmax_row_sums = try softmax_rows.sum(1, false);
+            defer softmax_row_sums.deinit();
+            try expectArray(softmax_row_sums, &.{2}, &.{ 1, 1 });
+
+            var softmax_rows_dim = try matrix.softmaxDim(-1);
+            defer softmax_rows_dim.deinit();
+            try expectArray(softmax_rows_dim, &.{ 2, 3 }, softmax_rows.data);
+
+            var softmin_rows = try matrix.softmin(1);
+            defer softmin_rows.deinit();
+            var negated = try matrix.neg();
+            defer negated.deinit();
+            var expected_softmin = try negated.softmax(1);
+            defer expected_softmin.deinit();
+            try expectArray(softmin_rows, &.{ 2, 3 }, expected_softmin.data);
+
+            var softmin_rows_dim = try matrix.softminDim(-1);
+            defer softmin_rows_dim.deinit();
+            try expectArray(softmin_rows_dim, &.{ 2, 3 }, softmin_rows.data);
+
+            var log_softmax_rows = try matrix.logSoftmax(1);
+            defer log_softmax_rows.deinit();
+            var log_softmax_probs = try log_softmax_rows.exp();
+            defer log_softmax_probs.deinit();
+            var log_softmax_row_sums = try log_softmax_probs.sum(1, false);
+            defer log_softmax_row_sums.deinit();
+            try expectArray(log_softmax_row_sums, &.{2}, &.{ 1, 1 });
+
+            var log_softmax_dim = try matrix.logSoftmaxDim(-1);
+            defer log_softmax_dim.deinit();
+            try expectArray(log_softmax_dim, &.{ 2, 3 }, log_softmax_rows.data);
+
+            var log_softmin_rows = try matrix.logSoftmin(1);
+            defer log_softmin_rows.deinit();
+            var expected_log_softmin = try negated.logSoftmax(1);
+            defer expected_log_softmin.deinit();
+            try expectArray(log_softmin_rows, &.{ 2, 3 }, expected_log_softmin.data);
+
+            var log_softmin_dim = try matrix.logSoftminDim(-1);
+            defer log_softmin_dim.deinit();
+            try expectArray(log_softmin_dim, &.{ 2, 3 }, log_softmin_rows.data);
 
             var normalized_rows = try matrix.normalize(2, 1, 1e-12);
             defer normalized_rows.deinit();
