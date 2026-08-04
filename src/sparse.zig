@@ -341,6 +341,31 @@ fn sparseValueToF64(comptime T: type, value: T) f64 {
     };
 }
 
+fn sparseCastValue(comptime U: type, value: anytype) U {
+    const V = @TypeOf(value);
+    return switch (@typeInfo(U)) {
+        .bool => switch (@typeInfo(V)) {
+            .bool => value,
+            .int, .comptime_int => value != 0,
+            .float, .comptime_float => value != 0,
+            else => @compileError("unsupported sparse cast from " ++ @typeName(V) ++ " to bool"),
+        },
+        .int => switch (@typeInfo(V)) {
+            .bool => if (value) @as(U, 1) else @as(U, 0),
+            .int, .comptime_int => @intCast(value),
+            .float, .comptime_float => @intFromFloat(value),
+            else => @compileError("unsupported sparse cast from " ++ @typeName(V) ++ " to " ++ @typeName(U)),
+        },
+        .float => switch (@typeInfo(V)) {
+            .bool => if (value) @as(U, 1) else @as(U, 0),
+            .int, .comptime_int => @floatFromInt(value),
+            .float, .comptime_float => @floatCast(value),
+            else => @compileError("unsupported sparse cast from " ++ @typeName(V) ++ " to " ++ @typeName(U)),
+        },
+        else => @compileError("unsupported sparse cast target type: " ++ @typeName(U)),
+    };
+}
+
 fn sparseSizeToF64(value: usize) f64 {
     return @floatFromInt(value);
 }
@@ -1339,6 +1364,51 @@ pub fn CooMatrix(comptime T: type) type {
             self.allocator.free(self.col_indices);
             self.allocator.free(self.values);
             self.* = undefined;
+        }
+
+        pub fn clone(self: Self) SparseError!Self {
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try self.allocator.dupe(T, self.values);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn copy(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn detach(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn astype(self: Self, comptime U: type) SparseError!CooMatrix(U) {
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = sparseCastValue(U, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_indices = row_indices,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn nnz(self: Self) usize {
@@ -3580,6 +3650,51 @@ pub fn CsrMatrix(comptime T: type) type {
             self.allocator.free(self.col_indices);
             self.allocator.free(self.values);
             self.* = undefined;
+        }
+
+        pub fn clone(self: Self) SparseError!Self {
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            const values = try self.allocator.dupe(T, self.values);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
+        }
+
+        pub fn copy(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn detach(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn astype(self: Self, comptime U: type) SparseError!CsrMatrix(U) {
+            const row_offsets = try self.allocator.dupe(usize, self.row_offsets);
+            errdefer self.allocator.free(row_offsets);
+            const col_indices = try self.allocator.dupe(usize, self.col_indices);
+            errdefer self.allocator.free(col_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = sparseCastValue(U, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .row_offsets = row_offsets,
+                .col_indices = col_indices,
+                .values = values,
+            };
         }
 
         pub fn nnz(self: Self) usize {
@@ -6034,6 +6149,51 @@ pub fn CscMatrix(comptime T: type) type {
             self.* = undefined;
         }
 
+        pub fn clone(self: Self) SparseError!Self {
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            const values = try self.allocator.dupe(T, self.values);
+            errdefer self.allocator.free(values);
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
+        pub fn copy(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn detach(self: Self) SparseError!Self {
+            return self.clone();
+        }
+
+        pub fn astype(self: Self, comptime U: type) SparseError!CscMatrix(U) {
+            const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
+            errdefer self.allocator.free(col_offsets);
+            const row_indices = try self.allocator.dupe(usize, self.row_indices);
+            errdefer self.allocator.free(row_indices);
+            var values = try self.allocator.alloc(U, self.values.len);
+            errdefer self.allocator.free(values);
+            for (self.values, 0..) |value, index| {
+                values[index] = sparseCastValue(U, value);
+            }
+            return .{
+                .allocator = self.allocator,
+                .rows = self.rows,
+                .cols = self.cols,
+                .col_offsets = col_offsets,
+                .row_indices = row_indices,
+                .values = values,
+            };
+        }
+
         pub fn nnz(self: Self) usize {
             return self.values.len;
         }
@@ -8420,6 +8580,18 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 0, 1, 1, 2, 2 }, coo.row_indices);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, coo.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, coo.values);
+    var coo_clone = try coo.clone();
+    defer coo_clone.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_clone.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_clone.col_indices);
+    try std.testing.expectEqualSlices(f64, coo.values, coo_clone.values);
+    coo_clone.values[0] = 99;
+    try std.testing.expectEqual(@as(f64, 10), coo.values[0]);
+    var coo_i32 = try coo.astype(i32);
+    defer coo_i32.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_i32.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_i32.col_indices);
+    try std.testing.expectEqualSlices(i32, &.{ 10, 2, 3, 4, 5, 6 }, coo_i32.values);
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -8510,6 +8682,18 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
+    var csr_copy = try csr.copy();
+    defer csr_copy.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_copy.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_copy.col_indices);
+    try std.testing.expectEqualSlices(f64, csr.values, csr_copy.values);
+    csr_copy.values[0] = 99;
+    try std.testing.expectEqual(@as(f64, 10), csr.values[0]);
+    var csr_f32 = try csr.astype(f32);
+    defer csr_f32.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_f32.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_f32.col_indices);
+    try std.testing.expectEqualSlices(f32, &.{ 10, 2, 3, 4, 5, 6 }, csr_f32.values);
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -8525,6 +8709,18 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+    var csc_detached = try csc.detach();
+    defer csc_detached.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_detached.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_detached.row_indices);
+    try std.testing.expectEqualSlices(f64, csc.values, csc_detached.values);
+    csc_detached.values[0] = 99;
+    try std.testing.expectEqual(@as(f64, 10), csc.values[0]);
+    var csc_bool = try csc.astype(bool);
+    defer csc_bool.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_bool.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_bool.row_indices);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, csc_bool.values);
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
