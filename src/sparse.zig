@@ -1001,6 +1001,42 @@ fn sparseDenseNanStddevAxes(comptime T: type, matrix: anytype, axes: []const isi
     return dense.nanstdAxes(axes, keepdims, correction);
 }
 
+fn sparseDenseNanMedian(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanmedian(axis_opt, keepdims);
+}
+
+fn sparseDenseNanMedianAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanmedianAxes(axes, keepdims);
+}
+
+fn sparseDenseNanQuantile(comptime T: type, matrix: anytype, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanquantile(q, axis_opt, keepdims);
+}
+
+fn sparseDenseNanQuantileAxes(comptime T: type, matrix: anytype, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanquantileAxes(q, axes, keepdims);
+}
+
+fn sparseDenseNanPercentile(comptime T: type, matrix: anytype, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanpercentile(percentile_value, axis_opt, keepdims);
+}
+
+fn sparseDenseNanPercentileAxes(comptime T: type, matrix: anytype, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanpercentileAxes(percentile_value, axes, keepdims);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4165,6 +4201,54 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.nanstdAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedian(dim_opt, keepdim);
+        }
+
+        pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedianAxes(dims, keepdim);
+        }
+
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn nanquantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantile(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantileAxes(q, dims, keepdim);
+        }
+
+        pub fn nanpercentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn nanpercentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -8359,6 +8443,54 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.nanstdAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedian(dim_opt, keepdim);
+        }
+
+        pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedianAxes(dims, keepdim);
+        }
+
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn nanquantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantile(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantileAxes(q, dims, keepdim);
+        }
+
+        pub fn nanpercentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn nanpercentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12764,6 +12896,54 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nanstdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.nanstdAxes(dims, keepdim, correction);
+        }
+
+        pub fn nanmedian(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedian(T, self, axis_opt, keepdims);
+        }
+
+        pub fn nanmedianAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanMedianAxes(T, self, axes, keepdims);
+        }
+
+        pub fn nanmedianDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedian(dim_opt, keepdim);
+        }
+
+        pub fn nanmedianDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmedianAxes(dims, keepdim);
+        }
+
+        pub fn nanquantile(self: Self, q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantile(T, self, q, axis_opt, keepdims);
+        }
+
+        pub fn nanquantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn nanquantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantile(q, dim_opt, keepdim);
+        }
+
+        pub fn nanquantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanquantileAxes(q, dims, keepdim);
+        }
+
+        pub fn nanpercentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentile(T, self, percentile_value, axis_opt, keepdims);
+        }
+
+        pub fn nanpercentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanPercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn nanpercentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentile(percentile_value, dim_opt, keepdim);
+        }
+
+        pub fn nanpercentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanpercentileAxes(percentile_value, dims, keepdim);
         }
 
         pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19509,6 +19689,54 @@ test "sparse dense nan cleanup helpers" {
             defer all_std_dims.deinit();
             try expectArray(all_std_dims, &.{}, all_std_keepdim.data);
 
+            var row_median = try matrix.nanmedian(1, false);
+            defer row_median.deinit();
+            try expectArray(row_median, &.{3}, &.{ 2, 2.5, 7 });
+
+            var column_median = try matrix.nanmedianDim(0, false);
+            defer column_median.deinit();
+            try expectArray(column_median, &.{3}, &.{ 1, 6.5, 1.5 });
+
+            var all_median_keepdim = try matrix.nanmedianAxes(&.{ 0, 1 }, true);
+            defer all_median_keepdim.deinit();
+            try expectArray(all_median_keepdim, &.{ 1, 1 }, &.{3});
+
+            var all_median_dims = try matrix.nanmedianDims(&.{ 0, 1 }, false);
+            defer all_median_dims.deinit();
+            try expectArray(all_median_dims, &.{}, all_median_keepdim.data);
+
+            var row_quantile = try matrix.nanquantile(0.25, 1, false);
+            defer row_quantile.deinit();
+            try expectArray(row_quantile, &.{3}, &.{ 1.5, 1.25, 3.5 });
+
+            var column_quantile = try matrix.nanquantileDim(0.25, 0, false);
+            defer column_quantile.deinit();
+            try expectArray(column_quantile, &.{3}, &.{ 0.5, 5.75, 0.75 });
+
+            var all_quantile_keepdim = try matrix.nanquantileAxes(0.25, &.{ 0, 1 }, true);
+            defer all_quantile_keepdim.deinit();
+            try expectArray(all_quantile_keepdim, &.{ 1, 1 }, &.{0.5});
+
+            var all_quantile_dims = try matrix.nanquantileDims(0.25, &.{ 0, 1 }, false);
+            defer all_quantile_dims.deinit();
+            try expectArray(all_quantile_dims, &.{}, all_quantile_keepdim.data);
+
+            var row_percentile = try matrix.nanpercentile(75, 1, false);
+            defer row_percentile.deinit();
+            try expectArray(row_percentile, &.{3}, &.{ 2.5, 3.75, 7.5 });
+
+            var column_percentile = try matrix.nanpercentileDim(75, 0, false);
+            defer column_percentile.deinit();
+            try expectArray(column_percentile, &.{3}, &.{ 4, 7.25, 2.25 });
+
+            var all_percentile_keepdim = try matrix.nanpercentileAxes(75, &.{ 0, 1 }, true);
+            defer all_percentile_keepdim.deinit();
+            try expectArray(all_percentile_keepdim, &.{ 1, 1 }, &.{6});
+
+            var all_percentile_dims = try matrix.nanpercentileDims(75, &.{ 0, 1 }, false);
+            defer all_percentile_dims.deinit();
+            try expectArray(all_percentile_dims, &.{}, all_percentile_keepdim.data);
+
             var row_min = try matrix.nanmin(1, false);
             defer row_min.deinit();
             try expectArray(row_min, &.{3}, &.{ 1, 0, 0 });
@@ -19543,6 +19771,8 @@ test "sparse dense nan cleanup helpers" {
 
             try std.testing.expectError(error.InvalidAxis, matrix.nansum(2, false));
             try std.testing.expectError(error.InvalidAxis, matrix.nanvar(2, false, 0));
+            try std.testing.expectError(error.InvalidAxis, matrix.nanquantile(0.5, 2, false));
+            try std.testing.expectError(error.InvalidShape, matrix.nanquantile(-0.1, null, false));
         }
     }.check;
 
