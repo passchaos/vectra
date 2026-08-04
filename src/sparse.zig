@@ -1412,6 +1412,28 @@ fn sparseDenseCopyOut(comptime T: type, result_in: array_mod.Array(T), out: arra
     try out_view.copyFromArray(result);
 }
 
+fn sparseScalarComparisonOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
+    // Scalar sparse comparisons intentionally preserve the stored sparse
+    // structure. The caller-owned `*ScalarOut` APIs are dense Array parity
+    // helpers, so materialize that sparse boolean mask before copying into
+    // the caller's output view. Shape validation and non-contiguous output
+    // handling remain delegated to ArrayView.copyFromArray.
+    var result = switch (comparison) {
+        .eq => try matrix.eqScalar(scalar),
+        .ne => try matrix.neScalar(scalar),
+        .gt => try matrix.gtScalar(scalar),
+        .ge => try matrix.geScalar(scalar),
+        .lt => try matrix.ltScalar(scalar),
+        .le => try matrix.leScalar(scalar),
+    };
+    defer result.deinit();
+    var result_dense = try result.toDense();
+    defer result_dense.deinit();
+    var out_view = try out.asView();
+    defer out_view.deinit();
+    try out_view.copyFromArray(result_dense);
+}
+
 fn sparseDenseAddOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
     try sparseDenseCopyOut(T, try sparseDenseAddArray(T, matrix, rhs), out);
 }
@@ -4376,6 +4398,30 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) SparseError!CooMatrix(bool) {
             return self.lessEqualScalar(scalar);
+        }
+
+        pub fn eqScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .eq);
+        }
+
+        pub fn neScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ne);
+        }
+
+        pub fn gtScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .gt);
+        }
+
+        pub fn geScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ge);
+        }
+
+        pub fn ltScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .lt);
+        }
+
+        pub fn leScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .le);
         }
 
         fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CooMatrix(bool) {
@@ -10260,6 +10306,30 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn leScalar(self: Self, scalar: T) SparseError!CsrMatrix(bool) {
             return self.lessEqualScalar(scalar);
+        }
+
+        pub fn eqScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .eq);
+        }
+
+        pub fn neScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ne);
+        }
+
+        pub fn gtScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .gt);
+        }
+
+        pub fn geScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ge);
+        }
+
+        pub fn ltScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .lt);
+        }
+
+        pub fn leScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .le);
         }
 
         fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CsrMatrix(bool) {
@@ -16359,6 +16429,30 @@ pub fn CscMatrix(comptime T: type) type {
             return self.lessEqualScalar(scalar);
         }
 
+        pub fn eqScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .eq);
+        }
+
+        pub fn neScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ne);
+        }
+
+        pub fn gtScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .gt);
+        }
+
+        pub fn geScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .ge);
+        }
+
+        pub fn ltScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .lt);
+        }
+
+        pub fn leScalarOut(self: Self, scalar: T, out: array_mod.Array(bool)) SparseError!void {
+            try sparseScalarComparisonOut(T, self, scalar, out, .le);
+        }
+
         fn compareSameStructure(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!CscMatrix(bool) {
             if (self.rows != rhs.rows or self.cols != rhs.cols or self.values.len != rhs.values.len) return error.ShapeMismatch;
             if (!self.sameStructure(rhs)) return error.InvalidShape;
@@ -22087,6 +22181,20 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var coo_gt_scalar = try coo.gtScalar(4);
     defer coo_gt_scalar.deinit();
     try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true, true }, coo_gt_scalar.values);
+    var coo_scalar_out = try array_mod.Array(bool).zeros(gpa, &.{ 3, 4 });
+    defer coo_scalar_out.deinit();
+    try coo.eqScalarOut(3, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, false, false, true, false, false, false, false, false, false }, coo_scalar_out.data);
+    try coo.neScalarOut(3, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, true, false, false, false, false, true, true, false, false, true }, coo_scalar_out.data);
+    try coo.gtScalarOut(4, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, false, false, true, false, false, true }, coo_scalar_out.data);
+    try coo.geScalarOut(4, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, false, true, true, false, false, true }, coo_scalar_out.data);
+    try coo.ltScalarOut(4, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, true, false, false, false, false, false, false }, coo_scalar_out.data);
+    try coo.leScalarOut(4, coo_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false, true, false, true, false, false, false, false }, coo_scalar_out.data);
     var coo_filled = try coo.clone();
     defer coo_filled.deinit();
     coo_filled.fillStoredValues(-2);
@@ -28457,6 +28565,10 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 4, 6 }, csr.row_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 3, 0, 3 }, csr.col_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 2, 3, 4, 5, 6 }, csr.values);
+    var csr_scalar_out = try array_mod.Array(bool).zeros(gpa, &.{ 3, 4 });
+    defer csr_scalar_out.deinit();
+    try csr.gtScalarOut(4, csr_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, false, false, true, false, false, true }, csr_scalar_out.data);
     var csr_point_mut = try csr.clone();
     defer csr_point_mut.deinit();
     try csr_point_mut.setExisting(0, 2, 11);
@@ -28525,6 +28637,10 @@ test "csr sparse bridge dense roundtrip and matvec" {
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 3, 4, 6 }, csc.col_offsets);
     try std.testing.expectEqualSlices(usize, &.{ 0, 2, 1, 0, 1, 2 }, csc.row_indices);
     try std.testing.expectEqualSlices(f64, &.{ 10, 5, 3, 2, 4, 6 }, csc.values);
+    var csc_scalar_out = try array_mod.Array(bool).zeros(gpa, &.{ 3, 4 });
+    defer csc_scalar_out.deinit();
+    try csc.gtScalarOut(4, csc_scalar_out);
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, false, false, false, false, true, false, false, true }, csc_scalar_out.data);
     var csc_point_mut = try csc.clone();
     defer csc_point_mut.deinit();
     try csc_point_mut.setExisting(2, 0, 12);
