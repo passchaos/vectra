@@ -7272,52 +7272,108 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
         }
 
+        fn compareOut(self: Self, rhs: Self, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
+            var result = try self.compareDenseMaterialized(rhs, comparison);
+            defer result.deinit();
+            var out_view = try out.asView();
+            defer out_view.deinit();
+            try out_view.copyFromArray(result);
+        }
+
         pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn eqOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .eq);
         }
 
         pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.eq(rhs);
         }
 
+        pub fn equalOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.eqOut(rhs, out);
+        }
+
         pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn neOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ne);
         }
 
         pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ne(rhs);
         }
 
+        pub fn notEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.neOut(rhs, out);
+        }
+
         pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn gtOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .gt);
         }
 
         pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.gt(rhs);
         }
 
+        pub fn greaterOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.gtOut(rhs, out);
+        }
+
         pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn geOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ge);
         }
 
         pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ge(rhs);
         }
 
+        pub fn greaterEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.geOut(rhs, out);
+        }
+
         pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn ltOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .lt);
         }
 
         pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.lt(rhs);
         }
 
+        pub fn lessOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.ltOut(rhs, out);
+        }
+
         pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .le);
         }
 
+        pub fn leOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .le);
+        }
+
         pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.le(rhs);
+        }
+
+        pub fn lessEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.leOut(rhs, out);
         }
 
         pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
@@ -13093,52 +13149,108 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
         }
 
+        fn compareOut(self: Self, rhs: Self, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
+            var result = try self.compareDenseMaterialized(rhs, comparison);
+            defer result.deinit();
+            var out_view = try out.asView();
+            defer out_view.deinit();
+            try out_view.copyFromArray(result);
+        }
+
         pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn eqOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .eq);
         }
 
         pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.eq(rhs);
         }
 
+        pub fn equalOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.eqOut(rhs, out);
+        }
+
         pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn neOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ne);
         }
 
         pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ne(rhs);
         }
 
+        pub fn notEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.neOut(rhs, out);
+        }
+
         pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn gtOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .gt);
         }
 
         pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.gt(rhs);
         }
 
+        pub fn greaterOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.gtOut(rhs, out);
+        }
+
         pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn geOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ge);
         }
 
         pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ge(rhs);
         }
 
+        pub fn greaterEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.geOut(rhs, out);
+        }
+
         pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn ltOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .lt);
         }
 
         pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.lt(rhs);
         }
 
+        pub fn lessOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.ltOut(rhs, out);
+        }
+
         pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .le);
         }
 
+        pub fn leOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .le);
+        }
+
         pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.le(rhs);
+        }
+
+        pub fn lessEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.leOut(rhs, out);
         }
 
         pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
@@ -19134,52 +19246,108 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
         }
 
+        fn compareOut(self: Self, rhs: Self, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
+            var result = try self.compareDenseMaterialized(rhs, comparison);
+            defer result.deinit();
+            var out_view = try out.asView();
+            defer out_view.deinit();
+            try out_view.copyFromArray(result);
+        }
+
         pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn eqOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .eq);
         }
 
         pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.eq(rhs);
         }
 
+        pub fn equalOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.eqOut(rhs, out);
+        }
+
         pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn neOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ne);
         }
 
         pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ne(rhs);
         }
 
+        pub fn notEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.neOut(rhs, out);
+        }
+
         pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn gtOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .gt);
         }
 
         pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.gt(rhs);
         }
 
+        pub fn greaterOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.gtOut(rhs, out);
+        }
+
         pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn geOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .ge);
         }
 
         pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.ge(rhs);
         }
 
+        pub fn greaterEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.geOut(rhs, out);
+        }
+
         pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn ltOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .lt);
         }
 
         pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.lt(rhs);
         }
 
+        pub fn lessOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.ltOut(rhs, out);
+        }
+
         pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.compareDenseMaterialized(rhs, .le);
         }
 
+        pub fn leOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.compareOut(rhs, out, .le);
+        }
+
         pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
             return self.le(rhs);
+        }
+
+        pub fn lessEqualOut(self: Self, rhs: Self, out: array_mod.Array(bool)) SparseError!void {
+            return self.leOut(rhs, out);
         }
 
         pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
@@ -23123,6 +23291,33 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var less_equal_mask = try lhs_matrix.lessEqual(rhs_matrix);
             defer less_equal_mask.deinit();
             try expectMask(less_equal_mask, le_values);
+
+            var eq_out = try array_mod.Array(bool).zeros(lhs_matrix.allocator, &.{ 2, 3 });
+            defer eq_out.deinit();
+            try lhs_matrix.eqOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, eq_values);
+            try lhs_matrix.equalOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, eq_values);
+            try lhs_matrix.neOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, ne_values);
+            try lhs_matrix.notEqualOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, ne_values);
+            try lhs_matrix.gtOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, gt_values);
+            try lhs_matrix.greaterOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, gt_values);
+            try lhs_matrix.geOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, ge_values);
+            try lhs_matrix.greaterEqualOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, ge_values);
+            try lhs_matrix.ltOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, lt_values);
+            try lhs_matrix.lessOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, lt_values);
+            try lhs_matrix.leOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, le_values);
+            try lhs_matrix.lessEqualOut(rhs_matrix, eq_out);
+            try expectMask(eq_out, le_values);
 
             var eq_dense_mask = try lhs_matrix.eqDense(rhs_dense);
             defer eq_dense_mask.deinit();
