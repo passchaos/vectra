@@ -4932,28 +4932,56 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMaskedSelect(T, self, mask);
         }
 
+        pub fn maskedSelectOut(self: Self, mask: array_mod.Array(bool), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedSelect(mask), out);
+        }
+
         pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedFillOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedFill(mask, value), out);
         }
 
         pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedFill(mask, value);
         }
 
+        pub fn maskedPutScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedFillOut(mask, value, out);
+        }
+
         pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn putMaskScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutScalarOut(mask, value, out);
         }
 
         pub fn maskedScatter(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedScatter(T, self, mask, src);
         }
 
+        pub fn maskedScatterOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedScatter(mask, src), out);
+        }
+
         pub fn maskedPut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedPut(T, self, mask, values);
         }
 
+        pub fn maskedPutOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedPut(mask, values), out);
+        }
+
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn putMaskOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutOut(mask, values, out);
         }
 
         pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10954,28 +10982,56 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMaskedSelect(T, self, mask);
         }
 
+        pub fn maskedSelectOut(self: Self, mask: array_mod.Array(bool), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedSelect(mask), out);
+        }
+
         pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedFillOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedFill(mask, value), out);
         }
 
         pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedFill(mask, value);
         }
 
+        pub fn maskedPutScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedFillOut(mask, value, out);
+        }
+
         pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn putMaskScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutScalarOut(mask, value, out);
         }
 
         pub fn maskedScatter(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedScatter(T, self, mask, src);
         }
 
+        pub fn maskedScatterOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedScatter(mask, src), out);
+        }
+
         pub fn maskedPut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedPut(T, self, mask, values);
         }
 
+        pub fn maskedPutOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedPut(mask, values), out);
+        }
+
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn putMaskOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutOut(mask, values, out);
         }
 
         pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -17189,28 +17245,56 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMaskedSelect(T, self, mask);
         }
 
+        pub fn maskedSelectOut(self: Self, mask: array_mod.Array(bool), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedSelect(mask), out);
+        }
+
         pub fn maskedFill(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedFill(T, self, mask, value);
+        }
+
+        pub fn maskedFillOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedFill(mask, value), out);
         }
 
         pub fn maskedPutScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedFill(mask, value);
         }
 
+        pub fn maskedPutScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedFillOut(mask, value, out);
+        }
+
         pub fn putMaskScalar(self: Self, mask: array_mod.Array(bool), value: T) SparseError!array_mod.Array(T) {
             return self.maskedPutScalar(mask, value);
+        }
+
+        pub fn putMaskScalarOut(self: Self, mask: array_mod.Array(bool), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutScalarOut(mask, value, out);
         }
 
         pub fn maskedScatter(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedScatter(T, self, mask, src);
         }
 
+        pub fn maskedScatterOut(self: Self, mask: array_mod.Array(bool), src: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedScatter(mask, src), out);
+        }
+
         pub fn maskedPut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMaskedPut(T, self, mask, values);
         }
 
+        pub fn maskedPutOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maskedPut(mask, values), out);
+        }
+
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn putMaskOut(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.maskedPutOut(mask, values, out);
         }
 
         pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -23995,34 +24079,50 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer masked.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, masked.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, masked.data);
+            var masked_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer masked_out.deinit();
+            try matrix.maskedSelectOut(mask, masked_out);
+            try std.testing.expectEqualSlices(f64, masked.data, masked_out.data);
 
             var filled = try matrix.maskedFill(mask, -7);
             defer filled.deinit();
             try expectMatrix(filled, &.{ -7, 0, -7, 0, -7, 3 });
+            try matrix.maskedFillOut(mask, -7, where_out);
+            try expectMatrix(where_out, filled.data);
 
             var put_scalar = try matrix.maskedPutScalar(mask, -8);
             defer put_scalar.deinit();
             try expectMatrix(put_scalar, &.{ -8, 0, -8, 0, -8, 3 });
+            try matrix.maskedPutScalarOut(mask, -8, where_out);
+            try expectMatrix(where_out, put_scalar.data);
 
             var put_mask_scalar = try matrix.putMaskScalar(mask, -6);
             defer put_mask_scalar.deinit();
             try expectMatrix(put_mask_scalar, &.{ -6, 0, -6, 0, -6, 3 });
+            try matrix.putMaskScalarOut(mask, -6, where_out);
+            try expectMatrix(where_out, put_mask_scalar.data);
 
             var scatter_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 7, 8, 9 }, &.{3});
             defer scatter_values.deinit();
             var scattered = try matrix.maskedScatter(mask, scatter_values);
             defer scattered.deinit();
             try expectMatrix(scattered, &.{ 7, 0, 8, 0, 9, 3 });
+            try matrix.maskedScatterOut(mask, scatter_values, where_out);
+            try expectMatrix(where_out, scattered.data);
 
             var put_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 10, 11, 12 }, &.{3});
             defer put_values.deinit();
             var put = try matrix.maskedPut(mask, put_values);
             defer put.deinit();
             try expectMatrix(put, &.{ 10, 0, 11, 0, 12, 3 });
+            try matrix.maskedPutOut(mask, put_values, where_out);
+            try expectMatrix(where_out, put.data);
 
             var put_alias = try matrix.putMask(mask, put_values);
             defer put_alias.deinit();
             try expectMatrix(put_alias, &.{ 10, 0, 11, 0, 12, 3 });
+            try matrix.putMaskOut(mask, put_values, where_out);
+            try expectMatrix(where_out, put_alias.data);
 
             var put_scalar_array = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{13}, &.{1});
             defer put_scalar_array.deinit();
