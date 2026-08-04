@@ -82,6 +82,29 @@ pub const SparseDiffSummary = struct {
     }
 };
 
+pub const SparseResidualSummary = struct {
+    residual_norm: f64,
+    relative_residual_norm: f64,
+    operator_frobenius_norm: f64,
+    input_norm: f64,
+    rhs_norm: f64,
+
+    pub fn residualNormMeetsBound(self: SparseResidualSummary, max_residual: f64) SparseError!bool {
+        try validateNonNegativeRange(max_residual, max_residual);
+        return self.residual_norm <= max_residual;
+    }
+
+    pub fn relativeResidualNormMeetsBound(self: SparseResidualSummary, max_relative_residual: f64) SparseError!bool {
+        try validateNonNegativeRange(max_relative_residual, max_relative_residual);
+        return self.relative_residual_norm <= max_relative_residual;
+    }
+
+    pub fn meetsBounds(self: SparseResidualSummary, max_residual: f64, max_relative_residual: f64) SparseError!bool {
+        return try self.residualNormMeetsBound(max_residual) and
+            try self.relativeResidualNormMeetsBound(max_relative_residual);
+    }
+};
+
 fn zero(comptime T: type) T {
     return switch (@typeInfo(T)) {
         .bool => false,
@@ -501,6 +524,25 @@ fn sparseRelativeMatrixResidualNorm(
     rhs_values: []const T,
 ) T {
     return sparseRelativeResidualNorm(T, residual_norm, operator_norm, x_values, rhs_values);
+}
+
+fn sparseResidualSummary(
+    comptime T: type,
+    residual_norm: T,
+    operator_norm: T,
+    x_values: []const T,
+    rhs_values: []const T,
+) SparseResidualSummary {
+    const input_norm = sparseVectorL2Norm(T, x_values);
+    const rhs_norm = sparseVectorL2Norm(T, rhs_values);
+    const scale = @max(oneValue(T), operator_norm * input_norm + rhs_norm);
+    return .{
+        .residual_norm = sparseValueToF64(T, residual_norm),
+        .relative_residual_norm = sparseValueToF64(T, residual_norm / scale),
+        .operator_frobenius_norm = sparseValueToF64(T, operator_norm),
+        .input_norm = sparseValueToF64(T, input_norm),
+        .rhs_norm = sparseValueToF64(T, rhs_norm),
+    };
 }
 
 fn sparseSymmetryResidualFrobeniusNormFromDense(comptime T: type, values: []const T, rows: usize, cols: usize) SparseError!T {
@@ -2567,6 +2609,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn matvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -2602,6 +2654,16 @@ pub fn CooMatrix(comptime T: type) type {
         pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -2649,6 +2711,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn transposeMatvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -2684,6 +2756,16 @@ pub fn CooMatrix(comptime T: type) type {
         pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -3322,6 +3404,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn matvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -3370,6 +3462,16 @@ pub fn CsrMatrix(comptime T: type) type {
         pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -3514,6 +3616,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn transposeMatvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -3559,6 +3671,16 @@ pub fn CsrMatrix(comptime T: type) type {
         pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -5249,6 +5371,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn matvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn matvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.matvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -5295,6 +5427,16 @@ pub fn CscMatrix(comptime T: type) type {
         pub fn matmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.matmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn matmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.matmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn matmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -5355,6 +5497,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseRelativeResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
         }
 
+        pub fn transposeMatvecResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatvecResidualNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatvecResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatvecResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
+        }
+
         pub fn transposeMatvecRelativeResidualNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
             try validateSparseValueRange(T, zero(T), max_relative_residual);
             return (try self.transposeMatvecRelativeResidualNorm(x, rhs)) <= max_relative_residual;
@@ -5401,6 +5553,16 @@ pub fn CscMatrix(comptime T: type) type {
         pub fn transposeMatmatRelativeResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
             return sparseRelativeMatrixResidualNorm(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummary(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!SparseResidualSummary {
+            const residual = try self.transposeMatmatResidualFrobeniusNorm(x, rhs);
+            return sparseResidualSummary(T, residual, self.frobeniusNorm(), x.data, rhs.data);
+        }
+
+        pub fn transposeMatmatResidualSummaryMeetsBounds(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_residual: f64, max_relative_residual: f64) SparseError!bool {
+            const summary = try self.transposeMatmatResidualSummary(x, rhs);
+            return summary.meetsBounds(max_residual, max_relative_residual);
         }
 
         pub fn transposeMatmatRelativeResidualFrobeniusNormMeetsBound(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T), max_relative_residual: T) SparseError!bool {
@@ -8258,6 +8420,15 @@ test "sparse matvec residual diagnostics" {
     try std.testing.expectApproxEqAbs(relative, try coo.matvecRelativeResidualNorm(x, perturbed), 1e-12);
     try std.testing.expect(try coo.matvecRelativeResidualNormMeetsBound(x, perturbed, relative + 1e-12));
     try std.testing.expect(!(try coo.matvecRelativeResidualNormMeetsBound(x, perturbed, relative * 0.5)));
+    const coo_summary = try coo.matvecResidualSummary(x, perturbed);
+    try std.testing.expectApproxEqAbs(@as(f64, 2), coo_summary.residual_norm, 1e-12);
+    try std.testing.expectApproxEqAbs(relative, coo_summary.relative_residual_norm, 1e-12);
+    try std.testing.expect(try coo_summary.residualNormMeetsBound(2));
+    try std.testing.expect(try coo_summary.relativeResidualNormMeetsBound(relative + 1e-12));
+    try std.testing.expect(try coo_summary.meetsBounds(2, relative + 1e-12));
+    try std.testing.expect(!(try coo_summary.meetsBounds(1.999, relative + 1e-12)));
+    try std.testing.expect(try coo.matvecResidualSummaryMeetsBounds(x, perturbed, 2, relative + 1e-12));
+    try std.testing.expect(!(try coo.matvecResidualSummaryMeetsBounds(x, perturbed, 1.999, relative + 1e-12)));
     try std.testing.expectError(error.InvalidShape, coo.matvecResidualNormMeetsBound(x, perturbed, -1));
     try std.testing.expectError(error.ShapeMismatch, coo.matvecResidualNorm(x, short_rhs));
 
@@ -8329,6 +8500,12 @@ test "sparse matvec residual diagnostics" {
     try std.testing.expectApproxEqAbs(matrix_relative, try coo.matmatRelativeResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
     try std.testing.expect(try coo.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative + 1e-12));
     try std.testing.expect(!(try coo.matmatRelativeResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, matrix_relative * 0.5)));
+    const matrix_summary = try coo.matmatResidualSummary(matrix_x, matrix_perturbed);
+    try std.testing.expectApproxEqAbs(matrix_residual, matrix_summary.residual_norm, 1e-12);
+    try std.testing.expectApproxEqAbs(matrix_relative, matrix_summary.relative_residual_norm, 1e-12);
+    try std.testing.expect(try matrix_summary.meetsBounds(matrix_residual + 1e-12, matrix_relative + 1e-12));
+    try std.testing.expect(try coo.matmatResidualSummaryMeetsBounds(matrix_x, matrix_perturbed, matrix_residual + 1e-12, matrix_relative + 1e-12));
+    try std.testing.expect(!(try coo.matmatResidualSummaryMeetsBounds(matrix_x, matrix_perturbed, matrix_residual * 0.999, matrix_relative + 1e-12)));
     try std.testing.expectError(error.InvalidShape, coo.matmatResidualFrobeniusNormMeetsBound(matrix_x, matrix_perturbed, -1));
 
     try std.testing.expectApproxEqAbs(matrix_residual, try csr.matmatResidualFrobeniusNorm(matrix_x, matrix_perturbed), 1e-12);
@@ -8371,6 +8548,11 @@ test "sparse matvec residual diagnostics" {
     try std.testing.expectApproxEqAbs(transpose_matrix_relative, try coo.transposeMatmatRelativeResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
     try std.testing.expect(try coo.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative + 1e-12));
     try std.testing.expect(!(try coo.transposeMatmatRelativeResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_relative * 0.5)));
+    const transpose_matrix_summary = try coo.transposeMatmatResidualSummary(transpose_matrix_x, transpose_matrix_perturbed);
+    try std.testing.expectApproxEqAbs(transpose_matrix_residual, transpose_matrix_summary.residual_norm, 1e-12);
+    try std.testing.expectApproxEqAbs(transpose_matrix_relative, transpose_matrix_summary.relative_residual_norm, 1e-12);
+    try std.testing.expect(try coo.transposeMatmatResidualSummaryMeetsBounds(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual + 1e-12, transpose_matrix_relative + 1e-12));
+    try std.testing.expect(!(try coo.transposeMatmatResidualSummaryMeetsBounds(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual * 0.999, transpose_matrix_relative + 1e-12)));
 
     try std.testing.expectApproxEqAbs(transpose_matrix_residual, try csr.transposeMatmatResidualFrobeniusNorm(transpose_matrix_x, transpose_matrix_perturbed), 1e-12);
     try std.testing.expect(try csr.transposeMatmatResidualFrobeniusNormMeetsBound(transpose_matrix_x, transpose_matrix_perturbed, transpose_matrix_residual + 1e-12));
