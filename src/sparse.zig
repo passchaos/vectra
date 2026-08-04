@@ -355,12 +355,20 @@ fn sparseMaxCount(counts: []const usize) usize {
     return result;
 }
 
-fn sparseCountRangeInRange(counts: []const usize, min_count: usize, max_count: usize) SparseError!bool {
+fn validateCountRange(min_count: usize, max_count: usize) SparseError!void {
     if (min_count > max_count) return error.InvalidShape;
+}
+
+fn sparseCountRangeInRange(counts: []const usize, min_count: usize, max_count: usize) SparseError!bool {
+    try validateCountRange(min_count, max_count);
     for (counts) |count| {
         if (count < min_count or count > max_count) return false;
     }
     return true;
+}
+
+fn sparseCountInValidatedRange(count: usize, min_count: usize, max_count: usize) bool {
+    return count >= min_count and count <= max_count;
 }
 
 fn sparseCountSpread(counts: []const usize) usize {
@@ -2105,6 +2113,15 @@ pub fn CooMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn missingDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.missingDiagonalCount()) <= max_count;
+        }
+
+        pub fn missingDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.missingDiagonalCount(), min_count, max_count);
+        }
+
         pub fn zeroDiagonalCount(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var seen = try self.allocator.alloc(bool, self.rows);
@@ -2126,6 +2143,15 @@ pub fn CooMatrix(comptime T: type) type {
                 if (present and value == zero(T)) count += 1;
             }
             return count;
+        }
+
+        pub fn zeroDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.zeroDiagonalCount()) <= max_count;
+        }
+
+        pub fn zeroDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.zeroDiagonalCount(), min_count, max_count);
         }
 
         pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
@@ -2158,9 +2184,8 @@ pub fn CooMatrix(comptime T: type) type {
         }
 
         pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
-            if (min_count > max_count) return error.InvalidShape;
-            const count = try self.nonPositiveDiagonalCount();
-            return count >= min_count and count <= max_count;
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.nonPositiveDiagonalCount(), min_count, max_count);
         }
 
         pub fn bandwidth(self: Self) SparseError!usize {
@@ -3899,6 +3924,15 @@ pub fn CsrMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn missingDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.missingDiagonalCount()) <= max_count;
+        }
+
+        pub fn missingDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.missingDiagonalCount(), min_count, max_count);
+        }
+
         pub fn zeroDiagonalCount(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -3908,6 +3942,15 @@ pub fn CsrMatrix(comptime T: type) type {
                 }
             }
             return count;
+        }
+
+        pub fn zeroDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.zeroDiagonalCount()) <= max_count;
+        }
+
+        pub fn zeroDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.zeroDiagonalCount(), min_count, max_count);
         }
 
         pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
@@ -3927,9 +3970,8 @@ pub fn CsrMatrix(comptime T: type) type {
         }
 
         pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
-            if (min_count > max_count) return error.InvalidShape;
-            const count = try self.nonPositiveDiagonalCount();
-            return count >= min_count and count <= max_count;
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.nonPositiveDiagonalCount(), min_count, max_count);
         }
 
         pub fn bandwidth(self: Self) SparseError!usize {
@@ -5546,6 +5588,15 @@ pub fn CscMatrix(comptime T: type) type {
             return count;
         }
 
+        pub fn missingDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.missingDiagonalCount()) <= max_count;
+        }
+
+        pub fn missingDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.missingDiagonalCount(), min_count, max_count);
+        }
+
         pub fn zeroDiagonalCount(self: Self) SparseError!usize {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var count: usize = 0;
@@ -5555,6 +5606,15 @@ pub fn CscMatrix(comptime T: type) type {
                 }
             }
             return count;
+        }
+
+        pub fn zeroDiagonalCountMeetsBound(self: Self, max_count: usize) SparseError!bool {
+            return (try self.zeroDiagonalCount()) <= max_count;
+        }
+
+        pub fn zeroDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.zeroDiagonalCount(), min_count, max_count);
         }
 
         pub fn nonPositiveDiagonalCount(self: Self) SparseError!usize {
@@ -5574,9 +5634,8 @@ pub fn CscMatrix(comptime T: type) type {
         }
 
         pub fn nonPositiveDiagonalCountInRange(self: Self, min_count: usize, max_count: usize) SparseError!bool {
-            if (min_count > max_count) return error.InvalidShape;
-            const count = try self.nonPositiveDiagonalCount();
-            return count >= min_count and count <= max_count;
+            try validateCountRange(min_count, max_count);
+            return sparseCountInValidatedRange(try self.nonPositiveDiagonalCount(), min_count, max_count);
         }
 
         pub fn bandwidth(self: Self) SparseError!usize {
@@ -6851,7 +6910,11 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
     try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(6, 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expect(try symmetric.missingDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.missingDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expect(try symmetric.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.zeroDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
@@ -6900,7 +6963,14 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var nonsym = try cooFromDense(f64, nonsym_dense);
     defer nonsym.deinit();
     try std.testing.expectEqual(@as(usize, 1), try nonsym.missingDiagonalCount());
+    try std.testing.expect(try nonsym.missingDiagonalCountMeetsBound(1));
+    try std.testing.expect(!(try nonsym.missingDiagonalCountMeetsBound(0)));
+    try std.testing.expect(try nonsym.missingDiagonalCountInRange(1, 2));
+    try std.testing.expect(!(try nonsym.missingDiagonalCountInRange(0, 0)));
+    try std.testing.expectError(error.InvalidShape, nonsym.missingDiagonalCountInRange(2, 1));
     try std.testing.expectEqual(@as(usize, 0), try nonsym.zeroDiagonalCount());
+    try std.testing.expect(try nonsym.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(!(try nonsym.zeroDiagonalCountInRange(1, 1)));
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
@@ -6909,6 +6979,9 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.missingDiagonalCountMeetsBound(0));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.zeroDiagonalCountInRange(0, 1));
+    try std.testing.expectError(error.InvalidShape, rectangular.missingDiagonalCountInRange(2, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
@@ -6930,6 +7003,10 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expect(try duplicate_diagonal.normalizedTraceInRange(1.4, 1.6));
     try std.testing.expectEqual(@as(usize, 0), try duplicate_diagonal.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 1), try duplicate_diagonal.zeroDiagonalCount());
+    try std.testing.expect(try duplicate_diagonal.zeroDiagonalCountMeetsBound(1));
+    try std.testing.expect(!(try duplicate_diagonal.zeroDiagonalCountMeetsBound(0)));
+    try std.testing.expect(try duplicate_diagonal.zeroDiagonalCountInRange(1, 1));
+    try std.testing.expect(!(try duplicate_diagonal.zeroDiagonalCountInRange(0, 0)));
     try std.testing.expectApproxEqAbs(@as(f64, 3), duplicate_diagonal.get(0, 0).?, 1e-12);
     try std.testing.expect(!(try duplicate_diagonal.structurallySymmetric()));
 
@@ -7206,7 +7283,11 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
     try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(std.math.nan(f64), 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expect(try symmetric.missingDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.missingDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expect(try symmetric.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.zeroDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
@@ -7253,7 +7334,14 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     var nonsym = try csrFromDense(f64, nonsym_dense);
     defer nonsym.deinit();
     try std.testing.expectEqual(@as(usize, 1), try nonsym.missingDiagonalCount());
+    try std.testing.expect(try nonsym.missingDiagonalCountMeetsBound(1));
+    try std.testing.expect(!(try nonsym.missingDiagonalCountMeetsBound(0)));
+    try std.testing.expect(try nonsym.missingDiagonalCountInRange(1, 2));
+    try std.testing.expect(!(try nonsym.missingDiagonalCountInRange(0, 0)));
+    try std.testing.expectError(error.InvalidShape, nonsym.missingDiagonalCountInRange(2, 1));
     try std.testing.expectEqual(@as(usize, 0), try nonsym.zeroDiagonalCount());
+    try std.testing.expect(try nonsym.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(!(try nonsym.zeroDiagonalCountInRange(1, 1)));
     try std.testing.expectEqual(@as(usize, 1), try nonsym.bandwidth());
     try std.testing.expect(!(try nonsym.structurallySymmetric()));
     try std.testing.expect(!(try nonsym.numericallySymmetric(1e-12)));
@@ -7262,6 +7350,9 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.missingDiagonalCountMeetsBound(0));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.zeroDiagonalCountInRange(0, 1));
+    try std.testing.expectError(error.InvalidShape, rectangular.missingDiagonalCountInRange(2, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
@@ -7284,6 +7375,10 @@ test "csr sparse diagonal trace bandwidth and symmetry" {
     try std.testing.expect(try duplicate.normalizedTraceInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try duplicate.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 2), try duplicate.zeroDiagonalCount());
+    try std.testing.expect(try duplicate.zeroDiagonalCountMeetsBound(2));
+    try std.testing.expect(!(try duplicate.zeroDiagonalCountMeetsBound(1)));
+    try std.testing.expect(try duplicate.zeroDiagonalCountInRange(2, 2));
+    try std.testing.expect(!(try duplicate.zeroDiagonalCountInRange(0, 1)));
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
     try std.testing.expect(try duplicate.structurallySymmetric());
     try std.testing.expect(try duplicate.numericallySymmetric(1e-12));
@@ -7560,7 +7655,11 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expect(!(try symmetric.normalizedTraceInRange(5.1, 6)));
     try std.testing.expectError(error.InvalidShape, symmetric.normalizedTraceInRange(std.math.inf(f64), 5));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.missingDiagonalCount());
+    try std.testing.expect(try symmetric.missingDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.missingDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try symmetric.zeroDiagonalCount());
+    try std.testing.expect(try symmetric.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(try symmetric.zeroDiagonalCountInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 1), try symmetric.bandwidth());
     try std.testing.expect(try symmetric.bandwidthMeetsBound(1));
     try std.testing.expect(!(try symmetric.bandwidthMeetsBound(0)));
@@ -7598,10 +7697,30 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expect(try symmetric.structurallySymmetric());
     try std.testing.expect(try symmetric.numericallySymmetric(1e-12));
 
+    var missing_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2, 0,
+        0, 0, 3,
+        0, 0, 4,
+    }, &.{ 3, 3 });
+    defer missing_dense.deinit();
+    var missing = try cscFromDense(f64, missing_dense);
+    defer missing.deinit();
+    try std.testing.expectEqual(@as(usize, 1), try missing.missingDiagonalCount());
+    try std.testing.expect(try missing.missingDiagonalCountMeetsBound(1));
+    try std.testing.expect(!(try missing.missingDiagonalCountMeetsBound(0)));
+    try std.testing.expect(try missing.missingDiagonalCountInRange(1, 2));
+    try std.testing.expect(!(try missing.missingDiagonalCountInRange(0, 0)));
+    try std.testing.expectEqual(@as(usize, 0), try missing.zeroDiagonalCount());
+    try std.testing.expect(try missing.zeroDiagonalCountMeetsBound(0));
+    try std.testing.expect(!(try missing.zeroDiagonalCountInRange(1, 1)));
+
     var rectangular = try cscFromCompressed(f64, gpa, 2, 3, &.{ 0, 1, 1, 2 }, &.{ 0, 1 }, &.{ 1, 2 });
     defer rectangular.deinit();
     try std.testing.expectError(error.NonMatrixArray, rectangular.lowerNnz(false));
     try std.testing.expectError(error.NonMatrixArray, rectangular.upperNnz(false));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.missingDiagonalCountMeetsBound(0));
+    try std.testing.expectError(error.NonMatrixArray, rectangular.zeroDiagonalCountInRange(0, 1));
+    try std.testing.expectError(error.InvalidShape, rectangular.missingDiagonalCountInRange(2, 1));
     try std.testing.expectError(error.NonMatrixArray, rectangular.traceInRange(0, 3));
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTrace());
     try std.testing.expectError(error.NonMatrixArray, rectangular.normalizedTraceInRange(0, 1));
@@ -7624,6 +7743,10 @@ test "csc sparse diagnostics and triangular solve" {
     try std.testing.expect(try duplicate.normalizedTraceInRange(0, 0));
     try std.testing.expectEqual(@as(usize, 0), try duplicate.missingDiagonalCount());
     try std.testing.expectEqual(@as(usize, 2), try duplicate.zeroDiagonalCount());
+    try std.testing.expect(try duplicate.zeroDiagonalCountMeetsBound(2));
+    try std.testing.expect(!(try duplicate.zeroDiagonalCountMeetsBound(1)));
+    try std.testing.expect(try duplicate.zeroDiagonalCountInRange(2, 2));
+    try std.testing.expect(!(try duplicate.zeroDiagonalCountInRange(0, 1)));
     try std.testing.expectEqual(@as(usize, 1), try duplicate.bandwidth());
     try std.testing.expect(try duplicate.structurallySymmetric());
     try std.testing.expect(try duplicate.numericallySymmetric(1e-12));
