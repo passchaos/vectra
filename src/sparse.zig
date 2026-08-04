@@ -83,6 +83,7 @@ pub const SparseDiffSummary = struct {
 };
 
 const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
+const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal };
 
 fn ensureSparseComparisonSupported(comptime T: type, comptime comparison: SparseScalarComparison) void {
     switch (@typeInfo(T)) {
@@ -136,6 +137,44 @@ fn sparseCompareSameStructureValues(
         out[index] = sparseCompareValue(T, lhs, rhs, comparison);
     }
     return out;
+}
+
+fn sparseFinitePredicateValue(comptime T: type, value: T, comptime predicate: SparseFinitePredicate) bool {
+    switch (predicate) {
+        .nan, .inf, .pos_inf, .neg_inf, .finite => ensureNumeric(T),
+        .normal => ensureFloat(T),
+    }
+    return switch (predicate) {
+        .nan => switch (@typeInfo(T)) {
+            .float => std.math.isNan(value),
+            .int => false,
+            else => @compileError("sparse isNan requires numeric values"),
+        },
+        .inf => switch (@typeInfo(T)) {
+            .float => std.math.isInf(value),
+            .int => false,
+            else => @compileError("sparse isInf requires numeric values"),
+        },
+        .pos_inf => switch (@typeInfo(T)) {
+            .float => std.math.isPositiveInf(value),
+            .int => false,
+            else => @compileError("sparse isPosInf requires numeric values"),
+        },
+        .neg_inf => switch (@typeInfo(T)) {
+            .float => std.math.isNegativeInf(value),
+            .int => false,
+            else => @compileError("sparse isNegInf requires numeric values"),
+        },
+        .finite => switch (@typeInfo(T)) {
+            .float => std.math.isFinite(value),
+            .int => true,
+            else => @compileError("sparse isFinite requires numeric values"),
+        },
+        .normal => switch (@typeInfo(T)) {
+            .float => std.math.isNormal(value),
+            else => @compileError("sparse isNormal requires floating-point values"),
+        },
+    };
 }
 
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
@@ -1806,6 +1845,62 @@ pub fn CooMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        fn finitePredicateMask(self: Self, comptime predicate: SparseFinitePredicate) SparseError!CooMatrix(bool) {
+            return self.mapValues(bool, struct {
+                fn f(value: T) bool {
+                    return sparseFinitePredicateValue(T, value, predicate);
+                }
+            }.f);
+        }
+
+        pub fn isNan(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.nan);
+        }
+
+        pub fn isnan(self: Self) SparseError!CooMatrix(bool) {
+            return self.isNan();
+        }
+
+        pub fn isInf(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.inf);
+        }
+
+        pub fn isinf(self: Self) SparseError!CooMatrix(bool) {
+            return self.isInf();
+        }
+
+        pub fn isPosInf(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.pos_inf);
+        }
+
+        pub fn isposinf(self: Self) SparseError!CooMatrix(bool) {
+            return self.isPosInf();
+        }
+
+        pub fn isNegInf(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.neg_inf);
+        }
+
+        pub fn isneginf(self: Self) SparseError!CooMatrix(bool) {
+            return self.isNegInf();
+        }
+
+        pub fn isFinite(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.finite);
+        }
+
+        pub fn isfinite(self: Self) SparseError!CooMatrix(bool) {
+            return self.isFinite();
+        }
+
+        pub fn isNormal(self: Self) SparseError!CooMatrix(bool) {
+            return self.finitePredicateMask(.normal);
+        }
+
+        pub fn isnormal(self: Self) SparseError!CooMatrix(bool) {
+            return self.isNormal();
         }
 
         fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CooMatrix(bool) {
@@ -4776,6 +4871,62 @@ pub fn CsrMatrix(comptime T: type) type {
                 .col_indices = col_indices,
                 .values = values,
             };
+        }
+
+        fn finitePredicateMask(self: Self, comptime predicate: SparseFinitePredicate) SparseError!CsrMatrix(bool) {
+            return self.mapValues(bool, struct {
+                fn f(value: T) bool {
+                    return sparseFinitePredicateValue(T, value, predicate);
+                }
+            }.f);
+        }
+
+        pub fn isNan(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.nan);
+        }
+
+        pub fn isnan(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isNan();
+        }
+
+        pub fn isInf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.inf);
+        }
+
+        pub fn isinf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isInf();
+        }
+
+        pub fn isPosInf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.pos_inf);
+        }
+
+        pub fn isposinf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isPosInf();
+        }
+
+        pub fn isNegInf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.neg_inf);
+        }
+
+        pub fn isneginf(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isNegInf();
+        }
+
+        pub fn isFinite(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.finite);
+        }
+
+        pub fn isfinite(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isFinite();
+        }
+
+        pub fn isNormal(self: Self) SparseError!CsrMatrix(bool) {
+            return self.finitePredicateMask(.normal);
+        }
+
+        pub fn isnormal(self: Self) SparseError!CsrMatrix(bool) {
+            return self.isNormal();
         }
 
         fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CsrMatrix(bool) {
@@ -7961,6 +8112,62 @@ pub fn CscMatrix(comptime T: type) type {
                 .row_indices = row_indices,
                 .values = values,
             };
+        }
+
+        fn finitePredicateMask(self: Self, comptime predicate: SparseFinitePredicate) SparseError!CscMatrix(bool) {
+            return self.mapValues(bool, struct {
+                fn f(value: T) bool {
+                    return sparseFinitePredicateValue(T, value, predicate);
+                }
+            }.f);
+        }
+
+        pub fn isNan(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.nan);
+        }
+
+        pub fn isnan(self: Self) SparseError!CscMatrix(bool) {
+            return self.isNan();
+        }
+
+        pub fn isInf(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.inf);
+        }
+
+        pub fn isinf(self: Self) SparseError!CscMatrix(bool) {
+            return self.isInf();
+        }
+
+        pub fn isPosInf(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.pos_inf);
+        }
+
+        pub fn isposinf(self: Self) SparseError!CscMatrix(bool) {
+            return self.isPosInf();
+        }
+
+        pub fn isNegInf(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.neg_inf);
+        }
+
+        pub fn isneginf(self: Self) SparseError!CscMatrix(bool) {
+            return self.isNegInf();
+        }
+
+        pub fn isFinite(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.finite);
+        }
+
+        pub fn isfinite(self: Self) SparseError!CscMatrix(bool) {
+            return self.isFinite();
+        }
+
+        pub fn isNormal(self: Self) SparseError!CscMatrix(bool) {
+            return self.finitePredicateMask(.normal);
+        }
+
+        pub fn isnormal(self: Self) SparseError!CscMatrix(bool) {
+            return self.isNormal();
         }
 
         fn compareScalar(self: Self, scalar: T, comptime comparison: SparseScalarComparison) SparseError!CscMatrix(bool) {
@@ -11339,6 +11546,26 @@ test "sparse stored non-finite diagnostics" {
     try std.testing.expect(!(try coo.nonFiniteCountInRange(0, 2)));
     try std.testing.expectError(error.InvalidShape, coo.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!coo.allFinite());
+    var coo_nan = try coo.isNan();
+    defer coo_nan.deinit();
+    try std.testing.expectEqualSlices(usize, coo.row_indices, coo_nan.row_indices);
+    try std.testing.expectEqualSlices(usize, coo.col_indices, coo_nan.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, coo_nan.values);
+    var coo_inf = try coo.isinf();
+    defer coo_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, false }, coo_inf.values);
+    var coo_pos_inf = try coo.isPosInf();
+    defer coo_pos_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, coo_pos_inf.values);
+    var coo_neg_inf = try coo.isneginf();
+    defer coo_neg_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, coo_neg_inf.values);
+    var coo_finite = try coo.isFinite();
+    defer coo_finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, coo_finite.values);
+    var coo_normal = try coo.isnormal();
+    defer coo_normal.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, coo_normal.values);
 
     var coo_rows = try coo.rowNonFiniteCounts();
     defer coo_rows.deinit();
@@ -11363,6 +11590,26 @@ test "sparse stored non-finite diagnostics" {
     try std.testing.expect(!(try csr.nonFiniteCountInRange(0, 2)));
     try std.testing.expectError(error.InvalidShape, csr.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!csr.allFinite());
+    var csr_nan = try csr.isnan();
+    defer csr_nan.deinit();
+    try std.testing.expectEqualSlices(usize, csr.row_offsets, csr_nan.row_offsets);
+    try std.testing.expectEqualSlices(usize, csr.col_indices, csr_nan.col_indices);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, csr_nan.values);
+    var csr_inf = try csr.isInf();
+    defer csr_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, true, false }, csr_inf.values);
+    var csr_pos_inf = try csr.isposinf();
+    defer csr_pos_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, csr_pos_inf.values);
+    var csr_neg_inf = try csr.isNegInf();
+    defer csr_neg_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, csr_neg_inf.values);
+    var csr_finite = try csr.isfinite();
+    defer csr_finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, csr_finite.values);
+    var csr_normal = try csr.isNormal();
+    defer csr_normal.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, csr_normal.values);
     var csr_rows = try csr.rowNonFiniteCounts();
     defer csr_rows.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csr_rows.data);
@@ -11386,6 +11633,26 @@ test "sparse stored non-finite diagnostics" {
     try std.testing.expect(!(try csc.nonFiniteCountInRange(0, 2)));
     try std.testing.expectError(error.InvalidShape, csc.nonFiniteCountInRange(4, 3));
     try std.testing.expect(!csc.allFinite());
+    var csc_nan = try csc.isNan();
+    defer csc_nan.deinit();
+    try std.testing.expectEqualSlices(usize, csc.col_offsets, csc_nan.col_offsets);
+    try std.testing.expectEqualSlices(usize, csc.row_indices, csc_nan.row_indices);
+    try std.testing.expectEqualSlices(bool, &.{ false, false, false, true, false }, csc_nan.values);
+    var csc_inf = try csc.isinf();
+    defer csc_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, false, false }, csc_inf.values);
+    var csc_pos_inf = try csc.isPosInf();
+    defer csc_pos_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, false, true, false, false }, csc_pos_inf.values);
+    var csc_neg_inf = try csc.isneginf();
+    defer csc_neg_inf.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false, false, false }, csc_neg_inf.values);
+    var csc_finite = try csc.isFinite();
+    defer csc_finite.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, csc_finite.values);
+    var csc_normal = try csc.isnormal();
+    defer csc_normal.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, false, false, false, true }, csc_normal.values);
     var csc_rows = try csc.rowNonFiniteCounts();
     defer csc_rows.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 1, 1, 1 }, csc_rows.data);
