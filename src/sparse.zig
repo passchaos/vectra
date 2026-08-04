@@ -1846,6 +1846,26 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.rowVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.columnVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
         pub fn rowStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             const out = try self.rowVariances(correction);
             sqrtArray(out.data);
@@ -4025,6 +4045,26 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.rowVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.columnVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
         pub fn rowStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             const out = try self.rowVariances(correction);
             sqrtArray(out.data);
@@ -5954,6 +5994,26 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.rowVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnVariancesInRange(self: Self, correction: f64, min_variance: f64, max_variance: f64) SparseError!bool {
+            try validateNonNegativeRange(min_variance, max_variance);
+            var variances = try self.columnVariances(correction);
+            defer variances.deinit();
+            for (variances.data) |value| {
+                if (!valueInF64Range(value, min_variance, max_variance)) return false;
+            }
+            return true;
+        }
+
         pub fn columnStddevs(self: Self, correction: f64) SparseError!array_mod.Array(f64) {
             const out = try self.columnVariances(correction);
             sqrtArray(out.data);
@@ -7232,6 +7292,9 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    try std.testing.expect(try coo.rowVariancesInRange(0, 14.0 / 9.0, 14.0 / 3.0));
+    try std.testing.expect(!(try coo.rowVariancesInRange(0, 2.1, 14.0 / 3.0)));
+    try std.testing.expectError(error.InvalidShape, coo.rowVariancesInRange(0, -0.1, 1));
     var row_sample_vars = try coo.rowSampleVariances();
     defer row_sample_vars.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 7.0 / 3.0), row_sample_vars.data[0], 1e-12);
@@ -7240,6 +7303,8 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
+    try std.testing.expect(try coo.columnVariancesInRange(0, 2, 26.0 / 3.0));
+    try std.testing.expect(!(try coo.columnVariancesInRange(0, 2.1, 26.0 / 3.0)));
 
     var row_means = try coo.rowMeans();
     defer row_means.deinit();
@@ -8305,11 +8370,16 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    try std.testing.expect(try csr.rowVariancesInRange(0, 14.0 / 9.0, 14.0 / 3.0));
+    try std.testing.expect(!(try csr.rowVariancesInRange(0, 2.1, 14.0 / 3.0)));
+    try std.testing.expectError(error.InvalidShape, csr.rowVariancesInRange(0, -0.1, 1));
     var col_vars = try csr.columnVariances(0);
     defer col_vars.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
+    try std.testing.expect(try csr.columnVariancesInRange(0, 2, 26.0 / 3.0));
+    try std.testing.expect(!(try csr.columnVariancesInRange(0, 2.1, 26.0 / 3.0)));
     var row_stds = try csr.rowStddevs(0);
     defer row_stds.deinit();
     try std.testing.expectApproxEqAbs(@sqrt(14.0 / 9.0), row_stds.data[0], 1e-12);
@@ -8928,11 +8998,16 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 9.0), row_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), row_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 14.0 / 3.0), row_vars.data[2], 1e-12);
+    try std.testing.expect(try csc.rowVariancesInRange(0, 14.0 / 9.0, 14.0 / 3.0));
+    try std.testing.expect(!(try csc.rowVariancesInRange(0, 2.1, 14.0 / 3.0)));
+    try std.testing.expectError(error.InvalidShape, csc.rowVariancesInRange(0, -0.1, 1));
     var col_vars = try csc.columnVariances(0);
     defer col_vars.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 9.0), col_vars.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 2), col_vars.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 26.0 / 3.0), col_vars.data[2], 1e-12);
+    try std.testing.expect(try csc.columnVariancesInRange(0, 2, 26.0 / 3.0));
+    try std.testing.expect(!(try csc.columnVariancesInRange(0, 2.1, 26.0 / 3.0)));
     var col_stds = try csc.columnStddevs(0);
     defer col_stds.deinit();
     try std.testing.expectApproxEqAbs(@sqrt(26.0 / 9.0), col_stds.data[0], 1e-12);
