@@ -138,6 +138,27 @@ fn sparseCompareSameStructureValues(
     return out;
 }
 
+fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
+    if (shape.len != 2) return error.NonMatrixArray;
+    if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
+}
+
+fn sparseCompareDenseArrays(
+    comptime T: type,
+    lhs: array_mod.Array(T),
+    rhs: array_mod.Array(T),
+    comptime comparison: SparseScalarComparison,
+) SparseError!array_mod.Array(bool) {
+    return switch (comparison) {
+        .eq => lhs.eq(rhs),
+        .ne => lhs.ne(rhs),
+        .gt => lhs.gt(rhs),
+        .ge => lhs.ge(rhs),
+        .lt => lhs.lt(rhs),
+        .le => lhs.le(rhs),
+    };
+}
+
 pub const SparseResidualSummary = struct {
     residual_norm: f64,
     relative_residual_norm: f64,
@@ -1985,6 +2006,118 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
             return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
+        }
+
+        fn compareDenseMaterialized(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs_dense, comparison);
+        }
+
+        fn compareDenseArray(self: Self, rhs: array_mod.Array(T), comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
+        }
+
+        pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.eq(rhs);
+        }
+
+        pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ne(rhs);
+        }
+
+        pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.gt(rhs);
+        }
+
+        pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ge(rhs);
+        }
+
+        pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.lt(rhs);
+        }
+
+        pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .le);
+        }
+
+        pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.le(rhs);
+        }
+
+        pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .eq);
+        }
+
+        pub fn equalDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.eqDense(rhs);
+        }
+
+        pub fn neDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ne);
+        }
+
+        pub fn notEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.neDense(rhs);
+        }
+
+        pub fn gtDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .gt);
+        }
+
+        pub fn greaterDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.gtDense(rhs);
+        }
+
+        pub fn geDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ge);
+        }
+
+        pub fn greaterEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.geDense(rhs);
+        }
+
+        pub fn ltDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .lt);
+        }
+
+        pub fn lessDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.ltDense(rhs);
+        }
+
+        pub fn leDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .le);
+        }
+
+        pub fn lessEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.leDense(rhs);
         }
 
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
@@ -4772,6 +4905,118 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
             return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
+        }
+
+        fn compareDenseMaterialized(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs_dense, comparison);
+        }
+
+        fn compareDenseArray(self: Self, rhs: array_mod.Array(T), comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
+        }
+
+        pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.eq(rhs);
+        }
+
+        pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ne(rhs);
+        }
+
+        pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.gt(rhs);
+        }
+
+        pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ge(rhs);
+        }
+
+        pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.lt(rhs);
+        }
+
+        pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .le);
+        }
+
+        pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.le(rhs);
+        }
+
+        pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .eq);
+        }
+
+        pub fn equalDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.eqDense(rhs);
+        }
+
+        pub fn neDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ne);
+        }
+
+        pub fn notEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.neDense(rhs);
+        }
+
+        pub fn gtDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .gt);
+        }
+
+        pub fn greaterDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.gtDense(rhs);
+        }
+
+        pub fn geDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ge);
+        }
+
+        pub fn greaterEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.geDense(rhs);
+        }
+
+        pub fn ltDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .lt);
+        }
+
+        pub fn lessDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.ltDense(rhs);
+        }
+
+        pub fn leDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .le);
+        }
+
+        pub fn lessEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.leDense(rhs);
         }
 
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
@@ -7773,6 +8018,118 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn relativeFrobeniusDistanceMeetsBound(self: Self, rhs: Self, max_relative_distance: f64) SparseError!bool {
             return (try self.diffSummary(rhs)).relativeFrobeniusDistanceMeetsBound(max_relative_distance);
+        }
+
+        fn compareDenseMaterialized(self: Self, rhs: Self, comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs_dense, comparison);
+        }
+
+        fn compareDenseArray(self: Self, rhs: array_mod.Array(T), comptime comparison: SparseScalarComparison) SparseError!array_mod.Array(bool) {
+            try validateDenseMatrixShape(self.rows, self.cols, rhs.shape);
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            return sparseCompareDenseArrays(T, lhs_dense, rhs, comparison);
+        }
+
+        pub fn eq(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .eq);
+        }
+
+        pub fn equal(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.eq(rhs);
+        }
+
+        pub fn ne(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ne);
+        }
+
+        pub fn notEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ne(rhs);
+        }
+
+        pub fn gt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .gt);
+        }
+
+        pub fn greater(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.gt(rhs);
+        }
+
+        pub fn ge(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .ge);
+        }
+
+        pub fn greaterEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.ge(rhs);
+        }
+
+        pub fn lt(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .lt);
+        }
+
+        pub fn less(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.lt(rhs);
+        }
+
+        pub fn le(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.compareDenseMaterialized(rhs, .le);
+        }
+
+        pub fn lessEqual(self: Self, rhs: Self) SparseError!array_mod.Array(bool) {
+            return self.le(rhs);
+        }
+
+        pub fn eqDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .eq);
+        }
+
+        pub fn equalDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.eqDense(rhs);
+        }
+
+        pub fn neDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ne);
+        }
+
+        pub fn notEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.neDense(rhs);
+        }
+
+        pub fn gtDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .gt);
+        }
+
+        pub fn greaterDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.gtDense(rhs);
+        }
+
+        pub fn geDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .ge);
+        }
+
+        pub fn greaterEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.geDense(rhs);
+        }
+
+        pub fn ltDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .lt);
+        }
+
+        pub fn lessDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.ltDense(rhs);
+        }
+
+        pub fn leDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.compareDenseArray(rhs, .le);
+        }
+
+        pub fn lessEqualDense(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(bool) {
+            return self.leDense(rhs);
         }
 
         pub fn diffSummaryDense(self: Self, rhs: array_mod.Array(T)) SparseError!SparseDiffSummary {
@@ -11172,6 +11529,95 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(bool, values, mask.values);
         }
     }.check;
+    const expectDenseComparisons = struct {
+        fn expectMask(mask: array_mod.Array(bool), values: []const bool) !void {
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, mask.shape);
+            try std.testing.expectEqualSlices(bool, values, mask.data);
+        }
+
+        fn check(comptime Matrix: type, lhs_matrix: Matrix, rhs_matrix: Matrix, rhs_dense: array_mod.Array(f64)) !void {
+            const eq_values = &.{ false, true, true, true, false, false };
+            const ne_values = &.{ true, false, false, false, true, true };
+            const gt_values = &.{ false, false, false, false, true, false };
+            const ge_values = &.{ false, true, true, true, true, false };
+            const lt_values = &.{ true, false, false, false, false, true };
+            const le_values = &.{ true, true, true, true, false, true };
+
+            var eq_mask = try lhs_matrix.eq(rhs_matrix);
+            defer eq_mask.deinit();
+            try expectMask(eq_mask, eq_values);
+            var equal_mask = try lhs_matrix.equal(rhs_matrix);
+            defer equal_mask.deinit();
+            try expectMask(equal_mask, eq_values);
+            var ne_mask = try lhs_matrix.ne(rhs_matrix);
+            defer ne_mask.deinit();
+            try expectMask(ne_mask, ne_values);
+            var not_equal_mask = try lhs_matrix.notEqual(rhs_matrix);
+            defer not_equal_mask.deinit();
+            try expectMask(not_equal_mask, ne_values);
+            var gt_mask = try lhs_matrix.gt(rhs_matrix);
+            defer gt_mask.deinit();
+            try expectMask(gt_mask, gt_values);
+            var greater_mask = try lhs_matrix.greater(rhs_matrix);
+            defer greater_mask.deinit();
+            try expectMask(greater_mask, gt_values);
+            var ge_mask = try lhs_matrix.ge(rhs_matrix);
+            defer ge_mask.deinit();
+            try expectMask(ge_mask, ge_values);
+            var greater_equal_mask = try lhs_matrix.greaterEqual(rhs_matrix);
+            defer greater_equal_mask.deinit();
+            try expectMask(greater_equal_mask, ge_values);
+            var lt_mask = try lhs_matrix.lt(rhs_matrix);
+            defer lt_mask.deinit();
+            try expectMask(lt_mask, lt_values);
+            var less_mask = try lhs_matrix.less(rhs_matrix);
+            defer less_mask.deinit();
+            try expectMask(less_mask, lt_values);
+            var le_mask = try lhs_matrix.le(rhs_matrix);
+            defer le_mask.deinit();
+            try expectMask(le_mask, le_values);
+            var less_equal_mask = try lhs_matrix.lessEqual(rhs_matrix);
+            defer less_equal_mask.deinit();
+            try expectMask(less_equal_mask, le_values);
+
+            var eq_dense_mask = try lhs_matrix.eqDense(rhs_dense);
+            defer eq_dense_mask.deinit();
+            try expectMask(eq_dense_mask, eq_values);
+            var equal_dense_mask = try lhs_matrix.equalDense(rhs_dense);
+            defer equal_dense_mask.deinit();
+            try expectMask(equal_dense_mask, eq_values);
+            var ne_dense_mask = try lhs_matrix.neDense(rhs_dense);
+            defer ne_dense_mask.deinit();
+            try expectMask(ne_dense_mask, ne_values);
+            var not_equal_dense_mask = try lhs_matrix.notEqualDense(rhs_dense);
+            defer not_equal_dense_mask.deinit();
+            try expectMask(not_equal_dense_mask, ne_values);
+            var gt_dense_mask = try lhs_matrix.gtDense(rhs_dense);
+            defer gt_dense_mask.deinit();
+            try expectMask(gt_dense_mask, gt_values);
+            var greater_dense_mask = try lhs_matrix.greaterDense(rhs_dense);
+            defer greater_dense_mask.deinit();
+            try expectMask(greater_dense_mask, gt_values);
+            var ge_dense_mask = try lhs_matrix.geDense(rhs_dense);
+            defer ge_dense_mask.deinit();
+            try expectMask(ge_dense_mask, ge_values);
+            var greater_equal_dense_mask = try lhs_matrix.greaterEqualDense(rhs_dense);
+            defer greater_equal_dense_mask.deinit();
+            try expectMask(greater_equal_dense_mask, ge_values);
+            var lt_dense_mask = try lhs_matrix.ltDense(rhs_dense);
+            defer lt_dense_mask.deinit();
+            try expectMask(lt_dense_mask, lt_values);
+            var less_dense_mask = try lhs_matrix.lessDense(rhs_dense);
+            defer less_dense_mask.deinit();
+            try expectMask(less_dense_mask, lt_values);
+            var le_dense_mask = try lhs_matrix.leDense(rhs_dense);
+            defer le_dense_mask.deinit();
+            try expectMask(le_dense_mask, le_values);
+            var less_equal_dense_mask = try lhs_matrix.lessEqualDense(rhs_dense);
+            defer less_equal_dense_mask.deinit();
+            try expectMask(less_equal_dense_mask, le_values);
+        }
+    }.check;
 
     var lhs = try cooFromSlices(f64, gpa, 2, 3, &.{ 1, 0, 1 }, &.{ 2, 0, 1 }, &.{ 3, 1, 2 });
     defer lhs.deinit();
@@ -11303,6 +11749,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectError(error.InvalidShape, lhs.maxAbsDiffMeetsBound(rhs, std.math.nan(f64)));
     var rhs_dense_for_summary = try rhs.toDense();
     defer rhs_dense_for_summary.deinit();
+    try expectDenseComparisons(@TypeOf(lhs), lhs, rhs, rhs_dense_for_summary);
     const dense_summary = try lhs.diffSummaryDense(rhs_dense_for_summary);
     try std.testing.expectApproxEqAbs(full_summary.dot, dense_summary.dot, 1e-12);
     try std.testing.expectApproxEqAbs(full_summary.squared_distance, dense_summary.squared_distance, 1e-12);
@@ -11332,6 +11779,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
     var mismatched_dense_for_summary = try array_mod.Array(f64).zeros(gpa, &.{ 3, 3 });
     defer mismatched_dense_for_summary.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs.diffSummaryDense(mismatched_dense_for_summary));
+    try std.testing.expectError(error.ShapeMismatch, lhs.eqDense(mismatched_dense_for_summary));
+    var non_matrix_dense_for_summary = try array_mod.Array(f64).zeros(gpa, &.{6});
+    defer non_matrix_dense_for_summary.deinit();
+    try std.testing.expectError(error.NonMatrixArray, lhs.lessEqualDense(non_matrix_dense_for_summary));
     var coo_product = try lhs.hadamard(rhs);
     defer coo_product.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 1 }, coo_product.row_indices);
@@ -11468,6 +11919,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer rhs_csr.deinit();
     var dot_rhs_csr = try dot_rhs.toCsr();
     defer dot_rhs_csr.deinit();
+    try expectDenseComparisons(@TypeOf(lhs_csr), lhs_csr, rhs_csr, rhs_dense_for_summary);
     try std.testing.expect(lhs_csr.sameStructure(dot_rhs_csr));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try lhs_csr.dotSameStructure(dot_rhs_csr), 1e-12);
     var csr_eq_same = try lhs_csr.eqSameStructure(dot_rhs_csr);
@@ -11645,6 +12097,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
     defer rhs_csc.deinit();
     var dot_rhs_csc = try dot_rhs.toCsc();
     defer dot_rhs_csc.deinit();
+    try expectDenseComparisons(@TypeOf(lhs_csc), lhs_csc, rhs_csc, rhs_dense_for_summary);
     var csc_sum = try lhs_csc.add(rhs_csc);
     defer csc_sum.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, csc_sum.col_offsets);
