@@ -3145,6 +3145,81 @@ pub fn CooMatrix(comptime T: type) type {
             }
         }
 
+        pub fn setDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            for (0..self.rows) |index| {
+                var found = false;
+                for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                    if (entry_row == index and entry_col == index) {
+                        entry_value.* = diagonal_values[index];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn setDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.setDiagonalValues(diagonal_values);
+        }
+
+        pub fn addDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var any_nonzero = false;
+            for (diagonal_values) |value| {
+                if (isNonZero(T, value)) {
+                    any_nonzero = true;
+                    break;
+                }
+            }
+            if (!any_nonzero) return;
+            for (0..self.rows) |index| {
+                var found = false;
+                for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                    if (entry_row == index and entry_col == index) {
+                        entry_value.* += diagonal_values[index];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.addDiagonalValues(diagonal_values);
+        }
+
+        pub fn multiplyDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var all_one = true;
+            for (diagonal_values) |value| {
+                if (value != oneValue(T)) {
+                    all_one = false;
+                    break;
+                }
+            }
+            if (all_one) return;
+            for (0..self.rows) |index| {
+                var found = false;
+                for (self.row_indices, self.col_indices, self.values) |entry_row, entry_col, *entry_value| {
+                    if (entry_row == index and entry_col == index) {
+                        entry_value.* *= diagonal_values[index];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn multiplyDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.multiplyDiagonalValues(diagonal_values);
+        }
+
         pub fn diagonal(self: Self) SparseError!array_mod.Array(T) {
             if (self.rows != self.cols) return error.NonMatrixArray;
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.rows});
@@ -6096,6 +6171,81 @@ pub fn CsrMatrix(comptime T: type) type {
             }
         }
 
+        pub fn setDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            for (0..self.rows) |row| {
+                var found = false;
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (self.col_indices[pos] == row) {
+                        self.values[pos] = diagonal_values[row];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn setDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.setDiagonalValues(diagonal_values);
+        }
+
+        pub fn addDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var any_nonzero = false;
+            for (diagonal_values) |value| {
+                if (isNonZero(T, value)) {
+                    any_nonzero = true;
+                    break;
+                }
+            }
+            if (!any_nonzero) return;
+            for (0..self.rows) |row| {
+                var found = false;
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (self.col_indices[pos] == row) {
+                        self.values[pos] += diagonal_values[row];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.addDiagonalValues(diagonal_values);
+        }
+
+        pub fn multiplyDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var all_one = true;
+            for (diagonal_values) |value| {
+                if (value != oneValue(T)) {
+                    all_one = false;
+                    break;
+                }
+            }
+            if (all_one) return;
+            for (0..self.rows) |row| {
+                var found = false;
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    if (self.col_indices[pos] == row) {
+                        self.values[pos] *= diagonal_values[row];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn multiplyDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.multiplyDiagonalValues(diagonal_values);
+        }
+
         pub fn minAbsDiagonal(self: Self) SparseError!T {
             var diagonal_values = try self.diagonal();
             defer diagonal_values.deinit();
@@ -8744,6 +8894,81 @@ pub fn CscMatrix(comptime T: type) type {
             }
         }
 
+        pub fn setDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            for (0..self.cols) |col| {
+                var found = false;
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (self.row_indices[pos] == col) {
+                        self.values[pos] = diagonal_values[col];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn setDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.setDiagonalValues(diagonal_values);
+        }
+
+        pub fn addDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var any_nonzero = false;
+            for (diagonal_values) |value| {
+                if (isNonZero(T, value)) {
+                    any_nonzero = true;
+                    break;
+                }
+            }
+            if (!any_nonzero) return;
+            for (0..self.cols) |col| {
+                var found = false;
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (self.row_indices[pos] == col) {
+                        self.values[pos] += diagonal_values[col];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn addDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.addDiagonalValues(diagonal_values);
+        }
+
+        pub fn multiplyDiagonalValues(self: *Self, diagonal_values: []const T) SparseError!void {
+            ensureNumeric(T);
+            if (self.rows != self.cols) return error.NonMatrixArray;
+            if (diagonal_values.len != self.rows) return error.ShapeMismatch;
+            var all_one = true;
+            for (diagonal_values) |value| {
+                if (value != oneValue(T)) {
+                    all_one = false;
+                    break;
+                }
+            }
+            if (all_one) return;
+            for (0..self.cols) |col| {
+                var found = false;
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    if (self.row_indices[pos] == col) {
+                        self.values[pos] *= diagonal_values[col];
+                        found = true;
+                    }
+                }
+                if (!found) return error.InvalidShape;
+            }
+        }
+
+        pub fn multiplyDiagonalVector(self: *Self, diagonal_values: []const T) SparseError!void {
+            return self.multiplyDiagonalValues(diagonal_values);
+        }
+
         pub fn minAbsDiagonal(self: Self) SparseError!T {
             var diagonal_values = try self.diagonal();
             defer diagonal_values.deinit();
@@ -10959,6 +11184,19 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var diagonal_set_values = try diagonal_mut.diagonal();
     defer diagonal_set_values.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 9, 9, 9 }, diagonal_set_values.data);
+    try diagonal_mut.setDiagonalValues(&.{ 1, 2, 3 });
+    var diagonal_set_vector_values = try diagonal_mut.diagonal();
+    defer diagonal_set_vector_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 1, 2, 3 }, diagonal_set_vector_values.data);
+    try diagonal_mut.addDiagonalValues(&.{ 1, 1, 1 });
+    var diagonal_add_vector_values = try diagonal_mut.diagonal();
+    defer diagonal_add_vector_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 3, 4 }, diagonal_add_vector_values.data);
+    try diagonal_mut.multiplyDiagonalValues(&.{ 2, 3, 4 });
+    var diagonal_mul_vector_values = try diagonal_mut.diagonal();
+    defer diagonal_mul_vector_values.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, diagonal_mul_vector_values.data);
+    try std.testing.expectError(error.ShapeMismatch, diagonal_mut.setDiagonalVector(&.{1}));
     try std.testing.expectApproxEqAbs(@as(f64, 15), try symmetric.trace(), 1e-12);
     try std.testing.expect(try symmetric.traceInRange(15, 15));
     try std.testing.expect(try symmetric.traceInRange(14.5, 15.5));
@@ -11134,6 +11372,13 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csr_set_diag = try square_csr.diagonal();
     defer square_csr_set_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, square_csr_set_diag.data);
+    try square_csr.setDiagonalVector(&.{ 1, 2, 3 });
+    try square_csr.addDiagonalVector(&.{ 1, 1, 1 });
+    try square_csr.multiplyDiagonalVector(&.{ 2, 3, 4 });
+    var square_csr_vector_diag = try square_csr.diagonal();
+    defer square_csr_vector_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, square_csr_vector_diag.data);
+    try std.testing.expectError(error.ShapeMismatch, square_csr.addDiagonalValues(&.{1}));
     var missing_csr = try csrFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
     defer missing_csr.deinit();
     try std.testing.expectError(error.InvalidShape, missing_csr.setDiagonal(1));
@@ -11157,6 +11402,13 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csc_set_diag = try square_csc.diagonal();
     defer square_csc_set_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 3 }, square_csc_set_diag.data);
+    try square_csc.setDiagonalVector(&.{ 1, 2, 3 });
+    try square_csc.addDiagonalVector(&.{ 1, 1, 1 });
+    try square_csc.multiplyDiagonalVector(&.{ 2, 3, 4 });
+    var square_csc_vector_diag = try square_csc.diagonal();
+    defer square_csc_vector_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 9, 16 }, square_csc_vector_diag.data);
+    try std.testing.expectError(error.ShapeMismatch, square_csc.multiplyDiagonalValues(&.{1}));
     var missing_csc = try cscFromCompressed(f64, gpa, 2, 2, &.{ 0, 1, 2 }, &.{ 1, 0 }, &.{ 1, 1 });
     defer missing_csc.deinit();
     try std.testing.expectError(error.InvalidShape, missing_csc.addToDiagonal(1));
