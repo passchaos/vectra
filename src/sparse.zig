@@ -4696,8 +4696,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.solve(rhs);
+        }
+
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn matmulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -6236,6 +6244,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSolveTriangular(T, self, rhs, triangle, diagonal_kind);
         }
 
+        pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
+            return self.solveTriangular(rhs, triangle, diagonal_kind);
+        }
+
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
             return sparseDenseMatrixNorm(T, self, order, tolerance);
         }
@@ -6266,6 +6278,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
+        }
+
+        pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return self.lstsq(rhs, tolerance);
         }
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
@@ -8623,6 +8639,10 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn matvecArray(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matvec(x);
+        }
+
         pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -9970,8 +9990,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.solve(rhs);
+        }
+
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn matmulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -11538,6 +11566,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
+        pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return self.lstsq(rhs, tolerance);
+        }
+
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
             return sparseDenseQr(T, self);
         }
@@ -12593,6 +12625,10 @@ pub fn CsrMatrix(comptime T: type) type {
                 out.data[r] = acc;
             }
             return out;
+        }
+
+        pub fn matvecArray(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matvec(x);
         }
 
         fn matvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
@@ -14321,6 +14357,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.solveTriangularReference(rhs, triangle, diag_kind);
         }
 
+        pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
+            return self.solveTriangular(rhs, triangle, diag_kind);
+        }
+
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             if (rhs.shape.len == 1) {
@@ -15455,8 +15495,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.solve(rhs);
+        }
+
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMatmul(T, self, rhs);
+        }
+
+        pub fn matmulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matmul(rhs);
         }
 
         pub fn mm(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -17023,6 +17071,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
+        pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
+            return self.lstsq(rhs, tolerance);
+        }
+
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
             return sparseDenseQr(T, self);
         }
@@ -18117,6 +18169,10 @@ pub fn CscMatrix(comptime T: type) type {
                 for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos]] += self.values[pos] * x.data[c];
             }
             return out;
+        }
+
+        pub fn matvecArray(self: Self, x: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.matvec(x);
         }
 
         fn matvecF64(self: Self, x: array_mod.Array(f64)) SparseError!array_mod.Array(f64) {
@@ -19722,6 +19778,10 @@ pub fn CscMatrix(comptime T: type) type {
             var csr = try self.toCsr();
             defer csr.deinit();
             return csr.solveTriangular(rhs, triangle, diag_kind);
+        }
+
+        pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
+            return self.solveTriangular(rhs, triangle, diag_kind);
         }
 
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
@@ -22413,6 +22473,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
 
+            var solution_array = try upper.solveArray(rhs);
+            defer solution_array.deinit();
+            try std.testing.expectEqualSlices(usize, solution.shape, solution_array.shape);
+            for (solution.data, solution_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var matvec_product = try upper.matvec(rhs);
+            defer matvec_product.deinit();
+            try std.testing.expectEqualSlices(usize, &.{2}, matvec_product.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 17), matvec_product.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 18), matvec_product.data[1], 1e-12);
+
+            var matvec_array_product = try upper.matvecArray(rhs);
+            defer matvec_array_product.deinit();
+            try std.testing.expectEqualSlices(usize, matvec_product.shape, matvec_array_product.shape);
+            for (matvec_product.data, matvec_array_product.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
             var identity_rhs = try array_mod.Array(f64).fromSlice(upper.allocator, &.{ 1, 0, 0, 1 }, &.{ 2, 2 });
             defer identity_rhs.deinit();
             var matmul_identity = try upper.matmul(identity_rhs);
@@ -22422,6 +22502,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 2), matmul_identity.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), matmul_identity.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 3), matmul_identity.data[3], 1e-12);
+
+            var matmul_identity_array = try upper.matmulArray(identity_rhs);
+            defer matmul_identity_array.deinit();
+            try std.testing.expectEqualSlices(usize, matmul_identity.shape, matmul_identity_array.shape);
+            for (matmul_identity.data, matmul_identity_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var mm_identity = try upper.mm(identity_rhs);
             defer mm_identity.deinit();
@@ -22497,10 +22584,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
+            var triangular_solution_array = try upper.solveTriangularArray(rhs, .upper, .non_unit);
+            defer triangular_solution_array.deinit();
+            try std.testing.expectEqualSlices(usize, triangular_solution.shape, triangular_solution_array.shape);
+            for (triangular_solution.data, triangular_solution_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
             var least_squares = try upper.lstsq(rhs, 1e-12);
             defer least_squares.deinit();
             try std.testing.expectEqualSlices(usize, solution.shape, least_squares.shape);
             for (solution.data, least_squares.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
+
+            var least_squares_array = try upper.lstsqArray(rhs, 1e-12);
+            defer least_squares_array.deinit();
+            try std.testing.expectEqualSlices(usize, least_squares.shape, least_squares_array.shape);
+            for (least_squares.data, least_squares_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
 
