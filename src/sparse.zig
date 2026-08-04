@@ -1767,6 +1767,26 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.rowMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.columnMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
         pub fn variance(self: Self, correction: f64) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -3908,6 +3928,26 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.rowMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.columnMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
         pub fn variance(self: Self, correction: f64) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -5801,6 +5841,26 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.rowMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
+        pub fn columnMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
+            try validateFiniteRange(min_mean, max_mean);
+            var means = try self.columnMeans();
+            defer means.deinit();
+            for (means.data) |value| {
+                if (!valueInF64Range(value, min_mean, max_mean)) return false;
+            }
+            return true;
+        }
+
         pub fn variance(self: Self, correction: f64) SparseError!f64 {
             ensureNumeric(T);
             const count = try sparseElementCount(self.rows, self.cols);
@@ -7138,11 +7198,16 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    try std.testing.expect(try coo.rowMeansInRange(-1.0 / 3.0, 3));
+    try std.testing.expect(!(try coo.rowMeansInRange(0, 3)));
+    try std.testing.expectError(error.InvalidShape, coo.rowMeansInRange(3, 2));
     var col_means = try coo.columnMeans();
     defer col_means.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try std.testing.expect(try coo.columnMeansInRange(1, 5.0 / 3.0));
+    try std.testing.expect(!(try coo.columnMeansInRange(1.1, 5.0 / 3.0)));
 
     var row_mins = try coo.rowMins();
     defer row_mins.deinit();
@@ -8204,11 +8269,16 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    try std.testing.expect(try csr.rowMeansInRange(-1.0 / 3.0, 3));
+    try std.testing.expect(!(try csr.rowMeansInRange(0, 3)));
+    try std.testing.expectError(error.InvalidShape, csr.rowMeansInRange(3, 2));
     var col_means = try csr.columnMeans();
     defer col_means.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try std.testing.expect(try csr.columnMeansInRange(1, 5.0 / 3.0));
+    try std.testing.expect(!(try csr.columnMeansInRange(1.1, 5.0 / 3.0)));
 
     var row_mins = try csr.rowMins();
     defer row_mins.deinit();
@@ -8817,11 +8887,16 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    try std.testing.expect(try csc.rowMeansInRange(-1.0 / 3.0, 3));
+    try std.testing.expect(!(try csc.rowMeansInRange(0, 3)));
+    try std.testing.expectError(error.InvalidShape, csc.rowMeansInRange(3, 2));
     var col_means = try csc.columnMeans();
     defer col_means.deinit();
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try std.testing.expect(try csc.columnMeansInRange(1, 5.0 / 3.0));
+    try std.testing.expect(!(try csc.columnMeansInRange(1.1, 5.0 / 3.0)));
 
     var row_mins = try csc.rowMins();
     defer row_mins.deinit();
