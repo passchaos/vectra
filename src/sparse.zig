@@ -1446,6 +1446,14 @@ pub fn CooMatrix(comptime T: type) type {
             self.scaleStoredValues(alpha);
         }
 
+        pub fn setStoredValuesFromDense(self: *Self, src: array_mod.Array(T)) SparseError!void {
+            if (src.shape.len != 2) return error.NonMatrixArray;
+            if (src.shape[0] != self.rows or src.shape[1] != self.cols) return error.ShapeMismatch;
+            for (self.values, 0..) |*value, index| {
+                value.* = src.data[self.row_indices[index] * self.cols + self.col_indices[index]];
+            }
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const row_indices = try self.allocator.dupe(usize, self.row_indices);
             errdefer self.allocator.free(row_indices);
@@ -4054,6 +4062,16 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn scaleValues(self: *Self, alpha: T) void {
             self.scaleStoredValues(alpha);
+        }
+
+        pub fn setStoredValuesFromDense(self: *Self, src: array_mod.Array(T)) SparseError!void {
+            if (src.shape.len != 2) return error.NonMatrixArray;
+            if (src.shape[0] != self.rows or src.shape[1] != self.cols) return error.ShapeMismatch;
+            for (0..self.rows) |row| {
+                for (self.row_offsets[row]..self.row_offsets[row + 1]) |pos| {
+                    self.values[pos] = src.data[row * self.cols + self.col_indices[pos]];
+                }
+            }
         }
 
         pub fn clone(self: Self) SparseError!Self {
@@ -6877,6 +6895,16 @@ pub fn CscMatrix(comptime T: type) type {
             self.scaleStoredValues(alpha);
         }
 
+        pub fn setStoredValuesFromDense(self: *Self, src: array_mod.Array(T)) SparseError!void {
+            if (src.shape.len != 2) return error.NonMatrixArray;
+            if (src.shape[0] != self.rows or src.shape[1] != self.cols) return error.ShapeMismatch;
+            for (0..self.cols) |col| {
+                for (self.col_offsets[col]..self.col_offsets[col + 1]) |pos| {
+                    self.values[pos] = src.data[self.row_indices[pos] * self.cols + col];
+                }
+            }
+        }
+
         pub fn clone(self: Self) SparseError!Self {
             const col_offsets = try self.allocator.dupe(usize, self.col_offsets);
             errdefer self.allocator.free(col_offsets);
@@ -9653,6 +9681,17 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(f64, &.{ -6, -6, -6, -6, -6, -6 }, coo_filled.values);
     coo_filled.scaleStoredValues(0.5);
     try std.testing.expectEqualSlices(f64, &.{ -3, -3, -3, -3, -3, -3 }, coo_filled.values);
+    var source_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
+        1, 2,  3,  4,
+        5, 6,  7,  8,
+        9, 10, 11, 12,
+    }, &.{ 3, 4 });
+    defer source_dense.deinit();
+    try coo_filled.setStoredValuesFromDense(source_dense);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 8, 9, 12 }, coo_filled.values);
+    var wrong_dense_shape = try array_mod.Array(f64).zeros(gpa, &.{ 2, 2 });
+    defer wrong_dense_shape.deinit();
+    try std.testing.expectError(error.ShapeMismatch, coo_filled.setStoredValuesFromDense(wrong_dense_shape));
     try std.testing.expectApproxEqAbs(@as(f64, 30), coo.sum(), 1e-12);
     try std.testing.expect(try coo.sumInRange(30, 30));
     try std.testing.expect(try coo.sumInRange(29.5, 30.5));
@@ -9778,6 +9817,9 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(f64, &.{ 5, 5, 5, 5, 5, 5 }, csr_filled.values);
     csr_filled.scaleValues(2);
     try std.testing.expectEqualSlices(f64, &.{ 10, 10, 10, 10, 10, 10 }, csr_filled.values);
+    try csr_filled.setStoredValuesFromDense(source_dense);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 3, 6, 8, 9, 12 }, csr_filled.values);
+    try std.testing.expectError(error.ShapeMismatch, csr_filled.setStoredValuesFromDense(wrong_dense_shape));
     var csr_pruned_dense = try csrFromDensePruned(f64, dense, 4);
     defer csr_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try csrFromDensePrunedNnz(f64, dense, 4));
@@ -9828,6 +9870,9 @@ test "coo sparse dense roundtrip and compressed conversions" {
     try std.testing.expectEqualSlices(f64, &.{ 4, 4, 4, 4, 4, 4 }, csc_filled.values);
     csc_filled.scaleStoredValues(-0.25);
     try std.testing.expectEqualSlices(f64, &.{ -1, -1, -1, -1, -1, -1 }, csc_filled.values);
+    try csc_filled.setStoredValuesFromDense(source_dense);
+    try std.testing.expectEqualSlices(f64, &.{ 1, 9, 6, 3, 8, 12 }, csc_filled.values);
+    try std.testing.expectError(error.ShapeMismatch, csc_filled.setStoredValuesFromDense(wrong_dense_shape));
     var csc_pruned_dense = try cscFromDensePruned(f64, dense, 4);
     defer csc_pruned_dense.deinit();
     try std.testing.expectEqual(@as(usize, 3), try cscFromDensePrunedNnz(f64, dense, 4));
