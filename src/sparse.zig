@@ -1404,6 +1404,46 @@ fn sparseDenseDivArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T
     return dense.div(rhs);
 }
 
+fn sparseDenseCopyOut(comptime T: type, result_in: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var out_view = try out.asView();
+    defer out_view.deinit();
+    try out_view.copyFromArray(result);
+}
+
+fn sparseDenseAddOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseAddArray(T, matrix, rhs), out);
+}
+
+fn sparseDenseSubOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseSubArray(T, matrix, rhs), out);
+}
+
+fn sparseDenseMulOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseMulArray(T, matrix, rhs), out);
+}
+
+fn sparseDenseDivOut(comptime T: type, matrix: anytype, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseDivArray(T, matrix, rhs), out);
+}
+
+fn sparseDenseAddScalarOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseAddScalar(T, matrix, scalar), out);
+}
+
+fn sparseDenseSubScalarOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseSubScalar(T, matrix, scalar), out);
+}
+
+fn sparseDenseMulScalarOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseMulScalar(T, matrix, scalar), out);
+}
+
+fn sparseDenseDivScalarOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(T)) SparseError!void {
+    try sparseDenseCopyOut(T, try sparseDenseDivScalar(T, matrix, scalar), out);
+}
+
 fn sparseDenseAddPromote(comptime T: type, comptime U: type, matrix: anytype, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -6025,6 +6065,22 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseDivArray(T, self, rhs);
         }
 
+        pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddOut(T, self, rhs, out);
+        }
+
+        pub fn subOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubOut(T, self, rhs, out);
+        }
+
+        pub fn mulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulOut(T, self, rhs, out);
+        }
+
+        pub fn divOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivOut(T, self, rhs, out);
+        }
+
         pub fn addPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseAddPromote(T, U, self, rhs);
         }
@@ -6239,6 +6295,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddScalarOut(T, self, scalar, out);
+        }
+
+        pub fn subScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubScalarOut(T, self, scalar, out);
+        }
+
+        pub fn mulScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulScalarOut(T, self, scalar, out);
+        }
+
+        pub fn divScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivScalarOut(T, self, scalar, out);
         }
 
         pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
@@ -11701,6 +11773,22 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseDivArray(T, self, rhs);
         }
 
+        pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddOut(T, self, rhs, out);
+        }
+
+        pub fn subOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubOut(T, self, rhs, out);
+        }
+
+        pub fn mulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulOut(T, self, rhs, out);
+        }
+
+        pub fn divOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivOut(T, self, rhs, out);
+        }
+
         pub fn addPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseAddPromote(T, U, self, rhs);
         }
@@ -11915,6 +12003,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddScalarOut(T, self, scalar, out);
+        }
+
+        pub fn subScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubScalarOut(T, self, scalar, out);
+        }
+
+        pub fn mulScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulScalarOut(T, self, scalar, out);
+        }
+
+        pub fn divScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivScalarOut(T, self, scalar, out);
         }
 
         pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
@@ -17590,6 +17694,22 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseDivArray(T, self, rhs);
         }
 
+        pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddOut(T, self, rhs, out);
+        }
+
+        pub fn subOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubOut(T, self, rhs, out);
+        }
+
+        pub fn mulOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulOut(T, self, rhs, out);
+        }
+
+        pub fn divOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivOut(T, self, rhs, out);
+        }
+
         pub fn addPromote(self: Self, comptime U: type, rhs: array_mod.Array(U)) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
             return sparseDenseAddPromote(T, U, self, rhs);
         }
@@ -17804,6 +17924,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn scalarDiv(self: Self, scalar: T) SparseError!array_mod.Array(T) {
             return self.rdivScalar(scalar);
+        }
+
+        pub fn addScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseAddScalarOut(T, self, scalar, out);
+        }
+
+        pub fn subScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseSubScalarOut(T, self, scalar, out);
+        }
+
+        pub fn mulScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseMulScalarOut(T, self, scalar, out);
+        }
+
+        pub fn divScalarOut(self: Self, scalar: T, out: array_mod.Array(T)) SparseError!void {
+            return sparseDenseDivScalarOut(T, self, scalar, out);
         }
 
         pub fn addScalarPromote(self: Self, comptime U: type, scalar: U) SparseError!array_mod.Array(array_mod.promoteType(T, U)) {
@@ -25177,6 +25313,36 @@ test "sparse dense fused elementwise helpers" {
             var divided_array = try matrix.divArray(end_values);
             defer divided_array.deinit();
             try expectArray(divided_array, &.{ 2, 3 }, &.{ 1.0 / 3.0, 0, 0, 0, 2.0 / 7.0, 3.0 / 8.0 });
+
+            var added_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer added_out.deinit();
+            try matrix.addOut(end_values, added_out);
+            try expectArray(added_out, &.{ 2, 3 }, added_array.data);
+
+            var subtracted_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer subtracted_out.deinit();
+            try matrix.subOut(end_values, subtracted_out);
+            try expectArray(subtracted_out, &.{ 2, 3 }, subtracted_array.data);
+
+            var multiplied_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer multiplied_out.deinit();
+            try matrix.mulOut(end_values, multiplied_out);
+            try expectArray(multiplied_out, &.{ 2, 3 }, multiplied_array.data);
+
+            var divided_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer divided_out.deinit();
+            try matrix.divOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, divided_array.data);
+
+            var scalar_added_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer scalar_added_out.deinit();
+            try matrix.addScalarOut(2, scalar_added_out);
+            try expectArray(scalar_added_out, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
+
+            var scalar_multiplied_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer scalar_multiplied_out.deinit();
+            try matrix.mulScalarOut(2, scalar_multiplied_out);
+            try expectArray(scalar_multiplied_out, &.{ 2, 3 }, &.{ 2, 0, 0, 0, 4, 6 });
 
             var hypot_array = try matrix.hypotArray(end_values);
             defer hypot_array.deinit();
