@@ -472,6 +472,18 @@ fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.A
     return dense.flatten();
 }
 
+fn sparseDenseSqueeze(comptime T: type, matrix: anytype, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.squeeze(axis_opt);
+}
+
+fn sparseDenseUnsqueeze(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.unsqueeze(axis_index);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -2697,6 +2709,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueeze(T, self, axis_opt);
+        }
+
+        pub fn squeezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.squeeze(axis_index);
+        }
+
+        pub fn unsqueeze(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueeze(T, self, axis_index);
+        }
+
+        pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.unsqueeze(axis_index);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -5991,6 +6019,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueeze(T, self, axis_opt);
+        }
+
+        pub fn squeezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.squeeze(axis_index);
+        }
+
+        pub fn unsqueeze(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueeze(T, self, axis_index);
+        }
+
+        pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.unsqueeze(axis_index);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -9500,6 +9544,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
+        }
+
+        pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseSqueeze(T, self, axis_opt);
+        }
+
+        pub fn squeezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.squeeze(axis_index);
+        }
+
+        pub fn unsqueeze(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseUnsqueeze(T, self, axis_index);
+        }
+
+        pub fn unsqueezeDim(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.unsqueeze(axis_index);
         }
 
         pub fn indexPut(self: Self, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -13869,6 +13929,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var raveled = try matrix.ravel();
             defer raveled.deinit();
             try expectArray(raveled, &.{6}, flattened.data);
+
+            var unsqueezed = try matrix.unsqueeze(0);
+            defer unsqueezed.deinit();
+            try expectArray(unsqueezed, &.{ 1, 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var unsqueezed_dim = try matrix.unsqueezeDim(-1);
+            defer unsqueezed_dim.deinit();
+            try expectArray(unsqueezed_dim, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var squeezed_back = try unsqueezed.squeeze(0);
+            defer squeezed_back.deinit();
+            try expectArray(squeezed_back, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+
+            var squeezed_dim = try unsqueezed_dim.squeezeDim(-1);
+            defer squeezed_dim.deinit();
+            try expectArray(squeezed_dim, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
 
             try std.testing.expectError(error.ShapeMismatch, matrix.reshape(&.{ 4, 2 }));
 
