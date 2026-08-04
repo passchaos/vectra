@@ -894,6 +894,18 @@ fn sparseDenseEdiff1d(comptime T: type, matrix: anytype, prepend: ?array_mod.Arr
     return dense.ediff1d(prepend, append);
 }
 
+fn sparseDenseTrapezoid(comptime T: type, matrix: anytype, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.trapezoid(x_values, dx, axis_index);
+}
+
+fn sparseDenseGradient(comptime T: type, matrix: anytype, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.gradient(x_values, dx, axis_index);
+}
+
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3950,6 +3962,18 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseEdiff1d(T, self, prepend, append);
+        }
+
+        pub fn trapezoid(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTrapezoid(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn trapz(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGradient(T, self, x_values, dx, axis_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -8004,6 +8028,18 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseEdiff1d(T, self, prepend, append);
+        }
+
+        pub fn trapezoid(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTrapezoid(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn trapz(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGradient(T, self, x_values, dx, axis_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -12269,6 +12305,18 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn ediff1d(self: Self, prepend: ?array_mod.Array(T), append: ?array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseEdiff1d(T, self, prepend, append);
+        }
+
+        pub fn trapezoid(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTrapezoid(T, self, x_values, dx, axis_index);
+        }
+
+        pub fn trapz(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return self.trapezoid(x_values, dx, axis_index);
+        }
+
+        pub fn gradient(self: Self, x_values: ?array_mod.Array(T), dx: T, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseGradient(T, self, x_values, dx, axis_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -18914,6 +18962,37 @@ test "sparse dense cumulative helpers" {
             var edge_diff = try matrix.ediff1d(ediff_prepend, ediff_append);
             defer edge_diff.deinit();
             try expectArray(edge_diff, &.{8}, &.{ -9, -1, 0, 0, 2, 1, 9, 10 });
+
+            var trap_rows = try matrix.trapezoid(null, 1, 1);
+            defer trap_rows.deinit();
+            try expectArray(trap_rows, &.{2}, &.{ 0.5, 3.5 });
+
+            var x_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 1, 3 }, &.{3});
+            defer x_values.deinit();
+            var trap_rows_x = try matrix.trapezoid(x_values, 1, 1);
+            defer trap_rows_x.deinit();
+            try expectArray(trap_rows_x, &.{2}, &.{ 0.5, 6 });
+
+            var trap_columns = try matrix.trapz(null, 2, 0);
+            defer trap_columns.deinit();
+            try expectArray(trap_columns, &.{3}, &.{ 1, 2, 3 });
+
+            var grad_rows = try matrix.gradient(null, 1, 1);
+            defer grad_rows.deinit();
+            try expectArray(grad_rows, &.{ 2, 3 }, &.{ -1, -0.5, 0, 2, 1.5, 1 });
+
+            var grad_columns = try matrix.gradient(null, 2, 0);
+            defer grad_columns.deinit();
+            try expectArray(grad_columns, &.{ 2, 3 }, &.{ -0.5, 1, 1.5, -0.5, 1, 1.5 });
+
+            var grad_rows_x = try matrix.gradient(x_values, 1, 1);
+            defer grad_rows_x.deinit();
+            try expectArray(grad_rows_x, &.{ 2, 3 }, &.{ -1, -1.0 / 3.0, 0, 2, 1, 0.5 });
+
+            var bad_x_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 1 }, &.{2});
+            defer bad_x_values.deinit();
+            try std.testing.expectError(error.ShapeMismatch, matrix.trapezoid(bad_x_values, 1, 1));
+            try std.testing.expectError(error.ShapeMismatch, matrix.gradient(bad_x_values, 1, 1));
 
             try std.testing.expectError(error.InvalidAxis, matrix.cumsumAxis(2));
             try std.testing.expectError(error.InvalidAxis, matrix.logcumsumexpAxis(2));
