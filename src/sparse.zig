@@ -85,6 +85,7 @@ pub const SparseDiffSummary = struct {
 const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
 const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal };
 const SparseDenseSetOp = enum { union1d, intersect1d, setdiff1d, setxor1d };
+const SparseDenseCumulative = enum { cumsum, cumprod, cummax, cummin, logcumsumexp };
 
 fn sparseComplexRealType(comptime T: type) type {
     if (comptime T == array_mod.Complex64) return f32;
@@ -849,6 +850,30 @@ fn sparseDensePercentileAxes(comptime T: type, matrix: anytype, percentile_value
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.percentileAxes(percentile_value, axes, keepdims);
+}
+
+fn sparseDenseCumulative(comptime T: type, matrix: anytype, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .cumsum => dense.cumsum(),
+        .cumprod => dense.cumprod(),
+        .cummax => dense.cummax(),
+        .cummin => dense.cummin(),
+        .logcumsumexp => dense.logcumsumexp(),
+    };
+}
+
+fn sparseDenseCumulativeAxis(comptime T: type, matrix: anytype, axis_index: isize, comptime op: SparseDenseCumulative) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .cumsum => dense.cumsumAxis(axis_index),
+        .cumprod => dense.cumprodAxis(axis_index),
+        .cummax => dense.cummaxAxis(axis_index),
+        .cummin => dense.cumminAxis(axis_index),
+        .logcumsumexp => dense.logcumsumexpAxis(axis_index),
+    };
 }
 
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
@@ -3835,6 +3860,66 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumsum);
+        }
+
+        pub fn cumprod(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumprod);
+        }
+
+        pub fn cummax(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummax);
+        }
+
+        pub fn cummin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummin);
+        }
+
+        pub fn logcumsumexp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .logcumsumexp);
+        }
+
+        pub fn cumsumAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumsum);
+        }
+
+        pub fn cumsumDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumsumAxis(dim_index);
+        }
+
+        pub fn cumprodAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumprod);
+        }
+
+        pub fn cumprodDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumprodAxis(dim_index);
+        }
+
+        pub fn cummaxAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummax);
+        }
+
+        pub fn cummaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cummaxAxis(dim_index);
+        }
+
+        pub fn cumminAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummin);
+        }
+
+        pub fn cumminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumminAxis(dim_index);
+        }
+
+        pub fn logcumsumexpAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .logcumsumexp);
+        }
+
+        pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logcumsumexpAxis(dim_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -7817,6 +7902,66 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumsum);
+        }
+
+        pub fn cumprod(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumprod);
+        }
+
+        pub fn cummax(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummax);
+        }
+
+        pub fn cummin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummin);
+        }
+
+        pub fn logcumsumexp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .logcumsumexp);
+        }
+
+        pub fn cumsumAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumsum);
+        }
+
+        pub fn cumsumDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumsumAxis(dim_index);
+        }
+
+        pub fn cumprodAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumprod);
+        }
+
+        pub fn cumprodDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumprodAxis(dim_index);
+        }
+
+        pub fn cummaxAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummax);
+        }
+
+        pub fn cummaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cummaxAxis(dim_index);
+        }
+
+        pub fn cumminAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummin);
+        }
+
+        pub fn cumminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumminAxis(dim_index);
+        }
+
+        pub fn logcumsumexpAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .logcumsumexp);
+        }
+
+        pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logcumsumexpAxis(dim_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -12010,6 +12155,66 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumsum);
+        }
+
+        pub fn cumprod(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cumprod);
+        }
+
+        pub fn cummax(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummax);
+        }
+
+        pub fn cummin(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .cummin);
+        }
+
+        pub fn logcumsumexp(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulative(T, self, .logcumsumexp);
+        }
+
+        pub fn cumsumAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumsum);
+        }
+
+        pub fn cumsumDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumsumAxis(dim_index);
+        }
+
+        pub fn cumprodAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cumprod);
+        }
+
+        pub fn cumprodDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumprodAxis(dim_index);
+        }
+
+        pub fn cummaxAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummax);
+        }
+
+        pub fn cummaxDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cummaxAxis(dim_index);
+        }
+
+        pub fn cumminAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .cummin);
+        }
+
+        pub fn cumminDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.cumminAxis(dim_index);
+        }
+
+        pub fn logcumsumexpAxis(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseCumulativeAxis(T, self, axis_index, .logcumsumexp);
+        }
+
+        pub fn logcumsumexpDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
+            return self.logcumsumexpAxis(dim_index);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -18536,6 +18741,108 @@ test "sparse dense quantile helpers" {
     var matrix_csc = try matrix.toCsc();
     defer matrix_csc.deinit();
     try expectQuantiles(@TypeOf(matrix_csc), matrix_csc);
+}
+
+test "sparse dense cumulative helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectCumulative = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            try std.testing.expectEqualSlices(f64, expected, values.data);
+        }
+
+        fn expectApproxArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var flat_sum = try matrix.cumsum();
+            defer flat_sum.deinit();
+            try expectArray(flat_sum, &.{ 2, 3 }, &.{ 1, 1, 1, 1, 3, 6 });
+
+            var row_sum = try matrix.cumsumAxis(1);
+            defer row_sum.deinit();
+            try expectArray(row_sum, &.{ 2, 3 }, &.{ 1, 1, 1, 0, 2, 5 });
+
+            var column_sum = try matrix.cumsumDim(0);
+            defer column_sum.deinit();
+            try expectArray(column_sum, &.{ 2, 3 }, &.{ 1, 0, 0, 1, 2, 3 });
+
+            var flat_product = try matrix.cumprod();
+            defer flat_product.deinit();
+            try expectArray(flat_product, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            var row_product = try matrix.cumprodAxis(1);
+            defer row_product.deinit();
+            try expectArray(row_product, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            var column_product = try matrix.cumprodDim(0);
+            defer column_product.deinit();
+            try expectArray(column_product, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            var flat_max = try matrix.cummax();
+            defer flat_max.deinit();
+            try expectArray(flat_max, &.{ 2, 3 }, &.{ 1, 1, 1, 1, 2, 3 });
+
+            var row_max = try matrix.cummaxAxis(1);
+            defer row_max.deinit();
+            try expectArray(row_max, &.{ 2, 3 }, &.{ 1, 1, 1, 0, 2, 3 });
+
+            var column_max = try matrix.cummaxDim(0);
+            defer column_max.deinit();
+            try expectArray(column_max, &.{ 2, 3 }, &.{ 1, 0, 0, 1, 2, 3 });
+
+            var flat_min = try matrix.cummin();
+            defer flat_min.deinit();
+            try expectArray(flat_min, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            var row_min = try matrix.cumminAxis(1);
+            defer row_min.deinit();
+            try expectArray(row_min, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            var column_min = try matrix.cumminDim(0);
+            defer column_min.deinit();
+            try expectArray(column_min, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 0, 0 });
+
+            const log_e_plus_one = std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + 1);
+            const log_e_plus_two = std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + 2);
+            var log_rows = try matrix.logcumsumexpAxis(1);
+            defer log_rows.deinit();
+            try expectApproxArray(log_rows, &.{ 2, 3 }, &.{
+                1,
+                log_e_plus_one,
+                log_e_plus_two,
+                0,
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 2))),
+                std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 3))),
+            });
+
+            var log_flat = try matrix.logcumsumexp();
+            defer log_flat.deinit();
+            try std.testing.expectApproxEqAbs(@as(f64, 1), log_flat.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(log_e_plus_one, log_flat.data[1], 1e-12);
+
+            var log_columns = try matrix.logcumsumexpDim(0);
+            defer log_columns.deinit();
+            try std.testing.expectApproxEqAbs(@as(f64, 1), log_columns.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(log_e_plus_one, log_columns.data[3], 1e-12);
+
+            try std.testing.expectError(error.InvalidAxis, matrix.cumsumAxis(2));
+            try std.testing.expectError(error.InvalidAxis, matrix.logcumsumexpAxis(2));
+        }
+    }.check;
+
+    var matrix = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
+    defer matrix.deinit();
+    try expectCumulative(@TypeOf(matrix), matrix);
+    var matrix_csr = try matrix.toCsr();
+    defer matrix_csr.deinit();
+    try expectCumulative(@TypeOf(matrix_csr), matrix_csr);
+    var matrix_csc = try matrix.toCsc();
+    defer matrix_csc.deinit();
+    try expectCumulative(@TypeOf(matrix_csc), matrix_csc);
 }
 
 test "sparse stored rounding unary helpers preserve structure" {
