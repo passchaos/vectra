@@ -660,6 +660,30 @@ fn sparseDenseInner(comptime T: type, matrix: anytype, rhs: anytype) SparseError
     }
 }
 
+fn sparseDenseVdot(comptime T: type, matrix: anytype, rhs: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return dense.vdot(rhs);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return dense.vdot(rhs_dense);
+    }
+}
+
+fn sparseDenseVecdot(comptime T: type, matrix: anytype, rhs: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    if (comptime @TypeOf(rhs) == array_mod.Array(T)) {
+        return dense.vecdot(rhs, axis_index);
+    } else {
+        var rhs_dense = try rhs.toDense();
+        defer rhs_dense.deinit();
+        return dense.vecdot(rhs_dense, axis_index);
+    }
+}
+
 fn sparseDenseContractAxes(comptime T: type, matrix: anytype, rhs: anytype, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3341,6 +3365,22 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vdotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vecdot(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
+        }
+
+        pub fn vecdotArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
         }
 
         pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
@@ -7035,6 +7075,22 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vdotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vecdot(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
+        }
+
+        pub fn vecdotArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
         }
 
         pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
@@ -10940,6 +10996,22 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn innerArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseInner(T, self, rhs);
+        }
+
+        pub fn vdot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vdotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseVdot(T, self, rhs);
+        }
+
+        pub fn vecdot(self: Self, rhs: Self, axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
+        }
+
+        pub fn vecdotArray(self: Self, rhs: array_mod.Array(T), axis_index: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseVecdot(T, self, rhs, axis_index);
         }
 
         pub fn contractAxes(self: Self, rhs: Self, axes_self: []const usize, axes_other: []const usize) SparseError!array_mod.Array(T) {
@@ -16093,6 +16165,34 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer inner_array.deinit();
             try std.testing.expectEqualSlices(usize, inner_self.shape, inner_array.shape);
             for (inner_self.data, inner_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var vdot_self = try upper.vdot(upper);
+            defer vdot_self.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, vdot_self.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), vdot_self.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 8), vdot_self.data[1], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), vdot_self.data[2], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 9), vdot_self.data[3], 1e-12);
+
+            var vdot_array = try upper.vdotArray(upper_dense);
+            defer vdot_array.deinit();
+            try std.testing.expectEqualSlices(usize, vdot_self.shape, vdot_array.shape);
+            for (vdot_self.data, vdot_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+
+            var vecdot_rows = try upper.vecdot(upper, 1);
+            defer vecdot_rows.deinit();
+            try std.testing.expectEqualSlices(usize, &.{2}, vecdot_rows.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 5), vecdot_rows.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 9), vecdot_rows.data[1], 1e-12);
+
+            var vecdot_array = try upper.vecdotArray(upper_dense, 1);
+            defer vecdot_array.deinit();
+            try std.testing.expectEqualSlices(usize, vecdot_rows.shape, vecdot_array.shape);
+            for (vecdot_rows.data, vecdot_array.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
