@@ -424,6 +424,12 @@ fn sparseDenseNarrowSigned(comptime T: type, matrix: anytype, axis_index: isize,
     return dense.narrowSigned(axis_index, start, length);
 }
 
+fn sparseDenseDiagonalOffset(comptime T: type, matrix: anytype, offset: isize) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.diagonal(offset);
+}
+
 fn sparseValidatePutFlatValues(comptime T: type, indices: array_mod.Array(usize), values: array_mod.Array(T)) SparseError!void {
     if (values.data.len != 1 and values.data.len != indices.data.len) return error.ShapeMismatch;
 }
@@ -4363,6 +4369,14 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalOffset(T, self, offset);
+        }
+
+        pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return self.diagonalOffset(offset);
+        }
+
         pub fn minAbsDiagonal(self: Self) SparseError!T {
             var diagonal_values = try self.diagonal();
             defer diagonal_values.deinit();
@@ -7905,6 +7919,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalOffset(T, self, offset);
+        }
+
+        pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return self.diagonalOffset(offset);
+        }
+
         pub fn setDiagonal(self: *Self, value: T) SparseError!void {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.rows) |row| {
@@ -11292,6 +11314,14 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return sparseDenseDiagonalOffset(T, self, offset);
+        }
+
+        pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
+            return self.diagonalOffset(offset);
+        }
+
         pub fn setDiagonal(self: *Self, value: T) SparseError!void {
             if (self.rows != self.cols) return error.NonMatrixArray;
             for (0..self.cols) |col| {
@@ -11999,6 +12029,15 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(f64, &.{3}, upper_pruned.values);
     try std.testing.expectError(error.InvalidShape, cooFromDiagonalPrunedNnz(f64, &.{ 2, 0, 3 }, 2, std.math.nan(f64)));
     try std.testing.expectError(error.InvalidShape, upper_diag.setDiagonal(1));
+    var upper_offset_diag = try upper_diag.diagonalOffset(2);
+    defer upper_offset_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 2, 0, 3 }, upper_offset_diag.data);
+    var upper_alias_diag = try upper_diag.diagonalWithOffset(2);
+    defer upper_alias_diag.deinit();
+    try std.testing.expectEqualSlices(f64, upper_offset_diag.data, upper_alias_diag.data);
+    var upper_empty_diag = try upper_diag.diagonalOffset(5);
+    defer upper_empty_diag.deinit();
+    try std.testing.expectEqual(@as(usize, 0), upper_empty_diag.data.len);
 
     var lower_csr = try csrFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
     defer lower_csr.deinit();
@@ -12014,6 +12053,12 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(f64, &.{5}, lower_csr_pruned.values);
     try std.testing.expectError(error.InvalidShape, csrFromDiagonalPrunedNnz(f64, &.{ 4, 5 }, -1, std.math.inf(f64)));
     try std.testing.expectError(error.InvalidShape, lower_csr.addToDiagonal(1));
+    var lower_csr_offset_diag = try lower_csr.diagonalOffset(-1);
+    defer lower_csr_offset_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csr_offset_diag.data);
+    var lower_csr_upper_empty = try lower_csr.diagonalOffset(3);
+    defer lower_csr_upper_empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), lower_csr_upper_empty.data.len);
     var lower_csc = try cscFromDiagonal(f64, gpa, &.{ 4, 5 }, -1);
     defer lower_csc.deinit();
     try std.testing.expectEqual(@as(usize, 2), try cscFromDiagonalNnz(f64, &.{ 4, 5 }, -1));
@@ -12028,6 +12073,12 @@ test "sparse eye and identity constructors" {
     try std.testing.expectEqualSlices(f64, &.{5}, lower_csc_pruned.values);
     try std.testing.expectError(error.InvalidShape, cscFromDiagonalPrunedNnz(f64, &.{ 4, 5 }, -1, -1));
     try std.testing.expectError(error.InvalidShape, lower_csc.setDiagonal(1));
+    var lower_csc_offset_diag = try lower_csc.diagonalWithOffset(-1);
+    defer lower_csc_offset_diag.deinit();
+    try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csc_offset_diag.data);
+    var lower_csc_upper_empty = try lower_csc.diagonalOffset(3);
+    defer lower_csc_upper_empty.deinit();
+    try std.testing.expectEqual(@as(usize, 0), lower_csc_upper_empty.data.len);
 }
 
 test "coo sparse dense roundtrip and compressed conversions" {
