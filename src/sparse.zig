@@ -5938,32 +5938,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
         }
 
+        pub fn quantileOut(self: Self, q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantile(q, axis_opt, keepdims), out);
+        }
+
         pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileAxesOut(self: Self, q: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantileAxes(q, axes, keepdims), out);
         }
 
         pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantile(q, dim_opt, keepdim);
         }
 
+        pub fn quantileDimOut(self: Self, q: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileOut(q, dim_opt, keepdim, out);
+        }
+
         pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn quantileDimsOut(self: Self, q: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileAxesOut(q, dims, keepdim, out);
         }
 
         pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
         }
 
+        pub fn percentileOut(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentile(percentile_value, axis_opt, keepdims), out);
+        }
+
         pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileAxesOut(self: Self, percentile_value: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentileAxes(percentile_value, axes, keepdims), out);
         }
 
         pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentile(percentile_value, dim_opt, keepdim);
         }
 
+        pub fn percentileDimOut(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileOut(percentile_value, dim_opt, keepdim, out);
+        }
+
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn percentileDimsOut(self: Self, percentile_value: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileAxesOut(percentile_value, dims, keepdim, out);
         }
 
         pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12378,32 +12410,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
         }
 
+        pub fn quantileOut(self: Self, q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantile(q, axis_opt, keepdims), out);
+        }
+
         pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileAxesOut(self: Self, q: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantileAxes(q, axes, keepdims), out);
         }
 
         pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantile(q, dim_opt, keepdim);
         }
 
+        pub fn quantileDimOut(self: Self, q: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileOut(q, dim_opt, keepdim, out);
+        }
+
         pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn quantileDimsOut(self: Self, q: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileAxesOut(q, dims, keepdim, out);
         }
 
         pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
         }
 
+        pub fn percentileOut(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentile(percentile_value, axis_opt, keepdims), out);
+        }
+
         pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileAxesOut(self: Self, percentile_value: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentileAxes(percentile_value, axes, keepdims), out);
         }
 
         pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentile(percentile_value, dim_opt, keepdim);
         }
 
+        pub fn percentileDimOut(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileOut(percentile_value, dim_opt, keepdim, out);
+        }
+
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn percentileDimsOut(self: Self, percentile_value: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileAxesOut(percentile_value, dims, keepdim, out);
         }
 
         pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19031,32 +19095,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseQuantile(T, self, q, axis_opt, keepdims);
         }
 
+        pub fn quantileOut(self: Self, q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantile(q, axis_opt, keepdims), out);
+        }
+
         pub fn quantileAxes(self: Self, q: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseQuantileAxes(T, self, q, axes, keepdims);
+        }
+
+        pub fn quantileAxesOut(self: Self, q: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.quantileAxes(q, axes, keepdims), out);
         }
 
         pub fn quantileDim(self: Self, q: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantile(q, dim_opt, keepdim);
         }
 
+        pub fn quantileDimOut(self: Self, q: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileOut(q, dim_opt, keepdim, out);
+        }
+
         pub fn quantileDims(self: Self, q: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.quantileAxes(q, dims, keepdim);
+        }
+
+        pub fn quantileDimsOut(self: Self, q: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.quantileAxesOut(q, dims, keepdim, out);
         }
 
         pub fn percentile(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentile(T, self, percentile_value, axis_opt, keepdims);
         }
 
+        pub fn percentileOut(self: Self, percentile_value: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentile(percentile_value, axis_opt, keepdims), out);
+        }
+
         pub fn percentileAxes(self: Self, percentile_value: T, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePercentileAxes(T, self, percentile_value, axes, keepdims);
+        }
+
+        pub fn percentileAxesOut(self: Self, percentile_value: T, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.percentileAxes(percentile_value, axes, keepdims), out);
         }
 
         pub fn percentileDim(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentile(percentile_value, dim_opt, keepdim);
         }
 
+        pub fn percentileDimOut(self: Self, percentile_value: T, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileOut(percentile_value, dim_opt, keepdim, out);
+        }
+
         pub fn percentileDims(self: Self, percentile_value: T, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.percentileAxes(percentile_value, dims, keepdim);
+        }
+
+        pub fn percentileDimsOut(self: Self, percentile_value: T, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.percentileAxesOut(percentile_value, dims, keepdim, out);
         }
 
         pub fn average(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -27919,12 +28015,16 @@ test "sparse dense quantile helpers" {
             try expectArray(flat_median, &.{}, &.{0.5});
             var scalar_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
             defer scalar_out.deinit();
+            var all_axes_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
+            defer all_axes_keepdim_out.deinit();
             try matrix.medianOut(null, false, scalar_out);
             try expectArray(scalar_out, &.{}, flat_median.data);
 
             var flat_upper_quartile = try matrix.quantile(0.75, null, true);
             defer flat_upper_quartile.deinit();
             try expectArray(flat_upper_quartile, &.{ 1, 1 }, &.{1.75});
+            try matrix.quantileOut(0.75, null, true, all_axes_keepdim_out);
+            try expectArray(all_axes_keepdim_out, &.{ 1, 1 }, flat_upper_quartile.data);
 
             var row_medians = try matrix.median(1, false);
             defer row_medians.deinit();
@@ -27959,8 +28059,6 @@ test "sparse dense quantile helpers" {
             var all_axes_median_keepdim = try matrix.medianDims(&.{ 0, 1 }, true);
             defer all_axes_median_keepdim.deinit();
             try expectArray(all_axes_median_keepdim, &.{ 1, 1 }, flat_median.data);
-            var all_axes_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
-            defer all_axes_keepdim_out.deinit();
             try matrix.medianDimsOut(&.{ 0, 1 }, true, all_axes_keepdim_out);
             try expectArray(all_axes_keepdim_out, &.{ 1, 1 }, all_axes_median_keepdim.data);
 
@@ -27971,30 +28069,44 @@ test "sparse dense quantile helpers" {
             var row_upper_quartile = try matrix.quantileDim(0.75, -1, false);
             defer row_upper_quartile.deinit();
             try expectArray(row_upper_quartile, &.{2}, &.{ 0.5, 2.5 });
+            try matrix.quantileDimOut(0.75, -1, false, row_out);
+            try expectArray(row_out, &.{2}, row_upper_quartile.data);
 
             var all_axes_quantile = try matrix.quantileAxes(0.5, &.{ 0, 1 }, true);
             defer all_axes_quantile.deinit();
             try expectArray(all_axes_quantile, &.{ 1, 1 }, flat_median.data);
+            try matrix.quantileAxesOut(0.5, &.{ 0, 1 }, true, all_axes_keepdim_out);
+            try expectArray(all_axes_keepdim_out, &.{ 1, 1 }, all_axes_quantile.data);
 
             var all_axes_quantile_dims = try matrix.quantileDims(0.25, &.{ 0, 1 }, false);
             defer all_axes_quantile_dims.deinit();
             try expectArray(all_axes_quantile_dims, &.{}, lower_quartile.data);
+            try matrix.quantileDimsOut(0.25, &.{ 0, 1 }, false, scalar_out);
+            try expectArray(scalar_out, &.{}, all_axes_quantile_dims.data);
 
             var upper_percentile = try matrix.percentile(75, null, false);
             defer upper_percentile.deinit();
             try expectArray(upper_percentile, &.{}, &.{1.75});
+            try matrix.percentileOut(75, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, upper_percentile.data);
 
             var column_percentile = try matrix.percentileDim(50, 0, false);
             defer column_percentile.deinit();
             try expectArray(column_percentile, &.{3}, column_medians.data);
+            try matrix.percentileDimOut(50, 0, false, column_out);
+            try expectArray(column_out, &.{3}, column_percentile.data);
 
             var all_axes_percentile = try matrix.percentileAxes(50, &.{ 0, 1 }, true);
             defer all_axes_percentile.deinit();
             try expectArray(all_axes_percentile, &.{ 1, 1 }, flat_median.data);
+            try matrix.percentileAxesOut(50, &.{ 0, 1 }, true, all_axes_keepdim_out);
+            try expectArray(all_axes_keepdim_out, &.{ 1, 1 }, all_axes_percentile.data);
 
             var all_axes_percentile_dims = try matrix.percentileDims(25, &.{ 0, 1 }, false);
             defer all_axes_percentile_dims.deinit();
             try expectArray(all_axes_percentile_dims, &.{}, lower_quartile.data);
+            try matrix.percentileDimsOut(25, &.{ 0, 1 }, false, scalar_out);
+            try expectArray(scalar_out, &.{}, all_axes_percentile_dims.data);
 
             try std.testing.expectError(error.InvalidShape, matrix.quantile(-0.1, null, false));
             try std.testing.expectError(error.InvalidShape, matrix.percentile(101, null, false));
