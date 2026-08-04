@@ -5140,16 +5140,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseGather(T, self, axis_index, indices);
         }
 
+        pub fn gatherOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gather(axis_index, indices), out);
+        }
+
         pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gatherSigned(axis_index, indices), out);
         }
 
         pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gather(axis_index, indices);
         }
 
+        pub fn takeAlongAxisOut(self: Self, indices: array_mod.Array(usize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherOut(axis_index, indices, out);
+        }
+
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSignedOut(self: Self, indices: array_mod.Array(isize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherSignedOut(axis_index, indices, out);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -11338,16 +11354,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseGather(T, self, axis_index, indices);
         }
 
+        pub fn gatherOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gather(axis_index, indices), out);
+        }
+
         pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gatherSigned(axis_index, indices), out);
         }
 
         pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gather(axis_index, indices);
         }
 
+        pub fn takeAlongAxisOut(self: Self, indices: array_mod.Array(usize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherOut(axis_index, indices, out);
+        }
+
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSignedOut(self: Self, indices: array_mod.Array(isize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherSignedOut(axis_index, indices, out);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -17749,16 +17781,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseGather(T, self, axis_index, indices);
         }
 
+        pub fn gatherOut(self: Self, axis_index: isize, indices: array_mod.Array(usize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gather(axis_index, indices), out);
+        }
+
         pub fn gatherSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
             return sparseDenseGatherSigned(T, self, axis_index, indices);
+        }
+
+        pub fn gatherSignedOut(self: Self, axis_index: isize, indices: array_mod.Array(isize), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gatherSigned(axis_index, indices), out);
         }
 
         pub fn takeAlongAxis(self: Self, indices: array_mod.Array(usize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gather(axis_index, indices);
         }
 
+        pub fn takeAlongAxisOut(self: Self, indices: array_mod.Array(usize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherOut(axis_index, indices, out);
+        }
+
         pub fn takeAlongAxisSigned(self: Self, indices: array_mod.Array(isize), axis_index: isize) SparseError!array_mod.Array(T) {
             return self.gatherSigned(axis_index, indices);
+        }
+
+        pub fn takeAlongAxisSignedOut(self: Self, indices: array_mod.Array(isize), axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gatherSignedOut(axis_index, indices, out);
         }
 
         pub fn scatter(self: Self, axis_index: isize, indices: array_mod.Array(usize), src: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -24918,10 +24966,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var gathered = try matrix.gather(1, gather_indices);
             defer gathered.deinit();
             try expectArray(gathered, &.{ 2, 3 }, &.{ 1, 1, 1, 3, 2, 0 });
+            var gathered_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer gathered_out.deinit();
+            try matrix.gatherOut(1, gather_indices, gathered_out);
+            try std.testing.expectEqualSlices(f64, gathered.data, gathered_out.data);
 
             var take_along = try matrix.takeAlongAxis(gather_indices, 1);
             defer take_along.deinit();
             try expectArray(take_along, &.{ 2, 3 }, &.{ 1, 1, 1, 3, 2, 0 });
+            try matrix.takeAlongAxisOut(gather_indices, 1, gathered_out);
+            try std.testing.expectEqualSlices(f64, take_along.data, gathered_out.data);
 
             var signed_gather_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{
                 -1, 0,  -2,
@@ -24931,10 +24985,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var signed_gathered = try matrix.gatherSigned(1, signed_gather_indices);
             defer signed_gathered.deinit();
             try expectArray(signed_gathered, &.{ 2, 3 }, &.{ 0, 1, 0, 0, 2, 3 });
+            try matrix.gatherSignedOut(1, signed_gather_indices, gathered_out);
+            try std.testing.expectEqualSlices(f64, signed_gathered.data, gathered_out.data);
 
             var signed_take_along = try matrix.takeAlongAxisSigned(signed_gather_indices, 1);
             defer signed_take_along.deinit();
             try expectArray(signed_take_along, &.{ 2, 3 }, &.{ 0, 1, 0, 0, 2, 3 });
+            try matrix.takeAlongAxisSignedOut(signed_gather_indices, 1, gathered_out);
+            try std.testing.expectEqualSlices(f64, signed_take_along.data, gathered_out.data);
 
             var bad_gather_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{
                 0, 3, 0,
