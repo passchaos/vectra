@@ -4446,6 +4446,52 @@ pub fn CooMatrix(comptime T: type) type {
             return array_mod.DType.of(T).canCast(target);
         }
 
+        pub fn deviceBackend(self: Self) array_mod.Backend {
+            _ = self;
+            return .cpu;
+        }
+
+        pub fn deviceIndex(self: Self) usize {
+            _ = self;
+            return 0;
+        }
+
+        pub fn deviceBackendName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.Device.cpu.backendName();
+        }
+
+        pub fn isCpu(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isCuda(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isMps(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isDeviceAvailable(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn sameDevice(self: Self, rhs: Self) bool {
+            _ = self;
+            _ = rhs;
+            return true;
+        }
+
+        pub fn sameDeviceArray(self: Self, rhs: array_mod.Array(T)) bool {
+            _ = self;
+            return rhs.device.sameDevice(array_mod.Device.cpu);
+        }
+
         pub fn ndim(self: Self) usize {
             _ = self;
             return 2;
@@ -9982,6 +10028,52 @@ pub fn CsrMatrix(comptime T: type) type {
         pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
             _ = self;
             return array_mod.DType.of(T).canCast(target);
+        }
+
+        pub fn deviceBackend(self: Self) array_mod.Backend {
+            _ = self;
+            return .cpu;
+        }
+
+        pub fn deviceIndex(self: Self) usize {
+            _ = self;
+            return 0;
+        }
+
+        pub fn deviceBackendName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.Device.cpu.backendName();
+        }
+
+        pub fn isCpu(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isCuda(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isMps(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isDeviceAvailable(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn sameDevice(self: Self, rhs: Self) bool {
+            _ = self;
+            _ = rhs;
+            return true;
+        }
+
+        pub fn sameDeviceArray(self: Self, rhs: array_mod.Array(T)) bool {
+            _ = self;
+            return rhs.device.sameDevice(array_mod.Device.cpu);
         }
 
         pub fn ndim(self: Self) usize {
@@ -15731,6 +15823,52 @@ pub fn CscMatrix(comptime T: type) type {
         pub fn canCastToDtype(self: Self, target: array_mod.DType) bool {
             _ = self;
             return array_mod.DType.of(T).canCast(target);
+        }
+
+        pub fn deviceBackend(self: Self) array_mod.Backend {
+            _ = self;
+            return .cpu;
+        }
+
+        pub fn deviceIndex(self: Self) usize {
+            _ = self;
+            return 0;
+        }
+
+        pub fn deviceBackendName(self: Self) []const u8 {
+            _ = self;
+            return array_mod.Device.cpu.backendName();
+        }
+
+        pub fn isCpu(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn isCuda(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isMps(self: Self) bool {
+            _ = self;
+            return false;
+        }
+
+        pub fn isDeviceAvailable(self: Self) bool {
+            _ = self;
+            return true;
+        }
+
+        pub fn sameDevice(self: Self, rhs: Self) bool {
+            _ = self;
+            _ = rhs;
+            return true;
+        }
+
+        pub fn sameDeviceArray(self: Self, rhs: array_mod.Array(T)) bool {
+            _ = self;
+            return rhs.device.sameDevice(array_mod.Device.cpu);
         }
 
         pub fn ndim(self: Self) usize {
@@ -23610,6 +23748,15 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(lhs.isRealDtype());
     try std.testing.expect(lhs.isNumericDtype());
     try std.testing.expect(lhs.canCastToDtype(.f32));
+    try std.testing.expectEqual(array_mod.Backend.cpu, lhs.deviceBackend());
+    try std.testing.expectEqual(@as(usize, 0), lhs.deviceIndex());
+    try std.testing.expectEqualStrings("cpu", lhs.deviceBackendName());
+    try std.testing.expect(lhs.isCpu());
+    try std.testing.expect(!lhs.isCuda());
+    try std.testing.expect(!lhs.isMps());
+    try std.testing.expect(lhs.isDeviceAvailable());
+    try std.testing.expect(lhs.sameDevice(rhs));
+    try std.testing.expect(lhs.sameDeviceArray(coo_dense));
     try std.testing.expectEqual(@as(usize, 2), lhs.ndim());
     try std.testing.expectEqual(@as(usize, 2), lhs.dim());
     try std.testing.expectEqual(@as(usize, 2), lhs.rank());
@@ -23799,6 +23946,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualStrings("f64", upper_square_csr.dtypeName());
     try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), try upper_square_csr.nbytes());
     try std.testing.expect(upper_square_csr.isFloatDtype());
+    try std.testing.expect(upper_square_csr.isCpu());
+    try std.testing.expect(upper_square_csr.sameDevice(diagonal_square_csr));
     try std.testing.expectEqual(@as(usize, 4), try upper_square_csr.numel());
     try std.testing.expect(upper_square_csr.isSquare());
     try std.testing.expect(upper_square_csr.sameShape(diagonal_square_csr));
@@ -23817,6 +23966,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expectEqualStrings("f64", upper_square_csc.dtypeName());
     try std.testing.expectEqual(@as(usize, 4 * @sizeOf(f64)), try upper_square_csc.nbytes());
     try std.testing.expect(upper_square_csc.isFloatDtype());
+    try std.testing.expect(upper_square_csc.isCpu());
+    try std.testing.expect(upper_square_csc.sameDevice(diagonal_square_csc));
     try std.testing.expectEqual(@as(usize, 4), try upper_square_csc.numel());
     try std.testing.expect(upper_square_csc.isSquare());
     try std.testing.expect(upper_square_csc.sameShape(diagonal_square_csc));
