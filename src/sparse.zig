@@ -4860,32 +4860,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseAllAxis(self, axis_opt, keepdims);
         }
 
+        pub fn allAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxis(axis_opt, keepdims), out);
+        }
+
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxes(axes, keepdims), out);
         }
 
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxis(dim_opt, keepdim);
         }
 
+        pub fn allDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxes(dims, keepdim);
+        }
+
+        pub fn allDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxesOut(dims, keepdim, out);
         }
 
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxis(self, axis_opt, keepdims);
         }
 
+        pub fn anyAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxis(axis_opt, keepdims), out);
+        }
+
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxes(axes, keepdims), out);
         }
 
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxis(dim_opt, keepdim);
         }
 
+        pub fn anyDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn anyDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxesOut(dims, keepdim, out);
         }
 
         pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
@@ -10950,32 +10982,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseAllAxis(self, axis_opt, keepdims);
         }
 
+        pub fn allAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxis(axis_opt, keepdims), out);
+        }
+
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxes(axes, keepdims), out);
         }
 
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxis(dim_opt, keepdim);
         }
 
+        pub fn allDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxes(dims, keepdim);
+        }
+
+        pub fn allDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxesOut(dims, keepdim, out);
         }
 
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxis(self, axis_opt, keepdims);
         }
 
+        pub fn anyAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxis(axis_opt, keepdims), out);
+        }
+
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxes(axes, keepdims), out);
         }
 
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxis(dim_opt, keepdim);
         }
 
+        pub fn anyDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn anyDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxesOut(dims, keepdim, out);
         }
 
         pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
@@ -17253,32 +17317,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseAllAxis(self, axis_opt, keepdims);
         }
 
+        pub fn allAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxis(axis_opt, keepdims), out);
+        }
+
         pub fn allAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAllAxes(self, axes, keepdims);
+        }
+
+        pub fn allAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.allAxes(axes, keepdims), out);
         }
 
         pub fn allDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxis(dim_opt, keepdim);
         }
 
+        pub fn allDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn allDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.allAxes(dims, keepdim);
+        }
+
+        pub fn allDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.allAxesOut(dims, keepdim, out);
         }
 
         pub fn anyAxis(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxis(self, axis_opt, keepdims);
         }
 
+        pub fn anyAxisOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxis(axis_opt, keepdims), out);
+        }
+
         pub fn anyAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseAnyAxes(self, axes, keepdims);
+        }
+
+        pub fn anyAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.anyAxes(axes, keepdims), out);
         }
 
         pub fn anyDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxis(dim_opt, keepdim);
         }
 
+        pub fn anyDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxisOut(dim_opt, keepdim, out);
+        }
+
         pub fn anyDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(bool) {
             return self.anyAxes(dims, keepdim);
+        }
+
+        pub fn anyDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(bool)) SparseError!void {
+            try self.anyAxesOut(dims, keepdim, out);
         }
 
         pub fn logicalNot(self: Self) SparseError!array_mod.Array(bool) {
@@ -23295,6 +23391,31 @@ test "sparse bool reductions use dense materialization" {
             var any_axes = try matrix.anyDims(&.{ 0, 1 }, false);
             defer any_axes.deinit();
             try expectMask(any_axes, &.{}, &.{true});
+
+            var axis_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{3});
+            defer axis_out.deinit();
+            try matrix.allAxisOut(0, false, axis_out);
+            try expectMask(axis_out, &.{3}, all_axis0.data);
+            try matrix.anyAxisOut(0, false, axis_out);
+            try expectMask(axis_out, &.{3}, any_axis0.data);
+
+            var keepdim_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{ 2, 1 });
+            defer keepdim_out.deinit();
+            try matrix.allDimOut(1, true, keepdim_out);
+            try expectMask(keepdim_out, &.{ 2, 1 }, all_axis1_keep.data);
+            try matrix.anyDimOut(1, true, keepdim_out);
+            try expectMask(keepdim_out, &.{ 2, 1 }, any_axis1_keep.data);
+
+            var scalar_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{});
+            defer scalar_out.deinit();
+            try matrix.allAxesOut(&.{ 0, 1 }, false, scalar_out);
+            try expectMask(scalar_out, &.{}, all_axes.data);
+            try matrix.allDimsOut(&.{ 0, 1 }, false, scalar_out);
+            try expectMask(scalar_out, &.{}, all_axes.data);
+            try matrix.anyAxesOut(&.{ 0, 1 }, false, scalar_out);
+            try expectMask(scalar_out, &.{}, any_axes.data);
+            try matrix.anyDimsOut(&.{ 0, 1 }, false, scalar_out);
+            try expectMask(scalar_out, &.{}, any_axes.data);
         }
 
         fn checkLogical(comptime Matrix: type, matrix: Matrix, rhs: Matrix) !void {
