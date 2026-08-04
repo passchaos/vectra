@@ -672,6 +672,12 @@ fn sparseDenseCond(comptime T: type, matrix: anytype, tolerance: T) SparseError!
     return dense.cond(tolerance);
 }
 
+fn sparseDenseCholesky(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.cholesky();
+}
+
 fn sparseDenseFlatten(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -3235,6 +3241,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
+        }
+
+        pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCholesky(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -6853,6 +6863,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
+        }
+
+        pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCholesky(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -10686,6 +10700,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
+        }
+
+        pub fn cholesky(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseCholesky(T, self);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -15410,6 +15428,7 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectError(error.NonMatrixArray, matrix.isSymmetric(1e-12, 1e-12));
             try std.testing.expectError(error.NonMatrixArray, matrix.det());
             try std.testing.expectError(error.NonMatrixArray, matrix.inverse());
+            try std.testing.expectError(error.NonMatrixArray, matrix.cholesky());
             try std.testing.expectError(error.NonMatrixArray, matrix.matrixPower(2));
             try std.testing.expectError(error.NonMatrixArray, matrix.solve(flattened));
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 14)), try matrix.matrixNorm(.fro, 1e-12), 1e-12);
@@ -15725,6 +15744,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 3.6502815398728847), singular_values.data[0], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 0.8218544151266947), singular_values.data[1], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 4.441518440112253), try upper.cond(1e-12), 1e-10);
+
+            var diagonal_cholesky = try diagonal.cholesky();
+            defer diagonal_cholesky.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, diagonal_cholesky.shape);
+            try std.testing.expectApproxEqAbs(@as(f64, 1), diagonal_cholesky.data[0], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[1], 1e-12);
+            try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[2], 1e-12);
+            try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 3)), diagonal_cholesky.data[3], 1e-12);
         }
     }.check;
 
