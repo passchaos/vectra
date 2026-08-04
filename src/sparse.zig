@@ -85,6 +85,12 @@ pub const SparseDiffSummary = struct {
 const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
 const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal };
 
+fn sparseComplexRealType(comptime T: type) type {
+    if (comptime T == array_mod.Complex64) return f32;
+    if (comptime T == array_mod.Complex128) return f64;
+    @compileError("operation requires a complex sparse matrix");
+}
+
 fn ensureSparseComparisonSupported(comptime T: type, comptime comparison: SparseScalarComparison) void {
     switch (@typeInfo(T)) {
         .bool, .int, .float => {},
@@ -860,6 +866,30 @@ fn sparseDenseAdjoint(comptime T: type, matrix: anytype) SparseError!array_mod.A
     return dense.adjoint();
 }
 
+fn sparseDenseReal(comptime T: type, matrix: anytype) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.real();
+}
+
+fn sparseDenseImag(comptime T: type, matrix: anytype) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.imag();
+}
+
+fn sparseDenseConjugate(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.conjugate();
+}
+
+fn sparseDenseIsHermitian(comptime T: type, matrix: anytype, rtol: T, atol: T) SparseError!bool {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.isHermitian(rtol, atol);
+}
+
 fn sparseDenseFlip(comptime T: type, matrix: anytype, axis_index: isize) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -1152,6 +1182,7 @@ pub const SparseResidualSummary = struct {
 };
 
 fn zero(comptime T: type) T {
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return T.init(0, 0);
     return switch (@typeInfo(T)) {
         .bool => false,
         else => @as(T, 0),
@@ -1159,6 +1190,7 @@ fn zero(comptime T: type) T {
 }
 
 fn oneValue(comptime T: type) T {
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return T.init(1, 0);
     return switch (@typeInfo(T)) {
         .bool => true,
         else => @as(T, 1),
@@ -1166,6 +1198,7 @@ fn oneValue(comptime T: type) T {
 }
 
 fn addSparseValue(comptime T: type, lhs: T, rhs: T) T {
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.add(rhs);
     return switch (@typeInfo(T)) {
         .bool => lhs or rhs,
         else => lhs + rhs,
@@ -1173,6 +1206,7 @@ fn addSparseValue(comptime T: type, lhs: T, rhs: T) T {
 }
 
 fn mulSparseValue(comptime T: type, lhs: T, rhs: T) T {
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return lhs.mul(rhs);
     return switch (@typeInfo(T)) {
         .bool => lhs and rhs,
         else => lhs * rhs,
@@ -1180,6 +1214,7 @@ fn mulSparseValue(comptime T: type, lhs: T, rhs: T) T {
 }
 
 fn negSparseValue(comptime T: type, value: T) T {
+    if (comptime T == array_mod.Complex64 or T == array_mod.Complex128) return T.init(-value.re, -value.im);
     return switch (@typeInfo(T)) {
         .float => -value,
         .int => if (@typeInfo(T).int.signedness == .signed)
@@ -3525,6 +3560,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn mH(self: Self) SparseError!array_mod.Array(T) {
             return self.adjoint();
+        }
+
+        pub fn real(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseReal(T, self);
+        }
+
+        pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseImag(T, self);
+        }
+
+        pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseConjugate(T, self);
+        }
+
+        pub fn conj(self: Self) SparseError!array_mod.Array(T) {
+            return self.conjugate();
+        }
+
+        pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -7231,6 +7286,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn mH(self: Self) SparseError!array_mod.Array(T) {
             return self.adjoint();
+        }
+
+        pub fn real(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseReal(T, self);
+        }
+
+        pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseImag(T, self);
+        }
+
+        pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseConjugate(T, self);
+        }
+
+        pub fn conj(self: Self) SparseError!array_mod.Array(T) {
+            return self.conjugate();
+        }
+
+        pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -11152,6 +11227,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn mH(self: Self) SparseError!array_mod.Array(T) {
             return self.adjoint();
+        }
+
+        pub fn real(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseReal(T, self);
+        }
+
+        pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
+            return sparseDenseImag(T, self);
+        }
+
+        pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseConjugate(T, self);
+        }
+
+        pub fn conj(self: Self) SparseError!array_mod.Array(T) {
+            return self.conjugate();
+        }
+
+        pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
+            return sparseDenseIsHermitian(T, self, rtol, atol);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -17298,6 +17393,55 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     try std.testing.expectError(error.InvalidShape, duplicate_symmetric.addToDiagonal(1));
     try std.testing.expect(try duplicate_symmetric.structurallySymmetric());
     try std.testing.expect(try duplicate_symmetric.numericallySymmetric(1e-12));
+}
+
+test "sparse complex helpers dense materialize" {
+    const gpa = std.testing.allocator;
+    const C = array_mod.Complex64;
+    const expectComplexHelpers = struct {
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var real_part = try matrix.real();
+            defer real_part.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, real_part.shape);
+            try std.testing.expectEqualSlices(f32, &.{ 1, 2, 2, 4 }, real_part.data);
+
+            var imaginary_part = try matrix.imag();
+            defer imaginary_part.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, imaginary_part.shape);
+            try std.testing.expectEqualSlices(f32, &.{ 0, 3, -3, 0 }, imaginary_part.data);
+
+            var conjugated = try matrix.conj();
+            defer conjugated.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, conjugated.shape);
+            try std.testing.expectEqual(C.init(1, 0), conjugated.data[0]);
+            try std.testing.expectEqual(C.init(2, -3), conjugated.data[1]);
+            try std.testing.expectEqual(C.init(2, 3), conjugated.data[2]);
+            try std.testing.expectEqual(C.init(4, 0), conjugated.data[3]);
+
+            var conjugated_alias = try matrix.conjugate();
+            defer conjugated_alias.deinit();
+            try std.testing.expectEqualSlices(C, conjugated.data, conjugated_alias.data);
+
+            try std.testing.expect(try matrix.isHermitian(C.init(1e-5, 0), C.init(1e-5, 0)));
+        }
+    }.check;
+
+    var coo = try cooFromSlices(C, gpa, 2, 2, &.{ 0, 0, 1, 1 }, &.{ 0, 1, 0, 1 }, &.{
+        C.init(1, 0),
+        C.init(2, 3),
+        C.init(2, -3),
+        C.init(4, 0),
+    });
+    defer coo.deinit();
+    try expectComplexHelpers(@TypeOf(coo), coo);
+
+    var csr = try coo.toCsr();
+    defer csr.deinit();
+    try expectComplexHelpers(@TypeOf(csr), csr);
+
+    var csc = try coo.toCsc();
+    defer csc.deinit();
+    try expectComplexHelpers(@TypeOf(csc), csc);
 }
 
 test "csr sparse bridge dense roundtrip and matvec" {
