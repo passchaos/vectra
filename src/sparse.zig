@@ -86,6 +86,7 @@ const SparseScalarComparison = enum { eq, ne, gt, ge, lt, le };
 const SparseFinitePredicate = enum { nan, inf, pos_inf, neg_inf, finite, normal };
 const SparseDenseSetOp = enum { union1d, intersect1d, setdiff1d, setxor1d };
 const SparseDenseCumulative = enum { cumsum, cumprod, cummax, cummin, logcumsumexp };
+const SparseDenseNanReduction = enum { sum, mean, min, max };
 
 fn sparseComplexRealType(comptime T: type) type {
     if (comptime T == array_mod.Complex64) return f32;
@@ -940,6 +941,40 @@ fn sparseDenseNanCorrcoef(comptime T: type, matrix: anytype, rowvar: bool) Spars
     var dense = try matrix.toDense();
     defer dense.deinit();
     return dense.nanCorrcoef(rowvar);
+}
+
+fn sparseDenseNanToNum(comptime T: type, matrix: anytype, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanToNum(nan_value, posinf_value, neginf_value);
+}
+
+fn sparseDenseNanToNumDefault(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nanToNumDefault();
+}
+
+fn sparseDenseNanReduction(comptime T: type, matrix: anytype, axis_opt: ?isize, keepdims: bool, comptime op: SparseDenseNanReduction) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .sum => dense.nansum(axis_opt, keepdims),
+        .mean => dense.nanmean(axis_opt, keepdims),
+        .min => dense.nanmin(axis_opt, keepdims),
+        .max => dense.nanmax(axis_opt, keepdims),
+    };
+}
+
+fn sparseDenseNanReductionAxes(comptime T: type, matrix: anytype, axes: []const isize, keepdims: bool, comptime op: SparseDenseNanReduction) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return switch (op) {
+        .sum => dense.nansumAxes(axes, keepdims),
+        .mean => dense.nanmeanAxes(axes, keepdims),
+        .min => dense.nanminAxes(axes, keepdims),
+        .max => dense.nanmaxAxes(axes, keepdims),
+    };
 }
 
 fn sparseDenseUnique(comptime T: type, matrix: anytype) SparseError!array_mod.Array(T) {
@@ -4034,6 +4069,78 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNum(T, self, nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nanToNumDefault(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNumDefault(T, self);
+        }
+
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .sum);
+        }
+
+        pub fn nansumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .sum);
+        }
+
+        pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansum(dim_opt, keepdim);
+        }
+
+        pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansumAxes(dims, keepdim);
+        }
+
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .mean);
+        }
+
+        pub fn nanmeanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .mean);
+        }
+
+        pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmean(dim_opt, keepdim);
+        }
+
+        pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmeanAxes(dims, keepdim);
+        }
+
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .min);
+        }
+
+        pub fn nanminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .min);
+        }
+
+        pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmin(dim_opt, keepdim);
+        }
+
+        pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanminAxes(dims, keepdim);
+        }
+
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .max);
+        }
+
+        pub fn nanmaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .max);
+        }
+
+        pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmax(dim_opt, keepdim);
+        }
+
+        pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmaxAxes(dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -8124,6 +8231,78 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNum(T, self, nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nanToNumDefault(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNumDefault(T, self);
+        }
+
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .sum);
+        }
+
+        pub fn nansumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .sum);
+        }
+
+        pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansum(dim_opt, keepdim);
+        }
+
+        pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansumAxes(dims, keepdim);
+        }
+
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .mean);
+        }
+
+        pub fn nanmeanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .mean);
+        }
+
+        pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmean(dim_opt, keepdim);
+        }
+
+        pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmeanAxes(dims, keepdim);
+        }
+
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .min);
+        }
+
+        pub fn nanminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .min);
+        }
+
+        pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmin(dim_opt, keepdim);
+        }
+
+        pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanminAxes(dims, keepdim);
+        }
+
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .max);
+        }
+
+        pub fn nanmaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .max);
+        }
+
+        pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmax(dim_opt, keepdim);
+        }
+
+        pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmaxAxes(dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -12425,6 +12604,78 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNum(T, self, nan_value, posinf_value, neginf_value);
+        }
+
+        pub fn nanToNumDefault(self: Self) SparseError!array_mod.Array(T) {
+            return sparseDenseNanToNumDefault(T, self);
+        }
+
+        pub fn nansum(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .sum);
+        }
+
+        pub fn nansumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .sum);
+        }
+
+        pub fn nansumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansum(dim_opt, keepdim);
+        }
+
+        pub fn nansumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nansumAxes(dims, keepdim);
+        }
+
+        pub fn nanmean(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .mean);
+        }
+
+        pub fn nanmeanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .mean);
+        }
+
+        pub fn nanmeanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmean(dim_opt, keepdim);
+        }
+
+        pub fn nanmeanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmeanAxes(dims, keepdim);
+        }
+
+        pub fn nanmin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .min);
+        }
+
+        pub fn nanminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .min);
+        }
+
+        pub fn nanminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmin(dim_opt, keepdim);
+        }
+
+        pub fn nanminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanminAxes(dims, keepdim);
+        }
+
+        pub fn nanmax(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReduction(T, self, axis_opt, keepdims, .max);
+        }
+
+        pub fn nanmaxAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
+            return sparseDenseNanReductionAxes(T, self, axes, keepdims, .max);
+        }
+
+        pub fn nanmaxDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmax(dim_opt, keepdim);
+        }
+
+        pub fn nanmaxDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
+            return self.nanmaxAxes(dims, keepdim);
         }
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
@@ -19028,6 +19279,137 @@ test "sparse dense covariance helpers" {
     var row_covariance = try rowvar_matrix.cov(true, 1);
     defer row_covariance.deinit();
     try expectApproxArray(row_covariance, &.{ 2, 2 }, &.{ 1, 2, 2, 4 });
+}
+
+test "sparse dense nan cleanup helpers" {
+    const gpa = std.testing.allocator;
+
+    const expectCleanup = struct {
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var cleaned = try matrix.nanToNum(9, 7, -7);
+            defer cleaned.deinit();
+            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, cleaned.shape);
+            try std.testing.expectEqualSlices(f64, &.{ 9, 0, 7, -7, 5, 0 }, cleaned.data);
+
+            var default_cleaned = try matrix.nanToNumDefault();
+            defer default_cleaned.deinit();
+            try std.testing.expectEqualSlices(usize, cleaned.shape, default_cleaned.shape);
+            try std.testing.expectEqual(@as(f64, 0), default_cleaned.data[0]);
+            try std.testing.expectEqual(std.math.floatMax(f64), default_cleaned.data[2]);
+            try std.testing.expectEqual(-std.math.floatMax(f64), default_cleaned.data[3]);
+        }
+    }.check;
+
+    var special = try cooFromSlices(
+        f64,
+        gpa,
+        2,
+        3,
+        &.{ 0, 0, 1, 1 },
+        &.{ 0, 2, 0, 1 },
+        &.{ std.math.nan(f64), std.math.inf(f64), -std.math.inf(f64), 5 },
+    );
+    defer special.deinit();
+    try expectCleanup(@TypeOf(special), special);
+    var special_csr = try special.toCsr();
+    defer special_csr.deinit();
+    try expectCleanup(@TypeOf(special_csr), special_csr);
+    var special_csc = try special.toCsc();
+    defer special_csc.deinit();
+    try expectCleanup(@TypeOf(special_csc), special_csc);
+
+    const expectNanReductions = struct {
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
+            for (expected, values.data) |want, got| try std.testing.expectApproxEqAbs(want, got, 1e-12);
+        }
+
+        fn check(comptime Matrix: type, matrix: Matrix) !void {
+            var flat_sum = try matrix.nansum(null, false);
+            defer flat_sum.deinit();
+            try expectArray(flat_sum, &.{}, &.{24});
+
+            var all_sum_keepdim = try matrix.nansumAxes(&.{ 0, 1 }, true);
+            defer all_sum_keepdim.deinit();
+            try expectArray(all_sum_keepdim, &.{ 1, 1 }, flat_sum.data);
+
+            var column_sum = try matrix.nansumDim(0, false);
+            defer column_sum.deinit();
+            try expectArray(column_sum, &.{3}, &.{ 8, 13, 3 });
+
+            var all_sum_dims = try matrix.nansumDims(&.{ 0, 1 }, false);
+            defer all_sum_dims.deinit();
+            try expectArray(all_sum_dims, &.{}, flat_sum.data);
+
+            var row_mean = try matrix.nanmean(1, false);
+            defer row_mean.deinit();
+            try expectArray(row_mean, &.{3}, &.{ 2, 2.5, 5 });
+
+            var column_mean = try matrix.nanmeanDim(0, false);
+            defer column_mean.deinit();
+            try expectArray(column_mean, &.{3}, &.{ 8.0 / 3.0, 6.5, 1.5 });
+
+            var all_mean_keepdim = try matrix.nanmeanAxes(&.{ 0, 1 }, true);
+            defer all_mean_keepdim.deinit();
+            try expectArray(all_mean_keepdim, &.{ 1, 1 }, &.{24.0 / 7.0});
+
+            var all_mean_dims = try matrix.nanmeanDims(&.{ 0, 1 }, false);
+            defer all_mean_dims.deinit();
+            try expectArray(all_mean_dims, &.{}, all_mean_keepdim.data);
+
+            var row_min = try matrix.nanmin(1, false);
+            defer row_min.deinit();
+            try expectArray(row_min, &.{3}, &.{ 1, 0, 0 });
+
+            var column_min = try matrix.nanminDim(0, false);
+            defer column_min.deinit();
+            try expectArray(column_min, &.{3}, &.{ 0, 5, 0 });
+
+            var all_min = try matrix.nanminAxes(&.{ 0, 1 }, false);
+            defer all_min.deinit();
+            try expectArray(all_min, &.{}, &.{0});
+
+            var all_min_dims = try matrix.nanminDims(&.{ 0, 1 }, true);
+            defer all_min_dims.deinit();
+            try expectArray(all_min_dims, &.{ 1, 1 }, all_min.data);
+
+            var row_max = try matrix.nanmax(1, false);
+            defer row_max.deinit();
+            try expectArray(row_max, &.{3}, &.{ 3, 5, 8 });
+
+            var column_max = try matrix.nanmaxDim(0, false);
+            defer column_max.deinit();
+            try expectArray(column_max, &.{3}, &.{ 7, 8, 3 });
+
+            var all_max = try matrix.nanmaxAxes(&.{ 0, 1 }, false);
+            defer all_max.deinit();
+            try expectArray(all_max, &.{}, &.{8});
+
+            var all_max_dims = try matrix.nanmaxDims(&.{ 0, 1 }, true);
+            defer all_max_dims.deinit();
+            try expectArray(all_max_dims, &.{ 1, 1 }, all_max.data);
+
+            try std.testing.expectError(error.InvalidAxis, matrix.nansum(2, false));
+        }
+    }.check;
+
+    var values = try cooFromSlices(
+        f64,
+        gpa,
+        3,
+        3,
+        &.{ 0, 0, 0, 1, 1, 2, 2 },
+        &.{ 0, 1, 2, 1, 2, 0, 1 },
+        &.{ 1, std.math.nan(f64), 3, 5, std.math.nan(f64), 7, 8 },
+    );
+    defer values.deinit();
+    try expectNanReductions(@TypeOf(values), values);
+    var values_csr = try values.toCsr();
+    defer values_csr.deinit();
+    try expectNanReductions(@TypeOf(values_csr), values_csr);
+    var values_csc = try values.toCsc();
+    defer values_csc.deinit();
+    try expectNanReductions(@TypeOf(values_csc), values_csc);
 }
 
 test "sparse dense cumulative helpers" {
