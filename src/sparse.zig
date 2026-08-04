@@ -267,6 +267,62 @@ fn sparseDenseMaskedPut(comptime T: type, matrix: anytype, mask: array_mod.Array
     return dense.maskedPut(mask, values);
 }
 
+fn sparseDenseTake(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    const extent = try sparseTakeExtent(matrix.rows, matrix.cols, axis_opt);
+    for (indices.data) |index| {
+        if (index >= extent) return error.IndexOutOfBounds;
+    }
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.take(indices, axis_opt);
+}
+
+fn sparseDenseTakeSigned(comptime T: type, matrix: anytype, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+    const extent = try sparseTakeExtent(matrix.rows, matrix.cols, axis_opt);
+    for (indices.data) |index| {
+        _ = try sparseNormalizeSignedIndex(index, extent);
+    }
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.takeSigned(indices, axis_opt);
+}
+
+fn sparseDenseTakeMode(comptime T: type, matrix: anytype, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.takeMode(indices, axis_opt, mode);
+}
+
+fn sparseDenseTakeSignedMode(comptime T: type, matrix: anytype, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.takeSignedMode(indices, axis_opt, mode);
+}
+
+fn sparseTakeExtent(rows: usize, cols: usize, axis_opt: ?isize) SparseError!usize {
+    if (axis_opt) |axis| {
+        return switch (try sparseNormalizeMatrixAxis(axis)) {
+            0 => rows,
+            1 => cols,
+            else => unreachable,
+        };
+    }
+    return sparseElementCount(rows, cols);
+}
+
+fn sparseNormalizeMatrixAxis(axis: isize) SparseError!usize {
+    const normalized = if (axis < 0) 2 + axis else axis;
+    if (normalized < 0 or normalized >= 2) return error.InvalidAxis;
+    return @intCast(normalized);
+}
+
+fn sparseNormalizeSignedIndex(index: isize, len: usize) SparseError!usize {
+    const signed_len: isize = @intCast(len);
+    const normalized = if (index < 0) signed_len + index else index;
+    if (normalized < 0 or normalized >= signed_len) return error.IndexOutOfBounds;
+    return @intCast(normalized);
+}
+
 fn validateDenseMatrixShape(rows: usize, cols: usize, shape: []const usize) SparseError!void {
     if (shape.len != 2) return error.NonMatrixArray;
     if (rows != shape[0] or cols != shape[1]) return error.ShapeMismatch;
@@ -2295,6 +2351,30 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTake(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return self.take(indices, axis_index);
+        }
+
+        pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return self.takeSigned(indices, axis_index);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -5437,6 +5517,30 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTake(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return self.take(indices, axis_index);
+        }
+
+        pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return self.takeSigned(indices, axis_index);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -8794,6 +8898,30 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn putMask(self: Self, mask: array_mod.Array(bool), values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.maskedPut(mask, values);
+        }
+
+        pub fn take(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTake(T, self, indices, axis_opt);
+        }
+
+        pub fn takeSigned(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSigned(T, self, indices, axis_opt);
+        }
+
+        pub fn takeMode(self: Self, indices: array_mod.Array(usize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn takeSignedMode(self: Self, indices: array_mod.Array(isize), axis_opt: ?isize, mode: array_mod.IndexMode) SparseError!array_mod.Array(T) {
+            return sparseDenseTakeSignedMode(T, self, indices, axis_opt, mode);
+        }
+
+        pub fn indexSelect(self: Self, axis_index: isize, indices: array_mod.Array(usize)) SparseError!array_mod.Array(T) {
+            return self.take(indices, axis_index);
+        }
+
+        pub fn indexSelectSigned(self: Self, axis_index: isize, indices: array_mod.Array(isize)) SparseError!array_mod.Array(T) {
+            return self.takeSigned(indices, axis_index);
         }
 
         pub fn compress(self: Self, condition: array_mod.Array(bool), axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -12781,27 +12909,31 @@ test "sparse addition canonicalizes duplicate coordinates" {
         }
     }.check;
     const expectWhere = struct {
-        fn expectArray(values: array_mod.Array(f64), expected: []const f64) !void {
-            try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, values.shape);
+        fn expectArray(values: array_mod.Array(f64), shape: []const usize, expected: []const f64) !void {
+            try std.testing.expectEqualSlices(usize, shape, values.shape);
             try std.testing.expectEqualSlices(f64, expected, values.data);
+        }
+
+        fn expectMatrix(values: array_mod.Array(f64), expected: []const f64) !void {
+            try expectArray(values, &.{ 2, 3 }, expected);
         }
 
         fn check(comptime Matrix: type, matrix: Matrix, rhs_matrix: Matrix, rhs_dense: array_mod.Array(f64), mask: array_mod.Array(bool)) !void {
             var selected = try matrix.where(mask, rhs_matrix);
             defer selected.deinit();
-            try expectArray(selected, &.{ 1, 0, 0, 0, 2, 6 });
+            try expectMatrix(selected, &.{ 1, 0, 0, 0, 2, 6 });
 
             var selected_array = try matrix.whereArray(mask, rhs_dense);
             defer selected_array.deinit();
-            try expectArray(selected_array, &.{ 1, 0, 0, 0, 2, 6 });
+            try expectMatrix(selected_array, &.{ 1, 0, 0, 0, 2, 6 });
 
             var selected_scalar = try matrix.whereScalar(mask, -9);
             defer selected_scalar.deinit();
-            try expectArray(selected_scalar, &.{ 1, -9, 0, -9, 2, -9 });
+            try expectMatrix(selected_scalar, &.{ 1, -9, 0, -9, 2, -9 });
 
             var copied = try matrix.copyWhere(mask, rhs_matrix);
             defer copied.deinit();
-            try expectArray(copied, &.{ 4, 0, 0, 0, -2, 3 });
+            try expectMatrix(copied, &.{ 4, 0, 0, 0, -2, 3 });
 
             var masked = try matrix.maskedSelect(mask);
             defer masked.deinit();
@@ -12810,37 +12942,37 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var filled = try matrix.maskedFill(mask, -7);
             defer filled.deinit();
-            try expectArray(filled, &.{ -7, 0, -7, 0, -7, 3 });
+            try expectMatrix(filled, &.{ -7, 0, -7, 0, -7, 3 });
 
             var put_scalar = try matrix.maskedPutScalar(mask, -8);
             defer put_scalar.deinit();
-            try expectArray(put_scalar, &.{ -8, 0, -8, 0, -8, 3 });
+            try expectMatrix(put_scalar, &.{ -8, 0, -8, 0, -8, 3 });
 
             var put_mask_scalar = try matrix.putMaskScalar(mask, -6);
             defer put_mask_scalar.deinit();
-            try expectArray(put_mask_scalar, &.{ -6, 0, -6, 0, -6, 3 });
+            try expectMatrix(put_mask_scalar, &.{ -6, 0, -6, 0, -6, 3 });
 
             var scatter_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 7, 8, 9 }, &.{3});
             defer scatter_values.deinit();
             var scattered = try matrix.maskedScatter(mask, scatter_values);
             defer scattered.deinit();
-            try expectArray(scattered, &.{ 7, 0, 8, 0, 9, 3 });
+            try expectMatrix(scattered, &.{ 7, 0, 8, 0, 9, 3 });
 
             var put_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 10, 11, 12 }, &.{3});
             defer put_values.deinit();
             var put = try matrix.maskedPut(mask, put_values);
             defer put.deinit();
-            try expectArray(put, &.{ 10, 0, 11, 0, 12, 3 });
+            try expectMatrix(put, &.{ 10, 0, 11, 0, 12, 3 });
 
             var put_alias = try matrix.putMask(mask, put_values);
             defer put_alias.deinit();
-            try expectArray(put_alias, &.{ 10, 0, 11, 0, 12, 3 });
+            try expectMatrix(put_alias, &.{ 10, 0, 11, 0, 12, 3 });
 
             var put_scalar_array = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{13}, &.{1});
             defer put_scalar_array.deinit();
             var put_scalar_broadcast = try matrix.maskedPut(mask, put_scalar_array);
             defer put_scalar_broadcast.deinit();
-            try expectArray(put_scalar_broadcast, &.{ 13, 0, 13, 0, 13, 3 });
+            try expectMatrix(put_scalar_broadcast, &.{ 13, 0, 13, 0, 13, 3 });
 
             var bad_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
             defer bad_values.deinit();
@@ -12867,6 +12999,52 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer compressed_flat.deinit();
             try std.testing.expectEqualSlices(usize, &.{3}, compressed_flat.shape);
             try std.testing.expectEqualSlices(f64, &.{ 1, 0, 2 }, compressed_flat.data);
+
+            var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
+            defer flat_indices.deinit();
+            var flat_take = try matrix.take(flat_indices, null);
+            defer flat_take.deinit();
+            try expectArray(flat_take, &.{3}, &.{ 3, 1, 2 });
+
+            var row_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 1, 0 }, &.{2});
+            defer row_indices.deinit();
+            var row_take = try matrix.take(row_indices, 0);
+            defer row_take.deinit();
+            try expectArray(row_take, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+
+            var column_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 2, 0 }, &.{2});
+            defer column_indices.deinit();
+            var column_take = try matrix.indexSelect(1, column_indices);
+            defer column_take.deinit();
+            try expectArray(column_take, &.{ 2, 2 }, &.{ 0, 1, 3, 0 });
+
+            var signed_flat_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
+            defer signed_flat_indices.deinit();
+            var signed_flat_take = try matrix.takeSigned(signed_flat_indices, null);
+            defer signed_flat_take.deinit();
+            try expectArray(signed_flat_take, &.{2}, &.{ 3, 1 });
+
+            var signed_column_indices = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -1, 0 }, &.{2});
+            defer signed_column_indices.deinit();
+            var signed_column_take = try matrix.indexSelectSigned(1, signed_column_indices);
+            defer signed_column_take.deinit();
+            try expectArray(signed_column_take, &.{ 2, 2 }, &.{ 0, 1, 3, 0 });
+
+            var wrapped_flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 6, 7 }, &.{2});
+            defer wrapped_flat_indices.deinit();
+            var wrapped_flat_take = try matrix.takeMode(wrapped_flat_indices, null, .wrap);
+            defer wrapped_flat_take.deinit();
+            try expectArray(wrapped_flat_take, &.{2}, &.{ 1, 0 });
+
+            var clipped_signed_columns = try array_mod.Array(isize).fromSlice(matrix.allocator, &.{ -4, 99 }, &.{2});
+            defer clipped_signed_columns.deinit();
+            var clipped_signed_take = try matrix.takeSignedMode(clipped_signed_columns, 1, .clip);
+            defer clipped_signed_take.deinit();
+            try expectArray(clipped_signed_take, &.{ 2, 2 }, &.{ 1, 0, 0, 3 });
+
+            var bad_take_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{6}, &.{1});
+            defer bad_take_indices.deinit();
+            try std.testing.expectError(error.IndexOutOfBounds, matrix.take(bad_take_indices, null));
         }
     }.check;
 
