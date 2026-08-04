@@ -1135,6 +1135,24 @@ fn sparseDenseFminArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(
     return dense.fmin(rhs);
 }
 
+fn sparseDenseHypotArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.hypot(rhs);
+}
+
+fn sparseDenseAtan2Array(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.atan2(rhs);
+}
+
+fn sparseDenseNextAfterArray(comptime T: type, matrix: anytype, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+    var dense = try matrix.toDense();
+    defer dense.deinit();
+    return dense.nextAfter(rhs);
+}
+
 fn sparseDenseAddScalar(comptime T: type, matrix: anytype, scalar: T) SparseError!array_mod.Array(T) {
     var dense = try matrix.toDense();
     defer dense.deinit();
@@ -4789,6 +4807,26 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHypotArray(T, self, rhs);
+        }
+
+        pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.atan2Array(rhs);
+        }
+
+        pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfterArray(T, self, rhs);
+        }
+
+        pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.nextAfterArray(rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -9507,6 +9545,26 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHypotArray(T, self, rhs);
+        }
+
+        pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.atan2Array(rhs);
+        }
+
+        pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfterArray(T, self, rhs);
+        }
+
+        pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.nextAfterArray(rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -14436,6 +14494,26 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseHypotArray(T, self, rhs);
+        }
+
+        pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.atan2Array(rhs);
+        }
+
+        pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return sparseDenseNextAfterArray(T, self, rhs);
+        }
+
+        pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
+            return self.nextAfterArray(rhs);
         }
 
         pub fn addScalar(self: Self, scalar: T) SparseError!array_mod.Array(T) {
@@ -21409,6 +21487,49 @@ test "sparse dense fused elementwise helpers" {
             defer divided_array.deinit();
             try expectArray(divided_array, &.{ 2, 3 }, &.{ 1.0 / 3.0, 0, 0, 0, 2.0 / 7.0, 3.0 / 8.0 });
 
+            var hypot_array = try matrix.hypotArray(end_values);
+            defer hypot_array.deinit();
+            try expectArray(hypot_array, &.{ 2, 3 }, &.{
+                std.math.hypot(@as(f64, 1), @as(f64, 3)),
+                4,
+                5,
+                6,
+                std.math.hypot(@as(f64, 2), @as(f64, 7)),
+                std.math.hypot(@as(f64, 3), @as(f64, 8)),
+            });
+
+            var atan2_array = try matrix.atan2Array(end_values);
+            defer atan2_array.deinit();
+            try expectArray(atan2_array, &.{ 2, 3 }, &.{
+                std.math.atan2(@as(f64, 1), @as(f64, 3)),
+                0,
+                0,
+                0,
+                std.math.atan2(@as(f64, 2), @as(f64, 7)),
+                std.math.atan2(@as(f64, 3), @as(f64, 8)),
+            });
+
+            var arctan2_array = try matrix.arctan2Array(end_values);
+            defer arctan2_array.deinit();
+            try expectArray(arctan2_array, &.{ 2, 3 }, atan2_array.data);
+
+            var next_after_targets = try array_mod.Array(f64).full(matrix.allocator, &.{ 2, 3 }, 10);
+            defer next_after_targets.deinit();
+            var next_after_array = try matrix.nextAfterArray(next_after_targets);
+            defer next_after_array.deinit();
+            try expectArray(next_after_array, &.{ 2, 3 }, &.{
+                std.math.nextAfter(f64, 1, 10),
+                std.math.nextAfter(f64, 0, 10),
+                std.math.nextAfter(f64, 0, 10),
+                std.math.nextAfter(f64, 0, 10),
+                std.math.nextAfter(f64, 2, 10),
+                std.math.nextAfter(f64, 3, 10),
+            });
+
+            var nextafter_array = try matrix.nextafterArray(next_after_targets);
+            defer nextafter_array.deinit();
+            try expectArray(nextafter_array, &.{ 2, 3 }, next_after_array.data);
+
             var added_scalar = try matrix.addScalar(2);
             defer added_scalar.deinit();
             try expectArray(added_scalar, &.{ 2, 3 }, &.{ 3, 2, 2, 2, 4, 5 });
@@ -21553,6 +21674,9 @@ test "sparse dense fused elementwise helpers" {
             try std.testing.expectError(error.ShapeMismatch, matrix.lerp(end_values, bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.addArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.divArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.hypotArray(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.atan2Array(bad));
+            try std.testing.expectError(error.ShapeMismatch, matrix.nextAfterArray(bad));
             try std.testing.expectError(error.ShapeMismatch, matrix.clipArray(lower, bad));
         }
     }.check;
