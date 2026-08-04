@@ -1274,6 +1274,27 @@ pub fn CooMatrix(comptime T: type) type {
             );
         }
 
+        pub fn isclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
+        }
+
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
             return self.allcloseEqualNan(rhs, rtol, atol, false);
         }
@@ -3256,6 +3277,27 @@ pub fn CsrMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn isclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
@@ -5453,6 +5495,27 @@ pub fn CscMatrix(comptime T: type) type {
                 max_frobenius_distance,
                 max_relative_frobenius_distance,
             );
+        }
+
+        pub fn isclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, false);
+        }
+
+        pub fn isClose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!array_mod.Array(bool) {
+            return self.isclose(rhs, rtol, atol);
+        }
+
+        pub fn iscloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            if (self.rows != rhs.rows or self.cols != rhs.cols) return error.ShapeMismatch;
+            var lhs_dense = try self.toDense();
+            defer lhs_dense.deinit();
+            var rhs_dense = try rhs.toDense();
+            defer rhs_dense.deinit();
+            return lhs_dense.iscloseEqualNan(rhs_dense, rtol, atol, equal_nan);
+        }
+
+        pub fn isCloseEqualNan(self: Self, rhs: Self, rtol: T, atol: T, equal_nan: bool) SparseError!array_mod.Array(bool) {
+            return self.iscloseEqualNan(rhs, rtol, atol, equal_nan);
         }
 
         pub fn allclose(self: Self, rhs: Self, rtol: T, atol: T) SparseError!bool {
@@ -8336,6 +8399,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs.allClose(lhs, 1e-12, 1e-12));
     try std.testing.expect(!(try lhs.allclose(rhs, 1e-12, 1e-12)));
     try std.testing.expect(try lhs.allclose(rhs, 1, 4));
+    var close_mask = try lhs.isclose(rhs, 1, 4);
+    defer close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, close_mask.data);
+    var strict_close_mask = try lhs.isClose(rhs, 1e-12, 1e-12);
+    defer strict_close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ false, true, true, true, false, false }, strict_close_mask.data);
 
     var nan_lhs = try cooFromSlices(f64, gpa, 2, 2, &.{ 0, 1 }, &.{ 0, 1 }, &.{ std.math.nan(f64), 2 });
     defer nan_lhs.deinit();
@@ -8344,6 +8413,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(!(try nan_lhs.allclose(nan_rhs, 0, 0)));
     try std.testing.expect(try nan_lhs.allcloseEqualNan(nan_rhs, 0, 0, true));
     try std.testing.expect(try nan_lhs.allCloseEqualNan(nan_rhs, 0, 0, true));
+    var nan_close_mask = try nan_lhs.iscloseEqualNan(nan_rhs, 0, 0, true);
+    defer nan_close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true }, nan_close_mask.data);
     var nan_lhs_csr = try nan_lhs.toCsr();
     defer nan_lhs_csr.deinit();
     var nan_rhs_csr = try nan_rhs.toCsr();
@@ -8399,6 +8471,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs_csr.allclose(lhs_csr, 1e-12, 1e-12));
     try std.testing.expect(!(try lhs_csr.allclose(rhs_csr, 1e-12, 1e-12)));
     try std.testing.expect(try lhs_csr.allClose(rhs_csr, 1, 4));
+    var csr_close_mask = try lhs_csr.isclose(rhs_csr, 1, 4);
+    defer csr_close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, csr_close_mask.data);
     var different_shape_csr = try different_shape.toCsr();
     defer different_shape_csr.deinit();
     try std.testing.expectError(error.ShapeMismatch, lhs_csr.allclose(different_shape_csr, 1e-12, 1e-12));
@@ -8499,6 +8574,9 @@ test "sparse addition canonicalizes duplicate coordinates" {
     try std.testing.expect(try lhs_csc.allclose(lhs_csc, 1e-12, 1e-12));
     try std.testing.expect(!(try lhs_csc.allclose(rhs_csc, 1e-12, 1e-12)));
     try std.testing.expect(try lhs_csc.allClose(rhs_csc, 1, 4));
+    var csc_close_mask = try lhs_csc.isClose(rhs_csc, 1, 4);
+    defer csc_close_mask.deinit();
+    try std.testing.expectEqualSlices(bool, &.{ true, true, true, true, true, true }, csc_close_mask.data);
 
     var mismatched = try cooFromSlices(f64, gpa, 3, 3, &.{0}, &.{0}, &.{1});
     defer mismatched.deinit();
