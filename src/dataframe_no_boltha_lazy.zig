@@ -56,6 +56,14 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn projectionColumnCount(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn projectionNames(_: DeviceParquetScan) []const []const u8 {
+                return &.{};
+            }
+
             pub fn hasRangePredicate(_: DeviceParquetScan) bool {
                 return false;
             }

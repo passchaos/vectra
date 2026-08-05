@@ -71,6 +71,14 @@ pub fn DeviceParquetScan(
             return self.projection != null;
         }
 
+        pub fn projectionColumnCount(self: Self) usize {
+            return if (self.projection) |names| names.len else 0;
+        }
+
+        pub fn projectionNames(self: Self) []const []const u8 {
+            return if (self.projection) |names| names else &.{};
+        }
+
         pub fn hasRangePredicate(self: Self) bool {
             return self.range_predicate != null;
         }

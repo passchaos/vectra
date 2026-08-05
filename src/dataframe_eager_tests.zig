@@ -8013,6 +8013,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
     try vectra.ArrowExport.ParquetScan.select(&grouped_scan, &.{ "sales", "units" });
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
+    try std.testing.expect(std.mem.eql(u8, "sales", vectra.ArrowExport.ParquetScan.projectionNames(grouped_scan)[0]));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
     try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasRangePredicate(grouped_scan));
