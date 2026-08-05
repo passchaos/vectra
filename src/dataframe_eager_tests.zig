@@ -7803,6 +7803,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 0), schema.fieldIndexByName("sales"));
     const table_schema = try table.schema(gpa);
     defer gpa.free(table_schema);
+    const grouped_arrow_fields = try vectra.ArrowExport.DataFrame.toArrowFields(table, gpa);
+    defer {
+        for (grouped_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(grouped_arrow_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 3), grouped_arrow_fields.len);
     const arrow_fields = try table.toArrowFields(gpa);
     defer {
         for (arrow_fields) |*field| field.deinit(gpa);
