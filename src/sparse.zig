@@ -6346,12 +6346,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMeanAxes(T, self, axes, keepdims);
         }
 
+        pub fn meanAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanAxes(axes, keepdims), out);
+        }
+
         pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMeanDim(T, self, dim_opt, keepdim);
         }
 
+        pub fn meanDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanDim(dim_opt, keepdim), out);
+        }
+
         pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.meanAxes(dims, keepdim);
+        }
+
+        pub fn meanDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.meanAxesOut(dims, keepdim, out);
         }
 
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -12990,12 +13002,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMeanAxes(T, self, axes, keepdims);
         }
 
+        pub fn meanAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanAxes(axes, keepdims), out);
+        }
+
         pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMeanDim(T, self, dim_opt, keepdim);
         }
 
+        pub fn meanDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanDim(dim_opt, keepdim), out);
+        }
+
         pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.meanAxes(dims, keepdim);
+        }
+
+        pub fn meanDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.meanAxesOut(dims, keepdim, out);
         }
 
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -19847,12 +19871,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMeanAxes(T, self, axes, keepdims);
         }
 
+        pub fn meanAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanAxes(axes, keepdims), out);
+        }
+
         pub fn meanDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMeanDim(T, self, dim_opt, keepdim);
         }
 
+        pub fn meanDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.meanDim(dim_opt, keepdim), out);
+        }
+
         pub fn meanDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.meanAxes(dims, keepdim);
+        }
+
+        pub fn meanDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.meanAxesOut(dims, keepdim, out);
         }
 
         pub fn varianceAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -29702,18 +29738,26 @@ test "sparse dense reduction helpers" {
             var row_mean = try matrix.meanDim(1, false);
             defer row_mean.deinit();
             try expectArray(row_mean, &.{2}, &.{ 1.0 / 3.0, 5.0 / 3.0 });
+            try matrix.meanDimOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_mean.data);
 
             var column_mean_keep = try matrix.meanDim(0, true);
             defer column_mean_keep.deinit();
             try expectArray(column_mean_keep, &.{ 1, 3 }, &.{ 0.5, 1, 1.5 });
+            try matrix.meanDimOut(0, true, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_mean_keep.data);
 
             var all_mean_keep = try matrix.meanAxes(&.{ 0, 1 }, true);
             defer all_mean_keep.deinit();
             try expectArray(all_mean_keep, &.{ 1, 1 }, &.{1});
+            try matrix.meanAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_mean_keep.data);
 
             var row_mean_dims = try matrix.meanDims(&.{1}, false);
             defer row_mean_dims.deinit();
             try expectArray(row_mean_dims, &.{2}, row_mean.data);
+            try matrix.meanDimsOut(&.{1}, false, row_out);
+            try expectArray(row_out, &.{2}, row_mean_dims.data);
 
             var row_variance = try matrix.varianceDim(1, false, 0);
             defer row_variance.deinit();
