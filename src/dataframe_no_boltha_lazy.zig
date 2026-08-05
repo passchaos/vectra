@@ -458,6 +458,34 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldNullableAt(_: DeviceParquetScan, _: usize) ParquetInteropError!?bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullable(_: DeviceParquetScan, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullableMask(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullableArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nonNullableArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasNullableArrowFields(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn allArrowFieldsNullable(_: DeviceParquetScan) bool {
+                return false;
+            }
+
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
             }

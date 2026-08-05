@@ -8130,6 +8130,18 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.floatArrowFieldCount(grouped_scan));
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.integerArrowFieldCount(grouped_scan));
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.boolArrowFieldCount(grouped_scan));
+    try std.testing.expectEqual(@as(?bool, false), try vectra.ArrowExport.ParquetScan.arrowFieldNullableAt(grouped_scan, 0));
+    try std.testing.expectEqual(@as(?bool, true), try vectra.ArrowExport.ParquetScan.arrowFieldNullableAt(grouped_scan, 1));
+    try std.testing.expect((try vectra.ArrowExport.ParquetScan.arrowFieldNullableAt(grouped_scan, 99)) == null);
+    try std.testing.expect(try vectra.ArrowExport.ParquetScan.arrowFieldNullable(grouped_scan, "units"));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldNullable(grouped_scan, "missing"));
+    const scan_nullable_mask = try vectra.ArrowExport.ParquetScan.arrowFieldNullableMask(grouped_scan, gpa);
+    defer gpa.free(scan_nullable_mask);
+    try std.testing.expectEqualSlices(bool, &.{ false, true, false }, scan_nullable_mask);
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.nullableArrowFieldCount(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 2), try vectra.ArrowExport.ParquetScan.nonNullableArrowFieldCount(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasNullableArrowFields(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.allArrowFieldsNullable(grouped_scan));
     var scan_arrow_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer scan_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), scan_arrow_schema.fieldCount());
@@ -8190,6 +8202,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.floatArrowFieldCount(grouped_scan));
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.integerArrowFieldCount(grouped_scan));
     try std.testing.expectEqual(@as(usize, 0), try vectra.ArrowExport.ParquetScan.boolArrowFieldCount(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.nullableArrowFieldCount(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.nonNullableArrowFieldCount(grouped_scan));
     var projected_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer projected_scan_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 2), projected_scan_schema.fieldCount());

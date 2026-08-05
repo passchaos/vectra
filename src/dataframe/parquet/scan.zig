@@ -663,6 +663,51 @@ pub fn DeviceParquetScan(
             return self.arrowFieldDTypeClassCount(.bool);
         }
 
+        pub fn arrowFieldNullableAt(self: Self, index: usize) ParquetInteropError!?bool {
+            var schema = try self.toArrowSchema(self.allocator);
+            defer schema.deinit(self.allocator);
+            const field = schema.fieldAt(index) orelse return null;
+            return field.nullable;
+        }
+
+        pub fn arrowFieldNullable(self: Self, name: []const u8) ParquetInteropError!bool {
+            var schema = try self.toArrowSchema(self.allocator);
+            defer schema.deinit(self.allocator);
+            const field = schema.fieldByName(name) orelse return error.ColumnNotFound;
+            return field.nullable;
+        }
+
+        pub fn arrowFieldNullableMask(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+            var schema = try self.toArrowSchema(allocator);
+            defer schema.deinit(allocator);
+            const mask = try allocator.alloc(bool, schema.fields.len);
+            for (schema.fields, mask) |field, *slot| slot.* = field.nullable;
+            return mask;
+        }
+
+        pub fn nullableArrowFieldCount(self: Self) ParquetInteropError!usize {
+            var schema = try self.toArrowSchema(self.allocator);
+            defer schema.deinit(self.allocator);
+            var count: usize = 0;
+            for (schema.fields) |field| {
+                if (field.nullable) count += 1;
+            }
+            return count;
+        }
+
+        pub fn nonNullableArrowFieldCount(self: Self) ParquetInteropError!usize {
+            return (try self.arrowFieldCount()) - try self.nullableArrowFieldCount();
+        }
+
+        pub fn hasNullableArrowFields(self: Self) bool {
+            return (self.nullableArrowFieldCount() catch 0) != 0;
+        }
+
+        pub fn allArrowFieldsNullable(self: Self) bool {
+            const total = self.arrowFieldCount() catch return false;
+            return total != 0 and (self.nullableArrowFieldCount() catch return false) == total;
+        }
+
         pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {
             var schema = boltha.parquet.readSchema(self.allocator, self.bytes) catch return false;
             defer schema.deinit(self.allocator);
