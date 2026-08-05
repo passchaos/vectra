@@ -6026,32 +6026,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarianceOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedVariance(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedVarianceArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarianceArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedVarArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVarianceArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStddevOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedStddev(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedStddevArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddevArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStdOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedStdArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddevArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStdArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12510,32 +12542,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarianceOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedVariance(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedVarianceArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarianceArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedVarArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVarianceArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStddevOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedStddev(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedStddevArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddevArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStdOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedStdArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddevArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStdArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19207,32 +19271,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseWeightedVariance(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarianceOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedVariance(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedVarianceArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarianceArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedVar(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVariance(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedVarOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedVarArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedVarianceArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedVarArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedVarianceArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStddev(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedStddev(T, self, weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStddevOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedStddev(weights, axis_opt, keepdims, correction), out);
+        }
+
         pub fn weightedStddevArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStddevArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedStd(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddev(weights, axis_opt, keepdims, correction);
         }
 
+        pub fn weightedStdOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevOut(weights, axis_opt, keepdims, correction, out);
+        }
+
         pub fn weightedStdArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.weightedStddevArray(weights, axis_opt, keepdims, correction);
+        }
+
+        pub fn weightedStdArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedStddevArrayOut(weights, axis_opt, keepdims, correction, out);
         }
 
         pub fn weightedQuantile(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29810,34 +29906,50 @@ test "sparse dense weighted statistic helpers" {
             var weighted_variance_flat = try matrix.weightedVariance(weights, null, false, 0);
             defer weighted_variance_flat.deinit();
             try expectArray(weighted_variance_flat, &.{}, &.{1.16});
+            try matrix.weightedVarianceOut(weights, null, false, 0, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_variance_flat.data);
 
             var weighted_variance_array_flat = try matrix.weightedVarianceArray(weights, null, false, 0);
             defer weighted_variance_array_flat.deinit();
             try expectArray(weighted_variance_array_flat, &.{}, weighted_variance_flat.data);
+            try matrix.weightedVarianceArrayOut(weights, null, false, 0, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_variance_array_flat.data);
 
             var weighted_var_rows = try matrix.weightedVar(weights, 1, false, 0);
             defer weighted_var_rows.deinit();
             try expectArray(weighted_var_rows, &.{2}, &.{ 3.0 / 16.0, 53.0 / 36.0 });
+            try matrix.weightedVarOut(weights, 1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, weighted_var_rows.data);
 
             var weighted_var_rows_array = try matrix.weightedVarArray(weights, 1, false, 0);
             defer weighted_var_rows_array.deinit();
             try expectArray(weighted_var_rows_array, &.{2}, weighted_var_rows.data);
+            try matrix.weightedVarArrayOut(weights, 1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, weighted_var_rows_array.data);
 
             var weighted_std_flat = try matrix.weightedStddev(weights, null, false, 0);
             defer weighted_std_flat.deinit();
             try expectArray(weighted_std_flat, &.{}, &.{@sqrt(1.16)});
+            try matrix.weightedStddevOut(weights, null, false, 0, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_std_flat.data);
 
             var weighted_stddev_array_flat = try matrix.weightedStddevArray(weights, null, false, 0);
             defer weighted_stddev_array_flat.deinit();
             try expectArray(weighted_stddev_array_flat, &.{}, weighted_std_flat.data);
+            try matrix.weightedStddevArrayOut(weights, null, false, 0, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_stddev_array_flat.data);
 
             var weighted_std_rows = try matrix.weightedStd(weights, 1, false, 0);
             defer weighted_std_rows.deinit();
             try expectArray(weighted_std_rows, &.{2}, &.{ @sqrt(3.0 / 16.0), @sqrt(53.0 / 36.0) });
+            try matrix.weightedStdOut(weights, 1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, weighted_std_rows.data);
 
             var weighted_std_rows_array = try matrix.weightedStdArray(weights, 1, false, 0);
             defer weighted_std_rows_array.deinit();
             try expectArray(weighted_std_rows_array, &.{2}, weighted_std_rows.data);
+            try matrix.weightedStdArrayOut(weights, 1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, weighted_std_rows_array.data);
 
             var weighted_quantile_flat = try matrix.weightedQuantile(weights, 0.5, null, false);
             defer weighted_quantile_flat.deinit();
