@@ -482,6 +482,60 @@ pub fn DeviceParquetScan(
             return cloneArrowFields(allocator, schema.fieldsView());
         }
 
+        pub fn arrowFieldCount(self: Self) ParquetInteropError!usize {
+            var schema = try self.toArrowSchema(self.allocator);
+            defer schema.deinit(self.allocator);
+            return schema.fieldCount();
+        }
+
+        pub fn arrowFieldNameAt(self: Self, allocator: std.mem.Allocator, index: usize) ParquetInteropError!?[]const u8 {
+            var schema = try self.toArrowSchema(allocator);
+            defer schema.deinit(allocator);
+            const field = schema.fieldAt(index) orelse return null;
+            return try allocator.dupe(u8, field.name);
+        }
+
+        pub fn arrowFieldNames(self: Self, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
+            var schema = try self.toArrowSchema(allocator);
+            defer schema.deinit(allocator);
+
+            const names = try allocator.alloc([]const u8, schema.fields.len);
+            var initialized: usize = 0;
+            errdefer {
+                for (names[0..initialized]) |name| allocator.free(name);
+                allocator.free(names);
+            }
+            for (schema.fields, names) |field, *slot| {
+                slot.* = try allocator.dupe(u8, field.name);
+                initialized += 1;
+            }
+            return names;
+        }
+
+        pub fn arrowFieldIndex(self: Self, name: []const u8) ParquetInteropError!?usize {
+            var schema = try self.toArrowSchema(self.allocator);
+            defer schema.deinit(self.allocator);
+            return schema.fieldIndexByName(name);
+        }
+
+        pub fn hasArrowField(self: Self, name: []const u8) bool {
+            return (self.arrowFieldIndex(name) catch null) != null;
+        }
+
+        pub fn hasAllArrowFields(self: Self, wanted_names: []const []const u8) bool {
+            for (wanted_names) |name| {
+                if (!self.hasArrowField(name)) return false;
+            }
+            return true;
+        }
+
+        pub fn hasAnyArrowField(self: Self, wanted_names: []const []const u8) bool {
+            for (wanted_names) |name| {
+                if (self.hasArrowField(name)) return true;
+            }
+            return false;
+        }
+
         pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {
             var schema = boltha.parquet.readSchema(self.allocator, self.bytes) catch return false;
             defer schema.deinit(self.allocator);

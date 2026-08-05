@@ -1046,7 +1046,7 @@ by owning dataframes and non-owning views, so nullability and dtype extension
 metadata stay aligned across inspection and interchange paths.  Boltha builds
 also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*`/`fromParquet*`, `Column.toArrow*`,
 `ColumnSchema.arrowDataType`/`toArrowField`, `ColumnView.arrowDataType`/`toArrowField`,
-`ParquetScan.toArrowSchema`/`toArrowSchemaProjection`/`toArrowFields`/`toArrowFieldsProjection`/`hasArrowProjection`,
+`ParquetScan.toArrowSchema`/`toArrowSchemaProjection`/`toArrowFields`/`toArrowFieldsProjection` plus Arrow field inspection (`arrowFieldCount`/`arrowFieldNameAt`/`arrowFieldNames`/`arrowFieldIndex`/`hasArrowField`/`hasAllArrowFields`/`hasAnyArrowField`/`hasArrowProjection`),
 `ParquetScan.init` plus scan device metadata (`deviceValue`, `deviceBackend`,
 `deviceBackendName`, `deviceIndex`, `isCpu`/`isCuda`/`isMps`, backed-by
 predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
