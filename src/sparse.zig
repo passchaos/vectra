@@ -7350,20 +7350,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseHypotArray(T, self, rhs);
         }
 
+        pub fn hypotArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hypotArray(rhs), out);
+        }
+
         pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn atan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atan2Array(rhs), out);
         }
 
         pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.atan2Array(rhs);
         }
 
+        pub fn arctan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.atan2ArrayOut(rhs, out);
+        }
+
         pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseNextAfterArray(T, self, rhs);
         }
 
+        pub fn nextAfterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nextAfterArray(rhs), out);
+        }
+
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn nextafterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.nextAfterArrayOut(rhs, out);
         }
 
         pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -7390,28 +7410,56 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseCopysignArray(T, self, rhs);
         }
 
+        pub fn copysignArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copysignArray(rhs), out);
+        }
+
         pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn heavisideArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.heavisideArray(rhs), out);
         }
 
         pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExpArray(T, self, rhs);
         }
 
+        pub fn logAddExpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExpArray(rhs), out);
+        }
+
         pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExpArray(rhs);
+        }
+
+        pub fn logaddexpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExpArrayOut(rhs, out);
         }
 
         pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExp2Array(T, self, rhs);
         }
 
+        pub fn logAddExp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExp2Array(rhs), out);
+        }
+
         pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExp2Array(rhs);
         }
 
+        pub fn logaddexp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExp2ArrayOut(rhs, out);
+        }
+
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn xlogyArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.xlogyArray(rhs), out);
         }
 
         pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -14982,20 +15030,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseHypotArray(T, self, rhs);
         }
 
+        pub fn hypotArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hypotArray(rhs), out);
+        }
+
         pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn atan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atan2Array(rhs), out);
         }
 
         pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.atan2Array(rhs);
         }
 
+        pub fn arctan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.atan2ArrayOut(rhs, out);
+        }
+
         pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseNextAfterArray(T, self, rhs);
         }
 
+        pub fn nextAfterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nextAfterArray(rhs), out);
+        }
+
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn nextafterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.nextAfterArrayOut(rhs, out);
         }
 
         pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -15022,28 +15090,56 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseCopysignArray(T, self, rhs);
         }
 
+        pub fn copysignArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copysignArray(rhs), out);
+        }
+
         pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn heavisideArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.heavisideArray(rhs), out);
         }
 
         pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExpArray(T, self, rhs);
         }
 
+        pub fn logAddExpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExpArray(rhs), out);
+        }
+
         pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExpArray(rhs);
+        }
+
+        pub fn logaddexpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExpArrayOut(rhs, out);
         }
 
         pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExp2Array(T, self, rhs);
         }
 
+        pub fn logAddExp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExp2Array(rhs), out);
+        }
+
         pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExp2Array(rhs);
         }
 
+        pub fn logaddexp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExp2ArrayOut(rhs, out);
+        }
+
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn xlogyArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.xlogyArray(rhs), out);
         }
 
         pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -22827,20 +22923,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseHypotArray(T, self, rhs);
         }
 
+        pub fn hypotArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hypotArray(rhs), out);
+        }
+
         pub fn atan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAtan2Array(T, self, rhs);
+        }
+
+        pub fn atan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atan2Array(rhs), out);
         }
 
         pub fn arctan2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.atan2Array(rhs);
         }
 
+        pub fn arctan2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.atan2ArrayOut(rhs, out);
+        }
+
         pub fn nextAfterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseNextAfterArray(T, self, rhs);
         }
 
+        pub fn nextAfterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nextAfterArray(rhs), out);
+        }
+
         pub fn nextafterArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.nextAfterArray(rhs);
+        }
+
+        pub fn nextafterArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.nextAfterArrayOut(rhs, out);
         }
 
         pub fn hypot(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -22867,28 +22983,56 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseCopysignArray(T, self, rhs);
         }
 
+        pub fn copysignArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.copysignArray(rhs), out);
+        }
+
         pub fn heavisideArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseHeavisideArray(T, self, rhs);
+        }
+
+        pub fn heavisideArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.heavisideArray(rhs), out);
         }
 
         pub fn logAddExpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExpArray(T, self, rhs);
         }
 
+        pub fn logAddExpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExpArray(rhs), out);
+        }
+
         pub fn logaddexpArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExpArray(rhs);
+        }
+
+        pub fn logaddexpArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExpArrayOut(rhs, out);
         }
 
         pub fn logAddExp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseLogAddExp2Array(T, self, rhs);
         }
 
+        pub fn logAddExp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logAddExp2Array(rhs), out);
+        }
+
         pub fn logaddexp2Array(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.logAddExp2Array(rhs);
         }
 
+        pub fn logaddexp2ArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.logAddExp2ArrayOut(rhs, out);
+        }
+
         pub fn xlogyArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseXlogyArray(T, self, rhs);
+        }
+
+        pub fn xlogyArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.xlogyArray(rhs), out);
         }
 
         pub fn copysign(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -32125,6 +32269,8 @@ test "sparse dense fused elementwise helpers" {
                 std.math.hypot(@as(f64, 2), @as(f64, 7)),
                 std.math.hypot(@as(f64, 3), @as(f64, 8)),
             });
+            try matrix.hypotArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, hypot_array.data);
 
             var atan2_array = try matrix.atan2Array(end_values);
             defer atan2_array.deinit();
@@ -32136,10 +32282,14 @@ test "sparse dense fused elementwise helpers" {
                 std.math.atan2(@as(f64, 2), @as(f64, 7)),
                 std.math.atan2(@as(f64, 3), @as(f64, 8)),
             });
+            try matrix.atan2ArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, atan2_array.data);
 
             var arctan2_array = try matrix.arctan2Array(end_values);
             defer arctan2_array.deinit();
             try expectArray(arctan2_array, &.{ 2, 3 }, atan2_array.data);
+            try matrix.arctan2ArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, arctan2_array.data);
 
             var next_after_targets = try array_mod.Array(f64).full(matrix.allocator, &.{ 2, 3 }, 10);
             defer next_after_targets.deinit();
@@ -32153,10 +32303,14 @@ test "sparse dense fused elementwise helpers" {
                 std.math.nextAfter(f64, 2, 10),
                 std.math.nextAfter(f64, 3, 10),
             });
+            try matrix.nextAfterArrayOut(next_after_targets, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, next_after_array.data);
 
             var nextafter_array = try matrix.nextafterArray(next_after_targets);
             defer nextafter_array.deinit();
             try expectArray(nextafter_array, &.{ 2, 3 }, next_after_array.data);
+            try matrix.nextafterArrayOut(next_after_targets, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, nextafter_array.data);
 
             var sign_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 -1, 1,  -1,
@@ -32166,6 +32320,8 @@ test "sparse dense fused elementwise helpers" {
             var copied_sign_array = try matrix.copysignArray(sign_values);
             defer copied_sign_array.deinit();
             try expectArray(copied_sign_array, &.{ 2, 3 }, &.{ -1, 0, -0.0, 0, -2, 3 });
+            try matrix.copysignArrayOut(sign_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, copied_sign_array.data);
 
             var zero_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 0.25, 0.5, 0.75,
@@ -32175,6 +32331,8 @@ test "sparse dense fused elementwise helpers" {
             var heaviside_array = try matrix.heavisideArray(zero_values);
             defer heaviside_array.deinit();
             try expectArray(heaviside_array, &.{ 2, 3 }, &.{ 1, 0.5, 0.75, 1.25, 1, 1 });
+            try matrix.heavisideArrayOut(zero_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, heaviside_array.data);
 
             var logaddexp_array = try matrix.logAddExpArray(end_values);
             defer logaddexp_array.deinit();
@@ -32186,10 +32344,14 @@ test "sparse dense fused elementwise helpers" {
                 std.math.log(f64, std.math.e, std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 7))),
                 std.math.log(f64, std.math.e, std.math.exp(@as(f64, 3)) + std.math.exp(@as(f64, 8))),
             });
+            try matrix.logAddExpArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, logaddexp_array.data);
 
             var logaddexp_array_alias = try matrix.logaddexpArray(end_values);
             defer logaddexp_array_alias.deinit();
             try expectArray(logaddexp_array_alias, &.{ 2, 3 }, logaddexp_array.data);
+            try matrix.logaddexpArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, logaddexp_array_alias.data);
 
             var logaddexp2_array = try matrix.logAddExp2Array(end_values);
             defer logaddexp2_array.deinit();
@@ -32201,14 +32363,20 @@ test "sparse dense fused elementwise helpers" {
                 std.math.log2(@as(f64, 4) + 128),
                 std.math.log2(@as(f64, 8) + 256),
             });
+            try matrix.logAddExp2ArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, logaddexp2_array.data);
 
             var logaddexp2_array_alias = try matrix.logaddexp2Array(end_values);
             defer logaddexp2_array_alias.deinit();
             try expectArray(logaddexp2_array_alias, &.{ 2, 3 }, logaddexp2_array.data);
+            try matrix.logaddexp2ArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, logaddexp2_array_alias.data);
 
             var xlogy_array = try matrix.xlogyArray(end_values);
             defer xlogy_array.deinit();
             try expectArray(xlogy_array, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 3), 0, 0, 0, 2 * std.math.log(f64, std.math.e, 7), 3 * std.math.log(f64, std.math.e, 8) });
+            try matrix.xlogyArrayOut(end_values, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, xlogy_array.data);
 
             var rhs_sparse = try cooFromSlices(
                 f64,
