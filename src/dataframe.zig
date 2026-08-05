@@ -5013,6 +5013,10 @@ pub fn deviceDataFrame(allocator: std.mem.Allocator, defs: []const DeviceColumnD
     return DeviceDataFrame.init(allocator, defs);
 }
 
+pub fn deviceColumnSchemaToArrowField(schema_value: DeviceColumnSchema, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Field {
+    return arrow_methods_mod.toArrowFieldFromSchema(schema_value, allocator);
+}
+
 pub fn deviceColumnViewToArrowField(view: DeviceColumnView, allocator: std.mem.Allocator, name: []const u8) ArrowInteropError!boltha.arrow.Field {
     return arrow_methods_mod.toArrowFieldFromView(view, allocator, name);
 }

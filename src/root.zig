@@ -133,6 +133,10 @@ pub const DeviceColumnViewArrow = if (build_options.enable_boltha) struct {
     pub const toArrowField = dataframe_mod.deviceColumnViewToArrowField;
 } else struct {};
 
+pub const DeviceColumnSchemaArrow = if (build_options.enable_boltha) struct {
+    pub const toArrowField = dataframe_mod.deviceColumnSchemaToArrowField;
+} else struct {};
+
 pub const CsrMatrix = sparse.CsrMatrix;
 pub const CscMatrix = sparse.CscMatrix;
 pub const CooMatrix = sparse.CooMatrix;
