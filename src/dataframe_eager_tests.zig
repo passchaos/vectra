@@ -8010,6 +8010,20 @@ test "device dataframe exports boltha arrow record batch" {
     ));
     var grouped_scan = try vectra.ArrowExport.ParquetScan.init(gpa, grouped_parquet_bytes, .cpu);
     defer grouped_scan.deinit();
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceValue(grouped_scan).sameDevice(.cpu));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceBackend(grouped_scan) == .cpu);
+    try std.testing.expectEqualStrings("cpu", vectra.ArrowExport.ParquetScan.deviceBackendName(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 0), vectra.ArrowExport.ParquetScan.deviceIndex(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.isCpu(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isCuda(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isMps(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.isHostBacked(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isCudaBacked(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isMpsBacked(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isAcceleratorBacked(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isRemoteBacked(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.isDeviceBacked(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.isDeviceAvailable(grouped_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
     try vectra.ArrowExport.ParquetScan.select(&grouped_scan, &.{ "sales", "units" });
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
@@ -8026,6 +8040,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(std.mem.indexOf(u8, grouped_scan_explain, "pushdown") != null);
     var grouped_scan_clone = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer grouped_scan_clone.deinit();
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameDevice(grouped_scan, grouped_scan_clone));
     var grouped_scan_rows = try vectra.ArrowExport.ParquetScan.collect(grouped_scan);
     defer grouped_scan_rows.deinit();
     try std.testing.expectEqual(table.height(), grouped_scan_rows.height());

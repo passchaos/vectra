@@ -52,6 +52,66 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn deviceValue(_: DeviceParquetScan) array_mod.Device {
+                return .cpu;
+            }
+
+            pub fn deviceBackend(_: DeviceParquetScan) array_mod.Backend {
+                return .cpu;
+            }
+
+            pub fn deviceBackendName(_: DeviceParquetScan) []const u8 {
+                return "cpu";
+            }
+
+            pub fn deviceIndex(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn isCpu(_: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn isHostBacked(_: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn isCuda(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isCudaBacked(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isMps(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isMpsBacked(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isAcceleratorBacked(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isRemoteBacked(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isDeviceBacked(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn isDeviceAvailable(_: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn sameDevice(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return true;
+            }
+
             pub fn hasProjection(_: DeviceParquetScan) bool {
                 return false;
             }

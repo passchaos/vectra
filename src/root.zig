@@ -168,6 +168,21 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const init = dataframe_mod.DeviceParquetScan.init;
         pub const clone = dataframe_mod.DeviceParquetScan.clone;
         pub const lazy = dataframe_mod.DeviceParquetScan.lazy;
+        pub const deviceValue = dataframe_mod.DeviceParquetScan.deviceValue;
+        pub const deviceBackend = dataframe_mod.DeviceParquetScan.deviceBackend;
+        pub const deviceBackendName = dataframe_mod.DeviceParquetScan.deviceBackendName;
+        pub const deviceIndex = dataframe_mod.DeviceParquetScan.deviceIndex;
+        pub const isCpu = dataframe_mod.DeviceParquetScan.isCpu;
+        pub const isCuda = dataframe_mod.DeviceParquetScan.isCuda;
+        pub const isMps = dataframe_mod.DeviceParquetScan.isMps;
+        pub const isHostBacked = dataframe_mod.DeviceParquetScan.isHostBacked;
+        pub const isCudaBacked = dataframe_mod.DeviceParquetScan.isCudaBacked;
+        pub const isMpsBacked = dataframe_mod.DeviceParquetScan.isMpsBacked;
+        pub const isAcceleratorBacked = dataframe_mod.DeviceParquetScan.isAcceleratorBacked;
+        pub const isRemoteBacked = dataframe_mod.DeviceParquetScan.isRemoteBacked;
+        pub const isDeviceBacked = dataframe_mod.DeviceParquetScan.isDeviceBacked;
+        pub const isDeviceAvailable = dataframe_mod.DeviceParquetScan.isDeviceAvailable;
+        pub const sameDevice = dataframe_mod.DeviceParquetScan.sameDevice;
         pub const hasProjection = dataframe_mod.DeviceParquetScan.hasProjection;
         pub const projectionColumnCount = dataframe_mod.DeviceParquetScan.projectionColumnCount;
         pub const projectionNames = dataframe_mod.DeviceParquetScan.projectionNames;
@@ -447,6 +462,23 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!frame.hasDuplicateColumnNames());
         try std.testing.expect(frame.hasAllColumns(&.{}));
         try std.testing.expect(!frame.hasAnyColumn(&.{ "missing", "absent" }));
+
+        const parquet_scan: DeviceParquetScan = .{};
+        try std.testing.expect(parquet_scan.deviceValue().sameDevice(.cpu));
+        try std.testing.expectEqual(Device.cpu.backend, parquet_scan.deviceBackend());
+        try std.testing.expectEqualStrings("cpu", parquet_scan.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), parquet_scan.deviceIndex());
+        try std.testing.expect(parquet_scan.isCpu());
+        try std.testing.expect(parquet_scan.isHostBacked());
+        try std.testing.expect(!parquet_scan.isCuda());
+        try std.testing.expect(!parquet_scan.isCudaBacked());
+        try std.testing.expect(!parquet_scan.isMps());
+        try std.testing.expect(!parquet_scan.isMpsBacked());
+        try std.testing.expect(!parquet_scan.isAcceleratorBacked());
+        try std.testing.expect(!parquet_scan.isRemoteBacked());
+        try std.testing.expect(!parquet_scan.isDeviceBacked());
+        try std.testing.expect(parquet_scan.isDeviceAvailable());
+        try std.testing.expect(parquet_scan.sameDevice(.{}));
 
         const shape_value = frame.shape();
         try std.testing.expectEqual(@as(usize, 0), shape_value.rows);
