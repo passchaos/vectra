@@ -64,6 +64,22 @@ pub fn DeviceViewTypes(
                 return self.rows;
             }
 
+            pub fn dataPtr(self: DeviceColumnView) u64 {
+                return self.data_ptr;
+            }
+
+            pub fn validityPtr(self: DeviceColumnView) ?u64 {
+                return self.validity_ptr;
+            }
+
+            pub fn hasValidity(self: DeviceColumnView) bool {
+                return self.validity_ptr != null;
+            }
+
+            pub fn validityEncoding(self: DeviceColumnView) DeviceValidityEncoding {
+                return self.validity_encoding;
+            }
+
             pub fn dtypeName(self: DeviceColumnView) []const u8 {
                 return self.dtype.name();
             }

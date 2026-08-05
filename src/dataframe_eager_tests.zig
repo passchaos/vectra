@@ -542,7 +542,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(sales_column_view.isCpu());
     try std.testing.expect(!sales_column_view.isDeviceBacked());
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));
-    try std.testing.expect(sales_column_view.data_ptr != 0);
+    try std.testing.expect(sales_column_view.dataPtr() != 0);
+    try std.testing.expectEqual(sales_column_view.data_ptr, sales_column_view.dataPtr());
+    try std.testing.expect(!sales_column_view.hasValidity());
+    try std.testing.expect(sales_column_view.validityPtr() == null);
     try std.testing.expect(sales_column_view.schema("sales").schemaEquals(try view.columnSchema("sales")));
     const units_column_view = try view.columnViewAt(1);
     try std.testing.expect(sales_column_view.sameDevice(units_column_view));
@@ -577,6 +580,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!units_column_view.allNull());
     try std.testing.expect(units_column_view.anyValid());
     try std.testing.expect(!units_column_view.allValid());
+    try std.testing.expect(units_column_view.hasValidity());
+    try std.testing.expectEqual(units_column_view.validity_ptr, units_column_view.validityPtr());
+    try std.testing.expectEqual(DeviceValidityEncoding.bool_mask, units_column_view.validityEncoding());
     try std.testing.expectEqual(units_column_view.totalNbytes(), units_column_view.dataNbytes() + units_column_view.validityNbytes());
     const active_column_view = try view.columnViewAt(2);
     try std.testing.expect(active_column_view.isBool());
