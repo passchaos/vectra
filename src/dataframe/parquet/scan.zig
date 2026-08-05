@@ -95,6 +95,13 @@ pub fn DeviceParquetScan(
             self.* = undefined;
         }
 
+        pub fn moveBytes(self: *Self) []u8 {
+            self.clearPushdown();
+            const bytes = self.bytes;
+            self.bytes = &.{};
+            return bytes;
+        }
+
         pub fn clone(self: Self) std.mem.Allocator.Error!Self {
             var cloned = try Self.init(self.allocator, self.bytes, self.device);
             errdefer cloned.deinit();

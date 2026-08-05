@@ -71,6 +71,10 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn deinit(_: *DeviceParquetScan) void {}
 
+            pub fn moveBytes(_: *DeviceParquetScan) []u8 {
+                return &.{};
+            }
+
             pub fn clone(_: DeviceParquetScan) ParquetInteropError!DeviceParquetScan {
                 return error.FeatureUnavailable;
             }
