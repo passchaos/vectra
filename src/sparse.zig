@@ -6918,12 +6918,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .silu);
         }
 
+        pub fn siluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.silu(), out);
+        }
+
         pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
         }
 
+        pub fn SiLUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
+        }
+
         pub fn swish(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
+        }
+
+        pub fn swishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
         }
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
@@ -7010,8 +7022,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .logsigmoid);
         }
 
+        pub fn logsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsigmoid(), out);
+        }
+
         pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.logsigmoid();
+        }
+
+        pub fn logSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.logsigmoidOut(out);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -7130,8 +7150,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseGlu(T, self, axis_index);
         }
 
+        pub fn gluOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.glu(axis_index), out);
+        }
+
         pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.glu(dim_index);
+        }
+
+        pub fn gluDimOut(self: Self, dim_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gluOut(dim_index, out);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -14490,12 +14518,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .silu);
         }
 
+        pub fn siluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.silu(), out);
+        }
+
         pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
         }
 
+        pub fn SiLUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
+        }
+
         pub fn swish(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
+        }
+
+        pub fn swishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
         }
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
@@ -14582,8 +14622,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .logsigmoid);
         }
 
+        pub fn logsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsigmoid(), out);
+        }
+
         pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.logsigmoid();
+        }
+
+        pub fn logSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.logsigmoidOut(out);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -14702,8 +14750,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseGlu(T, self, axis_index);
         }
 
+        pub fn gluOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.glu(axis_index), out);
+        }
+
         pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.glu(dim_index);
+        }
+
+        pub fn gluDimOut(self: Self, dim_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gluOut(dim_index, out);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -22275,12 +22331,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .silu);
         }
 
+        pub fn siluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.silu(), out);
+        }
+
         pub fn SiLU(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
         }
 
+        pub fn SiLUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
+        }
+
         pub fn swish(self: Self) SparseError!array_mod.Array(T) {
             return self.silu();
+        }
+
+        pub fn swishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.siluOut(out);
         }
 
         pub fn mish(self: Self) SparseError!array_mod.Array(T) {
@@ -22367,8 +22435,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .logsigmoid);
         }
 
+        pub fn logsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsigmoid(), out);
+        }
+
         pub fn logSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.logsigmoid();
+        }
+
+        pub fn logSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.logsigmoidOut(out);
         }
 
         pub fn norm(self: Self, p: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -22487,8 +22563,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseGlu(T, self, axis_index);
         }
 
+        pub fn gluOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.glu(axis_index), out);
+        }
+
         pub fn gluDim(self: Self, dim_index: isize) SparseError!array_mod.Array(T) {
             return self.glu(dim_index);
+        }
+
+        pub fn gluDimOut(self: Self, dim_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.gluOut(dim_index, out);
         }
 
         pub fn normalize(self: Self, p: T, axis_index: isize, eps: T) SparseError!array_mod.Array(T) {
@@ -33433,14 +33517,20 @@ test "sparse dense norm and logsumexp helpers" {
             var silu_values = try activation_matrix.silu();
             defer silu_values.deinit();
             try expectArray(silu_values, &.{ 2, 3 }, &.{ -2.0 / (1.0 + std.math.exp(@as(f64, 2))), 0, 0, 0, 0.5 / (1.0 + std.math.exp(@as(f64, -0.5))), 7.0 / (1.0 + std.math.exp(@as(f64, -7))) });
+            try activation_matrix.siluOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, silu_values.data);
 
             var silu_alias = try activation_matrix.SiLU();
             defer silu_alias.deinit();
             try expectArray(silu_alias, &.{ 2, 3 }, silu_values.data);
+            try activation_matrix.SiLUOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, silu_alias.data);
 
             var swish_alias = try activation_matrix.swish();
             defer swish_alias.deinit();
             try expectArray(swish_alias, &.{ 2, 3 }, silu_values.data);
+            try activation_matrix.swishOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, swish_alias.data);
 
             var mish_values = try activation_matrix.mish();
             defer mish_values.deinit();
@@ -33495,10 +33585,14 @@ test "sparse dense norm and logsumexp helpers" {
             var log_sigmoid_values = try activation_matrix.logsigmoid();
             defer log_sigmoid_values.deinit();
             try expectArray(log_sigmoid_values, &.{ 2, 3 }, &.{ -(@as(f64, 2) + std.math.log1p(std.math.exp(@as(f64, -2)))), -std.math.log1p(@as(f64, 1)), -std.math.log1p(@as(f64, 1)), -std.math.log1p(@as(f64, 1)), -std.math.log1p(std.math.exp(@as(f64, -0.5))), -std.math.log1p(std.math.exp(@as(f64, -7))) });
+            try activation_matrix.logsigmoidOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log_sigmoid_values.data);
 
             var log_sigmoid_alias = try activation_matrix.logSigmoid();
             defer log_sigmoid_alias.deinit();
             try expectArray(log_sigmoid_alias, &.{ 2, 3 }, log_sigmoid_values.data);
+            try activation_matrix.logSigmoidOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log_sigmoid_alias.data);
 
             var glu_source = try cooFromSlices(
                 f64,
@@ -33528,10 +33622,16 @@ test "sparse dense norm and logsumexp helpers" {
                 3.0 / (1.0 + std.math.exp(@as(f64, -1))),
                 4.0 / (1.0 + std.math.exp(@as(f64, 2))),
             });
+            var glu_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer glu_out.deinit();
+            try glu_matrix.gluOut(1, glu_out);
+            try expectArray(glu_out, &.{ 2, 2 }, glu_values.data);
 
             var glu_dim_alias = try glu_matrix.gluDim(-1);
             defer glu_dim_alias.deinit();
             try expectArray(glu_dim_alias, &.{ 2, 2 }, glu_values.data);
+            try glu_matrix.gluDimOut(-1, glu_out);
+            try expectArray(glu_out, &.{ 2, 2 }, glu_dim_alias.data);
 
             try std.testing.expectError(error.InvalidShape, activation_matrix.glu(1));
 
