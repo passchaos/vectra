@@ -24,6 +24,10 @@ pub const DeviceColumnSchema = struct {
         return self.len();
     }
 
+    pub fn height(self: @This()) usize {
+        return self.len();
+    }
+
     pub fn nRows(self: @This()) usize {
         return self.len();
     }

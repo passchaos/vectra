@@ -36,6 +36,10 @@ pub fn DeviceViewTypes(
                 return self.len();
             }
 
+            pub fn height(self: DeviceColumnView) usize {
+                return self.len();
+            }
+
             pub fn nRows(self: DeviceColumnView) usize {
                 return self.len();
             }

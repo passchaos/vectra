@@ -51,6 +51,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return 0;
     }
 
+    pub fn height(_: DeviceColumn) usize {
+        return 0;
+    }
+
     pub fn nRows(_: DeviceColumn) usize {
         return 0;
     }
