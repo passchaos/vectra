@@ -8205,7 +8205,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan) == null);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicateFor(grouped_scan, "sales"));
-    try vectra.ArrowExport.ParquetScan.Pushdown.select(&grouped_scan, &.{ "sales", "units" });
+    try vectra.ArrowExport.ParquetScan.Pushdown.select(&grouped_scan, &.{"sales"});
+    try vectra.ArrowExport.ParquetScan.Pushdown.appendSelect(&grouped_scan, &.{ "units", "sales" });
+    try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.Pushdown.dropSelected(&grouped_scan, &.{"missing"});
+    try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
     try vectra.ArrowExport.ParquetScan.Pushdown.validateProjection(grouped_scan);
     try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
@@ -8399,7 +8403,9 @@ test "device dataframe exports boltha arrow record batch" {
     vectra.ArrowExport.ParquetScan.clearPredicate(&grouped_scan);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
-    vectra.ArrowExport.ParquetScan.clearProjection(&grouped_scan);
+    try vectra.ArrowExport.ParquetScan.dropSelected(&grouped_scan, &.{"units"});
+    try std.testing.expectEqual(@as(usize, 1), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
+    vectra.ArrowExport.ParquetScan.selectAll(&grouped_scan);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
     try vectra.ArrowExport.ParquetScan.select(&grouped_scan, &.{ "sales", "units" });

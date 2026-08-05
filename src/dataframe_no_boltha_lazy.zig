@@ -583,6 +583,16 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn appendSelect(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn dropSelected(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn selectAll(_: *DeviceParquetScan) void {}
+
             pub fn whereRange(_: *DeviceParquetScan, _: []const u8, _: ParquetRangePredicate) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }

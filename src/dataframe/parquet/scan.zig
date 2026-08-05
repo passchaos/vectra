@@ -650,6 +650,38 @@ pub fn DeviceParquetScan(
             self.projection = try cloneNameList(self.allocator, names);
         }
 
+        pub fn appendSelect(self: *Self, names: []const []const u8) std.mem.Allocator.Error!void {
+            var builder: std.ArrayList([]const u8) = .empty;
+            defer builder.deinit(self.allocator);
+            if (self.projection) |current| {
+                for (current) |name| try names_mod.appendOwnedNameUnique(self.allocator, &builder, name);
+            }
+            for (names) |name| try names_mod.appendOwnedNameUnique(self.allocator, &builder, name);
+            const merged = try builder.toOwnedSlice(self.allocator);
+            builder = .empty;
+            self.clearProjection();
+            self.projection = merged;
+        }
+
+        pub fn dropSelected(self: *Self, names: []const []const u8) std.mem.Allocator.Error!void {
+            const current = self.projection orelse return;
+            var builder: std.ArrayList([]const u8) = .empty;
+            defer builder.deinit(self.allocator);
+            for (current) |name| {
+                if (!names_mod.nameInBorrowedList(name, names)) {
+                    try names_mod.appendOwnedNameUnique(self.allocator, &builder, name);
+                }
+            }
+            const kept = try builder.toOwnedSlice(self.allocator);
+            builder = .empty;
+            self.clearProjection();
+            self.projection = kept;
+        }
+
+        pub fn selectAll(self: *Self) void {
+            self.clearProjection();
+        }
+
         pub fn whereRange(self: *Self, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
             self.clearRangePredicate();
             self.clearNullPredicate();
