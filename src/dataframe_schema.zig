@@ -157,6 +157,26 @@ pub const DeviceColumnSchema = struct {
         return self.device.backendName();
     }
 
+    pub fn sameDevice(self: @This(), other: @This()) bool {
+        return self.device.sameDevice(other.device);
+    }
+
+    pub fn sameLength(self: @This(), other: @This()) bool {
+        return self.rows == other.rows;
+    }
+
+    pub fn lengthEquals(self: @This(), rows: usize) bool {
+        return self.rows == rows;
+    }
+
+    pub fn sameDType(self: @This(), other: @This()) bool {
+        return self.dtype == other.dtype;
+    }
+
+    pub fn sameNullability(self: @This(), other: @This()) bool {
+        return self.nullable == other.nullable;
+    }
+
     pub fn schemaEquals(self: @This(), other: @This()) bool {
         return std.mem.eql(u8, self.name, other.name) and
             self.dtype == other.dtype and

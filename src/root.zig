@@ -506,6 +506,11 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(id_schema.schemaEquals(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.sameSchema(try view.columnSchema("id")));
         try std.testing.expect(id_schema.schemaCompatible(try view.columnSchemaAt(0)));
+        try std.testing.expect(id_schema.sameDevice(try view.columnSchemaAt(0)));
+        try std.testing.expect(id_schema.sameLength(try view.columnSchema("id")));
+        try std.testing.expect(id_schema.lengthEquals(2));
+        try std.testing.expect(id_schema.sameDType(try view.columnSchemaAt(0)));
+        try std.testing.expect(id_schema.sameNullability(try view.columnSchema("id")));
         const schema = try view.schema(gpa);
         defer gpa.free(schema);
         try std.testing.expectEqual(@as(usize, 1), schema.len);
