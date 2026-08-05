@@ -426,6 +426,38 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldDTypeByteSizes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeBitSizes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeClassMask(_: DeviceParquetScan, _: std.mem.Allocator, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeClassCount(_: DeviceParquetScan, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn numericArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn floatArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn integerArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn boolArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
             }

@@ -613,6 +613,56 @@ pub fn DeviceParquetScan(
             return names;
         }
 
+        pub fn arrowFieldDTypeByteSizes(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+            const dtypes = try self.arrowFieldDTypes(allocator);
+            defer allocator.free(dtypes);
+            const sizes = try allocator.alloc(usize, dtypes.len);
+            for (dtypes, sizes) |dtype, *slot| slot.* = dtype.byteSize();
+            return sizes;
+        }
+
+        pub fn arrowFieldDTypeBitSizes(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+            const dtypes = try self.arrowFieldDTypes(allocator);
+            defer allocator.free(dtypes);
+            const sizes = try allocator.alloc(usize, dtypes.len);
+            for (dtypes, sizes) |dtype, *slot| slot.* = dtype.bitSize();
+            return sizes;
+        }
+
+        pub fn arrowFieldDTypeClassMask(self: Self, allocator: std.mem.Allocator, class: options_mod.DeviceDTypeClass) ParquetInteropError![]bool {
+            const dtypes = try self.arrowFieldDTypes(allocator);
+            defer allocator.free(dtypes);
+            const mask = try allocator.alloc(bool, dtypes.len);
+            for (dtypes, mask) |dtype, *slot| slot.* = class.matches(dtype);
+            return mask;
+        }
+
+        pub fn arrowFieldDTypeClassCount(self: Self, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
+            const dtypes = try self.arrowFieldDTypes(self.allocator);
+            defer self.allocator.free(dtypes);
+            var count: usize = 0;
+            for (dtypes) |dtype| {
+                if (class.matches(dtype)) count += 1;
+            }
+            return count;
+        }
+
+        pub fn numericArrowFieldCount(self: Self) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCount(.numeric);
+        }
+
+        pub fn floatArrowFieldCount(self: Self) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCount(.float);
+        }
+
+        pub fn integerArrowFieldCount(self: Self) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCount(.integer);
+        }
+
+        pub fn boolArrowFieldCount(self: Self) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCount(.bool);
+        }
+
         pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {
             var schema = boltha.parquet.readSchema(self.allocator, self.bytes) catch return false;
             defer schema.deinit(self.allocator);
