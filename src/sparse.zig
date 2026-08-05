@@ -10695,6 +10695,10 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.rowMeans(), out);
+        }
+
         pub fn columnMeans(self: Self) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.rows == 0) return error.EmptyArray;
@@ -10704,6 +10708,10 @@ pub fn CooMatrix(comptime T: type) type {
             const divisor = sparseSizeToF64(self.rows);
             for (out.data) |*value| value.* /= divisor;
             return out;
+        }
+
+        pub fn columnMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.columnMeans(), out);
         }
 
         pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
@@ -19489,6 +19497,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.rowMeans(), out);
+        }
+
         pub fn columnMeans(self: Self) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.rows == 0) return error.EmptyArray;
@@ -19498,6 +19510,10 @@ pub fn CsrMatrix(comptime T: type) type {
             const divisor = sparseSizeToF64(self.rows);
             for (out.data) |*value| value.* /= divisor;
             return out;
+        }
+
+        pub fn columnMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.columnMeans(), out);
         }
 
         pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
@@ -27977,6 +27993,10 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.columnMeans(), out);
+        }
+
         pub fn rowMeans(self: Self) SparseError!array_mod.Array(f64) {
             ensureNumeric(T);
             if (self.cols == 0) return error.EmptyArray;
@@ -27986,6 +28006,10 @@ pub fn CscMatrix(comptime T: type) type {
             const divisor = sparseSizeToF64(self.cols);
             for (out.data) |*value| value.* /= divisor;
             return out;
+        }
+
+        pub fn rowMeansOut(self: Self, out: array_mod.Array(f64)) SparseError!void {
+            try sparseDenseCopyOut(f64, try self.rowMeans(), out);
         }
 
         pub fn rowMeansInRange(self: Self, min_mean: f64, max_mean: f64) SparseError!bool {
@@ -30118,6 +30142,10 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var means_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer means_out.deinit();
+    try coo.rowMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, row_means.data, means_out.data);
     try std.testing.expect(try coo.rowMeansInRange(-1.0 / 3.0, 3));
     try std.testing.expect(!(try coo.rowMeansInRange(0, 3)));
     try std.testing.expectError(error.InvalidShape, coo.rowMeansInRange(3, 2));
@@ -30126,6 +30154,8 @@ test "coo sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try coo.columnMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, col_means.data, means_out.data);
     try std.testing.expect(try coo.columnMeansInRange(1, 5.0 / 3.0));
     try std.testing.expect(!(try coo.columnMeansInRange(1.1, 5.0 / 3.0)));
 
@@ -38145,6 +38175,10 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var means_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer means_out.deinit();
+    try csr.rowMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, row_means.data, means_out.data);
     try std.testing.expect(try csr.rowMeansInRange(-1.0 / 3.0, 3));
     try std.testing.expect(!(try csr.rowMeansInRange(0, 3)));
     try std.testing.expectError(error.InvalidShape, csr.rowMeansInRange(3, 2));
@@ -38153,6 +38187,8 @@ test "csr sparse row and column statistics" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try csr.columnMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, col_means.data, means_out.data);
     try std.testing.expect(try csr.columnMeansInRange(1, 5.0 / 3.0));
     try std.testing.expect(!(try csr.columnMeansInRange(1.1, 5.0 / 3.0)));
 
@@ -38876,6 +38912,10 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, -1.0 / 3.0), row_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), row_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_means.data[2], 1e-12);
+    var means_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer means_out.deinit();
+    try csc.rowMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, row_means.data, means_out.data);
     try std.testing.expect(try csc.rowMeansInRange(-1.0 / 3.0, 3));
     try std.testing.expect(!(try csc.rowMeansInRange(0, 3)));
     try std.testing.expectError(error.InvalidShape, csc.rowMeansInRange(3, 2));
@@ -38884,6 +38924,8 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), col_means.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1), col_means.data[2], 1e-12);
+    try csc.columnMeansOut(means_out);
+    try std.testing.expectEqualSlices(f64, col_means.data, means_out.data);
     try std.testing.expect(try csc.columnMeansInRange(1, 5.0 / 3.0));
     try std.testing.expect(!(try csc.columnMeansInRange(1.1, 5.0 / 3.0)));
 
