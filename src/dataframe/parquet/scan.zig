@@ -710,11 +710,11 @@ pub fn DeviceParquetScan(
             return total != 0 and (self.nullableArrowFieldCount() catch return false) == total;
         }
 
-        fn columnSchemaFromArrowField(self: Self, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
+        fn columnSchemaFromArrowField(self: Self, name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
             const rows = try self.rowCount();
             const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
             return .{
-                .name = field.name,
+                .name = name,
                 .dtype = dtype,
                 .rows = rows,
                 .nullable = field.nullable,
@@ -731,14 +731,14 @@ pub fn DeviceParquetScan(
             var schema_value = try self.toArrowSchema(self.allocator);
             defer schema_value.deinit(self.allocator);
             const field = schema_value.fieldAt(index) orelse return null;
-            return try self.columnSchemaFromArrowField(field.*);
+            return try self.columnSchemaFromArrowField("", field.*);
         }
 
         pub fn arrowColumnSchema(self: Self, name: []const u8) ParquetInteropError!DeviceColumnSchema {
             var schema_value = try self.toArrowSchema(self.allocator);
             defer schema_value.deinit(self.allocator);
             const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
-            return try self.columnSchemaFromArrowField(field.*);
+            return try self.columnSchemaFromArrowField(name, field.*);
         }
 
         pub fn arrowColumnSchemas(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
@@ -747,10 +747,11 @@ pub fn DeviceParquetScan(
             const rows = try self.rowCount();
             const schemas = try allocator.alloc(DeviceColumnSchema, schema_value.fields.len);
             errdefer allocator.free(schemas);
-            for (schema_value.fields, schemas) |field, *slot| {
+            for (schema_value.fields, schemas, 0..) |field, *slot, index| {
                 const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
+                const schema_name = if (self.projection) |names| names[index] else "";
                 slot.* = .{
-                    .name = field.name,
+                    .name = schema_name,
                     .dtype = dtype,
                     .rows = rows,
                     .nullable = field.nullable,

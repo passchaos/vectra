@@ -8153,10 +8153,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowColumnSchema(grouped_scan, "missing"));
     const scan_schema_at = (try vectra.ArrowExport.ParquetScan.arrowColumnSchemaAt(grouped_scan, 0)).?;
     try std.testing.expectEqual(vectra.DeviceDType.f64, scan_schema_at.dtype);
+    try std.testing.expectEqualStrings("", scan_schema_at.name);
     try std.testing.expect((try vectra.ArrowExport.ParquetScan.arrowColumnSchemaAt(grouped_scan, 99)) == null);
     const scan_column_schemas = try vectra.ArrowExport.ParquetScan.arrowColumnSchemas(grouped_scan, gpa);
     defer gpa.free(scan_column_schemas);
     try std.testing.expectEqual(@as(usize, 3), scan_column_schemas.len);
+    try std.testing.expectEqualStrings("", scan_column_schemas[0].name);
     try std.testing.expectEqual(vectra.DeviceDType.bool, scan_column_schemas[2].dtype);
     const scan_schema_summary = try vectra.ArrowExport.ParquetScan.arrowSchemaSummary(grouped_scan, gpa);
     defer gpa.free(scan_schema_summary);
@@ -8228,6 +8230,7 @@ test "device dataframe exports boltha arrow record batch" {
     const projected_column_schemas = try vectra.ArrowExport.ParquetScan.arrowColumnSchemas(grouped_scan, gpa);
     defer gpa.free(projected_column_schemas);
     try std.testing.expectEqual(@as(usize, 2), projected_column_schemas.len);
+    try std.testing.expectEqualStrings("sales", projected_column_schemas[0].name);
     try std.testing.expectEqual(vectra.DeviceDType.f64, projected_column_schemas[0].dtype);
     try std.testing.expectEqual(vectra.DeviceDType.i64, projected_column_schemas[1].dtype);
     var projected_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
