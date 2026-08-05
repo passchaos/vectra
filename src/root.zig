@@ -361,6 +361,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const arrowSameSchema = dataframe_mod.DeviceParquetScan.arrowSameSchema;
             pub const arrowSchemaCompatible = dataframe_mod.DeviceParquetScan.arrowSchemaCompatible;
             pub const arrowSchemaEqualsSchemas = dataframe_mod.DeviceParquetScan.arrowSchemaEqualsSchemas;
+            pub const arrowSchemaEqualsFrame = dataframe_mod.DeviceParquetScan.arrowSchemaEqualsFrame;
+            pub const arrowSameSchemaFrame = dataframe_mod.DeviceParquetScan.arrowSameSchemaFrame;
+            pub const arrowSchemaCompatibleFrame = dataframe_mod.DeviceParquetScan.arrowSchemaCompatibleFrame;
             pub const hasArrowProjection = dataframe_mod.DeviceParquetScan.hasArrowProjection;
         };
 
@@ -512,6 +515,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const arrowSameSchema = dataframe_mod.DeviceParquetScan.arrowSameSchema;
         pub const arrowSchemaCompatible = dataframe_mod.DeviceParquetScan.arrowSchemaCompatible;
         pub const arrowSchemaEqualsSchemas = dataframe_mod.DeviceParquetScan.arrowSchemaEqualsSchemas;
+        pub const arrowSchemaEqualsFrame = dataframe_mod.DeviceParquetScan.arrowSchemaEqualsFrame;
+        pub const arrowSameSchemaFrame = dataframe_mod.DeviceParquetScan.arrowSameSchemaFrame;
+        pub const arrowSchemaCompatibleFrame = dataframe_mod.DeviceParquetScan.arrowSchemaCompatibleFrame;
         pub const hasArrowProjection = dataframe_mod.DeviceParquetScan.hasArrowProjection;
         pub const clearProjection = dataframe_mod.DeviceParquetScan.clearProjection;
         pub const clearRangePredicate = dataframe_mod.DeviceParquetScan.clearRangePredicate;

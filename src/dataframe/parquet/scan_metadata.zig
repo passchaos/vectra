@@ -372,6 +372,32 @@ pub fn arrowSchemaEqualsSchemas(scan: anytype, schemas: []const DeviceColumnSche
     return schemasEqual(left, schemas);
 }
 
+fn schemasCompatibleIgnoringNames(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
+    if (left.len != right.len) return false;
+    for (left, right) |left_schema, right_schema| {
+        if (!left_schema.sameDType(right_schema) or
+            !left_schema.sameNullability(right_schema) or
+            !left_schema.sameShape(right_schema)) return false;
+    }
+    return true;
+}
+
+pub fn arrowSchemaEqualsFrame(scan: anytype, frame: anytype) bool {
+    const scan_schema = arrowColumnSchemas(scan, scan.allocator) catch return false;
+    defer scan.allocator.free(scan_schema);
+    const frame_schema = frame.schema(scan.allocator) catch return false;
+    defer scan.allocator.free(frame_schema);
+    return schemasCompatibleIgnoringNames(scan_schema, frame_schema);
+}
+
+pub fn arrowSameSchemaFrame(scan: anytype, frame: anytype) bool {
+    return arrowSchemaEqualsFrame(scan, frame);
+}
+
+pub fn arrowSchemaCompatibleFrame(scan: anytype, frame: anytype) bool {
+    return arrowSchemaEqualsFrame(scan, frame);
+}
+
 pub fn hasArrowProjection(scan: anytype, wanted_names: []const []const u8) bool {
     var schema = boltha.parquet.readSchema(scan.allocator, scan.bytes) catch return false;
     defer schema.deinit(scan.allocator);

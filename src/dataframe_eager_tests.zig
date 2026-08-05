@@ -8174,6 +8174,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSameSchema(grouped_scan, grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaCompatible(grouped_scan, grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaEqualsSchemas(grouped_scan, scan_schema_summary));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.Arrow.arrowSchemaEqualsFrame(grouped_scan, table));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSameSchemaFrame(grouped_scan, table));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaCompatibleFrame(grouped_scan, table));
     var scan_arrow_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer scan_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), scan_arrow_schema.fieldCount());

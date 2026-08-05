@@ -559,6 +559,18 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn arrowSchemaEqualsFrame(_: DeviceParquetScan, _: anytype) bool {
+                return false;
+            }
+
+            pub fn arrowSameSchemaFrame(_: DeviceParquetScan, _: anytype) bool {
+                return false;
+            }
+
+            pub fn arrowSchemaCompatibleFrame(_: DeviceParquetScan, _: anytype) bool {
+                return false;
+            }
+
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
             }
