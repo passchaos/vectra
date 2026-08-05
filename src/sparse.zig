@@ -7926,8 +7926,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSolveTriangular(T, self, rhs, triangle, diagonal_kind);
         }
 
+        pub fn solveTriangularOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solveTriangular(rhs, triangle, diagonal_kind), out);
+        }
+
         pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
             return self.solveTriangular(rhs, triangle, diagonal_kind);
+        }
+
+        pub fn solveTriangularArrayOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try self.solveTriangularOut(rhs, triangle, diagonal_kind, out);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -7942,8 +7950,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePinv(T, self, tolerance);
         }
 
+        pub fn pinvOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pinv(tolerance), out);
+        }
+
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn singularValuesOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.singularValues(tolerance), out);
         }
 
         pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
@@ -7958,12 +7974,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseCholesky(T, self);
         }
 
+        pub fn choleskyOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cholesky(), out);
+        }
+
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
+        pub fn lstsqOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lstsq(rhs, tolerance), out);
+        }
+
         pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return self.lstsq(rhs, tolerance);
+        }
+
+        pub fn lstsqArrayOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try self.lstsqOut(rhs, tolerance, out);
         }
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
@@ -7980,6 +8008,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalshOut(self: Self, max_sweeps: usize, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.eigvalsh(max_sweeps, tolerance), out);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -14994,8 +15026,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePinv(T, self, tolerance);
         }
 
+        pub fn pinvOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pinv(tolerance), out);
+        }
+
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn singularValuesOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.singularValues(tolerance), out);
         }
 
         pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
@@ -15010,12 +15050,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseCholesky(T, self);
         }
 
+        pub fn choleskyOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cholesky(), out);
+        }
+
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
+        pub fn lstsqOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lstsq(rhs, tolerance), out);
+        }
+
         pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return self.lstsq(rhs, tolerance);
+        }
+
+        pub fn lstsqArrayOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try self.lstsqOut(rhs, tolerance, out);
         }
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
@@ -15032,6 +15084,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalshOut(self: Self, max_sweeps: usize, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.eigvalsh(max_sweeps, tolerance), out);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -18094,8 +18150,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.solveTriangularReference(rhs, triangle, diag_kind);
         }
 
+        pub fn solveTriangularOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solveTriangular(rhs, triangle, diag_kind), out);
+        }
+
         pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
             return self.solveTriangular(rhs, triangle, diag_kind);
+        }
+
+        pub fn solveTriangularArrayOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try self.solveTriangularOut(rhs, triangle, diag_kind, out);
         }
 
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
@@ -22267,8 +22331,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePinv(T, self, tolerance);
         }
 
+        pub fn pinvOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pinv(tolerance), out);
+        }
+
         pub fn singularValues(self: Self, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseSingularValues(T, self, tolerance);
+        }
+
+        pub fn singularValuesOut(self: Self, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.singularValues(tolerance), out);
         }
 
         pub fn svd(self: Self, tolerance: T) SparseError!array_mod.SvdResult(T) {
@@ -22283,12 +22355,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseCholesky(T, self);
         }
 
+        pub fn choleskyOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cholesky(), out);
+        }
+
         pub fn lstsq(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseLstsq(T, self, rhs, tolerance);
         }
 
+        pub fn lstsqOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lstsq(rhs, tolerance), out);
+        }
+
         pub fn lstsqArray(self: Self, rhs: array_mod.Array(T), tolerance: T) SparseError!array_mod.Array(T) {
             return self.lstsq(rhs, tolerance);
+        }
+
+        pub fn lstsqArrayOut(self: Self, rhs: array_mod.Array(T), tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try self.lstsqOut(rhs, tolerance, out);
         }
 
         pub fn qr(self: Self) SparseError!array_mod.QrResult(T) {
@@ -22305,6 +22389,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
             return sparseDenseEigvalsh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eigvalshOut(self: Self, max_sweeps: usize, tolerance: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.eigvalsh(max_sweeps, tolerance), out);
         }
 
         pub fn squeeze(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -25285,8 +25373,16 @@ pub fn CscMatrix(comptime T: type) type {
             return csr.solveTriangular(rhs, triangle, diag_kind);
         }
 
+        pub fn solveTriangularOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solveTriangular(rhs, triangle, diag_kind), out);
+        }
+
         pub fn solveTriangularArray(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(T) {
             return self.solveTriangular(rhs, triangle, diag_kind);
+        }
+
+        pub fn solveTriangularArrayOut(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diag_kind: Diagonal, out: array_mod.Array(T)) SparseError!void {
+            try self.solveTriangularOut(rhs, triangle, diag_kind, out);
         }
 
         fn solveTriangularF64(self: Self, rhs: array_mod.Array(f64), triangle: Triangle, diag_kind: Diagonal) SparseError!array_mod.Array(f64) {
@@ -28690,11 +28786,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
             for (solution.data, triangular_solution.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
+            var triangular_solution_out = try array_mod.Array(f64).zeros(upper.allocator, solution.shape);
+            defer triangular_solution_out.deinit();
+            try upper.solveTriangularOut(rhs, .upper, .non_unit, triangular_solution_out);
+            for (triangular_solution.data, triangular_solution_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var triangular_solution_array = try upper.solveTriangularArray(rhs, .upper, .non_unit);
             defer triangular_solution_array.deinit();
             try std.testing.expectEqualSlices(usize, triangular_solution.shape, triangular_solution_array.shape);
             for (triangular_solution.data, triangular_solution_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+            try upper.solveTriangularArrayOut(rhs, .upper, .non_unit, triangular_solution_out);
+            for (triangular_solution_array.data, triangular_solution_out.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
@@ -28704,11 +28810,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
             for (solution.data, least_squares.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
+            var least_squares_out = try array_mod.Array(f64).zeros(upper.allocator, solution.shape);
+            defer least_squares_out.deinit();
+            try upper.lstsqOut(rhs, 1e-12, least_squares_out);
+            for (least_squares.data, least_squares_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
 
             var least_squares_array = try upper.lstsqArray(rhs, 1e-12);
             defer least_squares_array.deinit();
             try std.testing.expectEqualSlices(usize, least_squares.shape, least_squares_array.shape);
             for (least_squares.data, least_squares_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
+            try upper.lstsqArrayOut(rhs, 1e-12, least_squares_out);
+            for (least_squares_array.data, least_squares_out.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
 
@@ -28742,12 +28858,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
             for (inverse.data, pseudo_inverse.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
+            var pseudo_inverse_out = try array_mod.Array(f64).zeros(upper.allocator, pseudo_inverse.shape);
+            defer pseudo_inverse_out.deinit();
+            try upper.pinvOut(1e-12, pseudo_inverse_out);
+            for (pseudo_inverse.data, pseudo_inverse_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
 
             var singular_values = try upper.singularValues(1e-12);
             defer singular_values.deinit();
             try std.testing.expectEqualSlices(usize, &.{2}, singular_values.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 3.6502815398728847), singular_values.data[0], 1e-10);
             try std.testing.expectApproxEqAbs(@as(f64, 0.8218544151266947), singular_values.data[1], 1e-10);
+            var singular_values_out = try array_mod.Array(f64).zeros(upper.allocator, singular_values.shape);
+            defer singular_values_out.deinit();
+            try upper.singularValuesOut(1e-12, singular_values_out);
+            for (singular_values.data, singular_values_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
             var svd_result = try upper.svd(1e-12);
             defer svd_result.deinit();
             var singular_diagonal = try svd_result.s.diagEmbed(0);
@@ -28770,6 +28898,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), diagonal_cholesky.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@sqrt(@as(f64, 3)), diagonal_cholesky.data[3], 1e-12);
+            var diagonal_cholesky_out = try array_mod.Array(f64).zeros(diagonal.allocator, diagonal_cholesky.shape);
+            defer diagonal_cholesky_out.deinit();
+            try diagonal.choleskyOut(diagonal_cholesky_out);
+            for (diagonal_cholesky.data, diagonal_cholesky_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var eigen = try diagonal.eigh(64, 1e-12);
             defer eigen.deinit();
@@ -28782,6 +28916,12 @@ test "sparse addition canonicalizes duplicate coordinates" {
             defer eigenvalues.deinit();
             try std.testing.expectEqualSlices(usize, eigen.values.shape, eigenvalues.shape);
             for (eigen.values.data, eigenvalues.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
+            }
+            var eigenvalues_out = try array_mod.Array(f64).zeros(diagonal.allocator, eigenvalues.shape);
+            defer eigenvalues_out.deinit();
+            try diagonal.eigvalshOut(64, 1e-12, eigenvalues_out);
+            for (eigenvalues.data, eigenvalues_out.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-10);
             }
         }
