@@ -1435,6 +1435,17 @@ fn sparseDenseHistogramCopyOut(comptime T: type, result_in: array_mod.Array(T).H
     try edges_view.copyFromArray(result.edges);
 }
 
+fn sparseDenseSplitCopyOut(comptime T: type, result_in: array_mod.Array(T).SplitResult, outputs: []const array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    if (outputs.len != result.items.len) return error.ShapeMismatch;
+    for (result.items, outputs) |item, out| {
+        var out_view = try out.asView();
+        defer out_view.deinit();
+        try out_view.copyFromArray(item);
+    }
+}
+
 fn sparseScalarComparisonOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
     // Scalar sparse comparisons intentionally preserve the stored sparse
     // structure. The caller-owned `*ScalarOut` APIs are dense Array parity
@@ -8421,20 +8432,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSplit(T, self, split_size, axis_index);
         }
 
+        pub fn splitOut(self: Self, split_size: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.split(split_size, axis_index), outputs);
+        }
+
         pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitWithSizesOut(self: Self, sizes: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitWithSizes(sizes, axis_index), outputs);
         }
 
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitAtIndices(T, self, indices, axis_index);
         }
 
+        pub fn splitAtIndicesOut(self: Self, indices: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitAtIndices(indices, axis_index), outputs);
+        }
+
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseChunk(T, self, chunks, axis_index);
         }
 
+        pub fn chunkOut(self: Self, chunks: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.chunk(chunks, axis_index), outputs);
+        }
+
         pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseUnbind(T, self, axis_index);
+        }
+
+        pub fn unbindOut(self: Self, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.unbind(axis_index), outputs);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -15709,20 +15740,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSplit(T, self, split_size, axis_index);
         }
 
+        pub fn splitOut(self: Self, split_size: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.split(split_size, axis_index), outputs);
+        }
+
         pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitWithSizesOut(self: Self, sizes: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitWithSizes(sizes, axis_index), outputs);
         }
 
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitAtIndices(T, self, indices, axis_index);
         }
 
+        pub fn splitAtIndicesOut(self: Self, indices: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitAtIndices(indices, axis_index), outputs);
+        }
+
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseChunk(T, self, chunks, axis_index);
         }
 
+        pub fn chunkOut(self: Self, chunks: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.chunk(chunks, axis_index), outputs);
+        }
+
         pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseUnbind(T, self, axis_index);
+        }
+
+        pub fn unbindOut(self: Self, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.unbind(axis_index), outputs);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -23226,20 +23277,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSplit(T, self, split_size, axis_index);
         }
 
+        pub fn splitOut(self: Self, split_size: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.split(split_size, axis_index), outputs);
+        }
+
         pub fn splitWithSizes(self: Self, sizes: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitWithSizes(T, self, sizes, axis_index);
+        }
+
+        pub fn splitWithSizesOut(self: Self, sizes: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitWithSizes(sizes, axis_index), outputs);
         }
 
         pub fn splitAtIndices(self: Self, indices: []const usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseSplitAtIndices(T, self, indices, axis_index);
         }
 
+        pub fn splitAtIndicesOut(self: Self, indices: []const usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.splitAtIndices(indices, axis_index), outputs);
+        }
+
         pub fn chunk(self: Self, chunks: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseChunk(T, self, chunks, axis_index);
         }
 
+        pub fn chunkOut(self: Self, chunks: usize, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.chunk(chunks, axis_index), outputs);
+        }
+
         pub fn unbind(self: Self, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
             return sparseDenseUnbind(T, self, axis_index);
+        }
+
+        pub fn unbindOut(self: Self, axis_index: isize, outputs: []const array_mod.Array(T)) SparseError!void {
+            try sparseDenseSplitCopyOut(T, try self.unbind(axis_index), outputs);
         }
 
         pub fn repeat(self: Self, repeats: usize, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -29104,12 +29175,26 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqual(@as(usize, 2), split_rows.items.len);
             try expectArray(split_rows.items[0], &.{ 1, 3 }, &.{ 1, 0, 0 });
             try expectArray(split_rows.items[1], &.{ 1, 3 }, &.{ 0, 2, 3 });
+            var split_row_out0 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 3 });
+            defer split_row_out0.deinit();
+            var split_row_out1 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 3 });
+            defer split_row_out1.deinit();
+            try matrix.splitOut(1, 0, &.{ split_row_out0, split_row_out1 });
+            try expectArray(split_row_out0, &.{ 1, 3 }, split_rows.items[0].data);
+            try expectArray(split_row_out1, &.{ 1, 3 }, split_rows.items[1].data);
 
             var split_columns = try matrix.splitWithSizes(&.{ 1, 2 }, 1);
             defer split_columns.deinit();
             try std.testing.expectEqual(@as(usize, 2), split_columns.items.len);
             try expectArray(split_columns.items[0], &.{ 2, 1 }, &.{ 1, 0 });
             try expectArray(split_columns.items[1], &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+            var split_col_out0 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer split_col_out0.deinit();
+            var split_col_out1 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer split_col_out1.deinit();
+            try matrix.splitWithSizesOut(&.{ 1, 2 }, 1, &.{ split_col_out0, split_col_out1 });
+            try expectArray(split_col_out0, &.{ 2, 1 }, split_columns.items[0].data);
+            try expectArray(split_col_out1, &.{ 2, 2 }, split_columns.items[1].data);
 
             var split_at_columns = try matrix.splitAtIndices(&.{ 1, 2 }, 1);
             defer split_at_columns.deinit();
@@ -29117,18 +29202,38 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectArray(split_at_columns.items[0], &.{ 2, 1 }, &.{ 1, 0 });
             try expectArray(split_at_columns.items[1], &.{ 2, 1 }, &.{ 0, 2 });
             try expectArray(split_at_columns.items[2], &.{ 2, 1 }, &.{ 0, 3 });
+            var split_at_out0 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer split_at_out0.deinit();
+            var split_at_out1 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer split_at_out1.deinit();
+            var split_at_out2 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer split_at_out2.deinit();
+            try matrix.splitAtIndicesOut(&.{ 1, 2 }, 1, &.{ split_at_out0, split_at_out1, split_at_out2 });
+            try expectArray(split_at_out0, &.{ 2, 1 }, split_at_columns.items[0].data);
+            try expectArray(split_at_out1, &.{ 2, 1 }, split_at_columns.items[1].data);
+            try expectArray(split_at_out2, &.{ 2, 1 }, split_at_columns.items[2].data);
 
             var chunks = try matrix.chunk(2, 1);
             defer chunks.deinit();
             try std.testing.expectEqual(@as(usize, 2), chunks.items.len);
             try expectArray(chunks.items[0], &.{ 2, 2 }, &.{ 1, 0, 0, 2 });
             try expectArray(chunks.items[1], &.{ 2, 1 }, &.{ 0, 3 });
+            try matrix.chunkOut(2, 1, &.{ split_col_out1, split_col_out0 });
+            try expectArray(split_col_out1, &.{ 2, 2 }, chunks.items[0].data);
+            try expectArray(split_col_out0, &.{ 2, 1 }, chunks.items[1].data);
 
             var unbound_rows = try matrix.unbind(0);
             defer unbound_rows.deinit();
             try std.testing.expectEqual(@as(usize, 2), unbound_rows.items.len);
             try expectArray(unbound_rows.items[0], &.{3}, &.{ 1, 0, 0 });
             try expectArray(unbound_rows.items[1], &.{3}, &.{ 0, 2, 3 });
+            var unbound_out0 = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer unbound_out0.deinit();
+            var unbound_out1 = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer unbound_out1.deinit();
+            try matrix.unbindOut(0, &.{ unbound_out0, unbound_out1 });
+            try expectArray(unbound_out0, &.{3}, unbound_rows.items[0].data);
+            try expectArray(unbound_out1, &.{3}, unbound_rows.items[1].data);
 
             try std.testing.expectError(error.InvalidShape, matrix.split(0, 0));
             try std.testing.expectError(error.ShapeMismatch, matrix.splitWithSizes(&.{ 1, 1 }, 1));
