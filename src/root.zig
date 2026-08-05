@@ -218,6 +218,12 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const nullPredicateWantNulls = dataframe_mod.DeviceParquetScan.nullPredicateWantNulls;
         pub const hasNullPredicateFor = dataframe_mod.DeviceParquetScan.hasNullPredicateFor;
         pub const hasPushdown = dataframe_mod.DeviceParquetScan.hasPushdown;
+        pub const clearProjection = dataframe_mod.DeviceParquetScan.clearProjection;
+        pub const clearRangePredicate = dataframe_mod.DeviceParquetScan.clearRangePredicate;
+        pub const clearNullPredicate = dataframe_mod.DeviceParquetScan.clearNullPredicate;
+        pub const clearPredicate = dataframe_mod.DeviceParquetScan.clearPredicate;
+        pub const clearPushdown = dataframe_mod.DeviceParquetScan.clearPushdown;
+        pub const resetPushdown = dataframe_mod.DeviceParquetScan.resetPushdown;
         pub const select = dataframe_mod.DeviceParquetScan.select;
         pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
         pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
@@ -533,6 +539,13 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!parquet_scan.hasRangePredicateFor("missing"));
         try std.testing.expect(parquet_scan.nullPredicateWantNulls() == null);
         try std.testing.expect(!parquet_scan.hasNullPredicateFor("missing"));
+        var mutable_scan = parquet_scan;
+        mutable_scan.clearProjection();
+        mutable_scan.clearRangePredicate();
+        mutable_scan.clearNullPredicate();
+        mutable_scan.clearPredicate();
+        mutable_scan.clearPushdown();
+        mutable_scan.resetPushdown();
 
         const shape_value = frame.shape();
         try std.testing.expectEqual(@as(usize, 0), shape_value.rows);

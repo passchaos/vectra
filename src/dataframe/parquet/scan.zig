@@ -47,10 +47,8 @@ pub fn DeviceParquetScan(
         }
 
         pub fn deinit(self: *Self) void {
+            self.clearPushdown();
             self.allocator.free(self.bytes);
-            if (self.projection) |names| freeNameList(self.allocator, names);
-            if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
-            if (self.null_predicate) |predicate| self.allocator.free(predicate.column);
             self.* = undefined;
         }
 
@@ -287,17 +285,49 @@ pub fn DeviceParquetScan(
             return self.hasProjection() or self.hasRangePredicate() or self.hasNullPredicate();
         }
 
+        pub fn clearProjection(self: *Self) void {
+            if (self.projection) |names| {
+                freeNameList(self.allocator, names);
+                self.projection = null;
+            }
+        }
+
+        pub fn clearRangePredicate(self: *Self) void {
+            if (self.range_predicate) |predicate| {
+                self.allocator.free(predicate.column);
+                self.range_predicate = null;
+            }
+        }
+
+        pub fn clearNullPredicate(self: *Self) void {
+            if (self.null_predicate) |predicate| {
+                self.allocator.free(predicate.column);
+                self.null_predicate = null;
+            }
+        }
+
+        pub fn clearPredicate(self: *Self) void {
+            self.clearRangePredicate();
+            self.clearNullPredicate();
+        }
+
+        pub fn clearPushdown(self: *Self) void {
+            self.clearProjection();
+            self.clearPredicate();
+        }
+
+        pub fn resetPushdown(self: *Self) void {
+            self.clearPushdown();
+        }
+
         pub fn select(self: *Self, names: []const []const u8) std.mem.Allocator.Error!void {
-            if (self.projection) |old| freeNameList(self.allocator, old);
+            self.clearProjection();
             self.projection = try cloneNameList(self.allocator, names);
         }
 
         pub fn whereRange(self: *Self, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
-            if (self.range_predicate) |old| self.allocator.free(old.column);
-            if (self.null_predicate) |old| {
-                self.allocator.free(old.column);
-                self.null_predicate = null;
-            }
+            self.clearRangePredicate();
+            self.clearNullPredicate();
             self.range_predicate = .{
                 .column = try self.allocator.dupe(u8, column),
                 .predicate = predicate,
@@ -305,11 +335,8 @@ pub fn DeviceParquetScan(
         }
 
         pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
-            if (self.null_predicate) |old| self.allocator.free(old.column);
-            if (self.range_predicate) |old| {
-                self.allocator.free(old.column);
-                self.range_predicate = null;
-            }
+            self.clearNullPredicate();
+            self.clearRangePredicate();
             self.null_predicate = .{
                 .column = try self.allocator.dupe(u8, column),
                 .want_nulls = want_nulls,

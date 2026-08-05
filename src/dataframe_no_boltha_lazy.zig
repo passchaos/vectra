@@ -252,6 +252,18 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn clearProjection(_: *DeviceParquetScan) void {}
+
+            pub fn clearRangePredicate(_: *DeviceParquetScan) void {}
+
+            pub fn clearNullPredicate(_: *DeviceParquetScan) void {}
+
+            pub fn clearPredicate(_: *DeviceParquetScan) void {}
+
+            pub fn clearPushdown(_: *DeviceParquetScan) void {}
+
+            pub fn resetPushdown(_: *DeviceParquetScan) void {}
+
             pub fn select(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }
