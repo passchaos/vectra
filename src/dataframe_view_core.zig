@@ -40,6 +40,10 @@ pub fn DeviceViewTypes(
                 return self.len();
             }
 
+            pub fn shape(self: DeviceColumnView) struct { rows: usize } {
+                return .{ .rows = self.rows };
+            }
+
             pub fn isEmpty(self: DeviceColumnView) bool {
                 return self.rows == 0;
             }
@@ -197,8 +201,20 @@ pub fn DeviceViewTypes(
                 return self.rows == other.rows;
             }
 
+            pub fn sameShape(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.sameLength(other);
+            }
+
             pub fn lengthEquals(self: DeviceColumnView, rows: usize) bool {
                 return self.rows == rows;
+            }
+
+            pub fn shapeEquals(self: DeviceColumnView, rows: usize) bool {
+                return self.lengthEquals(rows);
+            }
+
+            pub fn hasShape(self: DeviceColumnView, rows: usize) bool {
+                return self.shapeEquals(rows);
             }
 
             pub fn sameDType(self: DeviceColumnView, other: DeviceColumnView) bool {

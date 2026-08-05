@@ -389,6 +389,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 0), column.len());
         try std.testing.expectEqual(column.len(), column.rowCount());
         try std.testing.expectEqual(column.len(), column.nRows());
+        try std.testing.expectEqual(@as(usize, 0), column.shape().rows);
+        try std.testing.expect(column.shapeEquals(0));
+        try std.testing.expect(column.hasShape(0));
         try std.testing.expect(column.isEmpty());
         try std.testing.expect(!column.isNonEmpty());
         try std.testing.expect(!column.hasRows());
@@ -409,6 +412,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 0), column.memoryUsage());
         try std.testing.expect(column.sameDevice(bool_column));
         try std.testing.expect(column.sameLength(bool_column));
+        try std.testing.expect(column.sameShape(bool_column));
         try std.testing.expect(column.lengthEquals(0));
         try std.testing.expect(!column.sameDType(bool_column));
         try std.testing.expect(column.sameNullability(bool_column));
@@ -477,6 +481,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 2), id_view.len());
         try std.testing.expectEqual(id_view.len(), id_view.rowCount());
         try std.testing.expectEqual(id_view.len(), id_view.nRows());
+        try std.testing.expectEqual(@as(usize, 2), id_view.shape().rows);
+        try std.testing.expect(id_view.shapeEquals(2));
+        try std.testing.expect(id_view.hasShape(2));
         try std.testing.expect(!id_view.isEmpty());
         try std.testing.expect(id_view.isNonEmpty());
         try std.testing.expect(id_view.hasRows());
@@ -493,6 +500,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqualStrings("cpu", id_view.deviceBackendName());
         try std.testing.expect(id_view.sameDevice(view_columns[0]));
         try std.testing.expect(id_view.sameLength(view_columns[0]));
+        try std.testing.expect(id_view.sameShape(view_columns[0]));
         try std.testing.expect(id_view.lengthEquals(2));
         try std.testing.expect(id_view.sameDType(view_columns[0]));
         try std.testing.expect(id_view.sameNullability(view_columns[0]));
@@ -524,6 +532,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 2), id_schema.len());
         try std.testing.expectEqual(id_schema.len(), id_schema.rowCount());
         try std.testing.expectEqual(id_schema.len(), id_schema.nRows());
+        try std.testing.expectEqual(@as(usize, 2), id_schema.shape().rows);
+        try std.testing.expect(id_schema.shapeEquals(2));
+        try std.testing.expect(id_schema.hasShape(2));
         try std.testing.expect(!id_schema.isEmpty());
         try std.testing.expect(id_schema.isNonEmpty());
         try std.testing.expect(id_schema.hasRows());
@@ -550,6 +561,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(id_schema.schemaCompatible(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.sameDevice(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.sameLength(try view.columnSchema("id")));
+        try std.testing.expect(id_schema.sameShape(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.lengthEquals(2));
         try std.testing.expect(id_schema.sameDType(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.sameNullability(try view.columnSchema("id")));

@@ -102,6 +102,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return 0;
     }
 
+    pub fn shape(_: DeviceColumn) struct { rows: usize } {
+        return .{ .rows = 0 };
+    }
+
     pub fn isEmpty(_: DeviceColumn) bool {
         return true;
     }
@@ -268,8 +272,20 @@ pub const DeviceColumn = union(DeviceDType) {
         return true;
     }
 
+    pub fn sameShape(_: DeviceColumn, _: DeviceColumn) bool {
+        return true;
+    }
+
     pub fn lengthEquals(_: DeviceColumn, rows: usize) bool {
         return rows == 0;
+    }
+
+    pub fn shapeEquals(_: DeviceColumn, rows: usize) bool {
+        return rows == 0;
+    }
+
+    pub fn hasShape(self: DeviceColumn, rows: usize) bool {
+        return self.shapeEquals(rows);
     }
 
     pub fn sameDType(self: DeviceColumn, other: DeviceColumn) bool {

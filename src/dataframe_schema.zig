@@ -28,6 +28,10 @@ pub const DeviceColumnSchema = struct {
         return self.len();
     }
 
+    pub fn shape(self: @This()) struct { rows: usize } {
+        return .{ .rows = self.rows };
+    }
+
     pub fn isEmpty(self: @This()) bool {
         return self.rows == 0;
     }
@@ -185,8 +189,20 @@ pub const DeviceColumnSchema = struct {
         return self.rows == other.rows;
     }
 
+    pub fn sameShape(self: @This(), other: @This()) bool {
+        return self.sameLength(other);
+    }
+
     pub fn lengthEquals(self: @This(), rows: usize) bool {
         return self.rows == rows;
+    }
+
+    pub fn shapeEquals(self: @This(), rows: usize) bool {
+        return self.lengthEquals(rows);
+    }
+
+    pub fn hasShape(self: @This(), rows: usize) bool {
+        return self.shapeEquals(rows);
     }
 
     pub fn sameDType(self: @This(), other: @This()) bool {
