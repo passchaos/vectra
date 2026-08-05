@@ -490,6 +490,34 @@ pub const DeviceParquetScan = struct {
 };
 
 pub const DeviceDataFrame = struct {
+    pub fn columnDataMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn columnValidityMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn columnMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn dataMemoryUsage(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn validityMemoryUsage(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn memoryUsage(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn estimatedSize(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
     pub fn columnSchemaAt(_: DeviceDataFrame, _: usize) DeviceDataError!DeviceColumnSchema {
         return error.FeatureUnavailable;
     }
