@@ -101,6 +101,30 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn scanParquetFileInDir(
+                allocator: std.mem.Allocator,
+                dir: std.Io.Dir,
+                io: std.Io,
+                path: []const u8,
+                read_limit: std.Io.Limit,
+                device_value: array_mod.Device,
+            ) !DeviceLazyFrame {
+                return .{
+                    .allocator = allocator,
+                    .source = .{ .parquet_scan = try DeviceParquetScan.fromFileInDir(allocator, dir, io, path, read_limit, device_value) },
+                };
+            }
+
+            pub fn scanParquetFile(
+                allocator: std.mem.Allocator,
+                io: std.Io,
+                path: []const u8,
+                read_limit: std.Io.Limit,
+                device_value: array_mod.Device,
+            ) !DeviceLazyFrame {
+                return DeviceLazyFrame.scanParquetFileInDir(allocator, std.Io.Dir.cwd(), io, path, read_limit, device_value);
+            }
+
             pub fn clone(self: DeviceLazyFrame) DeviceDataError!DeviceLazyFrame {
                 var cloned = DeviceLazyFrame{
                     .allocator = self.allocator,

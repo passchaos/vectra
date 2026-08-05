@@ -35,6 +35,14 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn scanParquetFileInDir(_: std.mem.Allocator, _: std.Io.Dir, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!DeviceLazyFrame {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn scanParquetFile(_: std.mem.Allocator, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!DeviceLazyFrame {
+                return error.FeatureUnavailable;
+            }
+
             pub fn filterIsInValuesColumn(_: *DeviceLazyFrame, _: []const u8, _: DeviceColumn) DeviceDataError!void {
                 return error.FeatureUnavailable;
             }

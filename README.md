@@ -1070,7 +1070,7 @@ reader/writer and allow readback directly onto the requested Vectra device.
 `fromParquetBytesPruned` sends fixed-width numeric range predicates to
 Boltha's statistics/Bloom-filter pruning reader before materializing the
 surviving Arrow table as a `DeviceDataFrame`. `DeviceParquetScan.lazy()` and
-`DeviceLazyFrame.scanParquetBytes(...)` reuse the same path for scalar-filter
+`DeviceLazyFrame.scanParquetBytes(...)`/`scanParquetFileInDir(...)`/`scanParquetFile(...)` reuse the same path for scalar-filter
 pushdown and apply projection while crossing the Arrow -> Vectra device-column
 boundary, so unused columns are not uploaded into CPU/CUDA/MPS arrays.
 `toOwnedTensorString` returns the same format as an owned string.

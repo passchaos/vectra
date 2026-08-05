@@ -7994,6 +7994,11 @@ test "device dataframe exports boltha arrow record batch" {
     defer file_scan.deinit();
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.Source.sourceNbytes(file_scan));
     try std.testing.expectEqual(table.height(), try vectra.ArrowExport.ParquetScan.File.rowCount(file_scan));
+    var file_lazy_scan = try DeviceLazyFrame.scanParquetFileInDir(gpa, tmp_scan_dir.dir, std.testing.io, "scan.parquet", .limited(1024 * 1024), .cpu);
+    defer file_lazy_scan.deinit();
+    var file_lazy_rows = try file_lazy_scan.collect();
+    defer file_lazy_rows.deinit();
+    try std.testing.expectEqual(table.height(), file_lazy_rows.height());
     var parquet_roundtrip = try vectra.ArrowExport.DataFrame.fromParquetBytes(gpa, grouped_parquet_bytes, .cpu);
     defer parquet_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), parquet_roundtrip.height());
