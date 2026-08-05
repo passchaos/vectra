@@ -6802,8 +6802,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
 
+        pub fn thresholdOut(self: Self, threshold_value: T, replacement_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.threshold(threshold_value, replacement_value), out);
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
             return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
+        pub fn leakyReluOut(self: Self, negative_slope: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.leakyRelu(negative_slope), out);
         }
 
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
@@ -6898,32 +6906,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseElu(T, self, alpha);
         }
 
+        pub fn eluOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.elu(alpha), out);
+        }
+
         pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
             return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn celuOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.celu(alpha), out);
         }
 
         pub fn selu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .selu);
         }
 
+        pub fn seluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selu(), out);
+        }
+
         pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
             return self.selu();
+        }
+
+        pub fn SELUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.seluOut(out);
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardsigmoid);
         }
 
+        pub fn hardsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardsigmoid(), out);
+        }
+
         pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.hardsigmoid();
+        }
+
+        pub fn hardSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardsigmoidOut(out);
         }
 
         pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardswish);
         }
 
+        pub fn hardswishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardswish(), out);
+        }
+
         pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
             return self.hardswish();
+        }
+
+        pub fn hardSwishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardswishOut(out);
         }
 
         pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -14294,8 +14334,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
 
+        pub fn thresholdOut(self: Self, threshold_value: T, replacement_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.threshold(threshold_value, replacement_value), out);
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
             return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
+        pub fn leakyReluOut(self: Self, negative_slope: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.leakyRelu(negative_slope), out);
         }
 
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
@@ -14390,32 +14438,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseElu(T, self, alpha);
         }
 
+        pub fn eluOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.elu(alpha), out);
+        }
+
         pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
             return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn celuOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.celu(alpha), out);
         }
 
         pub fn selu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .selu);
         }
 
+        pub fn seluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selu(), out);
+        }
+
         pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
             return self.selu();
+        }
+
+        pub fn SELUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.seluOut(out);
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardsigmoid);
         }
 
+        pub fn hardsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardsigmoid(), out);
+        }
+
         pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.hardsigmoid();
+        }
+
+        pub fn hardSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardsigmoidOut(out);
         }
 
         pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardswish);
         }
 
+        pub fn hardswishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardswish(), out);
+        }
+
         pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
             return self.hardswish();
+        }
+
+        pub fn hardSwishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardswishOut(out);
         }
 
         pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -21999,8 +22079,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
 
+        pub fn thresholdOut(self: Self, threshold_value: T, replacement_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.threshold(threshold_value, replacement_value), out);
+        }
+
         pub fn leakyRelu(self: Self, negative_slope: T) SparseError!array_mod.Array(T) {
             return sparseDenseLeakyRelu(T, self, negative_slope);
+        }
+
+        pub fn leakyReluOut(self: Self, negative_slope: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.leakyRelu(negative_slope), out);
         }
 
         pub fn hardtanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
@@ -22095,32 +22183,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseElu(T, self, alpha);
         }
 
+        pub fn eluOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.elu(alpha), out);
+        }
+
         pub fn celu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
             return sparseDenseCelu(T, self, alpha);
+        }
+
+        pub fn celuOut(self: Self, alpha: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.celu(alpha), out);
         }
 
         pub fn selu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .selu);
         }
 
+        pub fn seluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.selu(), out);
+        }
+
         pub fn SELU(self: Self) SparseError!array_mod.Array(T) {
             return self.selu();
+        }
+
+        pub fn SELUOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.seluOut(out);
         }
 
         pub fn hardsigmoid(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardsigmoid);
         }
 
+        pub fn hardsigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardsigmoid(), out);
+        }
+
         pub fn hardSigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.hardsigmoid();
+        }
+
+        pub fn hardSigmoidOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardsigmoidOut(out);
         }
 
         pub fn hardswish(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .hardswish);
         }
 
+        pub fn hardswishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardswish(), out);
+        }
+
         pub fn hardSwish(self: Self) SparseError!array_mod.Array(T) {
             return self.hardswish();
+        }
+
+        pub fn hardSwishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.hardswishOut(out);
         }
 
         pub fn logsigmoid(self: Self) SparseError!array_mod.Array(T) {
@@ -33083,28 +33203,40 @@ test "sparse dense norm and logsumexp helpers" {
             var threshold_values = try activation_matrix.threshold(0.25, -9);
             defer threshold_values.deinit();
             try expectArray(threshold_values, &.{ 2, 3 }, &.{ -9, -9, -9, -9, 0.5, 7 });
+            try activation_matrix.thresholdOut(0.25, -9, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, threshold_values.data);
 
             var leaky_relu_values = try activation_matrix.leakyRelu(0.1);
             defer leaky_relu_values.deinit();
             try expectArray(leaky_relu_values, &.{ 2, 3 }, &.{ -0.2, 0, 0, 0, 0.5, 7 });
+            try activation_matrix.leakyReluOut(0.1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, leaky_relu_values.data);
 
             var elu_values = try activation_matrix.elu(2);
             defer elu_values.deinit();
             try expectArray(elu_values, &.{ 2, 3 }, &.{ 2 * std.math.expm1(@as(f64, -2)), 0, 0, 0, 0.5, 7 });
+            try activation_matrix.eluOut(2, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, elu_values.data);
 
             var celu_values = try activation_matrix.celu(2);
             defer celu_values.deinit();
             try expectArray(celu_values, &.{ 2, 3 }, &.{ 2 * std.math.expm1(@as(f64, -1)), 0, 0, 0, 0.5, 7 });
+            try activation_matrix.celuOut(2, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, celu_values.data);
 
             const selu_scale = 1.0507009873554805;
             const selu_alpha = 1.6732632423543772;
             var selu_values = try activation_matrix.selu();
             defer selu_values.deinit();
             try expectArray(selu_values, &.{ 2, 3 }, &.{ selu_scale * selu_alpha * std.math.expm1(@as(f64, -2)), 0, 0, 0, selu_scale * 0.5, selu_scale * 7 });
+            try activation_matrix.seluOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, selu_values.data);
 
             var selu_alias = try activation_matrix.SELU();
             defer selu_alias.deinit();
             try expectArray(selu_alias, &.{ 2, 3 }, selu_values.data);
+            try activation_matrix.SELUOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, selu_alias.data);
 
             var hardtanh_values = try activation_matrix.hardtanh(-1, 1);
             defer hardtanh_values.deinit();
@@ -33199,18 +33331,26 @@ test "sparse dense norm and logsumexp helpers" {
             var hard_sigmoid_values = try activation_matrix.hardsigmoid();
             defer hard_sigmoid_values.deinit();
             try expectArray(hard_sigmoid_values, &.{ 2, 3 }, &.{ 1.0 / 6.0, 0.5, 0.5, 0.5, 3.5 / 6.0, 1 });
+            try activation_matrix.hardsigmoidOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_sigmoid_values.data);
 
             var hard_sigmoid_alias = try activation_matrix.hardSigmoid();
             defer hard_sigmoid_alias.deinit();
             try expectArray(hard_sigmoid_alias, &.{ 2, 3 }, hard_sigmoid_values.data);
+            try activation_matrix.hardSigmoidOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_sigmoid_alias.data);
 
             var hard_swish_values = try activation_matrix.hardswish();
             defer hard_swish_values.deinit();
             try expectArray(hard_swish_values, &.{ 2, 3 }, &.{ -2.0 / 6.0, 0, 0, 0, 0.5 * 3.5 / 6.0, 7 });
+            try activation_matrix.hardswishOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_swish_values.data);
 
             var hard_swish_alias = try activation_matrix.hardSwish();
             defer hard_swish_alias.deinit();
             try expectArray(hard_swish_alias, &.{ 2, 3 }, hard_swish_values.data);
+            try activation_matrix.hardSwishOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_swish_alias.data);
 
             var log_sigmoid_values = try activation_matrix.logsigmoid();
             defer log_sigmoid_values.deinit();
