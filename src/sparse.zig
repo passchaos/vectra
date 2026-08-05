@@ -6002,12 +6002,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn averageOut(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.average(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMeanOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMean(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMeanArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMean(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMeanArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMeanOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -12474,12 +12486,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn averageOut(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.average(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMeanOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMean(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMeanArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMean(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMeanArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMeanOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -19159,12 +19183,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseAverage(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn averageOut(self: Self, weights: ?array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.average(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMean(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMean(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMeanOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMean(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMeanArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMean(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMeanArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMeanOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn weightedVariance(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
@@ -29738,22 +29774,38 @@ test "sparse dense weighted statistic helpers" {
             var average_unweighted = try matrix.average(null, null, false);
             defer average_unweighted.deinit();
             try expectArray(average_unweighted, &.{}, &.{1});
+            var scalar_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
+            defer scalar_out.deinit();
+            try matrix.averageOut(null, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, average_unweighted.data);
 
             var average_weighted = try matrix.average(weights, null, false);
             defer average_weighted.deinit();
             try expectArray(average_weighted, &.{}, &.{8.0 / 10.0});
+            try matrix.averageOut(weights, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, average_weighted.data);
 
             var weighted_mean_flat = try matrix.weightedMean(weights, null, true);
             defer weighted_mean_flat.deinit();
             try expectArray(weighted_mean_flat, &.{ 1, 1 }, &.{8.0 / 10.0});
+            var scalar_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
+            defer scalar_keepdim_out.deinit();
+            try matrix.weightedMeanOut(weights, null, true, scalar_keepdim_out);
+            try expectArray(scalar_keepdim_out, &.{ 1, 1 }, weighted_mean_flat.data);
 
             var weighted_mean_rows = try matrix.weightedMean(weights, 1, false);
             defer weighted_mean_rows.deinit();
             try expectArray(weighted_mean_rows, &.{2}, &.{ 0.25, 7.0 / 6.0 });
+            var row_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer row_out.deinit();
+            try matrix.weightedMeanOut(weights, 1, false, row_out);
+            try expectArray(row_out, &.{2}, weighted_mean_rows.data);
 
             var weighted_mean_rows_array = try matrix.weightedMeanArray(weights, 1, false);
             defer weighted_mean_rows_array.deinit();
             try expectArray(weighted_mean_rows_array, &.{2}, weighted_mean_rows.data);
+            try matrix.weightedMeanArrayOut(weights, 1, false, row_out);
+            try expectArray(row_out, &.{2}, weighted_mean_rows_array.data);
 
             var weighted_variance_flat = try matrix.weightedVariance(weights, null, false, 0);
             defer weighted_variance_flat.deinit();
