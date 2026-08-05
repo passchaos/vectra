@@ -16,8 +16,64 @@ pub const DeviceColumnSchema = struct {
     total_nbytes: usize,
     device: array_mod.Device,
 
+    pub fn len(self: @This()) usize {
+        return self.rows;
+    }
+
+    pub fn dtypeName(self: @This()) []const u8 {
+        return self.dtype.name();
+    }
+
+    pub fn dtypeByteSize(self: @This()) usize {
+        return self.dtype.byteSize();
+    }
+
+    pub fn dtypeBitSize(self: @This()) usize {
+        return self.dtype.bitSize();
+    }
+
+    pub fn isNumeric(self: @This()) bool {
+        return self.dtype.isNumeric();
+    }
+
+    pub fn isReal(self: @This()) bool {
+        return self.dtype.isReal();
+    }
+
+    pub fn isFloat(self: @This()) bool {
+        return self.dtype.isFloat();
+    }
+
+    pub fn isInteger(self: @This()) bool {
+        return self.dtype.isInteger();
+    }
+
+    pub fn isSignedInteger(self: @This()) bool {
+        return self.dtype.isSigned();
+    }
+
+    pub fn isUnsignedInteger(self: @This()) bool {
+        return self.dtype.isUnsigned();
+    }
+
+    pub fn isBool(self: @This()) bool {
+        return self.dtype.isBool();
+    }
+
+    pub fn isComplex(self: @This()) bool {
+        return self.dtype.isComplex();
+    }
+
     pub fn nullableColumn(self: @This()) bool {
         return self.nullable;
+    }
+
+    pub fn nullCount(self: @This()) usize {
+        return self.null_count;
+    }
+
+    pub fn validCount(self: @This()) usize {
+        return self.valid_count;
     }
 
     pub fn hasNulls(self: @This()) bool {
@@ -41,12 +97,24 @@ pub const DeviceColumnSchema = struct {
         return ratioFromSchemaCount(self.valid_count, self.rows);
     }
 
+    pub fn dataNbytes(self: @This()) usize {
+        return self.data_nbytes;
+    }
+
     pub fn dataMemoryUsage(self: @This()) usize {
         return self.data_nbytes;
     }
 
+    pub fn validityNbytes(self: @This()) usize {
+        return self.validity_nbytes;
+    }
+
     pub fn validityMemoryUsage(self: @This()) usize {
         return self.validity_nbytes;
+    }
+
+    pub fn totalNbytes(self: @This()) usize {
+        return self.total_nbytes;
     }
 
     pub fn memoryUsage(self: @This()) usize {
@@ -67,5 +135,13 @@ pub const DeviceColumnSchema = struct {
 
     pub fn isMps(self: @This()) bool {
         return self.device.isMps();
+    }
+
+    pub fn isDeviceBacked(self: @This()) bool {
+        return !self.isCpu();
+    }
+
+    pub fn deviceBackendName(self: @This()) []const u8 {
+        return self.device.backendName();
     }
 };
