@@ -505,6 +505,9 @@ pub fn DeviceParquetScan(
                 const field_dtype = try self.arrowFieldDType(column);
                 if (field_dtype != predicate_dtype) return error.TypeMismatch;
             }
+            if (self.hasNullPredicate()) {
+                if (!(try self.arrowFieldNullable(column))) return error.TypeMismatch;
+            }
         }
 
         pub fn validatePushdown(self: Self) ParquetInteropError!void {

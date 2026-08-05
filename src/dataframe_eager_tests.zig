@@ -8377,8 +8377,14 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasNullPredicate(grouped_scan));
     try std.testing.expectEqualStrings("units", vectra.ArrowExport.ParquetScan.nullPredicateColumn(grouped_scan).?);
     try std.testing.expectEqual(@as(?bool, false), vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.validatePredicate(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasNullPredicateFor(grouped_scan, "units"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasNullPredicateFor(grouped_scan, "sales"));
+    var non_nullable_null_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
+    defer non_nullable_null_scan.deinit();
+    try vectra.ArrowExport.ParquetScan.whereNull(&non_nullable_null_scan, "sales", true);
+    try std.testing.expectError(error.TypeMismatch, vectra.ArrowExport.ParquetScan.validatePredicate(non_nullable_null_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.pushdownValid(non_nullable_null_scan));
     try std.testing.expectEqual(@as(usize, 0), vectra.ArrowExport.ParquetScan.rangePredicateMetadataNbytes(grouped_scan));
     try std.testing.expectEqual(@as(usize, "units".len), vectra.ArrowExport.ParquetScan.nullPredicateMetadataNbytes(grouped_scan));
     vectra.ArrowExport.ParquetScan.clearNullPredicate(&grouped_scan);
