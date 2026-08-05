@@ -55,6 +55,7 @@ pub const Range = options_mod.Range;
 pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 pub const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
+pub const DeviceParquetFileSummary = parquet_scan_summary_mod.DeviceParquetFileSummary;
 pub const DeviceParquetScanSourceRange = parquet_scan_summary_mod.SourceRange;
 pub const DeviceParquetScanSummary = parquet_scan_summary_mod.DeviceParquetScanSummary;
 pub const DeviceParquetScanPushdownSummary = parquet_scan_summary_mod.DeviceParquetScanPushdownSummary;

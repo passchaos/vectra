@@ -20,6 +20,7 @@ const freeNameList = names_mod.freeNameList;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const SourceRange = scan_summary_mod.SourceRange;
@@ -69,6 +70,32 @@ fn projectArrowSchemaByName(
         // error or concurrent mutation of an immutable schema value.
         error.InvalidFieldIndex => unreachable,
         else => |e| return e,
+    };
+}
+
+fn nonNegativeI64ToUsize(value: i64) ParquetInteropError!usize {
+    if (value < 0) return error.UnsupportedParquetSchema;
+    return std.math.cast(usize, value) orelse error.UnsupportedParquetSchema;
+}
+
+fn bolthaFileSummaryToDeviceSummary(summary: boltha.parquet.FileSummary) ParquetInteropError!DeviceParquetFileSummary {
+    return .{
+        .rows = try nonNegativeI64ToUsize(summary.num_rows),
+        .row_group_rows = try nonNegativeI64ToUsize(summary.row_group_num_rows),
+        .row_groups = summary.row_group_count,
+        .column_chunks = summary.column_count,
+        .columns_with_metadata = summary.columns_with_metadata,
+        .columns_without_metadata = summary.columns_without_metadata,
+        .columns_with_column_index = summary.columns_with_column_index,
+        .columns_with_offset_index = summary.columns_with_offset_index,
+        .columns_with_page_index = summary.columns_with_page_index,
+        .columns_with_bloom_filter = summary.columns_with_bloom_filter,
+        .columns_with_sized_bloom_filter = summary.columns_with_sized_bloom_filter,
+        .row_group_total_nbytes = try nonNegativeI64ToUsize(summary.row_group_total_byte_size),
+        .row_group_total_compressed_nbytes = try nonNegativeI64ToUsize(summary.row_group_total_compressed_size),
+        .row_groups_with_compressed_size = summary.row_groups_with_compressed_size,
+        .total_compressed_nbytes = try nonNegativeI64ToUsize(summary.total_compressed_size),
+        .total_uncompressed_nbytes = try nonNegativeI64ToUsize(summary.total_uncompressed_size),
     };
 }
 
@@ -329,6 +356,32 @@ pub fn DeviceParquetScan(
 
         pub fn estimatedSize(self: Self) usize {
             return self.ownedNbytes();
+        }
+
+        pub fn parquetFileSummary(self: Self) ParquetInteropError!DeviceParquetFileSummary {
+            const summary_value = try boltha.parquet.readFileSummary(self.allocator, self.bytes);
+            return bolthaFileSummaryToDeviceSummary(summary_value);
+        }
+
+        pub fn rowCount(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).rowCount();
+        }
+
+        pub fn nRows(self: Self) ParquetInteropError!usize {
+            return self.rowCount();
+        }
+
+        pub fn rowGroupCount(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).rowGroupCount();
+        }
+
+        pub fn parquetColumnChunkCount(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).columnChunkCount();
+        }
+
+        pub fn hasRowGroups(self: Self) bool {
+            const summary_value = self.parquetFileSummary() catch return false;
+            return summary_value.hasRowGroups();
         }
 
         pub fn hasProjection(self: Self) bool {

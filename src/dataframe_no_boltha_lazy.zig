@@ -8,6 +8,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
+const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const SourceRange = scan_summary_mod.SourceRange;
@@ -247,6 +248,30 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn estimatedSize(_: DeviceParquetScan) usize {
                 return 0;
+            }
+
+            pub fn parquetFileSummary(_: DeviceParquetScan) ParquetInteropError!DeviceParquetFileSummary {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn rowCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nRows(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn rowGroupCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetColumnChunkCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasRowGroups(_: DeviceParquetScan) bool {
+                return false;
             }
 
             pub fn hasProjection(_: DeviceParquetScan) bool {

@@ -8,6 +8,110 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 
+pub const DeviceParquetFileSummary = struct {
+    rows: usize = 0,
+    row_group_rows: usize = 0,
+    row_groups: usize = 0,
+    column_chunks: usize = 0,
+    columns_with_metadata: usize = 0,
+    columns_without_metadata: usize = 0,
+    columns_with_column_index: usize = 0,
+    columns_with_offset_index: usize = 0,
+    columns_with_page_index: usize = 0,
+    columns_with_bloom_filter: usize = 0,
+    columns_with_sized_bloom_filter: usize = 0,
+    row_group_total_nbytes: usize = 0,
+    row_group_total_compressed_nbytes: usize = 0,
+    row_groups_with_compressed_size: usize = 0,
+    total_compressed_nbytes: usize = 0,
+    total_uncompressed_nbytes: usize = 0,
+
+    const Self = @This();
+
+    pub fn rowCount(self: Self) usize {
+        return self.rows;
+    }
+
+    pub fn nRows(self: Self) usize {
+        return self.rows;
+    }
+
+    pub fn rowGroupRowCount(self: Self) usize {
+        return self.row_group_rows;
+    }
+
+    pub fn rowGroupCount(self: Self) usize {
+        return self.row_groups;
+    }
+
+    pub fn columnChunkCount(self: Self) usize {
+        return self.column_chunks;
+    }
+
+    pub fn columnCount(self: Self) usize {
+        return self.column_chunks;
+    }
+
+    pub fn hasRows(self: Self) bool {
+        return self.rows != 0;
+    }
+
+    pub fn hasRowGroups(self: Self) bool {
+        return self.row_groups != 0;
+    }
+
+    pub fn hasColumns(self: Self) bool {
+        return self.column_chunks != 0;
+    }
+
+    pub fn allColumnsHaveMetadata(self: Self) bool {
+        return self.column_chunks != 0 and self.columns_with_metadata == self.column_chunks;
+    }
+
+    pub fn anyColumnsMissingMetadata(self: Self) bool {
+        return self.columns_without_metadata != 0;
+    }
+
+    pub fn allColumnsHavePageIndex(self: Self) bool {
+        return self.column_chunks != 0 and self.columns_with_page_index == self.column_chunks;
+    }
+
+    pub fn anyColumnsHavePageIndex(self: Self) bool {
+        return self.columns_with_page_index != 0;
+    }
+
+    pub fn anyColumnsHaveBloomFilter(self: Self) bool {
+        return self.columns_with_bloom_filter != 0;
+    }
+
+    pub fn allBloomFiltersSized(self: Self) bool {
+        return self.columns_with_bloom_filter == self.columns_with_sized_bloom_filter;
+    }
+
+    fn ratio(numerator: usize, denominator: usize) f64 {
+        if (denominator == 0) return 0.0;
+        return @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(denominator));
+    }
+
+    pub fn metadataCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_metadata, self.column_chunks);
+    }
+
+    pub fn pageIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_page_index, self.column_chunks);
+    }
+
+    pub fn bloomFilterCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_bloom_filter, self.column_chunks);
+    }
+
+    pub fn compressionRatio(self: Self) f64 {
+        if (self.total_uncompressed_nbytes == 0) return 0.0;
+        return @as(f64, @floatFromInt(self.total_compressed_nbytes)) /
+            @as(f64, @floatFromInt(self.total_uncompressed_nbytes));
+    }
+};
+
 pub const DeviceParquetScanSummary = struct {
     device: array_mod.Device = .cpu,
     source_ptr: u64 = 0,
