@@ -6614,8 +6614,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .exp2);
         }
 
+        pub fn exp2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.exp2(), out);
+        }
+
         pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn expm1Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expm1(), out);
         }
 
         pub fn log(self: Self) SparseError!array_mod.Array(T) {
@@ -6630,12 +6638,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .log2);
         }
 
+        pub fn log2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log2(), out);
+        }
+
         pub fn log10(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log10);
         }
 
+        pub fn log10Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log10(), out);
+        }
+
         pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log1p);
+        }
+
+        pub fn log1pOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log1p(), out);
         }
 
         pub fn deg2rad(self: Self) SparseError!array_mod.Array(T) {
@@ -6774,6 +6794,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn relu6Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.relu6(), out);
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
@@ -6818,6 +6842,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .expit);
         }
 
+        pub fn expitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expit(), out);
+        }
+
         pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.expit();
         }
@@ -6834,8 +6862,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .softplus);
         }
 
+        pub fn softplusOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softplus(), out);
+        }
+
         pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn softsignOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softsign(), out);
         }
 
         pub fn silu(self: Self) SparseError!array_mod.Array(T) {
@@ -14070,8 +14106,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .exp2);
         }
 
+        pub fn exp2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.exp2(), out);
+        }
+
         pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn expm1Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expm1(), out);
         }
 
         pub fn log(self: Self) SparseError!array_mod.Array(T) {
@@ -14086,12 +14130,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .log2);
         }
 
+        pub fn log2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log2(), out);
+        }
+
         pub fn log10(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log10);
         }
 
+        pub fn log10Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log10(), out);
+        }
+
         pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log1p);
+        }
+
+        pub fn log1pOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log1p(), out);
         }
 
         pub fn deg2rad(self: Self) SparseError!array_mod.Array(T) {
@@ -14230,6 +14286,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn relu6Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.relu6(), out);
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
@@ -14274,6 +14334,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .expit);
         }
 
+        pub fn expitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expit(), out);
+        }
+
         pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.expit();
         }
@@ -14290,8 +14354,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .softplus);
         }
 
+        pub fn softplusOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softplus(), out);
+        }
+
         pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn softsignOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softsign(), out);
         }
 
         pub fn silu(self: Self) SparseError!array_mod.Array(T) {
@@ -21739,8 +21811,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .exp2);
         }
 
+        pub fn exp2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.exp2(), out);
+        }
+
         pub fn expm1(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .expm1);
+        }
+
+        pub fn expm1Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expm1(), out);
         }
 
         pub fn log(self: Self) SparseError!array_mod.Array(T) {
@@ -21755,12 +21835,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .log2);
         }
 
+        pub fn log2Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log2(), out);
+        }
+
         pub fn log10(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log10);
         }
 
+        pub fn log10Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log10(), out);
+        }
+
         pub fn log1p(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .log1p);
+        }
+
+        pub fn log1pOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.log1p(), out);
         }
 
         pub fn deg2rad(self: Self) SparseError!array_mod.Array(T) {
@@ -21899,6 +21991,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .relu6);
         }
 
+        pub fn relu6Out(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.relu6(), out);
+        }
+
         pub fn threshold(self: Self, threshold_value: T, replacement_value: T) SparseError!array_mod.Array(T) {
             return sparseDenseThreshold(T, self, threshold_value, replacement_value);
         }
@@ -21943,6 +22039,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .expit);
         }
 
+        pub fn expitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.expit(), out);
+        }
+
         pub fn sigmoid(self: Self) SparseError!array_mod.Array(T) {
             return self.expit();
         }
@@ -21959,8 +22059,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .softplus);
         }
 
+        pub fn softplusOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softplus(), out);
+        }
+
         pub fn softsign(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .softsign);
+        }
+
+        pub fn softsignOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softsign(), out);
         }
 
         pub fn silu(self: Self) SparseError!array_mod.Array(T) {
@@ -32745,6 +32853,8 @@ test "sparse dense norm and logsumexp helpers" {
             var exp2_values = try matrix.exp2();
             defer exp2_values.deinit();
             try expectArray(exp2_values, &.{ 2, 3 }, &.{ 2, 1, 1, 1, 4, 8 });
+            try matrix.exp2Out(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, exp2_values.data);
 
             var expm1_values = try matrix.expm1();
             defer expm1_values.deinit();
@@ -32756,6 +32866,8 @@ test "sparse dense norm and logsumexp helpers" {
                 std.math.exp(@as(f64, 2)) - 1,
                 std.math.exp(@as(f64, 3)) - 1,
             });
+            try matrix.expm1Out(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, expm1_values.data);
 
             var log_values = try matrix.log();
             defer log_values.deinit();
@@ -32766,14 +32878,20 @@ test "sparse dense norm and logsumexp helpers" {
             var log2_values = try matrix.log2();
             defer log2_values.deinit();
             try expectArray(log2_values, &.{ 2, 3 }, &.{ 0, -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), 1, std.math.log2(@as(f64, 3)) });
+            try matrix.log2Out(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log2_values.data);
 
             var log10_values = try matrix.log10();
             defer log10_values.deinit();
             try expectArray(log10_values, &.{ 2, 3 }, &.{ 0, -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), std.math.log10(@as(f64, 2)), std.math.log10(@as(f64, 3)) });
+            try matrix.log10Out(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log10_values.data);
 
             var log1p_values = try matrix.log1p();
             defer log1p_values.deinit();
             try expectArray(log1p_values, &.{ 2, 3 }, &.{ std.math.log1p(@as(f64, 1)), 0, 0, 0, std.math.log1p(@as(f64, 2)), std.math.log1p(@as(f64, 3)) });
+            try matrix.log1pOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log1p_values.data);
 
             var deg_values = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 180, 90, -90 });
             defer deg_values.deinit();
@@ -32959,6 +33077,8 @@ test "sparse dense norm and logsumexp helpers" {
             var relu6_values = try activation_matrix.relu6();
             defer relu6_values.deinit();
             try expectArray(relu6_values, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 0.5, 6 });
+            try activation_matrix.relu6Out(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, relu6_values.data);
 
             var threshold_values = try activation_matrix.threshold(0.25, -9);
             defer threshold_values.deinit();
@@ -33021,6 +33141,8 @@ test "sparse dense norm and logsumexp helpers" {
             var expit_values = try activation_matrix.expit();
             defer expit_values.deinit();
             try expectArray(expit_values, &.{ 2, 3 }, &.{ 1.0 / (1.0 + std.math.exp(@as(f64, 2))), 0.5, 0.5, 0.5, 1.0 / (1.0 + std.math.exp(@as(f64, -0.5))), 1.0 / (1.0 + std.math.exp(@as(f64, -7))) });
+            try activation_matrix.expitOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, expit_values.data);
 
             var sigmoid_alias = try activation_matrix.sigmoid();
             defer sigmoid_alias.deinit();
@@ -33031,10 +33153,14 @@ test "sparse dense norm and logsumexp helpers" {
             var softplus_values = try activation_matrix.softplus();
             defer softplus_values.deinit();
             try expectArray(softplus_values, &.{ 2, 3 }, &.{ std.math.log1p(std.math.exp(@as(f64, -2))), std.math.log1p(@as(f64, 1)), std.math.log1p(@as(f64, 1)), std.math.log1p(@as(f64, 1)), 0.5 + std.math.log1p(std.math.exp(@as(f64, -0.5))), 7 + std.math.log1p(std.math.exp(@as(f64, -7))) });
+            try activation_matrix.softplusOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, softplus_values.data);
 
             var softsign_values = try activation_matrix.softsign();
             defer softsign_values.deinit();
             try expectArray(softsign_values, &.{ 2, 3 }, &.{ -2.0 / 3.0, 0, 0, 0, 0.5 / 1.5, 7.0 / 8.0 });
+            try activation_matrix.softsignOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, softsign_values.data);
 
             var silu_values = try activation_matrix.silu();
             defer silu_values.deinit();
