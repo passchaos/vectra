@@ -157,6 +157,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
 
     pub const DataFrameView = struct {
         pub const toArrowFields = dataframe_mod.deviceDataFrameViewToArrowFields;
+        pub const hasArrowProjection = dataframe_mod.deviceDataFrameViewHasArrowProjection;
         pub const toArrowFieldsProjection = dataframe_mod.deviceDataFrameViewToArrowFieldsProjection;
         pub const toArrowSchema = dataframe_mod.deviceDataFrameViewToArrowSchema;
         pub const toArrowSchemaProjection = dataframe_mod.deviceDataFrameViewToArrowSchemaProjection;

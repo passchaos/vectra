@@ -5081,6 +5081,10 @@ pub fn deviceDataFrameViewToArrowFields(view: DeviceDataFrameView, allocator: st
     return arrow_methods_mod.toArrowFields(view, allocator);
 }
 
+pub fn deviceDataFrameViewHasArrowProjection(view: DeviceDataFrameView, wanted_names: []const []const u8) bool {
+    return view.hasAllColumns(wanted_names);
+}
+
 pub fn deviceDataFrameViewToArrowFieldsProjection(
     view: DeviceDataFrameView,
     allocator: std.mem.Allocator,
