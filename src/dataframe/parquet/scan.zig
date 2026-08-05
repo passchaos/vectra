@@ -540,6 +540,8 @@ pub fn DeviceParquetScan(
             defer full_schema.deinit(self.allocator);
             const field = full_schema.fieldByName(column) orelse return error.ColumnNotFound;
             if (self.rangePredicateDType()) |predicate_dtype| {
+                const predicate = self.rangePredicate().?;
+                if (!scan_metadata_mod.rangePredicateBoundsValid(predicate)) return error.TypeMismatch;
                 const field_dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field.*);
                 if (field_dtype != predicate_dtype) return error.TypeMismatch;
             }

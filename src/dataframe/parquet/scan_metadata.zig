@@ -62,6 +62,40 @@ pub fn projectArrowSchemaByName(
     };
 }
 
+fn orderedOptionalBounds(comptime T: type, min_value: ?T, max_value: ?T) bool {
+    if (min_value) |min_unwrapped| {
+        if (max_value) |max_unwrapped| return min_unwrapped <= max_unwrapped;
+    }
+    return true;
+}
+
+fn orderedBoolBounds(min_value: ?bool, max_value: ?bool) bool {
+    if (min_value) |min_unwrapped| {
+        if (max_value) |max_unwrapped| return !min_unwrapped or max_unwrapped;
+    }
+    return true;
+}
+
+pub fn rangePredicateBoundsValid(predicate: anytype) bool {
+    return switch (predicate) {
+        .bool => |range| orderedBoolBounds(range.min, range.max),
+        .i8 => |range| orderedOptionalBounds(i8, range.min, range.max),
+        .i16 => |range| orderedOptionalBounds(i16, range.min, range.max),
+        .i32 => |range| orderedOptionalBounds(i32, range.min, range.max),
+        .i64 => |range| orderedOptionalBounds(i64, range.min, range.max),
+        .u8 => |range| orderedOptionalBounds(u8, range.min, range.max),
+        .u16 => |range| orderedOptionalBounds(u16, range.min, range.max),
+        .u32 => |range| orderedOptionalBounds(u32, range.min, range.max),
+        .u64 => |range| orderedOptionalBounds(u64, range.min, range.max),
+        .usize => |range| orderedOptionalBounds(usize, range.min, range.max),
+        .isize => |range| orderedOptionalBounds(isize, range.min, range.max),
+        .f16 => |range| orderedOptionalBounds(f16, range.min, range.max),
+        .f32 => |range| orderedOptionalBounds(f32, range.min, range.max),
+        .f64 => |range| orderedOptionalBounds(f64, range.min, range.max),
+        .bf16, .c64, .c128 => true,
+    };
+}
+
 pub fn toArrowSchema(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError!boltha.arrow.Schema {
     var schema = try boltha.parquet.readSchema(allocator, scan.bytes);
     errdefer schema.deinit(allocator);
