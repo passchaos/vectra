@@ -737,6 +737,18 @@ pub fn DeviceParquetScan(
             };
         }
 
+        pub fn whereIsNull(self: *Self, column: []const u8) std.mem.Allocator.Error!void {
+            try self.whereNull(column, true);
+        }
+
+        pub fn whereIsNotNull(self: *Self, column: []const u8) std.mem.Allocator.Error!void {
+            try self.whereNull(column, false);
+        }
+
+        pub fn whereNotNull(self: *Self, column: []const u8) std.mem.Allocator.Error!void {
+            try self.whereIsNotNull(column);
+        }
+
         pub fn collect(self: Self) ParquetInteropError!DeviceDataFrame {
             var table = if (self.range_predicate) |predicate|
                 try dataframe_arrow_mod.readBolthaTableWithRangePruning(self.allocator, self.bytes, predicate.column, predicate.predicate)

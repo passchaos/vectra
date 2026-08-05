@@ -301,6 +301,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const intersectSelect = dataframe_mod.DeviceParquetScan.intersectSelect;
             pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
             pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
+            pub const whereIsNull = dataframe_mod.DeviceParquetScan.whereIsNull;
+            pub const whereIsNotNull = dataframe_mod.DeviceParquetScan.whereIsNotNull;
+            pub const whereNotNull = dataframe_mod.DeviceParquetScan.whereNotNull;
         };
 
         pub const Arrow = struct {
@@ -501,6 +504,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const intersectSelect = dataframe_mod.DeviceParquetScan.intersectSelect;
         pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
         pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
+        pub const whereIsNull = dataframe_mod.DeviceParquetScan.whereIsNull;
+        pub const whereIsNotNull = dataframe_mod.DeviceParquetScan.whereIsNotNull;
+        pub const whereNotNull = dataframe_mod.DeviceParquetScan.whereNotNull;
         pub const collect = dataframe_mod.DeviceParquetScan.collect;
         pub const explain = dataframe_mod.DeviceParquetScan.explain;
     };

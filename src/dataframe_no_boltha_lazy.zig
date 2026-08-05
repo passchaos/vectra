@@ -609,6 +609,18 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn whereIsNull(_: *DeviceParquetScan, _: []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn whereIsNotNull(_: *DeviceParquetScan, _: []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn whereNotNull(_: *DeviceParquetScan, _: []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn collect(_: DeviceParquetScan) ParquetInteropError!DeviceDataFrame {
                 return error.FeatureUnavailable;
             }

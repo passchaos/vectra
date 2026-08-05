@@ -8373,7 +8373,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceValue(scan_with_cpu).sameDevice(.cpu));
     try vectra.ArrowExport.ParquetScan.retarget(&scan_with_cpu, .cpu);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceValue(scan_with_cpu).sameDevice(.cpu));
-    try vectra.ArrowExport.ParquetScan.whereNull(&grouped_scan, "units", false);
+    try vectra.ArrowExport.ParquetScan.Pushdown.whereIsNotNull(&grouped_scan, "units");
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expectEqualStrings("units", vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan).?);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasRangePredicate(grouped_scan));
@@ -8382,6 +8382,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicateDType(grouped_scan) == null);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasNullPredicate(grouped_scan));
     try std.testing.expectEqualStrings("units", vectra.ArrowExport.ParquetScan.nullPredicateColumn(grouped_scan).?);
+    try std.testing.expectEqual(@as(?bool, false), vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.whereIsNull(&grouped_scan, "units");
+    try std.testing.expectEqual(@as(?bool, true), vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.whereNotNull(&grouped_scan, "units");
     try std.testing.expectEqual(@as(?bool, false), vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan));
     try vectra.ArrowExport.ParquetScan.validatePredicate(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasNullPredicateFor(grouped_scan, "units"));
