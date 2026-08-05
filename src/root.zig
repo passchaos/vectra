@@ -297,6 +297,8 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const appendSelect = dataframe_mod.DeviceParquetScan.appendSelect;
             pub const dropSelected = dataframe_mod.DeviceParquetScan.dropSelected;
             pub const selectAll = dataframe_mod.DeviceParquetScan.selectAll;
+            pub const selectExcept = dataframe_mod.DeviceParquetScan.selectExcept;
+            pub const intersectSelect = dataframe_mod.DeviceParquetScan.intersectSelect;
             pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
             pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
         };
@@ -495,6 +497,8 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const appendSelect = dataframe_mod.DeviceParquetScan.appendSelect;
         pub const dropSelected = dataframe_mod.DeviceParquetScan.dropSelected;
         pub const selectAll = dataframe_mod.DeviceParquetScan.selectAll;
+        pub const selectExcept = dataframe_mod.DeviceParquetScan.selectExcept;
+        pub const intersectSelect = dataframe_mod.DeviceParquetScan.intersectSelect;
         pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
         pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
         pub const collect = dataframe_mod.DeviceParquetScan.collect;

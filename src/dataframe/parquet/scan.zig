@@ -682,6 +682,43 @@ pub fn DeviceParquetScan(
             self.clearProjection();
         }
 
+        pub fn selectExcept(self: *Self, names: []const []const u8) ParquetInteropError!void {
+            const all_names = try self.arrowFieldNames(self.allocator);
+            defer {
+                for (all_names) |name| self.allocator.free(name);
+                self.allocator.free(all_names);
+            }
+            var builder: std.ArrayList([]const u8) = .empty;
+            defer builder.deinit(self.allocator);
+            for (all_names) |name| {
+                if (!names_mod.nameInBorrowedList(name, names)) {
+                    try names_mod.appendOwnedNameUnique(self.allocator, &builder, name);
+                }
+            }
+            const kept = try builder.toOwnedSlice(self.allocator);
+            builder = .empty;
+            self.clearProjection();
+            self.projection = kept;
+        }
+
+        pub fn intersectSelect(self: *Self, names: []const []const u8) std.mem.Allocator.Error!void {
+            const current = self.projection orelse {
+                try self.select(names);
+                return;
+            };
+            var builder: std.ArrayList([]const u8) = .empty;
+            defer builder.deinit(self.allocator);
+            for (current) |name| {
+                if (names_mod.nameInBorrowedList(name, names)) {
+                    try names_mod.appendOwnedNameUnique(self.allocator, &builder, name);
+                }
+            }
+            const kept = try builder.toOwnedSlice(self.allocator);
+            builder = .empty;
+            self.clearProjection();
+            self.projection = kept;
+        }
+
         pub fn whereRange(self: *Self, column: []const u8, predicate: ParquetRangePredicate) std.mem.Allocator.Error!void {
             self.clearRangePredicate();
             self.clearNullPredicate();

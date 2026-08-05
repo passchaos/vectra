@@ -593,6 +593,14 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn selectAll(_: *DeviceParquetScan) void {}
 
+            pub fn selectExcept(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn intersectSelect(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn whereRange(_: *DeviceParquetScan, _: []const u8, _: ParquetRangePredicate) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }

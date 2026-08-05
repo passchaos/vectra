@@ -8210,6 +8210,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
     try vectra.ArrowExport.ParquetScan.Pushdown.dropSelected(&grouped_scan, &.{"missing"});
     try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.Pushdown.intersectSelect(&grouped_scan, &.{ "units", "sales", "extra" });
+    try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
     try vectra.ArrowExport.ParquetScan.Pushdown.validateProjection(grouped_scan);
     try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
@@ -8408,6 +8410,10 @@ test "device dataframe exports boltha arrow record batch" {
     vectra.ArrowExport.ParquetScan.selectAll(&grouped_scan);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
+    try vectra.ArrowExport.ParquetScan.selectExcept(&grouped_scan, &.{"active"});
+    try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.projectionContains(grouped_scan, "sales"));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.projectionContains(grouped_scan, "units"));
     try vectra.ArrowExport.ParquetScan.select(&grouped_scan, &.{ "sales", "units" });
     try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
     const grouped_scan_explain = try vectra.ArrowExport.ParquetScan.explain(grouped_scan, gpa);
