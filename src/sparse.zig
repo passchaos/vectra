@@ -5604,20 +5604,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseAsStrided(T, self, dims, stride_values, offset);
         }
 
+        pub fn asStridedOut(self: Self, dims: []const usize, stride_values: []const usize, offset: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asStrided(dims, stride_values, offset), out);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnfold(T, self, axis_index, window_size, step);
+        }
+
+        pub fn unfoldOut(self: Self, axis_index: isize, window_size: usize, step: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unfold(axis_index, window_size, step), out);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSliceAxis(T, self, axis_index, slice_value);
         }
 
+        pub fn sliceAxisOut(self: Self, axis_index: isize, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sliceAxis(axis_index, slice_value), out);
+        }
+
         pub fn slice(self: Self, slices: []const array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice(T, self, slices);
         }
 
+        pub fn sliceOut(self: Self, slices: []const array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice(slices), out);
+        }
+
         pub fn slice1d(self: Self, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice1d(T, self, slice_value);
+        }
+
+        pub fn slice1dOut(self: Self, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice1d(slice_value), out);
         }
 
         pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
@@ -13572,20 +13592,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseAsStrided(T, self, dims, stride_values, offset);
         }
 
+        pub fn asStridedOut(self: Self, dims: []const usize, stride_values: []const usize, offset: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asStrided(dims, stride_values, offset), out);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnfold(T, self, axis_index, window_size, step);
+        }
+
+        pub fn unfoldOut(self: Self, axis_index: isize, window_size: usize, step: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unfold(axis_index, window_size, step), out);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSliceAxis(T, self, axis_index, slice_value);
         }
 
+        pub fn sliceAxisOut(self: Self, axis_index: isize, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sliceAxis(axis_index, slice_value), out);
+        }
+
         pub fn slice(self: Self, slices: []const array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice(T, self, slices);
         }
 
+        pub fn sliceOut(self: Self, slices: []const array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice(slices), out);
+        }
+
         pub fn slice1d(self: Self, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice1d(T, self, slice_value);
+        }
+
+        pub fn slice1dOut(self: Self, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice1d(slice_value), out);
         }
 
         pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
@@ -21753,20 +21793,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseAsStrided(T, self, dims, stride_values, offset);
         }
 
+        pub fn asStridedOut(self: Self, dims: []const usize, stride_values: []const usize, offset: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asStrided(dims, stride_values, offset), out);
+        }
+
         pub fn unfold(self: Self, axis_index: isize, window_size: usize, step: usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnfold(T, self, axis_index, window_size, step);
+        }
+
+        pub fn unfoldOut(self: Self, axis_index: isize, window_size: usize, step: usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unfold(axis_index, window_size, step), out);
         }
 
         pub fn sliceAxis(self: Self, axis_index: isize, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSliceAxis(T, self, axis_index, slice_value);
         }
 
+        pub fn sliceAxisOut(self: Self, axis_index: isize, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sliceAxis(axis_index, slice_value), out);
+        }
+
         pub fn slice(self: Self, slices: []const array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice(T, self, slices);
         }
 
+        pub fn sliceOut(self: Self, slices: []const array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice(slices), out);
+        }
+
         pub fn slice1d(self: Self, slice_value: array_mod.Slice) SparseError!array_mod.Array(T) {
             return sparseDenseSlice1d(T, self, slice_value);
+        }
+
+        pub fn slice1dOut(self: Self, slice_value: array_mod.Slice, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.slice1d(slice_value), out);
         }
 
         pub fn diagonalAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
@@ -30861,6 +30921,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var strided = try matrix.asStrided(&.{ 2, 2 }, &.{ 3, 1 }, 1);
             defer strided.deinit();
             try expectArray(strided, &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+            var strided_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer strided_out.deinit();
+            try matrix.asStridedOut(&.{ 2, 2 }, &.{ 3, 1 }, 1, strided_out);
+            try expectArray(strided_out, &.{ 2, 2 }, strided.data);
 
             var unfolded = try matrix.unfold(1, 2, 1);
             defer unfolded.deinit();
@@ -30870,6 +30934,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 2,
                 2, 3,
             });
+            var unfolded_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2, 2 });
+            defer unfolded_out.deinit();
+            try matrix.unfoldOut(1, 2, 1, unfolded_out);
+            try expectArray(unfolded_out, &.{ 2, 2, 2 }, unfolded.data);
 
             try std.testing.expectError(error.IndexOutOfBounds, matrix.asStrided(&.{2}, &.{4}, 3));
             try std.testing.expectError(error.InvalidShape, matrix.unfold(1, 4, 1));
@@ -30877,6 +30945,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var sliced_columns = try matrix.sliceAxis(1, .{ .start = 0, .stop = null, .step = 2 });
             defer sliced_columns.deinit();
             try expectArray(sliced_columns, &.{ 2, 2 }, &.{ 1, 0, 0, 3 });
+            try matrix.sliceAxisOut(1, .{ .start = 0, .stop = null, .step = 2 }, strided_out);
+            try expectArray(strided_out, &.{ 2, 2 }, sliced_columns.data);
 
             var sliced_region = try matrix.slice(&.{
                 .{ .start = 0, .stop = null, .step = 1 },
@@ -30884,6 +30954,11 @@ test "sparse addition canonicalizes duplicate coordinates" {
             });
             defer sliced_region.deinit();
             try expectArray(sliced_region, &.{ 2, 2 }, &.{ 0, 0, 2, 3 });
+            try matrix.sliceOut(&.{
+                .{ .start = 0, .stop = null, .step = 1 },
+                .{ .start = 1, .stop = null, .step = 1 },
+            }, strided_out);
+            try expectArray(strided_out, &.{ 2, 2 }, sliced_region.data);
 
             var sliced_flat = try flattened.slice1d(.{ .start = 1, .stop = null, .step = 2 });
             defer sliced_flat.deinit();
