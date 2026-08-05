@@ -2,6 +2,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const host_mod = @import("dataframe_no_boltha_host.zig");
 const options_mod = @import("dataframe_no_boltha_options.zig");
+const schema_mod = @import("dataframe_schema.zig");
 
 pub const DataError = host_mod.DataError;
 pub const DType = host_mod.DType;
@@ -350,6 +351,42 @@ pub const DeviceDataFrameView = struct {
         return self.totalNbytes();
     }
 
+    pub fn columnSchemaAt(self: DeviceDataFrameView, index: usize) DeviceDataError!DeviceColumnSchema {
+        if (index >= self.columns.len) return error.IndexOutOfBounds;
+        const column_value = self.columns[index];
+        return .{
+            .name = self.names[index],
+            .dtype = column_value.dtype,
+            .rows = column_value.rows,
+            .nullable = column_value.nullable(),
+            .null_count = column_value.nullCount(),
+            .valid_count = column_value.validCount(),
+            .data_nbytes = column_value.dataNbytes(),
+            .validity_nbytes = column_value.validityNbytes(),
+            .total_nbytes = column_value.totalNbytes(),
+            .device = column_value.device,
+        };
+    }
+
+    pub fn columnSchema(self: DeviceDataFrameView, name: []const u8) DataError!DeviceColumnSchema {
+        const index = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return self.columnSchemaAt(index) catch unreachable;
+    }
+
+    pub fn columnSchemas(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        const out = try allocator.alloc(DeviceColumnSchema, self.columns.len);
+        for (out, 0..) |*slot, index| slot.* = self.columnSchemaAt(index) catch unreachable;
+        return out;
+    }
+
+    pub fn schema(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
+    }
+
+    pub fn schemaSummary(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
+    }
+
     pub fn isEmpty(self: DeviceDataFrameView) bool {
         return self.rows == 0 or self.columns.len == 0;
     }
@@ -516,71 +553,7 @@ pub const DeviceColumnDef = struct {
     data: DeviceColumn,
 };
 
-pub const DeviceColumnSchema = struct {
-    name: []const u8,
-    dtype: DeviceDType,
-    rows: usize,
-    nullable: bool,
-    null_count: usize,
-    valid_count: usize,
-    data_nbytes: usize,
-    validity_nbytes: usize,
-    total_nbytes: usize,
-    device: array_mod.Device,
-
-    pub fn nullableColumn(self: @This()) bool {
-        return self.nullable;
-    }
-
-    pub fn hasNulls(self: @This()) bool {
-        return self.null_count != 0;
-    }
-
-    pub fn allValid(self: @This()) bool {
-        return self.null_count == 0;
-    }
-
-    fn ratioFromSchemaCount(count: usize, rows: usize) f64 {
-        if (rows == 0) return std.math.nan(f64);
-        return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));
-    }
-
-    pub fn nullRatio(self: @This()) f64 {
-        return ratioFromSchemaCount(self.null_count, self.rows);
-    }
-
-    pub fn validRatio(self: @This()) f64 {
-        return ratioFromSchemaCount(self.valid_count, self.rows);
-    }
-
-    pub fn dataMemoryUsage(self: @This()) usize {
-        return self.data_nbytes;
-    }
-
-    pub fn validityMemoryUsage(self: @This()) usize {
-        return self.validity_nbytes;
-    }
-
-    pub fn memoryUsage(self: @This()) usize {
-        return self.total_nbytes;
-    }
-
-    pub fn estimatedSize(self: @This()) usize {
-        return self.total_nbytes;
-    }
-
-    pub fn isCpu(self: @This()) bool {
-        return self.device.isCpu();
-    }
-
-    pub fn isCuda(self: @This()) bool {
-        return self.device.isCuda();
-    }
-
-    pub fn isMps(self: @This()) bool {
-        return self.device.isMps();
-    }
-};
+pub const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 
 pub const DeviceLazyGroupByAggregation = enum {
     sum,

@@ -2,8 +2,10 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const options_mod = @import("dataframe_options.zig");
 const series_mod = @import("series.zig");
+const schema_mod = @import("dataframe_schema.zig");
 
 pub const DeviceDataFrameViewError = series_mod.DataError || array_mod.ArrayError;
+pub const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 
 pub const DeviceColumnView = struct {
     dtype: array_mod.DType,
@@ -308,6 +310,42 @@ pub const DeviceDataFrameView = struct {
 
     pub fn estimatedSize(self: DeviceDataFrameView) usize {
         return self.totalNbytes();
+    }
+
+    pub fn columnSchemaAt(self: DeviceDataFrameView, index: usize) DeviceDataFrameViewError!DeviceColumnSchema {
+        if (index >= self.columns.len) return error.IndexOutOfBounds;
+        const column_value = self.columns[index];
+        return .{
+            .name = self.names[index],
+            .dtype = column_value.dtype,
+            .rows = column_value.rows,
+            .nullable = column_value.nullable(),
+            .null_count = column_value.nullCount(),
+            .valid_count = column_value.validCount(),
+            .data_nbytes = column_value.dataNbytes(),
+            .validity_nbytes = column_value.validityNbytes(),
+            .total_nbytes = column_value.totalNbytes(),
+            .device = column_value.device,
+        };
+    }
+
+    pub fn columnSchema(self: DeviceDataFrameView, name: []const u8) series_mod.DataError!DeviceColumnSchema {
+        const index = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return self.columnSchemaAt(index) catch unreachable;
+    }
+
+    pub fn columnSchemas(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        const out = try allocator.alloc(DeviceColumnSchema, self.columns.len);
+        for (out, 0..) |*slot, index| slot.* = self.columnSchemaAt(index) catch unreachable;
+        return out;
+    }
+
+    pub fn schema(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
+    }
+
+    pub fn schemaSummary(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
     }
 
     pub fn isEmpty(self: DeviceDataFrameView) bool {

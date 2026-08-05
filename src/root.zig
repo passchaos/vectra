@@ -439,6 +439,17 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(id_view.validityNbytes(), view.validityNbytes());
         try std.testing.expectEqual(id_view.totalNbytes(), view.totalNbytes());
         try std.testing.expectEqual(view.totalNbytes(), view.estimatedSize());
+        const id_schema = try view.columnSchema("id");
+        try std.testing.expectEqual(DeviceDType.i32, id_schema.dtype);
+        try std.testing.expectEqual(@as(usize, 2), id_schema.rows);
+        try std.testing.expect(id_schema.allValid());
+        try std.testing.expectEqual(id_view.totalNbytes(), id_schema.memoryUsage());
+        const schema = try view.schema(gpa);
+        defer gpa.free(schema);
+        try std.testing.expectEqual(@as(usize, 1), schema.len);
+        try std.testing.expectEqual(DeviceDType.i32, schema[0].dtype);
+        try std.testing.expectError(error.ColumnNotFound, view.columnSchema("missing"));
+        try std.testing.expectError(error.IndexOutOfBounds, view.columnSchemaAt(1));
         try std.testing.expect(std.mem.eql(u8, "id", try view.columnNameAt(0)));
         try std.testing.expectError(error.IndexOutOfBounds, view.columnAt(1));
     }
