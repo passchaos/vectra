@@ -500,14 +500,14 @@ pub fn DeviceParquetScan(
 
         pub fn validatePredicate(self: Self) ParquetInteropError!void {
             const column = self.predicateColumn() orelse return;
-            if (!self.hasArrowProjection(&.{column})) return error.ColumnNotFound;
+            var full_schema = try boltha.parquet.readSchema(self.allocator, self.bytes);
+            defer full_schema.deinit(self.allocator);
+            const field = full_schema.fieldByName(column) orelse return error.ColumnNotFound;
             if (self.rangePredicateDType()) |predicate_dtype| {
-                const field_dtype = try self.arrowFieldDType(column);
+                const field_dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field.*);
                 if (field_dtype != predicate_dtype) return error.TypeMismatch;
             }
-            if (self.hasNullPredicate()) {
-                if (!(try self.arrowFieldNullable(column))) return error.TypeMismatch;
-            }
+            if (self.hasNullPredicate() and !field.nullable) return error.TypeMismatch;
         }
 
         pub fn validatePushdown(self: Self) ParquetInteropError!void {
@@ -517,6 +517,16 @@ pub fn DeviceParquetScan(
 
         pub fn pushdownValid(self: Self) bool {
             self.validatePushdown() catch return false;
+            return true;
+        }
+
+        pub fn validateCollect(self: Self) ParquetInteropError!void {
+            try requireDeviceAvailable(self.device);
+            try self.validatePushdown();
+        }
+
+        pub fn collectValid(self: Self) bool {
+            self.validateCollect() catch return false;
             return true;
         }
 
@@ -790,6 +800,7 @@ pub fn DeviceParquetScan(
         }
 
         pub fn collect(self: Self) ParquetInteropError!DeviceDataFrame {
+            try self.validateCollect();
             var table = if (self.range_predicate) |predicate|
                 try dataframe_arrow_mod.readBolthaTableWithRangePruning(self.allocator, self.bytes, predicate.column, predicate.predicate)
             else if (self.null_predicate) |predicate|

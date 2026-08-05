@@ -8292,7 +8292,9 @@ test "device dataframe exports boltha arrow record batch" {
     try vectra.ArrowExport.ParquetScan.Pushdown.whereMin(&grouped_scan, "sales", f64, 0.0);
     try vectra.ArrowExport.ParquetScan.validatePredicate(grouped_scan);
     try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
+    try vectra.ArrowExport.ParquetScan.Pushdown.validateCollect(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.collectValid(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expectEqualStrings("sales", vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan).?);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPredicateFor(grouped_scan, "sales"));
@@ -8325,6 +8327,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectError(error.TypeMismatch, vectra.ArrowExport.ParquetScan.validatePredicate(wrong_dtype_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.pushdownValid(wrong_dtype_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.Pushdown.pushdownValid(wrong_dtype_scan));
+    try std.testing.expectError(error.TypeMismatch, vectra.ArrowExport.ParquetScan.validateCollect(wrong_dtype_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.collectValid(wrong_dtype_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasNullPredicate(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.nullPredicateColumn(grouped_scan) == null);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan) == null);

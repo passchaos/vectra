@@ -559,6 +559,14 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn validateCollect(_: DeviceParquetScan) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn collectValid(_: DeviceParquetScan) bool {
+                return false;
+            }
+
             pub fn pushdownSummary(_: DeviceParquetScan) DeviceParquetScanPushdownSummary {
                 return .{};
             }
