@@ -201,6 +201,10 @@ pub fn DeviceViewTypes(
                 return self.device.isCpu();
             }
 
+            pub fn isHostBacked(self: DeviceColumnView) bool {
+                return self.isCpu();
+            }
+
             pub fn isCuda(self: DeviceColumnView) bool {
                 return self.device.isCuda();
             }
@@ -667,6 +671,10 @@ pub fn DeviceViewTypes(
 
             pub fn isCpu(self: DeviceDataFrameView) bool {
                 return self.device.isCpu();
+            }
+
+            pub fn isHostBacked(self: DeviceDataFrameView) bool {
+                return self.isCpu();
             }
 
             pub fn isCuda(self: DeviceDataFrameView) bool {

@@ -158,6 +158,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.device().isCpu();
     }
 
+    pub fn isHostBacked(self: DeviceColumn) bool {
+        return self.isCpu();
+    }
+
     pub fn isCuda(self: DeviceColumn) bool {
         return self.device().isCuda();
     }

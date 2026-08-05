@@ -141,6 +141,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return true;
     }
 
+    pub fn isHostBacked(_: DeviceColumn) bool {
+        return true;
+    }
+
     pub fn isCuda(_: DeviceColumn) bool {
         return false;
     }

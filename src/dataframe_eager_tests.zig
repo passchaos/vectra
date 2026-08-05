@@ -295,6 +295,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(schema[1].total_nbytes, schema[1].estimatedSize());
     try std.testing.expect(schema[1].device.isCpu());
     try std.testing.expect(schema[1].isCpu());
+    try std.testing.expect(schema[1].isHostBacked());
     try std.testing.expect(!schema[1].isCuda());
     try std.testing.expect(!schema[1].isMps());
     const schema_alias = try table.schema(gpa);
@@ -324,6 +325,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_schema.validityPtr() != null);
     try std.testing.expectEqual(units_schema.total_nbytes, units_schema.totalNbytes());
     try std.testing.expect(units_schema.isCpu());
+    try std.testing.expect(units_schema.isHostBacked());
     try std.testing.expect(!units_schema.isDeviceBacked());
     try std.testing.expect(units_schema.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_schema.deviceBackendName()));
@@ -409,6 +411,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!table.schemaEquals(different_nulls));
     try std.testing.expect(table.device.isCpu());
     try std.testing.expect(table.isCpu());
+    try std.testing.expect(table.isHostBacked());
     try std.testing.expect(!table.isCuda());
     try std.testing.expect(!table.isMps());
     try std.testing.expect(!table.isDeviceBacked());
@@ -447,6 +450,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!units_col.isBool());
     try std.testing.expect(!units_col.isComplex());
     try std.testing.expect(units_col.isCpu());
+    try std.testing.expect(units_col.isHostBacked());
     try std.testing.expect(!units_col.isDeviceBacked());
     try std.testing.expect(units_col.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
@@ -480,6 +484,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.hasRows());
     try std.testing.expect(view.hasColumns());
     try std.testing.expect(view.isCpu());
+    try std.testing.expect(view.isHostBacked());
     try std.testing.expect(!view.isDeviceBacked());
     try std.testing.expect(view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", view.deviceBackendName()));
@@ -567,6 +572,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectApproxEqAbs(@as(f64, 0.0), sales_column_view.nullRatio(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), sales_column_view.validRatio(), 1e-12);
     try std.testing.expect(sales_column_view.isCpu());
+    try std.testing.expect(sales_column_view.isHostBacked());
     try std.testing.expect(!sales_column_view.isDeviceBacked());
     try std.testing.expect(sales_column_view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));

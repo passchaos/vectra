@@ -372,6 +372,10 @@ pub fn DeviceDataFrameType(
             return true;
         }
 
+        pub fn isHostBacked(_: Self) bool {
+            return true;
+        }
+
         pub fn isCuda(_: Self) bool {
             return false;
         }

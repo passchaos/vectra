@@ -560,6 +560,10 @@ pub const DeviceDataFrame = struct {
         return self.device.isCpu();
     }
 
+    pub fn isHostBacked(self: DeviceDataFrame) bool {
+        return self.isCpu();
+    }
+
     pub fn isCuda(self: DeviceDataFrame) bool {
         return self.device.isCuda();
     }

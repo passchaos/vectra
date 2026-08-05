@@ -187,6 +187,10 @@ pub const DeviceColumnSchema = struct {
         return self.device.isCpu();
     }
 
+    pub fn isHostBacked(self: @This()) bool {
+        return self.isCpu();
+    }
+
     pub fn isCuda(self: @This()) bool {
         return self.device.isCuda();
     }
