@@ -7815,25 +7815,25 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 3), arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, arrow_fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
-    var units_schema_field = try vectra.DeviceColumnSchemaArrow.toArrowField(table_schema[1], gpa);
+    var units_schema_field = try vectra.ArrowExport.ColumnSchema.toArrowField(table_schema[1], gpa);
     defer units_schema_field.deinit(gpa);
     try std.testing.expect(std.mem.eql(u8, "units", units_schema_field.name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), units_schema_field.nullable);
     try std.testing.expect(units_schema_field.data_type.eql(arrow_fields[1].data_type));
     var table_view = try table.view();
     defer table_view.deinit();
-    var sales_view_field = try vectra.DeviceColumnViewArrow.toArrowField(try table_view.column("sales"), gpa, "sales");
+    var sales_view_field = try vectra.ArrowExport.ColumnView.toArrowField(try table_view.column("sales"), gpa, "sales");
     defer sales_view_field.deinit(gpa);
     try std.testing.expect(std.mem.eql(u8, "sales", sales_view_field.name));
     try std.testing.expect(sales_view_field.data_type.eql(arrow_fields[0].data_type));
-    const view_arrow_fields = try vectra.DeviceDataFrameViewArrow.toArrowFields(table_view, gpa);
+    const view_arrow_fields = try vectra.ArrowExport.DataFrameView.toArrowFields(table_view, gpa);
     defer {
         for (view_arrow_fields) |*field| field.deinit(gpa);
         gpa.free(view_arrow_fields);
     }
     try std.testing.expectEqual(@as(usize, 3), view_arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, view_arrow_fields[0].name));
-    var view_arrow_schema = try vectra.DeviceDataFrameViewArrow.toArrowSchema(table_view, gpa);
+    var view_arrow_schema = try vectra.ArrowExport.DataFrameView.toArrowSchema(table_view, gpa);
     defer view_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), view_arrow_schema.fieldCount());
     try std.testing.expectEqual(table_schema[1].nullableColumn(), view_arrow_schema.fields[1].nullable);

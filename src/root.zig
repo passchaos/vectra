@@ -124,18 +124,24 @@ pub const AsofStrategy = dataframe_mod.AsofStrategy;
 pub const DeviceAsofOptions = dataframe_mod.DeviceAsofOptions;
 pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
-pub const DeviceDataFrameViewArrow = if (build_options.enable_boltha) struct {
-    pub const toArrowFields = dataframe_mod.deviceDataFrameViewToArrowFields;
-    pub const toArrowSchema = dataframe_mod.deviceDataFrameViewToArrowSchema;
+pub const ArrowExport = if (build_options.enable_boltha) struct {
+    pub const ColumnSchema = struct {
+        pub const toArrowField = dataframe_mod.deviceColumnSchemaToArrowField;
+    };
+
+    pub const ColumnView = struct {
+        pub const toArrowField = dataframe_mod.deviceColumnViewToArrowField;
+    };
+
+    pub const DataFrameView = struct {
+        pub const toArrowFields = dataframe_mod.deviceDataFrameViewToArrowFields;
+        pub const toArrowSchema = dataframe_mod.deviceDataFrameViewToArrowSchema;
+    };
 } else struct {};
 
-pub const DeviceColumnViewArrow = if (build_options.enable_boltha) struct {
-    pub const toArrowField = dataframe_mod.deviceColumnViewToArrowField;
-} else struct {};
-
-pub const DeviceColumnSchemaArrow = if (build_options.enable_boltha) struct {
-    pub const toArrowField = dataframe_mod.deviceColumnSchemaToArrowField;
-} else struct {};
+pub const DeviceDataFrameViewArrow = if (build_options.enable_boltha) ArrowExport.DataFrameView else struct {};
+pub const DeviceColumnViewArrow = if (build_options.enable_boltha) ArrowExport.ColumnView else struct {};
+pub const DeviceColumnSchemaArrow = if (build_options.enable_boltha) ArrowExport.ColumnSchema else struct {};
 
 pub const CsrMatrix = sparse.CsrMatrix;
 pub const CscMatrix = sparse.CscMatrix;
