@@ -1048,7 +1048,10 @@ also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*
 `ColumnSchema.arrowDataType`/`toArrowField`, `ColumnView.arrowDataType`/`toArrowField`,
 `ParquetScan.init` plus scan device metadata (`deviceValue`, `deviceBackend`,
 `deviceBackendName`, `deviceIndex`, `isCpu`/`isCuda`/`isMps`, backed-by
-predicates, `isDeviceAvailable`, and `sameDevice`), pushdown inspection
+predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
+metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `isEmpty`/`isNonEmpty`/`hasBytes`,
+`projectionMetadataNbytes`, `predicateMetadataNbytes`, `pushdownMetadataNbytes`,
+`ownedNbytes`/`memoryUsage`/`estimatedSize`), pushdown inspection
 (`hasPushdown`/`hasProjection`/`projectionColumnCount`/`projectionNames`/`hasRangePredicate`/`rangePredicateColumn`/`hasNullPredicate`/`nullPredicateColumn`),
 `select`/`whereRange`/`whereNull`/`collect`/`lazy`/`explain`, and
 `DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` for exporting owning schema and

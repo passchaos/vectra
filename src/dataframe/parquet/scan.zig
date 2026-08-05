@@ -127,6 +127,74 @@ pub fn DeviceParquetScan(
             return self.device.sameDevice(other.device);
         }
 
+        pub fn sourceNbytes(self: Self) usize {
+            return self.bytes.len;
+        }
+
+        pub fn sourceByteCount(self: Self) usize {
+            return self.sourceNbytes();
+        }
+
+        pub fn nbytes(self: Self) usize {
+            return self.sourceNbytes();
+        }
+
+        pub fn byteCount(self: Self) usize {
+            return self.sourceNbytes();
+        }
+
+        pub fn isEmpty(self: Self) bool {
+            return self.bytes.len == 0;
+        }
+
+        pub fn isNonEmpty(self: Self) bool {
+            return !self.isEmpty();
+        }
+
+        pub fn hasBytes(self: Self) bool {
+            return !self.isEmpty();
+        }
+
+        // Scan pushdown state owns cloned column-name bytes on the host even
+        // though the scan target may be CUDA/MPS.  These helpers intentionally
+        // count only heap-owned payloads (the projection slice table plus
+        // duplicated name strings), not inline option/enum fields embedded in
+        // the scan struct itself.
+        pub fn projectionMetadataNbytes(self: Self) usize {
+            const names = self.projection orelse return 0;
+            var total = names.len * @sizeOf([]const u8);
+            for (names) |name| total += name.len;
+            return total;
+        }
+
+        pub fn rangePredicateMetadataNbytes(self: Self) usize {
+            return if (self.range_predicate) |predicate| predicate.column.len else 0;
+        }
+
+        pub fn nullPredicateMetadataNbytes(self: Self) usize {
+            return if (self.null_predicate) |predicate| predicate.column.len else 0;
+        }
+
+        pub fn predicateMetadataNbytes(self: Self) usize {
+            return self.rangePredicateMetadataNbytes() + self.nullPredicateMetadataNbytes();
+        }
+
+        pub fn pushdownMetadataNbytes(self: Self) usize {
+            return self.projectionMetadataNbytes() + self.predicateMetadataNbytes();
+        }
+
+        pub fn ownedNbytes(self: Self) usize {
+            return self.sourceNbytes() + self.pushdownMetadataNbytes();
+        }
+
+        pub fn memoryUsage(self: Self) usize {
+            return self.ownedNbytes();
+        }
+
+        pub fn estimatedSize(self: Self) usize {
+            return self.ownedNbytes();
+        }
+
         pub fn hasProjection(self: Self) bool {
             return self.projection != null;
         }

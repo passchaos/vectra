@@ -112,6 +112,66 @@ pub fn DeviceLazyParquetTypes(
                 return true;
             }
 
+            pub fn sourceNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn sourceByteCount(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn nbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn byteCount(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn isEmpty(_: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn isNonEmpty(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasBytes(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn projectionMetadataNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn rangePredicateMetadataNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn nullPredicateMetadataNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn predicateMetadataNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn pushdownMetadataNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn ownedNbytes(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn memoryUsage(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn estimatedSize(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
             pub fn hasProjection(_: DeviceParquetScan) bool {
                 return false;
             }
