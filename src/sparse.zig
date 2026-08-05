@@ -10940,11 +10940,19 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.rowNnz(), out);
+        }
+
         pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.col_indices) |col| out.data[col] += 1;
             return out;
+        }
+
+        pub fn columnNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.columnNnz(), out);
         }
 
         pub fn averageRowNnz(self: Self) SparseError!f64 {
@@ -11085,12 +11093,20 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowSums(), out);
+        }
+
         pub fn columnSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += value;
             return out;
+        }
+
+        pub fn columnSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnSums(), out);
         }
 
         pub fn rowSumsInRange(self: Self, min_sum: T, max_sum: T) SparseError!bool {
@@ -11235,12 +11251,20 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowAbsSums(), out);
+        }
+
         pub fn columnAbsSums(self: Self) SparseError!array_mod.Array(T) {
             ensureNumeric(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += absValue(T, value);
             return out;
+        }
+
+        pub fn columnAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnAbsSums(), out);
         }
 
         pub fn rowMinAbsInRange(self: Self, min_value: T, max_value: T) SparseError!bool {
@@ -19718,11 +19742,19 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.rowNnz(), out);
+        }
+
         pub fn columnNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.cols});
             errdefer out.deinit();
             for (self.col_indices) |col| out.data[col] += 1;
             return out;
+        }
+
+        pub fn columnNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.columnNnz(), out);
         }
 
         pub fn averageRowNnz(self: Self) SparseError!f64 {
@@ -19864,6 +19896,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowSums(), out);
+        }
+
         fn rowSumsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
@@ -19881,6 +19917,10 @@ pub fn CsrMatrix(comptime T: type) type {
                 for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[self.col_indices[pos]] += self.values[pos];
             }
             return out;
+        }
+
+        pub fn columnSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnSums(), out);
         }
 
         fn columnSumsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -20046,6 +20086,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowAbsSums(), out);
+        }
+
         fn rowAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
@@ -20063,6 +20107,10 @@ pub fn CsrMatrix(comptime T: type) type {
                 for (self.row_offsets[r]..self.row_offsets[r + 1]) |pos| out.data[self.col_indices[pos]] += absValue(T, self.values[pos]);
             }
             return out;
+        }
+
+        pub fn columnAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnAbsSums(), out);
         }
 
         fn columnAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -28182,11 +28230,19 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.columnNnz(), out);
+        }
+
         pub fn rowNnz(self: Self) SparseError!array_mod.Array(usize) {
             var out = try array_mod.Array(usize).zeros(self.allocator, &.{self.rows});
             errdefer out.deinit();
             for (self.row_indices) |row| out.data[row] += 1;
             return out;
+        }
+
+        pub fn rowNnzOut(self: Self, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.rowNnz(), out);
         }
 
         pub fn averageRowNnz(self: Self) SparseError!f64 {
@@ -28328,6 +28384,10 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnSums(), out);
+        }
+
         fn columnSumsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
@@ -28345,6 +28405,10 @@ pub fn CscMatrix(comptime T: type) type {
                 for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos]] += self.values[pos];
             }
             return out;
+        }
+
+        pub fn rowSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowSums(), out);
         }
 
         fn rowSumsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -28510,6 +28574,10 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnAbsSums(), out);
+        }
+
         fn columnAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
@@ -28527,6 +28595,10 @@ pub fn CscMatrix(comptime T: type) type {
                 for (self.col_offsets[c]..self.col_offsets[c + 1]) |pos| out.data[self.row_indices[pos]] += absValue(T, self.values[pos]);
             }
             return out;
+        }
+
+        pub fn rowAbsSumsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowAbsSums(), out);
         }
 
         fn rowAbsSumsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -30103,9 +30175,15 @@ test "coo sparse row and column statistics" {
     var row_nnz = try coo.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
+    var row_count_out = try array_mod.Array(usize).zeros(gpa, &.{3});
+    defer row_count_out.deinit();
+    try coo.rowNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, row_nnz.data, row_count_out.data);
     var col_nnz = try coo.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try coo.columnNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, col_nnz.data, row_count_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try coo.averageRowNnz(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try coo.averageColumnNnz(), 1e-12);
     try std.testing.expect(try coo.averageRowNnzInRange(1.6, 1.7));
@@ -30120,24 +30198,34 @@ test "coo sparse row and column statistics" {
     var row_sums = try coo.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    var row_value_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer row_value_out.deinit();
+    try coo.rowSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_sums.data, row_value_out.data);
     try std.testing.expect(try coo.rowSumsInRange(-1, 9));
     try std.testing.expect(!(try coo.rowSumsInRange(0, 9)));
     try std.testing.expectError(error.InvalidShape, coo.rowSumsInRange(10, 9));
     var col_sums = try coo.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try coo.columnSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_sums.data, row_value_out.data);
     try std.testing.expect(try coo.columnSumsInRange(3, 5));
     try std.testing.expect(!(try coo.columnSumsInRange(4, 5)));
 
     var row_abs = try coo.rowAbsSums();
     defer row_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
+    try coo.rowAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_abs.data, row_value_out.data);
     try std.testing.expect(try coo.rowAbsSumsInRange(3, 9));
     try std.testing.expect(!(try coo.rowAbsSumsInRange(4, 9)));
     try std.testing.expectError(error.InvalidShape, coo.rowAbsSumsInRange(10, 9));
     var col_abs = try coo.columnAbsSums();
     defer col_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 7 }, col_abs.data);
+    try coo.columnAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_abs.data, row_value_out.data);
     try std.testing.expect(try coo.columnAbsSumsInRange(3, 7));
     try std.testing.expect(!(try coo.columnAbsSumsInRange(4, 7)));
 
@@ -38114,9 +38202,15 @@ test "csr sparse row and column statistics" {
     var row_nnz = try csr.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
+    var row_count_out = try array_mod.Array(usize).zeros(gpa, &.{3});
+    defer row_count_out.deinit();
+    try csr.rowNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, row_nnz.data, row_count_out.data);
     var col_nnz = try csr.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try csr.columnNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, col_nnz.data, row_count_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csr.averageRowNnz(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csr.averageColumnNnz(), 1e-12);
     try std.testing.expect(try csr.averageRowNnzInRange(1.6, 1.7));
@@ -38131,24 +38225,34 @@ test "csr sparse row and column statistics" {
     var row_sums = try csr.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    var row_value_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer row_value_out.deinit();
+    try csr.rowSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_sums.data, row_value_out.data);
     try std.testing.expect(try csr.rowSumsInRange(-1, 9));
     try std.testing.expect(!(try csr.rowSumsInRange(0, 9)));
     try std.testing.expectError(error.InvalidShape, csr.rowSumsInRange(10, 9));
     var col_sums = try csr.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try csr.columnSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_sums.data, row_value_out.data);
     try std.testing.expect(try csr.columnSumsInRange(3, 5));
     try std.testing.expect(!(try csr.columnSumsInRange(4, 5)));
 
     var row_abs = try csr.rowAbsSums();
     defer row_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
+    try csr.rowAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_abs.data, row_value_out.data);
     try std.testing.expect(try csr.rowAbsSumsInRange(3, 9));
     try std.testing.expect(!(try csr.rowAbsSumsInRange(4, 9)));
     try std.testing.expectError(error.InvalidShape, csr.rowAbsSumsInRange(10, 9));
     var col_abs = try csr.columnAbsSums();
     defer col_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 7 }, col_abs.data);
+    try csr.columnAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_abs.data, row_value_out.data);
     try std.testing.expect(try csr.columnAbsSumsInRange(3, 7));
     try std.testing.expect(!(try csr.columnAbsSumsInRange(4, 7)));
 
@@ -38829,9 +38933,15 @@ test "csc sparse transpose products and row column stats" {
     var row_nnz = try csc.rowNnz();
     defer row_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, row_nnz.data);
+    var row_count_out = try array_mod.Array(usize).zeros(gpa, &.{3});
+    defer row_count_out.deinit();
+    try csc.rowNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, row_nnz.data, row_count_out.data);
     var col_nnz = try csc.columnNnz();
     defer col_nnz.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 2, 1, 2 }, col_nnz.data);
+    try csc.columnNnzOut(row_count_out);
+    try std.testing.expectEqualSlices(usize, col_nnz.data, row_count_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csc.averageRowNnz(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 5.0 / 3.0), try csc.averageColumnNnz(), 1e-12);
     try std.testing.expect(try csc.averageRowNnzInRange(1.6, 1.7));
@@ -38845,23 +38955,33 @@ test "csc sparse transpose products and row column stats" {
     var row_sums = try csc.rowSums();
     defer row_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ -1, 3, 9 }, row_sums.data);
+    var row_value_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer row_value_out.deinit();
+    try csc.rowSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_sums.data, row_value_out.data);
     try std.testing.expect(try csc.rowSumsInRange(-1, 9));
     try std.testing.expect(!(try csc.rowSumsInRange(0, 9)));
     try std.testing.expectError(error.InvalidShape, csc.rowSumsInRange(10, 9));
     var col_sums = try csc.columnSums();
     defer col_sums.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 3 }, col_sums.data);
+    try csc.columnSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_sums.data, row_value_out.data);
     try std.testing.expect(try csc.columnSumsInRange(3, 5));
     try std.testing.expect(!(try csc.columnSumsInRange(4, 5)));
     var row_abs = try csc.rowAbsSums();
     defer row_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 3, 3, 9 }, row_abs.data);
+    try csc.rowAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_abs.data, row_value_out.data);
     try std.testing.expect(try csc.rowAbsSumsInRange(3, 9));
     try std.testing.expect(!(try csc.rowAbsSumsInRange(4, 9)));
     try std.testing.expectError(error.InvalidShape, csc.rowAbsSumsInRange(10, 9));
     var col_abs = try csc.columnAbsSums();
     defer col_abs.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 5, 3, 7 }, col_abs.data);
+    try csc.columnAbsSumsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_abs.data, row_value_out.data);
     try std.testing.expect(try csc.columnAbsSumsInRange(3, 7));
     try std.testing.expect(!(try csc.columnAbsSumsInRange(4, 7)));
     var row_norms = try csc.rowNorms();
