@@ -7270,32 +7270,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePow(T, self, rhs);
         }
 
+        pub fn powOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pow(rhs), out);
+        }
+
         pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn floorDivOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDiv(rhs), out);
         }
 
         pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMod(T, self, rhs);
         }
 
+        pub fn modOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mod(rhs), out);
+        }
+
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn remainderOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.modOut(rhs, out);
         }
 
         pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMaximum(T, self, rhs);
         }
 
+        pub fn maximumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximum(rhs), out);
+        }
+
         pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn minimumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimum(rhs), out);
         }
 
         pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmax(T, self, rhs);
         }
 
+        pub fn fmaxOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmax(rhs), out);
+        }
+
         pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmin(T, self, rhs);
+        }
+
+        pub fn fminOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmin(rhs), out);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -14870,32 +14902,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePow(T, self, rhs);
         }
 
+        pub fn powOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pow(rhs), out);
+        }
+
         pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn floorDivOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDiv(rhs), out);
         }
 
         pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMod(T, self, rhs);
         }
 
+        pub fn modOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mod(rhs), out);
+        }
+
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn remainderOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.modOut(rhs, out);
         }
 
         pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMaximum(T, self, rhs);
         }
 
+        pub fn maximumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximum(rhs), out);
+        }
+
         pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn minimumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimum(rhs), out);
         }
 
         pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmax(T, self, rhs);
         }
 
+        pub fn fmaxOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmax(rhs), out);
+        }
+
         pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmin(T, self, rhs);
+        }
+
+        pub fn fminOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmin(rhs), out);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -22683,32 +22747,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePow(T, self, rhs);
         }
 
+        pub fn powOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.pow(rhs), out);
+        }
+
         pub fn floorDiv(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDiv(T, self, rhs);
+        }
+
+        pub fn floorDivOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDiv(rhs), out);
         }
 
         pub fn mod(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMod(T, self, rhs);
         }
 
+        pub fn modOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mod(rhs), out);
+        }
+
         pub fn remainder(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return self.mod(rhs);
+        }
+
+        pub fn remainderOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.modOut(rhs, out);
         }
 
         pub fn maximum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMaximum(T, self, rhs);
         }
 
+        pub fn maximumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximum(rhs), out);
+        }
+
         pub fn minimum(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseMinimum(T, self, rhs);
+        }
+
+        pub fn minimumOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimum(rhs), out);
         }
 
         pub fn fmax(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmax(T, self, rhs);
         }
 
+        pub fn fmaxOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmax(rhs), out);
+        }
+
         pub fn fmin(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFmin(T, self, rhs);
+        }
+
+        pub fn fminOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmin(rhs), out);
         }
 
         pub fn maximumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -32675,34 +32771,52 @@ test "sparse dense numeric array helpers" {
             var sparse_powers = try matrix.pow(rhs_same_format);
             defer sparse_powers.deinit();
             try expectArray(sparse_powers, &.{ 2, 3 }, &.{ 4, 0, 0, 0, -1, 4 });
+            var sparse_binary_out = try array_mod.Array(i32).zeros(matrix.allocator, &.{ 2, 3 });
+            defer sparse_binary_out.deinit();
+            try matrix.powOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_powers.data);
 
             var sparse_floor = try matrix.floorDiv(rhs_same_format);
             defer sparse_floor.deinit();
             try expectArray(sparse_floor, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
+            try matrix.floorDivOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_floor.data);
 
             var sparse_mod = try matrix.mod(rhs_same_format);
             defer sparse_mod.deinit();
             try expectArray(sparse_mod, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 4, 0 });
+            try matrix.modOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_mod.data);
 
             var sparse_remainder = try matrix.remainder(rhs_same_format);
             defer sparse_remainder.deinit();
             try expectArray(sparse_remainder, &.{ 2, 3 }, sparse_mod.data);
+            try matrix.remainderOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_remainder.data);
 
             var sparse_maximum = try matrix.maximum(rhs_same_format);
             defer sparse_maximum.deinit();
             try expectArray(sparse_maximum, &.{ 2, 3 }, &.{ 2, 2, 3, 4, 5, 2 });
+            try matrix.maximumOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_maximum.data);
 
             var sparse_minimum = try matrix.minimum(rhs_same_format);
             defer sparse_minimum.deinit();
             try expectArray(sparse_minimum, &.{ 2, 3 }, &.{ 2, 0, 0, 0, -1, 2 });
+            try matrix.minimumOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_minimum.data);
 
             var sparse_fmax = try matrix.fmax(rhs_same_format);
             defer sparse_fmax.deinit();
             try expectArray(sparse_fmax, &.{ 2, 3 }, sparse_maximum.data);
+            try matrix.fmaxOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_fmax.data);
 
             var sparse_fmin = try matrix.fmin(rhs_same_format);
             defer sparse_fmin.deinit();
             try expectArray(sparse_fmin, &.{ 2, 3 }, sparse_minimum.data);
+            try matrix.fminOut(rhs_same_format, sparse_binary_out);
+            try expectArray(sparse_binary_out, &.{ 2, 3 }, sparse_fmin.data);
 
             var bounds = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
                 1, -1, 3,
