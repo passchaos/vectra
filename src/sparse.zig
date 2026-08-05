@@ -5468,68 +5468,136 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshape(dims), out);
+        }
+
         pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshapeInfer(dims), out);
         }
 
         pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(other.shape, out);
+        }
+
         pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshapeAs(other);
+        }
+
+        pub fn reshapeAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeAsOut(other, out);
         }
 
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
 
+        pub fn viewOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(dims, out);
+        }
+
         pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return self.reshapeInfer(dims);
+        }
+
+        pub fn viewInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeInferOut(dims, out);
         }
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
         }
 
+        pub fn viewAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewOut(other.shape, out);
+        }
+
         pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.viewAs(other);
+        }
+
+        pub fn viewAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewAsOut(other, out);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flatten(), out);
+        }
+
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenAxesOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flattenAxes(start_axis, end_axis), out);
         }
 
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, end_axis);
         }
 
+        pub fn flattenRangeOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, end_axis, out);
+        }
+
         pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, -1);
+        }
+
+        pub fn flattenFromOut(self: Self, start_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, -1, out);
         }
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
         }
 
+        pub fn ravelOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenOut(out);
+        }
+
         pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast1dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast1d(), out);
         }
 
         pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast2d(T, self);
         }
 
+        pub fn atLeast2dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast2d(), out);
+        }
+
         pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast3d(T, self);
         }
 
+        pub fn atLeast3dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast3d(), out);
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn unflattenOut(self: Self, axis_index: isize, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unflatten(axis_index, dims), out);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
@@ -13368,68 +13436,136 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshape(dims), out);
+        }
+
         pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshapeInfer(dims), out);
         }
 
         pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(other.shape, out);
+        }
+
         pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshapeAs(other);
+        }
+
+        pub fn reshapeAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeAsOut(other, out);
         }
 
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
 
+        pub fn viewOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(dims, out);
+        }
+
         pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return self.reshapeInfer(dims);
+        }
+
+        pub fn viewInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeInferOut(dims, out);
         }
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
         }
 
+        pub fn viewAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewOut(other.shape, out);
+        }
+
         pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.viewAs(other);
+        }
+
+        pub fn viewAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewAsOut(other, out);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flatten(), out);
+        }
+
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenAxesOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flattenAxes(start_axis, end_axis), out);
         }
 
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, end_axis);
         }
 
+        pub fn flattenRangeOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, end_axis, out);
+        }
+
         pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, -1);
+        }
+
+        pub fn flattenFromOut(self: Self, start_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, -1, out);
         }
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
         }
 
+        pub fn ravelOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenOut(out);
+        }
+
         pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast1dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast1d(), out);
         }
 
         pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast2d(T, self);
         }
 
+        pub fn atLeast2dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast2d(), out);
+        }
+
         pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast3d(T, self);
         }
 
+        pub fn atLeast3dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast3d(), out);
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn unflattenOut(self: Self, axis_index: isize, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unflatten(axis_index, dims), out);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
@@ -21481,68 +21617,136 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseReshape(T, self, dims);
         }
 
+        pub fn reshapeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshape(dims), out);
+        }
+
         pub fn reshapeInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseReshapeInfer(T, self, dims);
+        }
+
+        pub fn reshapeInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.reshapeInfer(dims), out);
         }
 
         pub fn reshapeAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshape(other.shape);
         }
 
+        pub fn reshapeAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(other.shape, out);
+        }
+
         pub fn reshapeAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.reshapeAs(other);
+        }
+
+        pub fn reshapeAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeAsOut(other, out);
         }
 
         pub fn view(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return self.reshape(dims);
         }
 
+        pub fn viewOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeOut(dims, out);
+        }
+
         pub fn viewInfer(self: Self, dims: []const isize) SparseError!array_mod.Array(T) {
             return self.reshapeInfer(dims);
+        }
+
+        pub fn viewInferOut(self: Self, dims: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try self.reshapeInferOut(dims, out);
         }
 
         pub fn viewAs(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.view(other.shape);
         }
 
+        pub fn viewAsOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewOut(other.shape, out);
+        }
+
         pub fn viewAsArray(self: Self, other: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.viewAs(other);
+        }
+
+        pub fn viewAsArrayOut(self: Self, other: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.viewAsOut(other, out);
         }
 
         pub fn flatten(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseFlatten(T, self);
         }
 
+        pub fn flattenOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flatten(), out);
+        }
+
         pub fn flattenAxes(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlattenAxes(T, self, start_axis, end_axis);
+        }
+
+        pub fn flattenAxesOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flattenAxes(start_axis, end_axis), out);
         }
 
         pub fn flattenRange(self: Self, start_axis: isize, end_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, end_axis);
         }
 
+        pub fn flattenRangeOut(self: Self, start_axis: isize, end_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, end_axis, out);
+        }
+
         pub fn flattenFrom(self: Self, start_axis: isize) SparseError!array_mod.Array(T) {
             return self.flattenAxes(start_axis, -1);
+        }
+
+        pub fn flattenFromOut(self: Self, start_axis: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenAxesOut(start_axis, -1, out);
         }
 
         pub fn ravel(self: Self) SparseError!array_mod.Array(T) {
             return self.flatten();
         }
 
+        pub fn ravelOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flattenOut(out);
+        }
+
         pub fn atLeast1d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast1d(T, self);
+        }
+
+        pub fn atLeast1dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast1d(), out);
         }
 
         pub fn atLeast2d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast2d(T, self);
         }
 
+        pub fn atLeast2dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast2d(), out);
+        }
+
         pub fn atLeast3d(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseAtLeast3d(T, self);
         }
 
+        pub fn atLeast3dOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atLeast3d(), out);
+        }
+
         pub fn unflatten(self: Self, axis_index: isize, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseUnflatten(T, self, axis_index, dims);
+        }
+
+        pub fn unflattenOut(self: Self, axis_index: isize, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unflatten(axis_index, dims), out);
         }
 
         pub fn asStrided(self: Self, dims: []const usize, stride_values: []const usize, offset: usize) SparseError!array_mod.Array(T) {
@@ -30545,72 +30749,114 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var reshaped = try matrix.reshape(&.{ 3, 2 });
             defer reshaped.deinit();
             try expectArray(reshaped, &.{ 3, 2 }, &.{ 1, 0, 0, 0, 2, 3 });
+            var reshape_out_32 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 2 });
+            defer reshape_out_32.deinit();
+            try matrix.reshapeOut(&.{ 3, 2 }, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, reshaped.data);
 
             var reshaped_infer = try matrix.reshapeInfer(&.{ -1, 2 });
             defer reshaped_infer.deinit();
             try expectArray(reshaped_infer, &.{ 3, 2 }, reshaped.data);
+            try matrix.reshapeInferOut(&.{ -1, 2 }, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, reshaped_infer.data);
 
             var reshape_target = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 2 });
             defer reshape_target.deinit();
             var reshaped_as = try matrix.reshapeAs(reshape_target);
             defer reshaped_as.deinit();
             try expectArray(reshaped_as, &.{ 3, 2 }, reshaped.data);
+            try matrix.reshapeAsOut(reshape_target, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, reshaped_as.data);
 
             var reshaped_as_array = try matrix.reshapeAsArray(reshape_target);
             defer reshaped_as_array.deinit();
             try expectArray(reshaped_as_array, &.{ 3, 2 }, reshaped.data);
+            try matrix.reshapeAsArrayOut(reshape_target, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, reshaped_as_array.data);
 
             var viewed = try matrix.view(&.{ 3, 2 });
             defer viewed.deinit();
             try expectArray(viewed, &.{ 3, 2 }, reshaped.data);
+            try matrix.viewOut(&.{ 3, 2 }, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, viewed.data);
 
             var viewed_infer = try matrix.viewInfer(&.{ -1, 2 });
             defer viewed_infer.deinit();
             try expectArray(viewed_infer, &.{ 3, 2 }, reshaped.data);
+            try matrix.viewInferOut(&.{ -1, 2 }, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, viewed_infer.data);
 
             var viewed_as = try matrix.viewAs(reshape_target);
             defer viewed_as.deinit();
             try expectArray(viewed_as, &.{ 3, 2 }, reshaped.data);
+            try matrix.viewAsOut(reshape_target, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, viewed_as.data);
 
             var viewed_as_array = try matrix.viewAsArray(reshape_target);
             defer viewed_as_array.deinit();
             try expectArray(viewed_as_array, &.{ 3, 2 }, reshaped.data);
+            try matrix.viewAsArrayOut(reshape_target, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, viewed_as_array.data);
 
             var flattened = try matrix.flatten();
             defer flattened.deinit();
             try expectArray(flattened, &.{6}, &.{ 1, 0, 0, 0, 2, 3 });
+            var flat_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{6});
+            defer flat_out.deinit();
+            try matrix.flattenOut(flat_out);
+            try expectArray(flat_out, &.{6}, flattened.data);
 
             var flatten_axes = try matrix.flattenAxes(0, 1);
             defer flatten_axes.deinit();
             try expectArray(flatten_axes, &.{6}, flattened.data);
+            try matrix.flattenAxesOut(0, 1, flat_out);
+            try expectArray(flat_out, &.{6}, flatten_axes.data);
 
             var flatten_range = try matrix.flattenRange(0, -1);
             defer flatten_range.deinit();
             try expectArray(flatten_range, &.{6}, flattened.data);
+            try matrix.flattenRangeOut(0, 1, flat_out);
+            try expectArray(flat_out, &.{6}, flatten_range.data);
 
             var flatten_from = try matrix.flattenFrom(0);
             defer flatten_from.deinit();
             try expectArray(flatten_from, &.{6}, flattened.data);
+            try matrix.flattenFromOut(0, flat_out);
+            try expectArray(flat_out, &.{6}, flatten_from.data);
 
             var raveled = try matrix.ravel();
             defer raveled.deinit();
             try expectArray(raveled, &.{6}, flattened.data);
+            try matrix.ravelOut(flat_out);
+            try expectArray(flat_out, &.{6}, raveled.data);
 
             var at_least_1d = try matrix.atLeast1d();
             defer at_least_1d.deinit();
             try expectArray(at_least_1d, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+            var atleast_out_23 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer atleast_out_23.deinit();
+            try matrix.atLeast1dOut(atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, at_least_1d.data);
 
             var at_least_2d = try matrix.atLeast2d();
             defer at_least_2d.deinit();
             try expectArray(at_least_2d, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+            try matrix.atLeast2dOut(atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, at_least_2d.data);
 
             var at_least_3d = try matrix.atLeast3d();
             defer at_least_3d.deinit();
             try expectArray(at_least_3d, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+            var unflatten_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3, 1 });
+            defer unflatten_out.deinit();
+            try matrix.atLeast3dOut(unflatten_out);
+            try expectArray(unflatten_out, &.{ 2, 3, 1 }, at_least_3d.data);
 
             var unflattened = try matrix.unflatten(1, &.{ 3, 1 });
             defer unflattened.deinit();
             try expectArray(unflattened, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
+            try matrix.unflattenOut(1, &.{ 3, 1 }, unflatten_out);
+            try expectArray(unflatten_out, &.{ 2, 3, 1 }, unflattened.data);
 
             var strided = try matrix.asStrided(&.{ 2, 2 }, &.{ 3, 1 }, 1);
             defer strided.deinit();
@@ -30740,24 +30986,24 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var unsqueezed_dim = try matrix.unsqueezeDim(-1);
             defer unsqueezed_dim.deinit();
             try expectArray(unsqueezed_dim, &.{ 2, 3, 1 }, &.{ 1, 0, 0, 0, 2, 3 });
-            var shape_out_231 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3, 1 });
-            defer shape_out_231.deinit();
-            try matrix.unsqueezeDimOut(-1, shape_out_231);
-            try expectArray(shape_out_231, &.{ 2, 3, 1 }, unsqueezed_dim.data);
+            var shape2_out_231 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3, 1 });
+            defer shape2_out_231.deinit();
+            try matrix.unsqueezeDimOut(-1, shape2_out_231);
+            try expectArray(shape2_out_231, &.{ 2, 3, 1 }, unsqueezed_dim.data);
 
             var squeezed_back = try unsqueezed.squeeze(0);
             defer squeezed_back.deinit();
             try expectArray(squeezed_back, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
-            var shape_out_23 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
-            defer shape_out_23.deinit();
-            try matrix.squeezeOut(null, shape_out_23);
-            try expectArray(shape_out_23, &.{ 2, 3 }, squeezed_back.data);
+            var shape2_out_23 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer shape2_out_23.deinit();
+            try matrix.squeezeOut(null, shape2_out_23);
+            try expectArray(shape2_out_23, &.{ 2, 3 }, squeezed_back.data);
 
             var squeezed_dim = try unsqueezed_dim.squeezeDim(-1);
             defer squeezed_dim.deinit();
             try expectArray(squeezed_dim, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
-            try matrix.squeezeDimOut(0, shape_out_23);
-            try expectArray(shape_out_23, &.{ 2, 3 }, squeezed_dim.data);
+            try matrix.squeezeDimOut(0, shape2_out_23);
+            try expectArray(shape2_out_23, &.{ 2, 3 }, squeezed_dim.data);
 
             var expanded = try matrix.expandDims(&.{ 0, -1 });
             defer expanded.deinit();
@@ -30776,8 +31022,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var squeezed_axes = try expanded.squeezeAxes(&.{ 0, 3 });
             defer squeezed_axes.deinit();
             try expectArray(squeezed_axes, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
-            try matrix.squeezeAxesOut(&.{}, shape_out_23);
-            try expectArray(shape_out_23, &.{ 2, 3 }, squeezed_axes.data);
+            try matrix.squeezeAxesOut(&.{}, shape2_out_23);
+            try expectArray(shape2_out_23, &.{ 2, 3 }, squeezed_axes.data);
 
             var broadcasted = try matrix.broadcastTo(&.{ 1, 2, 3 });
             defer broadcasted.deinit();
@@ -30824,52 +31070,52 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 2,
                 0, 3,
             });
-            var shape_out_32 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 2 });
-            defer shape_out_32.deinit();
-            try matrix.permuteOut(&.{ 1, 0 }, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, permuted.data);
+            var permute_out_32 = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 2 });
+            defer permute_out_32.deinit();
+            try matrix.permuteOut(&.{ 1, 0 }, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, permuted.data);
 
             var swapped = try matrix.swapaxes(0, 1);
             defer swapped.deinit();
             try expectArray(swapped, &.{ 3, 2 }, permuted.data);
-            try matrix.swapaxesOut(0, 1, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, swapped.data);
+            try matrix.swapaxesOut(0, 1, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, swapped.data);
 
             var swap_dims = try matrix.swapDims(0, 1);
             defer swap_dims.deinit();
             try expectArray(swap_dims, &.{ 3, 2 }, permuted.data);
-            try matrix.swapDimsOut(0, 1, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, swap_dims.data);
+            try matrix.swapDimsOut(0, 1, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, swap_dims.data);
 
             var moved = try matrix.movedim(0, 1);
             defer moved.deinit();
             try expectArray(moved, &.{ 3, 2 }, permuted.data);
-            try matrix.movedimOut(0, 1, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, moved.data);
+            try matrix.movedimOut(0, 1, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, moved.data);
 
             var move_axis = try matrix.moveaxis(0, 1);
             defer move_axis.deinit();
             try expectArray(move_axis, &.{ 3, 2 }, permuted.data);
-            try matrix.moveaxisOut(0, 1, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, move_axis.data);
+            try matrix.moveaxisOut(0, 1, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, move_axis.data);
 
             var moved_axes = try matrix.moveaxes(&.{0}, &.{1});
             defer moved_axes.deinit();
             try expectArray(moved_axes, &.{ 3, 2 }, permuted.data);
-            try matrix.moveaxesOut(&.{0}, &.{1}, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, moved_axes.data);
+            try matrix.moveaxesOut(&.{0}, &.{1}, permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, moved_axes.data);
 
             var adjointed = try matrix.adjoint();
             defer adjointed.deinit();
             try expectArray(adjointed, &.{ 3, 2 }, permuted.data);
-            try matrix.adjointOut(shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, adjointed.data);
+            try matrix.adjointOut(permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, adjointed.data);
 
             var hermitian_alias = try matrix.mH();
             defer hermitian_alias.deinit();
             try expectArray(hermitian_alias, &.{ 3, 2 }, permuted.data);
-            try matrix.mHOut(shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, hermitian_alias.data);
+            try matrix.mHOut(permute_out_32);
+            try expectArray(permute_out_32, &.{ 3, 2 }, hermitian_alias.data);
 
             try std.testing.expectError(error.ShapeMismatch, matrix.broadcastTo(&.{ 2, 2 }));
             try std.testing.expectError(error.InvalidPermutation, matrix.permute(&.{ 0, 0 }));
@@ -30926,8 +31172,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 2,
                 1, 0,
             });
-            try matrix.rot90Out(1, .{ 0, 1 }, shape_out_32);
-            try expectArray(shape_out_32, &.{ 3, 2 }, rotated.data);
+            try matrix.rot90Out(1, .{ 0, 1 }, reshape_out_32);
+            try expectArray(reshape_out_32, &.{ 3, 2 }, rotated.data);
             try std.testing.expectError(error.InvalidAxis, matrix.rot90(1, .{ 0, 0 }));
 
             var padded_constant = try matrix.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, -1);
