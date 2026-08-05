@@ -328,6 +328,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_schema.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_schema.deviceBackendName()));
     try std.testing.expectEqual(vectra.Device.cpu.backend, units_schema.deviceBackend());
+    try std.testing.expect(units_schema.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), units_schema.deviceIndex());
     try std.testing.expect(units_schema.anyNull());
     try std.testing.expect(!units_schema.allNull());
@@ -414,6 +415,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(table.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", table.deviceBackendName()));
     try std.testing.expectEqual(vectra.Device.cpu.backend, table.deviceBackend());
+    try std.testing.expect(table.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), table.deviceIndex());
     try std.testing.expect(table.sameDevice(table));
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
@@ -449,6 +451,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_col.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
     try std.testing.expectEqual(vectra.Device.cpu.backend, units_col.deviceBackend());
+    try std.testing.expect(units_col.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), units_col.deviceIndex());
     try std.testing.expectEqual(units_col.dataNbytes(), units_col.dataMemoryUsage());
     try std.testing.expect(units_col.dataPtr() != 0);
@@ -481,6 +484,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", view.deviceBackendName()));
     try std.testing.expectEqual(vectra.Device.cpu.backend, view.deviceBackend());
+    try std.testing.expect(view.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), view.deviceIndex());
     try std.testing.expect(view.sameDevice(view));
     try std.testing.expect(view.sameShape(view));
@@ -567,6 +571,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(sales_column_view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));
     try std.testing.expectEqual(vectra.Device.cpu.backend, sales_column_view.deviceBackend());
+    try std.testing.expect(sales_column_view.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), sales_column_view.deviceIndex());
     try std.testing.expect(sales_column_view.dataPtr() != 0);
     try std.testing.expectEqual(sales_column_view.data_ptr, sales_column_view.dataPtr());

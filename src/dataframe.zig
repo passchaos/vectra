@@ -580,6 +580,10 @@ pub const DeviceDataFrame = struct {
         return self.device.backendName();
     }
 
+    pub fn deviceValue(self: DeviceDataFrame) array_mod.Device {
+        return self.device;
+    }
+
     pub fn deviceBackend(self: DeviceDataFrame) array_mod.Backend {
         return self.device.backend;
     }

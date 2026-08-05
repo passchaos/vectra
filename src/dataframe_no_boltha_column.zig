@@ -133,6 +133,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return .cpu;
     }
 
+    pub fn deviceValue(_: DeviceColumn) array_mod.Device {
+        return .cpu;
+    }
+
     pub fn isCpu(_: DeviceColumn) bool {
         return true;
     }

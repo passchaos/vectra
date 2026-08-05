@@ -392,6 +392,10 @@ pub fn DeviceDataFrameType(
             return "cpu";
         }
 
+        pub fn deviceValue(_: Self) array_mod.Device {
+            return .cpu;
+        }
+
         pub fn deviceBackend(_: Self) array_mod.Backend {
             return .cpu;
         }
