@@ -6778,40 +6778,80 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .asinh);
         }
 
+        pub fn asinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asinh(), out);
+        }
+
         pub fn arcsinh(self: Self) SparseError!array_mod.Array(T) {
             return self.asinh();
+        }
+
+        pub fn arcsinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.asinhOut(out);
         }
 
         pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .acosh);
         }
 
+        pub fn acoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.acosh(), out);
+        }
+
         pub fn arccosh(self: Self) SparseError!array_mod.Array(T) {
             return self.acosh();
+        }
+
+        pub fn arccoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.acoshOut(out);
         }
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
         }
 
+        pub fn atanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atanh(), out);
+        }
+
         pub fn arctanh(self: Self) SparseError!array_mod.Array(T) {
             return self.atanh();
+        }
+
+        pub fn arctanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.atanhOut(out);
         }
 
         pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .lgamma);
         }
 
+        pub fn lgammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lgamma(), out);
+        }
+
         pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn gammalnOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
         }
 
+        pub fn logGammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
+        }
+
         pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn loggammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn relu(self: Self) SparseError!array_mod.Array(T) {
@@ -14610,40 +14650,80 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .asinh);
         }
 
+        pub fn asinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asinh(), out);
+        }
+
         pub fn arcsinh(self: Self) SparseError!array_mod.Array(T) {
             return self.asinh();
+        }
+
+        pub fn arcsinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.asinhOut(out);
         }
 
         pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .acosh);
         }
 
+        pub fn acoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.acosh(), out);
+        }
+
         pub fn arccosh(self: Self) SparseError!array_mod.Array(T) {
             return self.acosh();
+        }
+
+        pub fn arccoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.acoshOut(out);
         }
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
         }
 
+        pub fn atanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atanh(), out);
+        }
+
         pub fn arctanh(self: Self) SparseError!array_mod.Array(T) {
             return self.atanh();
+        }
+
+        pub fn arctanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.atanhOut(out);
         }
 
         pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .lgamma);
         }
 
+        pub fn lgammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lgamma(), out);
+        }
+
         pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn gammalnOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
         }
 
+        pub fn logGammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
+        }
+
         pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn loggammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn relu(self: Self) SparseError!array_mod.Array(T) {
@@ -22655,40 +22735,80 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .asinh);
         }
 
+        pub fn asinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.asinh(), out);
+        }
+
         pub fn arcsinh(self: Self) SparseError!array_mod.Array(T) {
             return self.asinh();
+        }
+
+        pub fn arcsinhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.asinhOut(out);
         }
 
         pub fn acosh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .acosh);
         }
 
+        pub fn acoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.acosh(), out);
+        }
+
         pub fn arccosh(self: Self) SparseError!array_mod.Array(T) {
             return self.acosh();
+        }
+
+        pub fn arccoshOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.acoshOut(out);
         }
 
         pub fn atanh(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .atanh);
         }
 
+        pub fn atanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.atanh(), out);
+        }
+
         pub fn arctanh(self: Self) SparseError!array_mod.Array(T) {
             return self.atanh();
+        }
+
+        pub fn arctanhOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.atanhOut(out);
         }
 
         pub fn lgamma(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .lgamma);
         }
 
+        pub fn lgammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lgamma(), out);
+        }
+
         pub fn gammaln(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn gammalnOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn logGamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
         }
 
+        pub fn logGammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
+        }
+
         pub fn loggamma(self: Self) SparseError!array_mod.Array(T) {
             return self.lgamma();
+        }
+
+        pub fn loggammaOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.lgammaOut(out);
         }
 
         pub fn relu(self: Self) SparseError!array_mod.Array(T) {
@@ -34120,10 +34240,14 @@ test "sparse dense norm and logsumexp helpers" {
             var atanh_values = try domain_matrix.atanh();
             defer atanh_values.deinit();
             try expectArray(atanh_values, &.{ 2, 3 }, &.{ std.math.atanh(@as(f64, 0.25)), 0, 0, 0, std.math.atanh(@as(f64, -0.5)), std.math.atanh(@as(f64, 0.75)) });
+            try domain_matrix.atanhOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, atanh_values.data);
 
             var arctanh_alias = try domain_matrix.arctanh();
             defer arctanh_alias.deinit();
             try expectArray(arctanh_alias, &.{ 2, 3 }, atanh_values.data);
+            try domain_matrix.arctanhOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, arctanh_alias.data);
 
             var sinh_values = try matrix.sinh();
             defer sinh_values.deinit();
@@ -34140,10 +34264,14 @@ test "sparse dense norm and logsumexp helpers" {
             var asinh_values = try matrix.asinh();
             defer asinh_values.deinit();
             try expectArray(asinh_values, &.{ 2, 3 }, &.{ std.math.asinh(@as(f64, 1)), 0, 0, 0, std.math.asinh(@as(f64, 2)), std.math.asinh(@as(f64, 3)) });
+            try matrix.asinhOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, asinh_values.data);
 
             var arcsinh_alias = try matrix.arcsinh();
             defer arcsinh_alias.deinit();
             try expectArray(arcsinh_alias, &.{ 2, 3 }, asinh_values.data);
+            try matrix.arcsinhOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, arcsinh_alias.data);
 
             var acosh_source = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ 1, 2, 3 });
             defer acosh_source.deinit();
@@ -34159,26 +34287,38 @@ test "sparse dense norm and logsumexp helpers" {
             var acosh_values = try acosh_matrix.acosh();
             defer acosh_values.deinit();
             try expectArray(acosh_values, &.{ 2, 3 }, &.{ 0, std.math.nan(f64), std.math.nan(f64), std.math.nan(f64), std.math.acosh(@as(f64, 2)), std.math.acosh(@as(f64, 3)) });
+            try acosh_matrix.acoshOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, acosh_values.data);
 
             var arccosh_alias = try acosh_matrix.arccosh();
             defer arccosh_alias.deinit();
             try expectArray(arccosh_alias, &.{ 2, 3 }, acosh_values.data);
+            try acosh_matrix.arccoshOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, arccosh_alias.data);
 
             var lgamma_values = try matrix.lgamma();
             defer lgamma_values.deinit();
             try expectArray(lgamma_values, &.{ 2, 3 }, &.{ 0, std.math.inf(f64), std.math.inf(f64), std.math.inf(f64), 0, std.math.log(f64, std.math.e, 2) });
+            try matrix.lgammaOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, lgamma_values.data);
 
             var gammaln_alias = try matrix.gammaln();
             defer gammaln_alias.deinit();
             try expectArray(gammaln_alias, &.{ 2, 3 }, lgamma_values.data);
+            try matrix.gammalnOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, gammaln_alias.data);
 
             var log_gamma_alias = try matrix.logGamma();
             defer log_gamma_alias.deinit();
             try expectArray(log_gamma_alias, &.{ 2, 3 }, lgamma_values.data);
+            try matrix.logGammaOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, log_gamma_alias.data);
 
             var loggamma_alias = try matrix.loggamma();
             defer loggamma_alias.deinit();
             try expectArray(loggamma_alias, &.{ 2, 3 }, lgamma_values.data);
+            try matrix.loggammaOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, loggamma_alias.data);
 
             var activation_values = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ -2, 0.5, 7 });
             defer activation_values.deinit();
