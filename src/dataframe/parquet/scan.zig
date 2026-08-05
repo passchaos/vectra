@@ -500,154 +500,25 @@ pub fn DeviceParquetScan(
             };
         }
 
-        pub fn toArrowSchema(self: Self, allocator: std.mem.Allocator) ParquetInteropError!boltha.arrow.Schema {
-            var schema = try boltha.parquet.readSchema(allocator, self.bytes);
-            errdefer schema.deinit(allocator);
-            if (self.projection) |names| {
-                var projected = try scan_metadata_mod.projectArrowSchemaByName(allocator, schema, names);
-                errdefer projected.deinit(allocator);
-                schema.deinit(allocator);
-                return projected;
-            }
-            return schema;
-        }
-
-        pub fn toArrowSchemaProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError!boltha.arrow.Schema {
-            var schema = try boltha.parquet.readSchema(allocator, self.bytes);
-            defer schema.deinit(allocator);
-            return scan_metadata_mod.projectArrowSchemaByName(allocator, schema, wanted_names);
-        }
-
-        pub fn toArrowFields(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]boltha.arrow.Field {
-            var schema = try self.toArrowSchema(allocator);
-            defer schema.deinit(allocator);
-            return scan_metadata_mod.cloneArrowFields(allocator, schema.fieldsView());
-        }
-
-        pub fn toArrowFieldsProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]boltha.arrow.Field {
-            var schema = try self.toArrowSchemaProjection(allocator, wanted_names);
-            defer schema.deinit(allocator);
-            return scan_metadata_mod.cloneArrowFields(allocator, schema.fieldsView());
-        }
-
-        pub fn arrowFieldCount(self: Self) ParquetInteropError!usize {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            return schema.fieldCount();
-        }
-
-        pub fn arrowFieldNameAt(self: Self, allocator: std.mem.Allocator, index: usize) ParquetInteropError!?[]const u8 {
-            var schema = try self.toArrowSchema(allocator);
-            defer schema.deinit(allocator);
-            const field = schema.fieldAt(index) orelse return null;
-            return try allocator.dupe(u8, field.name);
-        }
-
-        pub fn arrowFieldNames(self: Self, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
-            var schema = try self.toArrowSchema(allocator);
-            defer schema.deinit(allocator);
-
-            const names = try allocator.alloc([]const u8, schema.fields.len);
-            var initialized: usize = 0;
-            errdefer {
-                for (names[0..initialized]) |name| allocator.free(name);
-                allocator.free(names);
-            }
-            for (schema.fields, names) |field, *slot| {
-                slot.* = try allocator.dupe(u8, field.name);
-                initialized += 1;
-            }
-            return names;
-        }
-
-        pub fn arrowFieldIndex(self: Self, name: []const u8) ParquetInteropError!?usize {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            return schema.fieldIndexByName(name);
-        }
-
-        pub fn hasArrowField(self: Self, name: []const u8) bool {
-            return (self.arrowFieldIndex(name) catch null) != null;
-        }
-
-        pub fn hasAllArrowFields(self: Self, wanted_names: []const []const u8) bool {
-            for (wanted_names) |name| {
-                if (!self.hasArrowField(name)) return false;
-            }
-            return true;
-        }
-
-        pub fn hasAnyArrowField(self: Self, wanted_names: []const []const u8) bool {
-            for (wanted_names) |name| {
-                if (self.hasArrowField(name)) return true;
-            }
-            return false;
-        }
-
-        pub fn arrowFieldDTypeAt(self: Self, index: usize) ParquetInteropError!?array_mod.DType {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            const field = schema.fieldAt(index) orelse return null;
-            return try scan_metadata_mod.deviceDTypeFromArrowField(field.*);
-        }
-
-        pub fn arrowFieldDType(self: Self, name: []const u8) ParquetInteropError!array_mod.DType {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            const field = schema.fieldByName(name) orelse return error.ColumnNotFound;
-            return try scan_metadata_mod.deviceDTypeFromArrowField(field.*);
-        }
-
-        pub fn arrowFieldDTypes(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
-            var schema = try self.toArrowSchema(allocator);
-            defer schema.deinit(allocator);
-            const dtypes = try allocator.alloc(array_mod.DType, schema.fields.len);
-            errdefer allocator.free(dtypes);
-            for (schema.fields, dtypes) |field, *slot| slot.* = try scan_metadata_mod.deviceDTypeFromArrowField(field);
-            return dtypes;
-        }
-
-        pub fn arrowFieldDTypeNames(self: Self, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
-            const dtypes = try self.arrowFieldDTypes(allocator);
-            defer allocator.free(dtypes);
-            const names = try allocator.alloc([]const u8, dtypes.len);
-            for (dtypes, names) |dtype, *slot| slot.* = dtype.name();
-            return names;
-        }
-
-        pub fn arrowFieldDTypeByteSizes(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]usize {
-            const dtypes = try self.arrowFieldDTypes(allocator);
-            defer allocator.free(dtypes);
-            const sizes = try allocator.alloc(usize, dtypes.len);
-            for (dtypes, sizes) |dtype, *slot| slot.* = dtype.byteSize();
-            return sizes;
-        }
-
-        pub fn arrowFieldDTypeBitSizes(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]usize {
-            const dtypes = try self.arrowFieldDTypes(allocator);
-            defer allocator.free(dtypes);
-            const sizes = try allocator.alloc(usize, dtypes.len);
-            for (dtypes, sizes) |dtype, *slot| slot.* = dtype.bitSize();
-            return sizes;
-        }
-
-        pub fn arrowFieldDTypeClassMask(self: Self, allocator: std.mem.Allocator, class: options_mod.DeviceDTypeClass) ParquetInteropError![]bool {
-            const dtypes = try self.arrowFieldDTypes(allocator);
-            defer allocator.free(dtypes);
-            const mask = try allocator.alloc(bool, dtypes.len);
-            for (dtypes, mask) |dtype, *slot| slot.* = class.matches(dtype);
-            return mask;
-        }
-
-        pub fn arrowFieldDTypeClassCount(self: Self, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
-            const dtypes = try self.arrowFieldDTypes(self.allocator);
-            defer self.allocator.free(dtypes);
-            var count: usize = 0;
-            for (dtypes) |dtype| {
-                if (class.matches(dtype)) count += 1;
-            }
-            return count;
-        }
+        pub const toArrowSchema = scan_metadata_mod.toArrowSchema;
+        pub const toArrowSchemaProjection = scan_metadata_mod.toArrowSchemaProjection;
+        pub const toArrowFields = scan_metadata_mod.toArrowFields;
+        pub const toArrowFieldsProjection = scan_metadata_mod.toArrowFieldsProjection;
+        pub const arrowFieldCount = scan_metadata_mod.arrowFieldCount;
+        pub const arrowFieldNameAt = scan_metadata_mod.arrowFieldNameAt;
+        pub const arrowFieldNames = scan_metadata_mod.arrowFieldNames;
+        pub const arrowFieldIndex = scan_metadata_mod.arrowFieldIndex;
+        pub const hasArrowField = scan_metadata_mod.hasArrowField;
+        pub const hasAllArrowFields = scan_metadata_mod.hasAllArrowFields;
+        pub const hasAnyArrowField = scan_metadata_mod.hasAnyArrowField;
+        pub const arrowFieldDTypeAt = scan_metadata_mod.arrowFieldDTypeAt;
+        pub const arrowFieldDType = scan_metadata_mod.arrowFieldDType;
+        pub const arrowFieldDTypes = scan_metadata_mod.arrowFieldDTypes;
+        pub const arrowFieldDTypeNames = scan_metadata_mod.arrowFieldDTypeNames;
+        pub const arrowFieldDTypeByteSizes = scan_metadata_mod.arrowFieldDTypeByteSizes;
+        pub const arrowFieldDTypeBitSizes = scan_metadata_mod.arrowFieldDTypeBitSizes;
+        pub const arrowFieldDTypeClassMask = scan_metadata_mod.arrowFieldDTypeClassMask;
+        pub const arrowFieldDTypeClassCount = scan_metadata_mod.arrowFieldDTypeClassCount;
 
         pub fn numericArrowFieldCount(self: Self) ParquetInteropError!usize {
             return self.arrowFieldDTypeClassCount(.numeric);
@@ -665,37 +536,10 @@ pub fn DeviceParquetScan(
             return self.arrowFieldDTypeClassCount(.bool);
         }
 
-        pub fn arrowFieldNullableAt(self: Self, index: usize) ParquetInteropError!?bool {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            const field = schema.fieldAt(index) orelse return null;
-            return field.nullable;
-        }
-
-        pub fn arrowFieldNullable(self: Self, name: []const u8) ParquetInteropError!bool {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            const field = schema.fieldByName(name) orelse return error.ColumnNotFound;
-            return field.nullable;
-        }
-
-        pub fn arrowFieldNullableMask(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]bool {
-            var schema = try self.toArrowSchema(allocator);
-            defer schema.deinit(allocator);
-            const mask = try allocator.alloc(bool, schema.fields.len);
-            for (schema.fields, mask) |field, *slot| slot.* = field.nullable;
-            return mask;
-        }
-
-        pub fn nullableArrowFieldCount(self: Self) ParquetInteropError!usize {
-            var schema = try self.toArrowSchema(self.allocator);
-            defer schema.deinit(self.allocator);
-            var count: usize = 0;
-            for (schema.fields) |field| {
-                if (field.nullable) count += 1;
-            }
-            return count;
-        }
+        pub const arrowFieldNullableAt = scan_metadata_mod.arrowFieldNullableAt;
+        pub const arrowFieldNullable = scan_metadata_mod.arrowFieldNullable;
+        pub const arrowFieldNullableMask = scan_metadata_mod.arrowFieldNullableMask;
+        pub const nullableArrowFieldCount = scan_metadata_mod.nullableArrowFieldCount;
 
         pub fn nonNullableArrowFieldCount(self: Self) ParquetInteropError!usize {
             return (try self.arrowFieldCount()) - try self.nullableArrowFieldCount();
@@ -705,10 +549,8 @@ pub fn DeviceParquetScan(
             return (self.nullableArrowFieldCount() catch 0) != 0;
         }
 
-        pub fn allArrowFieldsNullable(self: Self) bool {
-            const total = self.arrowFieldCount() catch return false;
-            return total != 0 and (self.nullableArrowFieldCount() catch return false) == total;
-        }
+        pub const allArrowFieldsNullable = scan_metadata_mod.allArrowFieldsNullable;
+        pub const hasArrowProjection = scan_metadata_mod.hasArrowProjection;
 
         fn columnSchemaFromArrowField(self: Self, name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
             const rows = try self.rowCount();
@@ -768,15 +610,6 @@ pub fn DeviceParquetScan(
 
         pub fn arrowSchemaSummary(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
             return self.arrowColumnSchemas(allocator);
-        }
-
-        pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {
-            var schema = boltha.parquet.readSchema(self.allocator, self.bytes) catch return false;
-            defer schema.deinit(self.allocator);
-            for (wanted_names) |name| {
-                if (schema.fieldIndexByName(name) == null) return false;
-            }
-            return true;
         }
 
         pub fn clearProjection(self: *Self) void {
