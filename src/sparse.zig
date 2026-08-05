@@ -7830,16 +7830,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSearchsorted(T, self, values, side);
         }
 
+        pub fn searchsortedOut(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.searchsorted(values, side), out);
+        }
+
         pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
             return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn bucketizeOut(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bucketize(boundaries, side), out);
         }
 
         pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseDigitize(T, self, bins, right);
         }
 
+        pub fn digitizeOut(self: Self, bins: array_mod.Array(T), right: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.digitize(bins, right), out);
+        }
+
         pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseIsin(T, self, test_elements, invert);
+        }
+
+        pub fn isinOut(self: Self, test_elements: array_mod.Array(T), invert: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isin(test_elements, invert), out);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -14842,16 +14858,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSearchsorted(T, self, values, side);
         }
 
+        pub fn searchsortedOut(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.searchsorted(values, side), out);
+        }
+
         pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
             return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn bucketizeOut(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bucketize(boundaries, side), out);
         }
 
         pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseDigitize(T, self, bins, right);
         }
 
+        pub fn digitizeOut(self: Self, bins: array_mod.Array(T), right: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.digitize(bins, right), out);
+        }
+
         pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseIsin(T, self, test_elements, invert);
+        }
+
+        pub fn isinOut(self: Self, test_elements: array_mod.Array(T), invert: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isin(test_elements, invert), out);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -22067,16 +22099,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSearchsorted(T, self, values, side);
         }
 
+        pub fn searchsortedOut(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.searchsorted(values, side), out);
+        }
+
         pub fn bucketize(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
             return sparseDenseBucketize(T, self, boundaries, side);
+        }
+
+        pub fn bucketizeOut(self: Self, boundaries: array_mod.Array(T), side: array_mod.SearchSide, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bucketize(boundaries, side), out);
         }
 
         pub fn digitize(self: Self, bins: array_mod.Array(T), right: bool) SparseError!array_mod.Array(usize) {
             return sparseDenseDigitize(T, self, bins, right);
         }
 
+        pub fn digitizeOut(self: Self, bins: array_mod.Array(T), right: bool, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.digitize(bins, right), out);
+        }
+
         pub fn isin(self: Self, test_elements: array_mod.Array(T), invert: bool) SparseError!array_mod.Array(bool) {
             return sparseDenseIsin(T, self, test_elements, invert);
+        }
+
+        pub fn isinOut(self: Self, test_elements: array_mod.Array(T), invert: bool, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isin(test_elements, invert), out);
         }
 
         pub fn union1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -28194,30 +28242,50 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var members = try matrix.isin(membership_values, false);
             defer members.deinit();
             try expectBoolMatrix(members, &.{ false, true, true, true, false, true });
+            var bool_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{ 2, 3 });
+            defer bool_out.deinit();
+            try matrix.isinOut(membership_values, false, bool_out);
+            try expectBoolMatrix(bool_out, members.data);
             var non_members = try matrix.isin(membership_values, true);
             defer non_members.deinit();
             try expectBoolMatrix(non_members, &.{ true, false, false, false, true, false });
+            try matrix.isinOut(membership_values, true, bool_out);
+            try expectBoolMatrix(bool_out, non_members.data);
 
             var probes = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 2, 3, 5 }, &.{ 2, 2 });
             defer probes.deinit();
             var left_positions = try sorted_matrix.searchsorted(probes, .left);
             defer left_positions.deinit();
             try expectUsizeArray(left_positions, &.{ 2, 2 }, &.{ 0, 3, 5, 6 });
+            var search_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 2 });
+            defer search_out.deinit();
+            try sorted_matrix.searchsortedOut(probes, .left, search_out);
+            try expectUsizeArray(search_out, &.{ 2, 2 }, left_positions.data);
             var right_positions = try sorted_matrix.searchsorted(probes, .right);
             defer right_positions.deinit();
             try expectUsizeArray(right_positions, &.{ 2, 2 }, &.{ 2, 5, 5, 6 });
+            try sorted_matrix.searchsortedOut(probes, .right, search_out);
+            try expectUsizeArray(search_out, &.{ 2, 2 }, right_positions.data);
 
             var boundaries = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 0, 2, 4 }, &.{3});
             defer boundaries.deinit();
             var buckets = try matrix.bucketize(boundaries, .right);
             defer buckets.deinit();
             try expectUsizeArray(buckets, &.{ 2, 3 }, &.{ 1, 1, 1, 1, 2, 2 });
+            var index_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{ 2, 3 });
+            defer index_out.deinit();
+            try matrix.bucketizeOut(boundaries, .right, index_out);
+            try expectUsizeArray(index_out, &.{ 2, 3 }, buckets.data);
             var digits_left_open = try matrix.digitize(boundaries, false);
             defer digits_left_open.deinit();
             try expectUsizeArray(digits_left_open, &.{ 2, 3 }, buckets.data);
+            try matrix.digitizeOut(boundaries, false, index_out);
+            try expectUsizeArray(index_out, &.{ 2, 3 }, digits_left_open.data);
             var digits_right_open = try matrix.digitize(boundaries, true);
             defer digits_right_open.deinit();
             try expectUsizeArray(digits_right_open, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 1, 2 });
+            try matrix.digitizeOut(boundaries, true, index_out);
+            try expectUsizeArray(index_out, &.{ 2, 3 }, digits_right_open.data);
         }
     }.check;
     const expectArgReductions = struct {
