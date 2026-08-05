@@ -140,7 +140,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
     };
 
     pub const Column = struct {
+        pub const arrowDataType = dataframe_mod.DeviceColumn.arrowDataType;
         pub const toArrowField = dataframe_mod.deviceColumnToArrowField;
+        pub const toArrowArray = dataframe_mod.DeviceColumn.toArrowArray;
     };
 
     pub const ColumnSchema = struct {
