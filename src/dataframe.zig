@@ -5102,3 +5102,16 @@ pub fn deviceDataFrameViewToArrowFieldsProjection(
 pub fn deviceDataFrameViewToArrowSchema(view: DeviceDataFrameView, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
     return arrow_methods_mod.toArrowSchema(view, allocator);
 }
+
+pub fn deviceDataFrameViewToArrowSchemaProjection(
+    view: DeviceDataFrameView,
+    allocator: std.mem.Allocator,
+    wanted_names: []const []const u8,
+) ArrowInteropError!boltha.arrow.Schema {
+    const fields = try deviceDataFrameViewToArrowFieldsProjection(view, allocator, wanted_names);
+    defer {
+        for (fields) |*field| field.deinit(allocator);
+        allocator.free(fields);
+    }
+    return boltha.arrow.Schema.init(allocator, fields);
+}
