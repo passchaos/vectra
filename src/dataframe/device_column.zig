@@ -5,9 +5,11 @@ const column_ops_mod = @import("device_column/ops.zig");
 const column_sort_mod = @import("device_column/sort.zig");
 const dataframe_typed_column_mod = @import("device_column/typed.zig");
 const dataframe_view_mod = @import("../dataframe_view.zig");
+const options_mod = @import("../dataframe_options.zig");
 const schema_mod = @import("../dataframe_schema.zig");
 
 const DeviceDType = array_mod.DType;
+const DeviceValidityEncoding = options_mod.DeviceValidityEncoding;
 const DeviceColumnView = dataframe_view_mod.DeviceColumnView;
 const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 
@@ -231,12 +233,28 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.dataNbytes();
     }
 
+    pub fn dataPtr(self: DeviceColumn) u64 {
+        return self.view().dataPtr();
+    }
+
     pub fn validityNbytes(self: DeviceColumn) usize {
         return self.view().validity_nbytes;
     }
 
     pub fn validityMemoryUsage(self: DeviceColumn) usize {
         return self.validityNbytes();
+    }
+
+    pub fn validityPtr(self: DeviceColumn) ?u64 {
+        return self.view().validityPtr();
+    }
+
+    pub fn hasValidity(self: DeviceColumn) bool {
+        return self.view().hasValidity();
+    }
+
+    pub fn validityEncoding(self: DeviceColumn) DeviceValidityEncoding {
+        return self.view().validityEncoding();
     }
 
     pub fn totalNbytes(self: DeviceColumn) usize {

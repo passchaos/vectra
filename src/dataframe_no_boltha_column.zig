@@ -6,9 +6,11 @@
 
 const std = @import("std");
 const array_mod = @import("array.zig");
+const options_mod = @import("dataframe_no_boltha_options.zig");
 const schema_mod = @import("dataframe_schema.zig");
 
 pub const DeviceDType = array_mod.DType;
+const DeviceValidityEncoding = options_mod.DeviceValidityEncoding;
 
 pub fn DeviceTypedColumn(comptime T: type) type {
     return struct {
@@ -205,12 +207,28 @@ pub const DeviceColumn = union(DeviceDType) {
         return 0;
     }
 
+    pub fn dataPtr(_: DeviceColumn) u64 {
+        return 0;
+    }
+
     pub fn validityNbytes(_: DeviceColumn) usize {
         return 0;
     }
 
     pub fn validityMemoryUsage(_: DeviceColumn) usize {
         return 0;
+    }
+
+    pub fn validityPtr(_: DeviceColumn) ?u64 {
+        return null;
+    }
+
+    pub fn hasValidity(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn validityEncoding(_: DeviceColumn) DeviceValidityEncoding {
+        return .none;
     }
 
     pub fn totalNbytes(_: DeviceColumn) usize {

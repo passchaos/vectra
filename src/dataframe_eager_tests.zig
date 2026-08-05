@@ -435,7 +435,11 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!units_col.isDeviceBacked());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
     try std.testing.expectEqual(units_col.dataNbytes(), units_col.dataMemoryUsage());
+    try std.testing.expect(units_col.dataPtr() != 0);
     try std.testing.expectEqual(units_col.validityNbytes(), units_col.validityMemoryUsage());
+    try std.testing.expect(units_col.hasValidity());
+    try std.testing.expect(units_col.validityPtr() != null);
+    try std.testing.expectEqual(DeviceValidityEncoding.bool_mask, units_col.validityEncoding());
     try std.testing.expectEqual(units_col.totalNbytes(), units_col.memoryUsage());
     try std.testing.expectEqual(units_col.totalNbytes(), units_col.estimatedSize());
     try std.testing.expect(units_col.schema("units").schemaEquals(units_schema));
