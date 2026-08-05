@@ -52,6 +52,22 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn hasProjection(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasRangePredicate(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasNullPredicate(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasPushdown(_: DeviceParquetScan) bool {
+                return false;
+            }
+
             pub fn select(_: *DeviceParquetScan, _: []const []const u8) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }

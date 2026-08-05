@@ -67,6 +67,22 @@ pub fn DeviceParquetScan(
             return DeviceLazyFrame.initParquetScan(self.allocator, self);
         }
 
+        pub fn hasProjection(self: Self) bool {
+            return self.projection != null;
+        }
+
+        pub fn hasRangePredicate(self: Self) bool {
+            return self.range_predicate != null;
+        }
+
+        pub fn hasNullPredicate(self: Self) bool {
+            return self.null_predicate != null;
+        }
+
+        pub fn hasPushdown(self: Self) bool {
+            return self.hasProjection() or self.hasRangePredicate() or self.hasNullPredicate();
+        }
+
         pub fn select(self: *Self, names: []const []const u8) std.mem.Allocator.Error!void {
             if (self.projection) |old| freeNameList(self.allocator, old);
             self.projection = try cloneNameList(self.allocator, names);
