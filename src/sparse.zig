@@ -11142,6 +11142,10 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn transposeMatvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatvec(x), out);
+        }
+
         pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -11188,6 +11192,10 @@ pub fn CooMatrix(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn transposeMatmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatmat(rhs), out);
         }
 
         pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -17306,6 +17314,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
         }
 
+        pub fn transposeMatvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatvec(x), out);
+        }
+
         pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -17362,6 +17374,10 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrTransposeMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
+        }
+
+        pub fn transposeMatmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatmat(rhs), out);
         }
 
         pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -24876,6 +24892,10 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.cols});
         }
 
+        pub fn transposeMatvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatvec(x), out);
+        }
+
         pub fn transposeMatvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -24933,6 +24953,10 @@ pub fn CscMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.cscTransposeMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.cols, rhs.shape[1] });
+        }
+
+        pub fn transposeMatmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.transposeMatmat(rhs), out);
         }
 
         pub fn transposeMatmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -26867,6 +26891,10 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var tx = try coo.transposeMatvec(tx_rhs);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 25, 6, 2, 26 }, tx.data);
+    var tx_out = try array_mod.Array(f64).zeros(gpa, &.{4});
+    defer tx_out.deinit();
+    try coo.transposeMatvecOut(tx_rhs, tx_out);
+    try std.testing.expectEqualSlices(f64, tx.data, tx_out.data);
 
     var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
@@ -26884,6 +26912,10 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var transpose_product = try coo.transposeMatmat(transpose_rhs);
     defer transpose_product.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 35, 50, 9, 12, 2, 4, 42, 52 }, transpose_product.data);
+    var transpose_product_out = try array_mod.Array(f64).zeros(gpa, &.{ 4, 2 });
+    defer transpose_product_out.deinit();
+    try coo.transposeMatmatOut(transpose_rhs, transpose_product_out);
+    try std.testing.expectEqualSlices(f64, transpose_product.data, transpose_product_out.data);
 
     var transposed = try coo.transpose();
     defer transposed.deinit();
@@ -34954,6 +34986,10 @@ test "csr sparse transpose products and triangular solves" {
     var tx = try csr.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 15, 8 }, tx.data);
+    var tx_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer tx_out.deinit();
+    try csr.transposeMatvecOut(x, tx_out);
+    try std.testing.expectEqualSlices(f64, tx.data, tx_out.data);
 
     var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{
         1, 2,
@@ -34964,6 +35000,10 @@ test "csr sparse transpose products and triangular solves" {
     defer tm.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, tm.shape);
     try std.testing.expectEqualSlices(f64, &.{ 1, 2, 9, 12, 2, 4 }, tm.data);
+    var tm_out = try array_mod.Array(f64).zeros(gpa, &.{ 3, 2 });
+    defer tm_out.deinit();
+    try csr.transposeMatmatOut(rhs, tm_out);
+    try std.testing.expectEqualSlices(f64, tm.data, tm_out.data);
 
     var lower_dense = try array_mod.Array(f64).fromSlice(gpa, &.{
         2,  0, 0,
@@ -35248,12 +35288,20 @@ test "csc sparse transpose products and row column stats" {
     var tx = try csc.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 13, 6, 13 }, tx.data);
+    var tx_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer tx_out.deinit();
+    try csc.transposeMatvecOut(x, tx_out);
+    try std.testing.expectEqualSlices(f64, tx.data, tx_out.data);
 
     var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
     defer rhs.deinit();
     var tm = try csc.transposeMatmat(rhs);
     defer tm.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 21, 26, 9, 12, 23, 26 }, tm.data);
+    var tm_out = try array_mod.Array(f64).zeros(gpa, &.{ 3, 2 });
+    defer tm_out.deinit();
+    try csc.transposeMatmatOut(rhs, tm_out);
+    try std.testing.expectEqualSlices(f64, tm.data, tm_out.data);
 
     try std.testing.expectApproxEqAbs(@as(f64, -2), try csc.minValue(), 1e-12);
     try std.testing.expectEqual(@as(usize, 3), try csc.minValueIndex());
