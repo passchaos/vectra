@@ -5081,6 +5081,24 @@ pub fn deviceDataFrameViewToArrowFields(view: DeviceDataFrameView, allocator: st
     return arrow_methods_mod.toArrowFields(view, allocator);
 }
 
+pub fn deviceDataFrameViewToArrowFieldsProjection(
+    view: DeviceDataFrameView,
+    allocator: std.mem.Allocator,
+    wanted_names: []const []const u8,
+) ArrowInteropError![]boltha.arrow.Field {
+    var fields = try allocator.alloc(boltha.arrow.Field, wanted_names.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (fields[0..initialized]) |*field| field.deinit(allocator);
+        allocator.free(fields);
+    }
+    for (wanted_names, fields) |name, *slot| {
+        slot.* = try arrow_methods_mod.toArrowFieldFromSchema(try view.columnSchema(name), allocator);
+        initialized += 1;
+    }
+    return fields;
+}
+
 pub fn deviceDataFrameViewToArrowSchema(view: DeviceDataFrameView, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
     return arrow_methods_mod.toArrowSchema(view, allocator);
 }

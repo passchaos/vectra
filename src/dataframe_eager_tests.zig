@@ -7917,6 +7917,14 @@ test "device dataframe exports boltha arrow record batch" {
     }
     try std.testing.expectEqual(@as(usize, 3), view_arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, view_arrow_fields[0].name));
+    const projected_view_arrow_fields = try vectra.ArrowExport.DataFrameView.toArrowFieldsProjection(table_view, gpa, &.{ "active", "sales" });
+    defer {
+        for (projected_view_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(projected_view_arrow_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 2), projected_view_arrow_fields.len);
+    try std.testing.expect(std.mem.eql(u8, "active", projected_view_arrow_fields[0].name));
+    try std.testing.expect(std.mem.eql(u8, "sales", projected_view_arrow_fields[1].name));
     var view_arrow_schema = try vectra.ArrowExport.DataFrameView.toArrowSchema(table_view, gpa);
     defer view_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), view_arrow_schema.fieldCount());
