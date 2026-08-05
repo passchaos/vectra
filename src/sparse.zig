@@ -6370,48 +6370,96 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseVarianceAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn varianceAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceAxes(axes, keepdims, correction), out);
+        }
+
         pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn varAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn varianceDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseVarianceDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn varianceDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(dims, keepdim, correction);
         }
 
+        pub fn varianceDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varAxes(dims, keepdim, correction);
+        }
+
+        pub fn varDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn stddevAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevAxes(axes, keepdims, correction), out);
+        }
+
         pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stdAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn stddevDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn stddevDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stdDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(dims, keepdim, correction);
         }
 
+        pub fn stddevDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn stdDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stdAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn exp(self: Self) SparseError!array_mod.Array(T) {
@@ -13026,48 +13074,96 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseVarianceAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn varianceAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceAxes(axes, keepdims, correction), out);
+        }
+
         pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn varAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn varianceDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseVarianceDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn varianceDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(dims, keepdim, correction);
         }
 
+        pub fn varianceDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varAxes(dims, keepdim, correction);
+        }
+
+        pub fn varDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn stddevAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevAxes(axes, keepdims, correction), out);
+        }
+
         pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stdAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn stddevDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn stddevDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stdDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(dims, keepdim, correction);
         }
 
+        pub fn stddevDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn stdDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stdAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn exp(self: Self) SparseError!array_mod.Array(T) {
@@ -19895,48 +19991,96 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseVarianceAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn varianceAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceAxes(axes, keepdims, correction), out);
+        }
+
         pub fn varAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(axes, keepdims, correction);
+        }
+
+        pub fn varAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn varianceDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseVarianceDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn varianceDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.varianceDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn varDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn varDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn varianceDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varianceAxes(dims, keepdim, correction);
         }
 
+        pub fn varianceDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varianceAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn varDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.varAxes(dims, keepdim, correction);
+        }
+
+        pub fn varDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.varAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn stddevAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevAxes(T, self, axes, keepdims, correction);
         }
 
+        pub fn stddevAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevAxes(axes, keepdims, correction), out);
+        }
+
         pub fn stdAxes(self: Self, axes: []const isize, keepdims: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(axes, keepdims, correction);
+        }
+
+        pub fn stdAxesOut(self: Self, axes: []const isize, keepdims: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(axes, keepdims, correction, out);
         }
 
         pub fn stddevDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseStddevDim(T, self, dim_opt, keepdim, correction);
         }
 
+        pub fn stddevDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.stddevDim(dim_opt, keepdim, correction), out);
+        }
+
         pub fn stdDim(self: Self, dim_opt: ?isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevDim(dim_opt, keepdim, correction);
+        }
+
+        pub fn stdDimOut(self: Self, dim_opt: ?isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevDimOut(dim_opt, keepdim, correction, out);
         }
 
         pub fn stddevDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stddevAxes(dims, keepdim, correction);
         }
 
+        pub fn stddevDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stddevAxesOut(dims, keepdim, correction, out);
+        }
+
         pub fn stdDims(self: Self, dims: []const isize, keepdim: bool, correction: T) SparseError!array_mod.Array(T) {
             return self.stdAxes(dims, keepdim, correction);
+        }
+
+        pub fn stdDimsOut(self: Self, dims: []const isize, keepdim: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try self.stdAxesOut(dims, keepdim, correction, out);
         }
 
         pub fn exp(self: Self) SparseError!array_mod.Array(T) {
@@ -29762,34 +29906,62 @@ test "sparse dense reduction helpers" {
             var row_variance = try matrix.varianceDim(1, false, 0);
             defer row_variance.deinit();
             try expectArray(row_variance, &.{2}, &.{ 2.0 / 9.0, 14.0 / 9.0 });
+            try matrix.varianceDimOut(1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_variance.data);
+            try matrix.varDimOut(1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_variance.data);
 
             var column_variance_keep = try matrix.varDim(0, true, 0);
             defer column_variance_keep.deinit();
             try expectArray(column_variance_keep, &.{ 1, 3 }, &.{ 0.25, 1, 2.25 });
+            try matrix.varianceDimOut(0, true, 0, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_variance_keep.data);
 
             var all_variance_keep = try matrix.varianceAxes(&.{ 0, 1 }, true, 0);
             defer all_variance_keep.deinit();
             try expectArray(all_variance_keep, &.{ 1, 1 }, &.{4.0 / 3.0});
+            try matrix.varianceAxesOut(&.{ 0, 1 }, true, 0, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_variance_keep.data);
+            try matrix.varAxesOut(&.{ 0, 1 }, true, 0, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_variance_keep.data);
 
             var row_variance_dims = try matrix.varDims(&.{1}, false, 0);
             defer row_variance_dims.deinit();
             try expectArray(row_variance_dims, &.{2}, row_variance.data);
+            try matrix.varianceDimsOut(&.{1}, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_variance_dims.data);
+            try matrix.varDimsOut(&.{1}, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_variance_dims.data);
 
             var row_std = try matrix.stddevDim(1, false, 0);
             defer row_std.deinit();
             try expectArray(row_std, &.{2}, &.{ @sqrt(2.0 / 9.0), @sqrt(14.0 / 9.0) });
+            try matrix.stddevDimOut(1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_std.data);
+            try matrix.stdDimOut(1, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_std.data);
 
             var column_std_keep = try matrix.stdDim(0, true, 0);
             defer column_std_keep.deinit();
             try expectArray(column_std_keep, &.{ 1, 3 }, &.{ 0.5, 1, 1.5 });
+            try matrix.stddevDimOut(0, true, 0, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_std_keep.data);
 
             var all_std_keep = try matrix.stddevAxes(&.{ 0, 1 }, true, 0);
             defer all_std_keep.deinit();
             try expectArray(all_std_keep, &.{ 1, 1 }, &.{@sqrt(4.0 / 3.0)});
+            try matrix.stddevAxesOut(&.{ 0, 1 }, true, 0, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_std_keep.data);
+            try matrix.stdAxesOut(&.{ 0, 1 }, true, 0, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_std_keep.data);
 
             var row_std_dims = try matrix.stdDims(&.{1}, false, 0);
             defer row_std_dims.deinit();
             try expectArray(row_std_dims, &.{2}, row_std.data);
+            try matrix.stddevDimsOut(&.{1}, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_std_dims.data);
+            try matrix.stdDimsOut(&.{1}, false, 0, row_out);
+            try expectArray(row_out, &.{2}, row_std_dims.data);
 
             try std.testing.expectError(error.InvalidAxis, matrix.sumDim(2, false));
             try std.testing.expectError(error.InvalidAxis, matrix.prod(2, false));
