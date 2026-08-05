@@ -201,8 +201,8 @@ with a PyTorch-like `tensor(...)` representation, e.g. `try writer.print("{f}", 
 `DeviceDataFrame` follows the same device model for tabular fixed-width data:
 construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 `DeviceDataFrameView` metadata (shape aliases, table-level null/memory totals,
-dtype/class summaries, device/backend predicates, shape/device comparison, schema
-helpers, duplicate-name detection, column lookup by name or index, and
+dtype/class summaries, device/backend predicates, shape/device/schema comparison,
+schema helpers, duplicate-name detection, column lookup by name or index, and
 `DeviceColumnView` null/memory helpers) for backend bridges,
 and transfer the whole table
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.

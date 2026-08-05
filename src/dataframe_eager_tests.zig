@@ -546,6 +546,21 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.sameHeight(selected_view));
     try std.testing.expect(!view.sameWidth(selected_view));
     try std.testing.expect(!view.sameShape(selected_view));
+    try std.testing.expect(!view.schemaEquals(selected_view));
+
+    var table_clone_view = try table_clone.view();
+    defer table_clone_view.deinit();
+    try std.testing.expect(view.schemaEquals(table_clone_view));
+    try std.testing.expect(view.sameSchema(table_clone_view));
+    try std.testing.expect(view.schemaCompatible(table_clone_view));
+
+    var reordered_view = try reordered.view();
+    defer reordered_view.deinit();
+    try std.testing.expect(!view.schemaEquals(reordered_view));
+
+    var different_nulls_view = try different_nulls.view();
+    defer different_nulls_view.deinit();
+    try std.testing.expect(!view.schemaEquals(different_nulls_view));
 
     var duplicate_view = try duplicate_name_table.view();
     defer duplicate_view.deinit();

@@ -438,6 +438,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!duplicate_view.columnNamesUnique());
         try std.testing.expect(duplicate_view.hasDuplicateColumnNames());
         try std.testing.expectEqual(@as(usize, 1), duplicate_view.duplicateColumnNameCount());
+        try std.testing.expect(!view.schemaEquals(duplicate_view));
+        try std.testing.expect(!view.sameSchema(duplicate_view));
         const id_view = try view.columnView("id");
         try std.testing.expectEqual(DeviceDType.i32, id_view.dtype);
         try std.testing.expectEqual(@as(usize, 2), id_view.len());
@@ -475,6 +477,16 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         defer gpa.free(schema);
         try std.testing.expectEqual(@as(usize, 1), schema.len);
         try std.testing.expectEqual(DeviceDType.i32, schema[0].dtype);
+        const view_alias = DeviceDataFrameView{
+            .allocator = gpa,
+            .names = &view_names,
+            .columns = &view_columns,
+            .rows = 2,
+            .device = .cpu,
+        };
+        try std.testing.expect(view.schemaEquals(view_alias));
+        try std.testing.expect(view.sameSchema(view_alias));
+        try std.testing.expect(view.schemaCompatible(view_alias));
         try std.testing.expectError(error.ColumnNotFound, view.columnSchema("missing"));
         try std.testing.expectError(error.IndexOutOfBounds, view.columnSchemaAt(1));
         try std.testing.expect(std.mem.eql(u8, "id", try view.columnNameAt(0)));

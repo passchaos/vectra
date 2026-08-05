@@ -472,6 +472,19 @@ pub fn DeviceViewTypes(
                 return self.columnSchemas(allocator);
             }
 
+            pub fn schemaEquals(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+                if (self.names.len != other.names.len) return false;
+                for (self.names, other.names, self.columns, other.columns) |left_name, right_name, left_column, right_column| {
+                    if (!std.mem.eql(u8, left_name, right_name)) return false;
+                    if (left_column.dtype != right_column.dtype) return false;
+                    if (left_column.nullable() != right_column.nullable()) return false;
+                }
+                return true;
+            }
+
+            pub const sameSchema = schemaEquals;
+            pub const schemaCompatible = schemaEquals;
+
             pub fn isEmpty(self: DeviceDataFrameView) bool {
                 return self.rows == 0 or self.columns.len == 0;
             }
