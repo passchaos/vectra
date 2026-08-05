@@ -454,6 +454,15 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqualStrings("i32", id_view.dtypeName());
         try std.testing.expect(id_view.isCpu());
         try std.testing.expectEqualStrings("cpu", id_view.deviceBackendName());
+        try std.testing.expect(id_view.sameDevice(view_columns[0]));
+        try std.testing.expect(id_view.sameLength(view_columns[0]));
+        try std.testing.expect(id_view.lengthEquals(2));
+        try std.testing.expect(id_view.sameDType(view_columns[0]));
+        try std.testing.expect(id_view.sameNullability(view_columns[0]));
+        try std.testing.expect(id_view.schemaEquals(view_columns[0]));
+        try std.testing.expect(id_view.sameSchema(view_columns[0]));
+        try std.testing.expect(id_view.schemaCompatible(view_columns[0]));
+        try std.testing.expect(id_view.sameStorage(view_columns[0]));
         const view_null_counts = try view.columnNullCounts(gpa);
         defer gpa.free(view_null_counts);
         try std.testing.expectEqualSlices(usize, &.{0}, view_null_counts);

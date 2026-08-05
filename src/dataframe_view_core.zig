@@ -136,6 +136,41 @@ pub fn DeviceViewTypes(
             pub fn deviceBackendName(self: DeviceColumnView) []const u8 {
                 return self.device.backendName();
             }
+
+            pub fn sameDevice(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.device.sameDevice(other.device);
+            }
+
+            pub fn sameLength(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.rows == other.rows;
+            }
+
+            pub fn lengthEquals(self: DeviceColumnView, rows: usize) bool {
+                return self.rows == rows;
+            }
+
+            pub fn sameDType(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.dtype == other.dtype;
+            }
+
+            pub fn sameNullability(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.nullable() == other.nullable();
+            }
+
+            pub fn schemaEquals(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.sameDType(other) and self.sameNullability(other);
+            }
+
+            pub const sameSchema = schemaEquals;
+            pub const schemaCompatible = schemaEquals;
+
+            pub fn sameStorage(self: DeviceColumnView, other: DeviceColumnView) bool {
+                return self.data_ptr == other.data_ptr and
+                    self.data_nbytes == other.data_nbytes and
+                    self.validity_ptr == other.validity_ptr and
+                    self.validity_nbytes == other.validity_nbytes and
+                    self.validity_encoding == other.validity_encoding;
+            }
         };
 
         /// Non-owning table metadata modeled after cuDF's `table_view`.

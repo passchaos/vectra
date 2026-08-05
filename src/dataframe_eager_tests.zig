@@ -493,6 +493,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));
     try std.testing.expect(sales_column_view.data_ptr != 0);
     const units_column_view = try view.columnViewAt(1);
+    try std.testing.expect(sales_column_view.sameDevice(units_column_view));
+    try std.testing.expect(sales_column_view.sameLength(units_column_view));
+    try std.testing.expect(sales_column_view.lengthEquals(3));
+    try std.testing.expect(!sales_column_view.sameDType(units_column_view));
+    try std.testing.expect(!sales_column_view.sameNullability(units_column_view));
+    try std.testing.expect(!sales_column_view.schemaEquals(units_column_view));
+    try std.testing.expect(sales_column_view.sameSchema(sales_column_view));
+    try std.testing.expect(sales_column_view.schemaCompatible(sales_column_view));
+    try std.testing.expect(sales_column_view.sameStorage(sales_column_view));
+    try std.testing.expect(!sales_column_view.sameStorage(units_column_view));
     try std.testing.expectEqual(DeviceDType.i64, units_column_view.dtype);
     try std.testing.expectEqual(DeviceValidityEncoding.bool_mask, units_column_view.validity_encoding);
     try std.testing.expectEqual(@as(usize, 1), units_column_view.nullCount());

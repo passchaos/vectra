@@ -203,7 +203,7 @@ construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 `DeviceDataFrameView` metadata (shape aliases, table-level null/memory totals,
 dtype/class summaries, device/backend predicates, shape/device/schema comparison,
 schema helpers, duplicate-name detection, column lookup by name or index, and
-`DeviceColumnView` null/memory helpers) for backend bridges,
+`DeviceColumnView` null/memory/comparison/storage helpers) for backend bridges,
 and transfer the whole table
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,
