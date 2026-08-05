@@ -6314,16 +6314,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePtp(T, self, axis_opt, keepdims);
         }
 
+        pub fn ptpOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptp(axis_opt, keepdims), out);
+        }
+
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptpAxes(axes, keepdims), out);
         }
 
         pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptp(dim_opt, keepdim);
         }
 
+        pub fn ptpDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpOut(dim_opt, keepdim, out);
+        }
+
         pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptpAxes(dims, keepdim);
+        }
+
+        pub fn ptpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpAxesOut(dims, keepdim, out);
         }
 
         pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12942,16 +12958,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePtp(T, self, axis_opt, keepdims);
         }
 
+        pub fn ptpOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptp(axis_opt, keepdims), out);
+        }
+
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptpAxes(axes, keepdims), out);
         }
 
         pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptp(dim_opt, keepdim);
         }
 
+        pub fn ptpDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpOut(dim_opt, keepdim, out);
+        }
+
         pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptpAxes(dims, keepdim);
+        }
+
+        pub fn ptpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpAxesOut(dims, keepdim, out);
         }
 
         pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19783,16 +19815,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePtp(T, self, axis_opt, keepdims);
         }
 
+        pub fn ptpOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptp(axis_opt, keepdims), out);
+        }
+
         pub fn ptpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDensePtpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn ptpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ptpAxes(axes, keepdims), out);
         }
 
         pub fn ptpDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptp(dim_opt, keepdim);
         }
 
+        pub fn ptpDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpOut(dim_opt, keepdim, out);
+        }
+
         pub fn ptpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.ptpAxes(dims, keepdim);
+        }
+
+        pub fn ptpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.ptpAxesOut(dims, keepdim, out);
         }
 
         pub fn meanAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29624,22 +29672,32 @@ test "sparse dense reduction helpers" {
             var flat_ptp = try matrix.ptp(null, false);
             defer flat_ptp.deinit();
             try expectArray(flat_ptp, &.{}, &.{3});
+            try matrix.ptpOut(null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_ptp.data);
 
             var row_ptp = try matrix.ptp(1, false);
             defer row_ptp.deinit();
             try expectArray(row_ptp, &.{2}, &.{ 1, 3 });
+            try matrix.ptpOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_ptp.data);
 
             var column_ptp_keep = try matrix.ptpDim(0, true);
             defer column_ptp_keep.deinit();
             try expectArray(column_ptp_keep, &.{ 1, 3 }, &.{ 1, 2, 3 });
+            try matrix.ptpDimOut(0, true, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_ptp_keep.data);
 
             var all_ptp_keep = try matrix.ptpAxes(&.{ 0, 1 }, true);
             defer all_ptp_keep.deinit();
             try expectArray(all_ptp_keep, &.{ 1, 1 }, &.{3});
+            try matrix.ptpAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_ptp_keep.data);
 
             var row_ptp_dims = try matrix.ptpDims(&.{1}, false);
             defer row_ptp_dims.deinit();
             try expectArray(row_ptp_dims, &.{2}, row_ptp.data);
+            try matrix.ptpDimsOut(&.{1}, false, row_out);
+            try expectArray(row_out, &.{2}, row_ptp_dims.data);
 
             var row_mean = try matrix.meanDim(1, false);
             defer row_mean.deinit();
