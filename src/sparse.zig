@@ -7458,24 +7458,48 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseCov(T, self, rowvar, correction);
         }
 
+        pub fn covOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cov(rowvar, correction), out);
+        }
+
         pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn corrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.corrcoef(rowvar), out);
         }
 
         pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
         }
 
+        pub fn weightedCovOut(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCov(weights, rowvar, correction), out);
+        }
+
         pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn weightedCorrcoefOut(self: Self, weights: array_mod.Array(T), rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCorrcoef(weights, rowvar), out);
         }
 
         pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseNanCov(T, self, rowvar, correction);
         }
 
+        pub fn nanCovOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCov(rowvar, correction), out);
+        }
+
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanCorrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCorrcoef(rowvar), out);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
@@ -14294,24 +14318,48 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseCov(T, self, rowvar, correction);
         }
 
+        pub fn covOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cov(rowvar, correction), out);
+        }
+
         pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn corrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.corrcoef(rowvar), out);
         }
 
         pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
         }
 
+        pub fn weightedCovOut(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCov(weights, rowvar, correction), out);
+        }
+
         pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn weightedCorrcoefOut(self: Self, weights: array_mod.Array(T), rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCorrcoef(weights, rowvar), out);
         }
 
         pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseNanCov(T, self, rowvar, correction);
         }
 
+        pub fn nanCovOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCov(rowvar, correction), out);
+        }
+
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanCorrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCorrcoef(rowvar), out);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
@@ -21343,24 +21391,48 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseCov(T, self, rowvar, correction);
         }
 
+        pub fn covOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.cov(rowvar, correction), out);
+        }
+
         pub fn corrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseCorrcoef(T, self, rowvar);
+        }
+
+        pub fn corrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.corrcoef(rowvar), out);
         }
 
         pub fn weightedCov(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCov(T, self, weights, rowvar, correction);
         }
 
+        pub fn weightedCovOut(self: Self, weights: array_mod.Array(T), rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCov(weights, rowvar, correction), out);
+        }
+
         pub fn weightedCorrcoef(self: Self, weights: array_mod.Array(T), rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedCorrcoef(T, self, weights, rowvar);
+        }
+
+        pub fn weightedCorrcoefOut(self: Self, weights: array_mod.Array(T), rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedCorrcoef(weights, rowvar), out);
         }
 
         pub fn nanCov(self: Self, rowvar: bool, correction: T) SparseError!array_mod.Array(T) {
             return sparseDenseNanCov(T, self, rowvar, correction);
         }
 
+        pub fn nanCovOut(self: Self, rowvar: bool, correction: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCov(rowvar, correction), out);
+        }
+
         pub fn nanCorrcoef(self: Self, rowvar: bool) SparseError!array_mod.Array(T) {
             return sparseDenseNanCorrcoef(T, self, rowvar);
+        }
+
+        pub fn nanCorrcoefOut(self: Self, rowvar: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.nanCorrcoef(rowvar), out);
         }
 
         pub fn nanToNum(self: Self, nan_value: T, posinf_value: T, neginf_value: T) SparseError!array_mod.Array(T) {
@@ -31139,20 +31211,30 @@ test "sparse dense covariance helpers" {
             var covariance = try matrix.cov(false, 1);
             defer covariance.deinit();
             try expectApproxArray(covariance, &.{ 2, 2 }, &.{ 1, 2, 2, 4 });
+            var cov_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer cov_out.deinit();
+            try matrix.covOut(false, 1, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, covariance.data);
 
             var corr = try matrix.corrcoef(false);
             defer corr.deinit();
             try expectApproxArray(corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+            try matrix.corrcoefOut(false, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, corr.data);
 
             var weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2, 1 }, &.{3});
             defer weights.deinit();
             var weighted_covariance = try matrix.weightedCov(weights, false, 1);
             defer weighted_covariance.deinit();
             try expectApproxArray(weighted_covariance, &.{ 2, 2 }, &.{ 2.0 / 3.0, 4.0 / 3.0, 4.0 / 3.0, 8.0 / 3.0 });
+            try matrix.weightedCovOut(weights, false, 1, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, weighted_covariance.data);
 
             var weighted_corr = try matrix.weightedCorrcoef(weights, false);
             defer weighted_corr.deinit();
             try expectApproxArray(weighted_corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+            try matrix.weightedCorrcoefOut(weights, false, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, weighted_corr.data);
 
             var bad_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
             defer bad_weights.deinit();
@@ -31176,10 +31258,16 @@ test "sparse dense covariance helpers" {
             var nan_covariance = try matrix.nanCov(false, 1);
             defer nan_covariance.deinit();
             try expectApproxArray(nan_covariance, &.{ 2, 2 }, &.{ 2, 4, 4, 8 });
+            var cov_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer cov_out.deinit();
+            try matrix.nanCovOut(false, 1, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, nan_covariance.data);
 
             var nan_corr = try matrix.nanCorrcoef(false);
             defer nan_corr.deinit();
             try expectApproxArray(nan_corr, &.{ 2, 2 }, &.{ 1, 1, 1, 1 });
+            try matrix.nanCorrcoefOut(false, cov_out);
+            try expectApproxArray(cov_out, &.{ 2, 2 }, nan_corr.data);
         }
     }.check;
 
