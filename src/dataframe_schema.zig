@@ -11,7 +11,9 @@ pub const DeviceColumnSchema = struct {
     nullable: bool,
     null_count: usize,
     valid_count: usize,
+    data_ptr: u64 = 0,
     data_nbytes: usize,
+    validity_ptr: ?u64 = null,
     validity_nbytes: usize,
     total_nbytes: usize,
     device: array_mod.Device,
@@ -149,12 +151,24 @@ pub const DeviceColumnSchema = struct {
         return self.data_nbytes;
     }
 
+    pub fn dataPtr(self: @This()) u64 {
+        return self.data_ptr;
+    }
+
     pub fn validityNbytes(self: @This()) usize {
         return self.validity_nbytes;
     }
 
     pub fn validityMemoryUsage(self: @This()) usize {
         return self.validity_nbytes;
+    }
+
+    pub fn validityPtr(self: @This()) ?u64 {
+        return self.validity_ptr;
+    }
+
+    pub fn hasValidity(self: @This()) bool {
+        return self.validity_ptr != null;
     }
 
     pub fn totalNbytes(self: @This()) usize {

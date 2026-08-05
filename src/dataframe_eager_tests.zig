@@ -318,7 +318,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 1), units_schema.nullCount());
     try std.testing.expectEqual(@as(usize, 2), units_schema.validCount());
     try std.testing.expectEqual(units_schema.data_nbytes, units_schema.dataNbytes());
+    try std.testing.expect(units_schema.dataPtr() != 0);
     try std.testing.expectEqual(units_schema.validity_nbytes, units_schema.validityNbytes());
+    try std.testing.expect(units_schema.hasValidity());
+    try std.testing.expect(units_schema.validityPtr() != null);
     try std.testing.expectEqual(units_schema.total_nbytes, units_schema.totalNbytes());
     try std.testing.expect(units_schema.isCpu());
     try std.testing.expect(!units_schema.isDeviceBacked());
@@ -656,6 +659,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!sales_schema.anyNull());
     try std.testing.expect(sales_schema.anyValid());
     try std.testing.expectEqual(sales_column_view.dataNbytes(), sales_schema.dataMemoryUsage());
+    try std.testing.expectEqual(sales_column_view.dataPtr(), sales_schema.dataPtr());
+    try std.testing.expect(!sales_schema.hasValidity());
     try std.testing.expectEqual(sales_column_view.totalNbytes(), sales_schema.totalNbytes());
     const units_view_schema = try view.columnSchemaAt(1);
     try std.testing.expect(std.mem.eql(u8, "units", units_view_schema.name));
