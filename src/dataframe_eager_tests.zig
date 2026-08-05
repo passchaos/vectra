@@ -85,7 +85,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 3), table.height());
     try std.testing.expectEqual(@as(usize, 3), table.width());
     try std.testing.expectEqual(table.height(), table.rowCount());
+    try std.testing.expectEqual(table.height(), table.nRows());
     try std.testing.expectEqual(table.width(), table.columnCount());
+    try std.testing.expectEqual(table.width(), table.cols());
+    try std.testing.expectEqual(table.width(), table.nCols());
     const names = table.columnNames();
     try std.testing.expectEqual(@as(usize, 3), names.len);
     try std.testing.expect(std.mem.eql(u8, "sales", names[0]));

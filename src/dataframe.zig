@@ -144,11 +144,23 @@ pub const DeviceDataFrame = struct {
         return self.height();
     }
 
+    pub fn nRows(self: DeviceDataFrame) usize {
+        return self.height();
+    }
+
     pub fn width(self: DeviceDataFrame) usize {
         return self.columns.len;
     }
 
     pub fn columnCount(self: DeviceDataFrame) usize {
+        return self.width();
+    }
+
+    pub fn cols(self: DeviceDataFrame) usize {
+        return self.width();
+    }
+
+    pub fn nCols(self: DeviceDataFrame) usize {
         return self.width();
     }
 

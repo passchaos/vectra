@@ -490,6 +490,34 @@ pub const DeviceParquetScan = struct {
 };
 
 pub const DeviceDataFrame = struct {
+    pub fn height(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn rowCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn nRows(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn width(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn columnCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn cols(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn nCols(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
     pub fn columnLabels(_: DeviceDataFrame) []const []const u8 {
         return &.{};
     }
