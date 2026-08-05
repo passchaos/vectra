@@ -7942,6 +7942,11 @@ test "device dataframe exports boltha arrow record batch" {
     defer batch_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), batch_roundtrip.height());
     try std.testing.expect(batch_roundtrip.schemaEquals(table));
+    var batch_projection = try vectra.ArrowExport.DataFrame.fromArrowRecordBatchProjection(gpa, batch, &.{ "sales", "active" }, .cpu);
+    defer batch_projection.deinit();
+    try std.testing.expectEqual(@as(usize, 2), batch_projection.width());
+    try std.testing.expectEqual(@as(?usize, 0), batch_projection.columnIndex("sales"));
+    try std.testing.expectEqual(@as(?usize, 1), batch_projection.columnIndex("active"));
 
     var arrow_table = try table.toArrowTable(gpa);
     defer arrow_table.deinit(gpa);
@@ -7955,6 +7960,10 @@ test "device dataframe exports boltha arrow record batch" {
     defer table_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), table_roundtrip.height());
     try std.testing.expect(table_roundtrip.schemaEquals(table));
+    var table_projection = try vectra.ArrowExport.DataFrame.fromArrowTableProjection(gpa, grouped_arrow_table, &.{"units"}, .cpu);
+    defer table_projection.deinit();
+    try std.testing.expectEqual(@as(usize, 1), table_projection.width());
+    try std.testing.expectEqual(@as(?usize, 0), table_projection.columnIndex("units"));
     const grouped_parquet_bytes = try vectra.ArrowExport.DataFrame.toParquetBytes(table, gpa);
     defer gpa.free(grouped_parquet_bytes);
     var parquet_roundtrip = try vectra.ArrowExport.DataFrame.fromParquetBytes(gpa, grouped_parquet_bytes, .cpu);
