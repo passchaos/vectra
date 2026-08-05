@@ -166,6 +166,13 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
 
     pub const ParquetScan = struct {
         pub const init = dataframe_mod.DeviceParquetScan.init;
+        pub const clone = dataframe_mod.DeviceParquetScan.clone;
+        pub const lazy = dataframe_mod.DeviceParquetScan.lazy;
+        pub const select = dataframe_mod.DeviceParquetScan.select;
+        pub const whereRange = dataframe_mod.DeviceParquetScan.whereRange;
+        pub const whereNull = dataframe_mod.DeviceParquetScan.whereNull;
+        pub const collect = dataframe_mod.DeviceParquetScan.collect;
+        pub const explain = dataframe_mod.DeviceParquetScan.explain;
     };
 } else struct {};
 

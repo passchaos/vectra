@@ -8010,7 +8010,16 @@ test "device dataframe exports boltha arrow record batch" {
     ));
     var grouped_scan = try vectra.ArrowExport.ParquetScan.init(gpa, grouped_parquet_bytes, .cpu);
     defer grouped_scan.deinit();
-    var grouped_scan_lazy = try grouped_scan.lazy();
+    try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
+    const grouped_scan_explain = try vectra.ArrowExport.ParquetScan.explain(grouped_scan, gpa);
+    defer gpa.free(grouped_scan_explain);
+    try std.testing.expect(std.mem.indexOf(u8, grouped_scan_explain, "pushdown") != null);
+    var grouped_scan_clone = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
+    defer grouped_scan_clone.deinit();
+    var grouped_scan_rows = try vectra.ArrowExport.ParquetScan.collect(grouped_scan);
+    defer grouped_scan_rows.deinit();
+    try std.testing.expectEqual(table.height(), grouped_scan_rows.height());
+    var grouped_scan_lazy = try vectra.ArrowExport.ParquetScan.lazy(grouped_scan);
     defer grouped_scan_lazy.deinit();
 }
 
