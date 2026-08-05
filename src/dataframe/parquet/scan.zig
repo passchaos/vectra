@@ -12,6 +12,7 @@ const lazy_format_mod = @import("../lazy.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
+const scan_metadata_mod = @import("scan_metadata.zig");
 const series_mod = @import("../../series.zig");
 const boltha = @import("boltha");
 
@@ -26,78 +27,6 @@ const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushd
 const SourceRange = scan_summary_mod.SourceRange;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
-
-fn cloneArrowFields(
-    allocator: std.mem.Allocator,
-    fields: []const boltha.arrow.Field,
-) ParquetInteropError![]boltha.arrow.Field {
-    const owned = try allocator.alloc(boltha.arrow.Field, fields.len);
-    var initialized: usize = 0;
-    errdefer {
-        for (owned[0..initialized]) |*field| field.deinit(allocator);
-        allocator.free(owned);
-    }
-    for (fields, owned) |field, *slot| {
-        slot.* = try field.clone(allocator);
-        initialized += 1;
-    }
-    return owned;
-}
-
-fn schemaProjectionIndices(
-    allocator: std.mem.Allocator,
-    schema: boltha.arrow.Schema,
-    wanted_names: []const []const u8,
-) ParquetInteropError![]usize {
-    const indices = try allocator.alloc(usize, wanted_names.len);
-    errdefer allocator.free(indices);
-    for (wanted_names, indices) |name, *slot| {
-        slot.* = schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
-    }
-    return indices;
-}
-
-fn projectArrowSchemaByName(
-    allocator: std.mem.Allocator,
-    schema: boltha.arrow.Schema,
-    wanted_names: []const []const u8,
-) ParquetInteropError!boltha.arrow.Schema {
-    const indices = try schemaProjectionIndices(allocator, schema, wanted_names);
-    defer allocator.free(indices);
-    return schema.project(allocator, indices) catch |err| switch (err) {
-        // `schemaProjectionIndices` resolves every name against this exact
-        // schema, so the only invalid-index outcome would be an internal logic
-        // error or concurrent mutation of an immutable schema value.
-        error.InvalidFieldIndex => unreachable,
-        else => |e| return e,
-    };
-}
-
-fn nonNegativeI64ToUsize(value: i64) ParquetInteropError!usize {
-    if (value < 0) return error.UnsupportedParquetSchema;
-    return std.math.cast(usize, value) orelse error.UnsupportedParquetSchema;
-}
-
-fn bolthaFileSummaryToDeviceSummary(summary: boltha.parquet.FileSummary) ParquetInteropError!DeviceParquetFileSummary {
-    return .{
-        .rows = try nonNegativeI64ToUsize(summary.num_rows),
-        .row_group_rows = try nonNegativeI64ToUsize(summary.row_group_num_rows),
-        .row_groups = summary.row_group_count,
-        .column_chunks = summary.column_count,
-        .columns_with_metadata = summary.columns_with_metadata,
-        .columns_without_metadata = summary.columns_without_metadata,
-        .columns_with_column_index = summary.columns_with_column_index,
-        .columns_with_offset_index = summary.columns_with_offset_index,
-        .columns_with_page_index = summary.columns_with_page_index,
-        .columns_with_bloom_filter = summary.columns_with_bloom_filter,
-        .columns_with_sized_bloom_filter = summary.columns_with_sized_bloom_filter,
-        .row_group_total_nbytes = try nonNegativeI64ToUsize(summary.row_group_total_byte_size),
-        .row_group_total_compressed_nbytes = try nonNegativeI64ToUsize(summary.row_group_total_compressed_size),
-        .row_groups_with_compressed_size = summary.row_groups_with_compressed_size,
-        .total_compressed_nbytes = try nonNegativeI64ToUsize(summary.total_compressed_size),
-        .total_uncompressed_nbytes = try nonNegativeI64ToUsize(summary.total_uncompressed_size),
-    };
-}
 
 pub fn DeviceParquetScan(
     comptime DeviceDataFrame: type,
@@ -360,7 +289,7 @@ pub fn DeviceParquetScan(
 
         pub fn parquetFileSummary(self: Self) ParquetInteropError!DeviceParquetFileSummary {
             const summary_value = try boltha.parquet.readFileSummary(self.allocator, self.bytes);
-            return bolthaFileSummaryToDeviceSummary(summary_value);
+            return scan_metadata_mod.bolthaFileSummaryToDeviceSummary(summary_value);
         }
 
         pub fn rowCount(self: Self) ParquetInteropError!usize {
@@ -573,7 +502,7 @@ pub fn DeviceParquetScan(
             var schema = try boltha.parquet.readSchema(allocator, self.bytes);
             errdefer schema.deinit(allocator);
             if (self.projection) |names| {
-                var projected = try projectArrowSchemaByName(allocator, schema, names);
+                var projected = try scan_metadata_mod.projectArrowSchemaByName(allocator, schema, names);
                 errdefer projected.deinit(allocator);
                 schema.deinit(allocator);
                 return projected;
@@ -584,19 +513,19 @@ pub fn DeviceParquetScan(
         pub fn toArrowSchemaProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError!boltha.arrow.Schema {
             var schema = try boltha.parquet.readSchema(allocator, self.bytes);
             defer schema.deinit(allocator);
-            return projectArrowSchemaByName(allocator, schema, wanted_names);
+            return scan_metadata_mod.projectArrowSchemaByName(allocator, schema, wanted_names);
         }
 
         pub fn toArrowFields(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]boltha.arrow.Field {
             var schema = try self.toArrowSchema(allocator);
             defer schema.deinit(allocator);
-            return cloneArrowFields(allocator, schema.fieldsView());
+            return scan_metadata_mod.cloneArrowFields(allocator, schema.fieldsView());
         }
 
         pub fn toArrowFieldsProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]boltha.arrow.Field {
             var schema = try self.toArrowSchemaProjection(allocator, wanted_names);
             defer schema.deinit(allocator);
-            return cloneArrowFields(allocator, schema.fieldsView());
+            return scan_metadata_mod.cloneArrowFields(allocator, schema.fieldsView());
         }
 
         pub fn arrowFieldCount(self: Self) ParquetInteropError!usize {
