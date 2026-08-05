@@ -11040,6 +11040,14 @@ pub fn CooMatrix(comptime T: type) type {
             return self.matvec(x);
         }
 
+        pub fn matvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matvec(x), out);
+        }
+
+        pub fn matvecArrayOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.matvecOut(x, out);
+        }
+
         pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -11086,6 +11094,10 @@ pub fn CooMatrix(comptime T: type) type {
                 }
             }
             return out;
+        }
+
+        pub fn matmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matmat(rhs), out);
         }
 
         pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -17102,6 +17114,14 @@ pub fn CsrMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
+        pub fn matvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matvec(x), out);
+        }
+
+        pub fn matvecArrayOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.matvecOut(x, out);
+        }
+
         pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -17161,6 +17181,10 @@ pub fn CsrMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.csrMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn matmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matmat(rhs), out);
         }
 
         pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -24766,6 +24790,14 @@ pub fn CscMatrix(comptime T: type) type {
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{self.rows});
         }
 
+        pub fn matvecOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matvec(x), out);
+        }
+
+        pub fn matvecArrayOut(self: Self, x: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.matvecOut(x, out);
+        }
+
         pub fn matvecResidualNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
             ensureFloat(T);
             if (rhs.shape.len != 1) return error.NonVectorArray;
@@ -24823,6 +24855,10 @@ pub fn CscMatrix(comptime T: type) type {
             defer dst.deinit();
             veyra.cscMatmat(f64, veyra_view, rhs_matrix.asView(), dst.asMut()) catch return error.BackendFailure;
             return array_mod.Array(f64).fromSlice(self.allocator, dst.data, &.{ self.rows, rhs.shape[1] });
+        }
+
+        pub fn matmatOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matmat(rhs), out);
         }
 
         pub fn matmatResidualFrobeniusNorm(self: Self, x: array_mod.Array(T), rhs: array_mod.Array(T)) SparseError!T {
@@ -26885,6 +26921,13 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var y = try coo.matvec(x);
     defer y.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 22, 29 }, y.data);
+    var y_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer y_out.deinit();
+    try coo.matvecOut(x, y_out);
+    try std.testing.expectEqualSlices(f64, y.data, y_out.data);
+    @memset(y_out.data, 0);
+    try coo.matvecArrayOut(x, y_out);
+    try std.testing.expectEqualSlices(f64, y.data, y_out.data);
 
     var tx_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer tx_rhs.deinit();
@@ -26906,6 +26949,10 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var product = try coo.matmat(rhs);
     defer product.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 16, 32, 22, 44, 29, 58 }, product.data);
+    var product_out = try array_mod.Array(f64).zeros(gpa, &.{ 3, 2 });
+    defer product_out.deinit();
+    try coo.matmatOut(rhs, product_out);
+    try std.testing.expectEqualSlices(f64, product.data, product_out.data);
 
     var transpose_rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
     defer transpose_rhs.deinit();
@@ -34981,8 +35028,20 @@ test "csr sparse transpose products and triangular solves" {
     var csr = try csrFromDense(f64, dense);
     defer csr.deinit();
 
+    var tx_rhs_for_direct = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 5, 6 }, &.{3});
+    defer tx_rhs_for_direct.deinit();
     var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 4, 5 }, &.{2});
     defer x.deinit();
+    var y_direct = try csr.matvec(tx_rhs_for_direct);
+    defer y_direct.deinit();
+    var y_direct_out = try array_mod.Array(f64).zeros(gpa, &.{2});
+    defer y_direct_out.deinit();
+    try csr.matvecOut(tx_rhs_for_direct, y_direct_out);
+    try std.testing.expectEqualSlices(f64, y_direct.data, y_direct_out.data);
+    @memset(y_direct_out.data, 0);
+    try csr.matvecArrayOut(tx_rhs_for_direct, y_direct_out);
+    try std.testing.expectEqualSlices(f64, y_direct.data, y_direct_out.data);
+
     var tx = try csr.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 15, 8 }, tx.data);
@@ -34996,6 +35055,15 @@ test "csr sparse transpose products and triangular solves" {
         3, 4,
     }, &.{ 2, 2 });
     defer rhs.deinit();
+    var direct_mat = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
+    defer direct_mat.deinit();
+    var direct_product = try csr.matmat(direct_mat);
+    defer direct_product.deinit();
+    var direct_product_out = try array_mod.Array(f64).zeros(gpa, direct_product.shape);
+    defer direct_product_out.deinit();
+    try csr.matmatOut(direct_mat, direct_product_out);
+    try std.testing.expectEqualSlices(f64, direct_product.data, direct_product_out.data);
+
     var tm = try csr.transposeMatmat(rhs);
     defer tm.deinit();
     try std.testing.expectEqualSlices(usize, &.{ 3, 2 }, tm.shape);
@@ -35285,6 +35353,15 @@ test "csc sparse transpose products and row column stats" {
 
     var x = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3 }, &.{3});
     defer x.deinit();
+    var y_direct = try csc.matvec(x);
+    defer y_direct.deinit();
+    var y_direct_out = try array_mod.Array(f64).zeros(gpa, y_direct.shape);
+    defer y_direct_out.deinit();
+    try csc.matvecOut(x, y_direct_out);
+    try std.testing.expectEqualSlices(f64, y_direct.data, y_direct_out.data);
+    @memset(y_direct_out.data, 0);
+    try csc.matvecArrayOut(x, y_direct_out);
+    try std.testing.expectEqualSlices(f64, y_direct.data, y_direct_out.data);
     var tx = try csc.transposeMatvec(x);
     defer tx.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 13, 6, 13 }, tx.data);
@@ -35295,6 +35372,13 @@ test "csc sparse transpose products and row column stats" {
 
     var rhs = try array_mod.Array(f64).fromSlice(gpa, &.{ 1, 2, 3, 4, 5, 6 }, &.{ 3, 2 });
     defer rhs.deinit();
+    var direct_product = try csc.matmat(rhs);
+    defer direct_product.deinit();
+    var direct_product_out = try array_mod.Array(f64).zeros(gpa, direct_product.shape);
+    defer direct_product_out.deinit();
+    try csc.matmatOut(rhs, direct_product_out);
+    try std.testing.expectEqualSlices(f64, direct_product.data, direct_product_out.data);
+
     var tm = try csc.transposeMatmat(rhs);
     defer tm.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 21, 26, 9, 12, 23, 26 }, tm.data);
