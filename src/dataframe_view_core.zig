@@ -32,6 +32,14 @@ pub fn DeviceViewTypes(
                 return self.rows;
             }
 
+            pub fn rowCount(self: DeviceColumnView) usize {
+                return self.len();
+            }
+
+            pub fn nRows(self: DeviceColumnView) usize {
+                return self.len();
+            }
+
             pub fn isEmpty(self: DeviceColumnView) bool {
                 return self.rows == 0;
             }

@@ -20,6 +20,14 @@ pub const DeviceColumnSchema = struct {
         return self.rows;
     }
 
+    pub fn rowCount(self: @This()) usize {
+        return self.len();
+    }
+
+    pub fn nRows(self: @This()) usize {
+        return self.len();
+    }
+
     pub fn isEmpty(self: @This()) bool {
         return self.rows == 0;
     }

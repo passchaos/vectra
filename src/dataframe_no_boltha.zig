@@ -94,6 +94,14 @@ pub const DeviceColumn = union(DeviceDType) {
         return 0;
     }
 
+    pub fn rowCount(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn nRows(_: DeviceColumn) usize {
+        return 0;
+    }
+
     pub fn isEmpty(_: DeviceColumn) bool {
         return true;
     }

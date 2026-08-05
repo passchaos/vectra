@@ -62,6 +62,14 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn rowCount(self: DeviceColumn) usize {
+        return self.len();
+    }
+
+    pub fn nRows(self: DeviceColumn) usize {
+        return self.len();
+    }
+
     pub fn isEmpty(self: DeviceColumn) bool {
         return self.len() == 0;
     }
