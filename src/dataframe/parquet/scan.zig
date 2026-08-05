@@ -132,6 +132,23 @@ pub fn DeviceParquetScan(
             return self.bytes.len;
         }
 
+        pub fn sourcePtr(self: Self) u64 {
+            if (self.bytes.len == 0) return 0;
+            return @intFromPtr(self.bytes.ptr);
+        }
+
+        pub fn dataPtr(self: Self) u64 {
+            return self.sourcePtr();
+        }
+
+        pub fn hasSourcePtr(self: Self) bool {
+            return self.sourcePtr() != 0;
+        }
+
+        pub fn sourceEndPtr(self: Self) u64 {
+            return self.sourcePtr() + self.sourceNbytes();
+        }
+
         pub fn sourceByteCount(self: Self) usize {
             return self.sourceNbytes();
         }
@@ -310,6 +327,7 @@ pub fn DeviceParquetScan(
         pub fn summary(self: Self) DeviceParquetScanSummary {
             return .{
                 .device = self.deviceValue(),
+                .source_ptr = self.sourcePtr(),
                 .source_nbytes = self.sourceNbytes(),
                 .owned_nbytes = self.ownedNbytes(),
                 .pushdown = self.pushdownSummary(),

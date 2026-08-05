@@ -1049,7 +1049,8 @@ also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*
 `ParquetScan.init` plus scan device metadata (`deviceValue`, `deviceBackend`,
 `deviceBackendName`, `deviceIndex`, `isCpu`/`isCuda`/`isMps`, backed-by
 predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
-metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `isEmpty`/`isNonEmpty`/`hasBytes`,
+metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `sourcePtr`/`dataPtr`/`hasSourcePtr`/`sourceEndPtr`,
+`isEmpty`/`isNonEmpty`/`hasBytes`,
 `projectionMetadataNbytes`, `predicateMetadataNbytes`, `pushdownMetadataNbytes`,
 `ownedNbytes`/`memoryUsage`/`estimatedSize`), metadata snapshots
 (`DeviceParquetScanSummary` via `summary` and `DeviceParquetScanPushdownSummary` via `pushdownSummary`), pushdown inspection

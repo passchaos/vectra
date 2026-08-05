@@ -8025,6 +8025,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.isDeviceBacked(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.isDeviceAvailable(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceNbytes(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan) != 0);
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan), vectra.ArrowExport.ParquetScan.dataPtr(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasSourcePtr(grouped_scan));
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan) + grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceEndPtr(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceByteCount(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.nbytes(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.byteCount(grouped_scan));
@@ -8100,6 +8104,15 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!scan_summary.isDeviceBacked());
     try std.testing.expect(scan_summary.isDeviceAvailable());
     try std.testing.expectEqual(grouped_parquet_bytes.len, scan_summary.sourceNbytes());
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan), scan_summary.sourcePtr());
+    try std.testing.expectEqual(scan_summary.sourcePtr(), scan_summary.dataPtr());
+    try std.testing.expect(scan_summary.hasSourcePtr());
+    try std.testing.expectEqual(scan_summary.sourcePtr() + scan_summary.sourceNbytes(), scan_summary.sourceEndPtr());
+    const scan_source_range = scan_summary.sourceRange();
+    try std.testing.expectEqual(scan_summary.sourcePtr(), scan_source_range.ptr);
+    try std.testing.expectEqual(scan_summary.sourceNbytes(), scan_source_range.nbytes);
+    try std.testing.expectEqual(scan_summary.sourceEndPtr(), scan_source_range.endPtr());
+    try std.testing.expect(scan_source_range.isNonEmpty());
     try std.testing.expectEqual(grouped_parquet_bytes.len, scan_summary.nbytes());
     try std.testing.expect(scan_summary.hasBytes());
     try std.testing.expect(scan_summary.isNonEmpty());

@@ -120,6 +120,22 @@ pub fn DeviceLazyParquetTypes(
                 return 0;
             }
 
+            pub fn sourcePtr(_: DeviceParquetScan) u64 {
+                return 0;
+            }
+
+            pub fn dataPtr(_: DeviceParquetScan) u64 {
+                return 0;
+            }
+
+            pub fn hasSourcePtr(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn sourceEndPtr(_: DeviceParquetScan) u64 {
+                return 0;
+            }
+
             pub fn sourceByteCount(_: DeviceParquetScan) usize {
                 return 0;
             }

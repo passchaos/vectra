@@ -186,6 +186,10 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const isDeviceAvailable = dataframe_mod.DeviceParquetScan.isDeviceAvailable;
         pub const sameDevice = dataframe_mod.DeviceParquetScan.sameDevice;
         pub const sourceNbytes = dataframe_mod.DeviceParquetScan.sourceNbytes;
+        pub const sourcePtr = dataframe_mod.DeviceParquetScan.sourcePtr;
+        pub const dataPtr = dataframe_mod.DeviceParquetScan.dataPtr;
+        pub const hasSourcePtr = dataframe_mod.DeviceParquetScan.hasSourcePtr;
+        pub const sourceEndPtr = dataframe_mod.DeviceParquetScan.sourceEndPtr;
         pub const sourceByteCount = dataframe_mod.DeviceParquetScan.sourceByteCount;
         pub const nbytes = dataframe_mod.DeviceParquetScan.nbytes;
         pub const byteCount = dataframe_mod.DeviceParquetScan.byteCount;
@@ -517,6 +521,10 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(parquet_scan.isDeviceAvailable());
         try std.testing.expect(parquet_scan.sameDevice(.{}));
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.sourceNbytes());
+        try std.testing.expectEqual(@as(u64, 0), parquet_scan.sourcePtr());
+        try std.testing.expectEqual(@as(u64, 0), parquet_scan.dataPtr());
+        try std.testing.expect(!parquet_scan.hasSourcePtr());
+        try std.testing.expectEqual(@as(u64, 0), parquet_scan.sourceEndPtr());
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.sourceByteCount());
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.nbytes());
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.byteCount());
@@ -563,6 +571,11 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!empty_scan_summary.isDeviceBacked());
         try std.testing.expect(empty_scan_summary.isDeviceAvailable());
         try std.testing.expectEqual(@as(usize, 0), empty_scan_summary.sourceNbytes());
+        try std.testing.expectEqual(@as(u64, 0), empty_scan_summary.sourcePtr());
+        try std.testing.expectEqual(@as(u64, 0), empty_scan_summary.dataPtr());
+        try std.testing.expect(!empty_scan_summary.hasSourcePtr());
+        try std.testing.expectEqual(@as(u64, 0), empty_scan_summary.sourceEndPtr());
+        try std.testing.expect(empty_scan_summary.sourceRange().isEmpty());
         try std.testing.expectEqual(@as(usize, 0), empty_scan_summary.ownedNbytes());
         try std.testing.expect(empty_scan_summary.isEmpty());
         try std.testing.expect(!empty_scan_summary.hasPushdown());

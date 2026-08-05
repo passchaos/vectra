@@ -10,6 +10,7 @@ const array_mod = @import("array.zig");
 
 pub const DeviceParquetScanSummary = struct {
     device: array_mod.Device = .cpu,
+    source_ptr: u64 = 0,
     source_nbytes: usize = 0,
     owned_nbytes: usize = 0,
     pushdown: DeviceParquetScanPushdownSummary = .{},
@@ -80,6 +81,29 @@ pub const DeviceParquetScanSummary = struct {
         return self.source_nbytes;
     }
 
+    pub fn sourcePtr(self: Self) u64 {
+        return self.source_ptr;
+    }
+
+    pub fn dataPtr(self: Self) u64 {
+        return self.sourcePtr();
+    }
+
+    pub fn hasSourcePtr(self: Self) bool {
+        return self.source_ptr != 0;
+    }
+
+    pub fn sourceEndPtr(self: Self) u64 {
+        return self.source_ptr + self.source_nbytes;
+    }
+
+    pub fn sourceRange(self: Self) SourceRange {
+        return .{
+            .ptr = self.source_ptr,
+            .nbytes = self.source_nbytes,
+        };
+    }
+
     pub fn sourceByteCount(self: Self) usize {
         return self.sourceNbytes();
     }
@@ -122,6 +146,23 @@ pub const DeviceParquetScanSummary = struct {
 
     pub fn estimatedSize(self: Self) usize {
         return self.owned_nbytes;
+    }
+};
+
+pub const SourceRange = struct {
+    ptr: u64 = 0,
+    nbytes: usize = 0,
+
+    pub fn endPtr(self: SourceRange) u64 {
+        return self.ptr + self.nbytes;
+    }
+
+    pub fn isEmpty(self: SourceRange) bool {
+        return self.nbytes == 0;
+    }
+
+    pub fn isNonEmpty(self: SourceRange) bool {
+        return self.nbytes != 0;
     }
 };
 
