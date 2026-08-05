@@ -3,6 +3,7 @@ const array_mod = @import("../array.zig");
 const boltha = @import("boltha");
 const numeric_mod = @import("../dataframe_numeric.zig");
 const dataframe_array_mod = @import("../dataframe_array.zig");
+const schema_mod = @import("../dataframe_schema.zig");
 const arrow_columns_mod = @import("arrow/columns.zig");
 const arrow_extensions_mod = @import("arrow/extensions.zig");
 const arrow_import_mod = @import("arrow/import.zig");
@@ -11,6 +12,7 @@ pub const DataFrameInitError = std.mem.Allocator.Error || std.Io.Writer.Error ||
 pub const ArrowInteropError = DataFrameInitError || array_mod.ArrayError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 pub const ParquetInteropError = ArrowInteropError || boltha.parquet.SimpleError;
 const optionalCast = numeric_mod.optionalCast;
+const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 
 pub fn deviceDTypeToArrowDataType(dtype: array_mod.DType) ArrowInteropError!boltha.arrow.DataType {
     return switch (dtype) {
@@ -51,6 +53,10 @@ pub fn deviceDTypeToArrowField(allocator: std.mem.Allocator, name: []const u8, d
         return boltha.arrow.Field.initWithMetadata(allocator, name, data_type, nullable, &metadata);
     }
     return boltha.arrow.Field.init(allocator, name, data_type, nullable);
+}
+
+pub fn deviceColumnSchemaToArrowField(allocator: std.mem.Allocator, schema: DeviceColumnSchema) ArrowInteropError!boltha.arrow.Field {
+    return deviceDTypeToArrowField(allocator, schema.name, schema.dtype, schema.nullableColumn());
 }
 
 pub fn readBolthaTableWithBoolRangePruning(
@@ -145,7 +151,7 @@ pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropE
     }
 
     for (frame.names, frame.columns, 0..) |name, col, i| {
-        fields[i] = try deviceDTypeToArrowField(allocator, name, col.dtype(), col.nullable());
+        fields[i] = try deviceColumnSchemaToArrowField(allocator, col.schema(name));
         initialized += 1;
     }
     return boltha.arrow.Schema.init(allocator, fields);
