@@ -171,6 +171,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
     pub const ParquetScan = struct {
         pub const Lifecycle = struct {
             pub const init = dataframe_mod.DeviceParquetScan.init;
+            pub const initOwnedBytes = dataframe_mod.DeviceParquetScan.initOwnedBytes;
             pub const fromFileInDir = dataframe_mod.DeviceParquetScan.fromFileInDir;
             pub const fromFile = dataframe_mod.DeviceParquetScan.fromFile;
             pub const clone = dataframe_mod.DeviceParquetScan.clone;
@@ -371,6 +372,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         };
 
         pub const init = dataframe_mod.DeviceParquetScan.init;
+        pub const initOwnedBytes = dataframe_mod.DeviceParquetScan.initOwnedBytes;
         pub const fromFileInDir = dataframe_mod.DeviceParquetScan.fromFileInDir;
         pub const fromFile = dataframe_mod.DeviceParquetScan.fromFile;
         pub const clone = dataframe_mod.DeviceParquetScan.clone;

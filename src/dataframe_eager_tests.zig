@@ -8020,6 +8020,10 @@ test "device dataframe exports boltha arrow record batch" {
         .{ .f64 = .{ .min = 0.0 } },
         .cpu,
     ));
+    const owned_scan_bytes = try gpa.dupe(u8, grouped_parquet_bytes);
+    var owned_scan = vectra.ArrowExport.ParquetScan.Lifecycle.initOwnedBytes(gpa, owned_scan_bytes, .cpu);
+    defer owned_scan.deinit();
+    try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceNbytes(owned_scan));
     var grouped_scan = try vectra.ArrowExport.ParquetScan.Lifecycle.init(gpa, grouped_parquet_bytes, .cpu);
     defer grouped_scan.deinit();
     try std.testing.expect(vectra.ArrowExport.ParquetScan.Device.deviceValue(grouped_scan).sameDevice(.cpu));

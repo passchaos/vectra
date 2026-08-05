@@ -54,6 +54,14 @@ pub fn DeviceParquetScan(
             };
         }
 
+        pub fn initOwnedBytes(allocator: std.mem.Allocator, bytes: []u8, device_value: array_mod.Device) Self {
+            return .{
+                .allocator = allocator,
+                .bytes = bytes,
+                .device = device_value,
+            };
+        }
+
         pub fn fromFileInDir(
             allocator: std.mem.Allocator,
             dir: std.Io.Dir,
