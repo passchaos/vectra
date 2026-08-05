@@ -576,6 +576,10 @@ pub const DeviceDataFrame = struct {
         return self.device.backendName();
     }
 
+    pub fn deviceBackend(self: DeviceDataFrame) array_mod.Backend {
+        return self.device.backend;
+    }
+
     pub fn deviceIndex(self: DeviceDataFrame) usize {
         return self.device.index;
     }

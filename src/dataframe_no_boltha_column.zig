@@ -153,6 +153,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return "cpu";
     }
 
+    pub fn deviceBackend(_: DeviceColumn) array_mod.Backend {
+        return .cpu;
+    }
+
     pub fn deviceIndex(_: DeviceColumn) usize {
         return 0;
     }

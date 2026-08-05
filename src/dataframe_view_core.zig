@@ -217,6 +217,10 @@ pub fn DeviceViewTypes(
                 return self.device.backendName();
             }
 
+            pub fn deviceBackend(self: DeviceColumnView) array_mod.Backend {
+                return self.device.backend;
+            }
+
             pub fn deviceIndex(self: DeviceColumnView) usize {
                 return self.device.index;
             }
@@ -671,6 +675,10 @@ pub fn DeviceViewTypes(
 
             pub fn deviceBackendName(self: DeviceDataFrameView) []const u8 {
                 return self.device.backendName();
+            }
+
+            pub fn deviceBackend(self: DeviceDataFrameView) array_mod.Backend {
+                return self.device.backend;
             }
 
             pub fn deviceIndex(self: DeviceDataFrameView) usize {

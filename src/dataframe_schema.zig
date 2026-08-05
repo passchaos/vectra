@@ -203,6 +203,10 @@ pub const DeviceColumnSchema = struct {
         return self.device.backendName();
     }
 
+    pub fn deviceBackend(self: @This()) array_mod.Backend {
+        return self.device.backend;
+    }
+
     pub fn deviceIndex(self: @This()) usize {
         return self.device.index;
     }

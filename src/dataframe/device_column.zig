@@ -170,6 +170,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.device().backendName();
     }
 
+    pub fn deviceBackend(self: DeviceColumn) array_mod.Backend {
+        return self.device().backend;
+    }
+
     pub fn deviceIndex(self: DeviceColumn) usize {
         return self.device().index;
     }

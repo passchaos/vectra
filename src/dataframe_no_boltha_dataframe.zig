@@ -388,6 +388,10 @@ pub fn DeviceDataFrameType(
             return "cpu";
         }
 
+        pub fn deviceBackend(_: Self) array_mod.Backend {
+            return .cpu;
+        }
+
         pub fn deviceIndex(_: Self) usize {
             return 0;
         }
