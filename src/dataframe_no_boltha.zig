@@ -150,6 +150,19 @@ pub const DeviceColumnDef = struct {
     data: DeviceColumn,
 };
 
+pub const DeviceColumnSchema = struct {
+    name: []const u8,
+    dtype: DeviceDType,
+    rows: usize,
+    nullable: bool,
+    null_count: usize,
+    valid_count: usize,
+    data_nbytes: usize,
+    validity_nbytes: usize,
+    total_nbytes: usize,
+    device: array_mod.Device,
+};
+
 pub const DeviceLazyGroupByAggregation = enum {
     sum,
     prod,
@@ -477,6 +490,26 @@ pub const DeviceParquetScan = struct {
 };
 
 pub const DeviceDataFrame = struct {
+    pub fn columnSchemaAt(_: DeviceDataFrame, _: usize) DeviceDataError!DeviceColumnSchema {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn columnSchema(_: DeviceDataFrame, _: []const u8) DataError!DeviceColumnSchema {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn columnSchemas(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]DeviceColumnSchema {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn schema(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]DeviceColumnSchema {
+        return error.FeatureUnavailable;
+    }
+
+    pub fn schemaSummary(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]DeviceColumnSchema {
+        return error.FeatureUnavailable;
+    }
+
     pub fn init(_: std.mem.Allocator, _: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
         return error.FeatureUnavailable;
     }

@@ -70,6 +70,7 @@ pub const Column = dataframe_mod.Column;
 pub const ColumnDef = dataframe_mod.ColumnDef;
 pub const DataError = dataframe_mod.DataError;
 pub const DeviceDataFrame = dataframe_mod.DeviceDataFrame;
+pub const DeviceColumnSchema = dataframe_mod.DeviceColumnSchema;
 pub const DeviceLazyFrame = dataframe_mod.DeviceLazyFrame;
 pub const DeviceLazyOp = dataframe_mod.DeviceLazyOp;
 pub const DeviceLazySource = dataframe_mod.DeviceLazySource;
