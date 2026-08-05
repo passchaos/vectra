@@ -379,6 +379,30 @@ pub fn DeviceParquetScan(
             return (try self.parquetFileSummary()).columnChunkCount();
         }
 
+        pub fn parquetTotalNbytes(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).totalNbytes();
+        }
+
+        pub fn parquetTotalCompressedNbytes(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).totalCompressedNbytes();
+        }
+
+        pub fn parquetTotalUncompressedNbytes(self: Self) ParquetInteropError!usize {
+            return (try self.parquetFileSummary()).totalUncompressedNbytes();
+        }
+
+        pub fn parquetCompressionRatio(self: Self) ParquetInteropError!f64 {
+            return (try self.parquetFileSummary()).compressionRatio();
+        }
+
+        pub fn parquetMetadataCoverageRatio(self: Self) ParquetInteropError!f64 {
+            return (try self.parquetFileSummary()).metadataCoverageRatio();
+        }
+
+        pub fn parquetPageIndexCoverageRatio(self: Self) ParquetInteropError!f64 {
+            return (try self.parquetFileSummary()).pageIndexCoverageRatio();
+        }
+
         pub fn hasRowGroups(self: Self) bool {
             const summary_value = self.parquetFileSummary() catch return false;
             return summary_value.hasRowGroups();

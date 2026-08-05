@@ -270,6 +270,30 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn parquetTotalNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetTotalCompressedNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetTotalUncompressedNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetCompressionRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetMetadataCoverageRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetPageIndexCoverageRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn hasRowGroups(_: DeviceParquetScan) bool {
                 return false;
             }

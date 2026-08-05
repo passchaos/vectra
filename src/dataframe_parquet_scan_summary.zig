@@ -52,6 +52,34 @@ pub const DeviceParquetFileSummary = struct {
         return self.column_chunks;
     }
 
+    pub fn totalNbytes(self: Self) usize {
+        return self.total_uncompressed_nbytes;
+    }
+
+    pub fn totalCompressedNbytes(self: Self) usize {
+        return self.total_compressed_nbytes;
+    }
+
+    pub fn totalUncompressedNbytes(self: Self) usize {
+        return self.total_uncompressed_nbytes;
+    }
+
+    pub fn rowGroupTotalNbytes(self: Self) usize {
+        return self.row_group_total_nbytes;
+    }
+
+    pub fn rowGroupTotalCompressedNbytes(self: Self) usize {
+        return self.row_group_total_compressed_nbytes;
+    }
+
+    pub fn memoryUsage(self: Self) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: Self) usize {
+        return self.totalNbytes();
+    }
+
     pub fn hasRows(self: Self) bool {
         return self.rows != 0;
     }
@@ -88,6 +116,14 @@ pub const DeviceParquetFileSummary = struct {
         return self.columns_with_bloom_filter == self.columns_with_sized_bloom_filter;
     }
 
+    pub fn compressedSmallerThanUncompressed(self: Self) bool {
+        return self.total_compressed_nbytes < self.total_uncompressed_nbytes;
+    }
+
+    pub fn compressedLargerThanUncompressed(self: Self) bool {
+        return self.total_compressed_nbytes > self.total_uncompressed_nbytes;
+    }
+
     fn ratio(numerator: usize, denominator: usize) f64 {
         if (denominator == 0) return 0.0;
         return @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(denominator));
@@ -103,6 +139,22 @@ pub const DeviceParquetFileSummary = struct {
 
     pub fn bloomFilterCoverageRatio(self: Self) f64 {
         return ratio(self.columns_with_bloom_filter, self.column_chunks);
+    }
+
+    pub fn sizedBloomFilterCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_sized_bloom_filter, self.column_chunks);
+    }
+
+    pub fn columnIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_column_index, self.column_chunks);
+    }
+
+    pub fn offsetIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_offset_index, self.column_chunks);
+    }
+
+    pub fn missingMetadataRatio(self: Self) f64 {
+        return ratio(self.columns_without_metadata, self.column_chunks);
     }
 
     pub fn compressionRatio(self: Self) f64 {
