@@ -80,6 +80,18 @@ pub const DeviceColumnSchema = struct {
         return self.null_count != 0;
     }
 
+    pub fn anyNull(self: @This()) bool {
+        return self.nullCount() != 0;
+    }
+
+    pub fn allNull(self: @This()) bool {
+        return self.validCount() == 0;
+    }
+
+    pub fn anyValid(self: @This()) bool {
+        return self.validCount() != 0;
+    }
+
     pub fn allValid(self: @This()) bool {
         return self.null_count == 0;
     }

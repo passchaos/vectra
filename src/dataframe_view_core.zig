@@ -52,6 +52,22 @@ pub fn DeviceViewTypes(
                 return self.null_count != 0;
             }
 
+            pub fn anyNull(self: DeviceColumnView) bool {
+                return self.nullCount() != 0;
+            }
+
+            pub fn allNull(self: DeviceColumnView) bool {
+                return self.validCount() == 0;
+            }
+
+            pub fn anyValid(self: DeviceColumnView) bool {
+                return self.validCount() != 0;
+            }
+
+            pub fn allValid(self: DeviceColumnView) bool {
+                return self.nullCount() == 0;
+            }
+
             pub fn nullCount(self: DeviceColumnView) usize {
                 return self.null_count;
             }

@@ -445,6 +445,10 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 2), id_view.len());
         try std.testing.expectEqual(@as(usize, 0), id_view.nullCount());
         try std.testing.expectEqual(@as(usize, 2), id_view.validCount());
+        try std.testing.expect(!id_view.anyNull());
+        try std.testing.expect(!id_view.allNull());
+        try std.testing.expect(id_view.anyValid());
+        try std.testing.expect(id_view.allValid());
         try std.testing.expectEqual(@as(usize, 2 * @sizeOf(i32)), id_view.dataNbytes());
         try std.testing.expectEqual(id_view.totalNbytes(), id_view.memoryUsage());
         try std.testing.expectEqualStrings("i32", id_view.dtypeName());
@@ -478,6 +482,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(id_schema.isSignedInteger());
         try std.testing.expect(!id_schema.isBool());
         try std.testing.expect(id_schema.allValid());
+        try std.testing.expect(!id_schema.anyNull());
+        try std.testing.expect(!id_schema.allNull());
+        try std.testing.expect(id_schema.anyValid());
         try std.testing.expectEqual(@as(usize, 0), id_schema.nullCount());
         try std.testing.expectEqual(@as(usize, 2), id_schema.validCount());
         try std.testing.expectEqual(id_view.dataNbytes(), id_schema.dataNbytes());
