@@ -7815,6 +7815,19 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 3), arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, arrow_fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
+    var table_view = try table.view();
+    defer table_view.deinit();
+    const view_arrow_fields = try vectra.DeviceDataFrameViewArrow.toArrowFields(table_view, gpa);
+    defer {
+        for (view_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(view_arrow_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 3), view_arrow_fields.len);
+    try std.testing.expect(std.mem.eql(u8, table_schema[0].name, view_arrow_fields[0].name));
+    var view_arrow_schema = try vectra.DeviceDataFrameViewArrow.toArrowSchema(table_view, gpa);
+    defer view_arrow_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), view_arrow_schema.fieldCount());
+    try std.testing.expectEqual(table_schema[1].nullableColumn(), view_arrow_schema.fields[1].nullable);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, schema.fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), schema.fields[1].nullable);
     try std.testing.expectEqual(table_schema[2].nullableColumn(), schema.fields[2].nullable);

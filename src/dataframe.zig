@@ -5012,3 +5012,11 @@ pub const DeviceDataFrame = struct {
 pub fn deviceDataFrame(allocator: std.mem.Allocator, defs: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {
     return DeviceDataFrame.init(allocator, defs);
 }
+
+pub fn deviceDataFrameViewToArrowFields(view: DeviceDataFrameView, allocator: std.mem.Allocator) ArrowInteropError![]boltha.arrow.Field {
+    return arrow_methods_mod.toArrowFields(view, allocator);
+}
+
+pub fn deviceDataFrameViewToArrowSchema(view: DeviceDataFrameView, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
+    return arrow_methods_mod.toArrowSchema(view, allocator);
+}

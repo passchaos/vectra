@@ -124,6 +124,11 @@ pub const AsofStrategy = dataframe_mod.AsofStrategy;
 pub const DeviceAsofOptions = dataframe_mod.DeviceAsofOptions;
 pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
+pub const DeviceDataFrameViewArrow = if (build_options.enable_boltha) struct {
+    pub const toArrowFields = dataframe_mod.deviceDataFrameViewToArrowFields;
+    pub const toArrowSchema = dataframe_mod.deviceDataFrameViewToArrowSchema;
+} else struct {};
+
 pub const CsrMatrix = sparse.CsrMatrix;
 pub const CscMatrix = sparse.CscMatrix;
 pub const CooMatrix = sparse.CooMatrix;
