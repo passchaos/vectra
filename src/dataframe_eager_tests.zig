@@ -8001,6 +8001,13 @@ test "device dataframe exports boltha arrow record batch" {
     defer grouped_pruned.deinit();
     try std.testing.expectEqual(table.height(), grouped_pruned.height());
     try std.testing.expect(grouped_pruned.schemaEquals(table));
+    try std.testing.expectError(error.UnsupportedParquetSchema, vectra.ArrowExport.DataFrame.fromParquetBytesPruned(
+        gpa,
+        grouped_parquet_bytes,
+        "missing",
+        .{ .f64 = .{ .min = 0.0 } },
+        .cpu,
+    ));
 }
 
 test "device dataframe preserves zero-column row count through boltha arrow" {
