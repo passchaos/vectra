@@ -1050,6 +1050,7 @@ also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*
 `deviceBackendName`, `deviceIndex`, `isCpu`/`isCuda`/`isMps`, backed-by
 predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
 metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `sourcePtr`/`dataPtr`/`hasSourcePtr`/`sourceEndPtr`,
+`sourceRange`/`DeviceParquetScanSourceRange`, `sharesSource`/`sameSource`, `sharesStorage`/`sameStorage`, `sourceMayOverlap`/`mayOverlap`,
 `isEmpty`/`isNonEmpty`/`hasBytes`,
 `projectionMetadataNbytes`, `predicateMetadataNbytes`, `pushdownMetadataNbytes`,
 `ownedNbytes`/`memoryUsage`/`estimatedSize`), metadata snapshots

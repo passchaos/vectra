@@ -104,6 +104,30 @@ pub const DeviceParquetScanSummary = struct {
         };
     }
 
+    pub fn sharesSource(self: Self, other: Self) bool {
+        return self.sourceRange().sameRange(other.sourceRange());
+    }
+
+    pub fn sameSource(self: Self, other: Self) bool {
+        return self.sharesSource(other);
+    }
+
+    pub fn sharesStorage(self: Self, other: Self) bool {
+        return self.sharesSource(other);
+    }
+
+    pub fn sameStorage(self: Self, other: Self) bool {
+        return self.sharesSource(other);
+    }
+
+    pub fn sourceMayOverlap(self: Self, other: Self) bool {
+        return self.sourceRange().mayOverlap(other.sourceRange());
+    }
+
+    pub fn mayOverlap(self: Self, other: Self) bool {
+        return self.sourceMayOverlap(other);
+    }
+
     pub fn sourceByteCount(self: Self) usize {
         return self.sourceNbytes();
     }
@@ -153,8 +177,28 @@ pub const SourceRange = struct {
     ptr: u64 = 0,
     nbytes: usize = 0,
 
+    pub fn sourcePtr(self: SourceRange) u64 {
+        return self.ptr;
+    }
+
+    pub fn dataPtr(self: SourceRange) u64 {
+        return self.ptr;
+    }
+
+    pub fn sourceNbytes(self: SourceRange) usize {
+        return self.nbytes;
+    }
+
+    pub fn byteCount(self: SourceRange) usize {
+        return self.nbytes;
+    }
+
     pub fn endPtr(self: SourceRange) u64 {
         return self.ptr + self.nbytes;
+    }
+
+    pub fn sourceEndPtr(self: SourceRange) u64 {
+        return self.endPtr();
     }
 
     pub fn isEmpty(self: SourceRange) bool {
@@ -163,6 +207,27 @@ pub const SourceRange = struct {
 
     pub fn isNonEmpty(self: SourceRange) bool {
         return self.nbytes != 0;
+    }
+
+    pub fn hasPtr(self: SourceRange) bool {
+        return self.ptr != 0;
+    }
+
+    pub fn sameRange(self: SourceRange, other: SourceRange) bool {
+        return self.ptr == other.ptr and self.nbytes == other.nbytes;
+    }
+
+    pub fn sharesStorage(self: SourceRange, other: SourceRange) bool {
+        return self.sameRange(other);
+    }
+
+    pub fn sameStorage(self: SourceRange, other: SourceRange) bool {
+        return self.sameRange(other);
+    }
+
+    pub fn mayOverlap(self: SourceRange, other: SourceRange) bool {
+        if (self.ptr == 0 or other.ptr == 0 or self.nbytes == 0 or other.nbytes == 0) return false;
+        return self.ptr < other.endPtr() and other.ptr < self.endPtr();
     }
 };
 

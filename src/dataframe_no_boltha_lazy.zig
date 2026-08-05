@@ -10,6 +10,7 @@ const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
+const SourceRange = scan_summary_mod.SourceRange;
 
 pub fn DeviceLazyParquetTypes(
     comptime DeviceDataFrame: type,
@@ -134,6 +135,34 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn sourceEndPtr(_: DeviceParquetScan) u64 {
                 return 0;
+            }
+
+            pub fn sourceRange(_: DeviceParquetScan) SourceRange {
+                return .{};
+            }
+
+            pub fn sharesSource(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn sameSource(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn sharesStorage(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn sameStorage(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn sourceMayOverlap(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn mayOverlap(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
             }
 
             pub fn sourceByteCount(_: DeviceParquetScan) usize {

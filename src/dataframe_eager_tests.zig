@@ -8029,6 +8029,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan), vectra.ArrowExport.ParquetScan.dataPtr(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasSourcePtr(grouped_scan));
     try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan) + grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceEndPtr(grouped_scan));
+    const grouped_scan_source: vectra.DeviceParquetScanSourceRange = vectra.ArrowExport.ParquetScan.sourceRange(grouped_scan);
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourcePtr(grouped_scan), grouped_scan_source.sourcePtr());
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourceNbytes(grouped_scan), grouped_scan_source.sourceNbytes());
+    try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourceEndPtr(grouped_scan), grouped_scan_source.sourceEndPtr());
+    try std.testing.expect(grouped_scan_source.hasPtr());
+    try std.testing.expect(grouped_scan_source.isNonEmpty());
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceByteCount(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.nbytes(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.byteCount(grouped_scan));
@@ -8113,6 +8119,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(scan_summary.sourceNbytes(), scan_source_range.nbytes);
     try std.testing.expectEqual(scan_summary.sourceEndPtr(), scan_source_range.endPtr());
     try std.testing.expect(scan_source_range.isNonEmpty());
+    try std.testing.expect(scan_summary.sharesSource(scan_summary));
+    try std.testing.expect(scan_summary.sameSource(scan_summary));
+    try std.testing.expect(scan_summary.sharesStorage(scan_summary));
+    try std.testing.expect(scan_summary.sameStorage(scan_summary));
+    try std.testing.expect(scan_summary.mayOverlap(scan_summary));
     try std.testing.expectEqual(grouped_parquet_bytes.len, scan_summary.nbytes());
     try std.testing.expect(scan_summary.hasBytes());
     try std.testing.expect(scan_summary.isNonEmpty());
@@ -8157,6 +8168,13 @@ test "device dataframe exports boltha arrow record batch" {
     var grouped_scan_clone = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer grouped_scan_clone.deinit();
     try std.testing.expect(vectra.ArrowExport.ParquetScan.sameDevice(grouped_scan, grouped_scan_clone));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sharesSource(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameSource(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameStorage(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.mayOverlap(grouped_scan, grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.sharesSource(grouped_scan, grouped_scan_clone));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.sameStorage(grouped_scan, grouped_scan_clone));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.sourceMayOverlap(grouped_scan, grouped_scan_clone));
     try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.ownedNbytes(grouped_scan), vectra.ArrowExport.ParquetScan.ownedNbytes(grouped_scan_clone));
     vectra.ArrowExport.ParquetScan.clearPushdown(&grouped_scan_clone);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan_clone));

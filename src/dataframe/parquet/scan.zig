@@ -22,6 +22,7 @@ const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
+const SourceRange = scan_summary_mod.SourceRange;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
 
@@ -147,6 +148,37 @@ pub fn DeviceParquetScan(
 
         pub fn sourceEndPtr(self: Self) u64 {
             return self.sourcePtr() + self.sourceNbytes();
+        }
+
+        pub fn sourceRange(self: Self) SourceRange {
+            return .{
+                .ptr = self.sourcePtr(),
+                .nbytes = self.sourceNbytes(),
+            };
+        }
+
+        pub fn sharesSource(self: Self, other: Self) bool {
+            return self.sourceRange().sameRange(other.sourceRange());
+        }
+
+        pub fn sameSource(self: Self, other: Self) bool {
+            return self.sharesSource(other);
+        }
+
+        pub fn sharesStorage(self: Self, other: Self) bool {
+            return self.sharesSource(other);
+        }
+
+        pub fn sameStorage(self: Self, other: Self) bool {
+            return self.sharesSource(other);
+        }
+
+        pub fn sourceMayOverlap(self: Self, other: Self) bool {
+            return self.sourceRange().mayOverlap(other.sourceRange());
+        }
+
+        pub fn mayOverlap(self: Self, other: Self) bool {
+            return self.sourceMayOverlap(other);
         }
 
         pub fn sourceByteCount(self: Self) usize {
