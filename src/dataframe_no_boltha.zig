@@ -90,12 +90,76 @@ pub const DeviceDataFrameView = struct {
         return self.rows;
     }
 
+    pub fn rowCount(self: DeviceDataFrameView) usize {
+        return self.height();
+    }
+
+    pub fn nRows(self: DeviceDataFrameView) usize {
+        return self.height();
+    }
+
     pub fn width(self: DeviceDataFrameView) usize {
         return self.columns.len;
     }
 
+    pub fn columnCount(self: DeviceDataFrameView) usize {
+        return self.width();
+    }
+
+    pub fn cols(self: DeviceDataFrameView) usize {
+        return self.width();
+    }
+
+    pub fn nCols(self: DeviceDataFrameView) usize {
+        return self.width();
+    }
+
     pub fn shape(self: DeviceDataFrameView) struct { rows: usize, cols: usize } {
         return .{ .rows = self.rows, .cols = self.columns.len };
+    }
+
+    pub fn isEmpty(self: DeviceDataFrameView) bool {
+        return self.rows == 0 or self.columns.len == 0;
+    }
+
+    pub fn isNonEmpty(self: DeviceDataFrameView) bool {
+        return !self.isEmpty();
+    }
+
+    pub fn hasRows(self: DeviceDataFrameView) bool {
+        return self.rows != 0;
+    }
+
+    pub fn hasColumns(self: DeviceDataFrameView) bool {
+        return self.columns.len != 0;
+    }
+
+    pub fn isCpu(self: DeviceDataFrameView) bool {
+        return self.device.isCpu();
+    }
+
+    pub fn isCuda(self: DeviceDataFrameView) bool {
+        return self.device.isCuda();
+    }
+
+    pub fn isMps(self: DeviceDataFrameView) bool {
+        return self.device.isMps();
+    }
+
+    pub fn isDeviceBacked(self: DeviceDataFrameView) bool {
+        return !self.isCpu();
+    }
+
+    pub fn deviceBackendName(self: DeviceDataFrameView) []const u8 {
+        return self.device.backendName();
+    }
+
+    pub fn columnNames(self: DeviceDataFrameView) []const []const u8 {
+        return self.names;
+    }
+
+    pub fn columnLabels(self: DeviceDataFrameView) []const []const u8 {
+        return self.columnNames();
     }
 
     pub fn columnIndex(self: DeviceDataFrameView, name: []const u8) ?usize {
@@ -105,9 +169,55 @@ pub const DeviceDataFrameView = struct {
         return null;
     }
 
+    pub fn hasColumn(self: DeviceDataFrameView, name: []const u8) bool {
+        return self.columnIndex(name) != null;
+    }
+
+    pub fn hasAllColumns(self: DeviceDataFrameView, names: []const []const u8) bool {
+        for (names) |name| {
+            if (!self.hasColumn(name)) return false;
+        }
+        return true;
+    }
+
+    pub fn hasAnyColumn(self: DeviceDataFrameView, names: []const []const u8) bool {
+        for (names) |name| {
+            if (self.hasColumn(name)) return true;
+        }
+        return false;
+    }
+
     pub fn column(self: DeviceDataFrameView, name: []const u8) DataError!DeviceColumnView {
         const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
         return self.columns[idx];
+    }
+
+    pub fn columnView(self: DeviceDataFrameView, name: []const u8) DataError!DeviceColumnView {
+        return self.column(name);
+    }
+
+    pub fn columnAt(self: DeviceDataFrameView, index: usize) DeviceDataError!DeviceColumnView {
+        if (index >= self.columns.len) return error.IndexOutOfBounds;
+        return self.columns[index];
+    }
+
+    pub fn columnViewAt(self: DeviceDataFrameView, index: usize) DeviceDataError!DeviceColumnView {
+        return self.columnAt(index);
+    }
+
+    pub fn columnNameAt(self: DeviceDataFrameView, index: usize) DeviceDataError![]const u8 {
+        if (index >= self.names.len) return error.IndexOutOfBounds;
+        return self.names[index];
+    }
+
+    pub fn columnDType(self: DeviceDataFrameView, name: []const u8) DataError!DeviceDType {
+        const idx = self.columnIndex(name) orelse return error.ColumnNotFound;
+        return self.columns[idx].dtype;
+    }
+
+    pub fn columnDTypeAt(self: DeviceDataFrameView, index: usize) DeviceDataError!DeviceDType {
+        const column_value = try self.columnAt(index);
+        return column_value.dtype;
     }
 };
 

@@ -383,6 +383,32 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, frame.columnDTypes(gpa));
         try std.testing.expectError(error.FeatureUnavailable, frame.columnNullCounts(gpa));
         try std.testing.expectError(error.FeatureUnavailable, frame.columnSchemas(gpa));
+
+        const view_names = [_][]const u8{"id"};
+        var view_columns = [_]DeviceColumnView{.{
+            .dtype = .i32,
+            .rows = 2,
+            .device = .cpu,
+            .data_ptr = 0x10,
+            .data_nbytes = 2 * @sizeOf(i32),
+        }};
+        const view = DeviceDataFrameView{
+            .allocator = gpa,
+            .names = &view_names,
+            .columns = &view_columns,
+            .rows = 2,
+            .device = .cpu,
+        };
+        try std.testing.expectEqual(@as(usize, 2), view.nRows());
+        try std.testing.expectEqual(@as(usize, 1), view.nCols());
+        try std.testing.expect(!view.isEmpty());
+        try std.testing.expect(view.hasColumn("id"));
+        try std.testing.expect(view.hasAllColumns(&.{"id"}));
+        try std.testing.expectEqual(DeviceDType.i32, try view.columnDType("id"));
+        try std.testing.expectEqual(DeviceDType.i32, try view.columnDTypeAt(0));
+        try std.testing.expectEqual(DeviceDType.i32, (try view.columnView("id")).dtype);
+        try std.testing.expect(std.mem.eql(u8, "id", try view.columnNameAt(0)));
+        try std.testing.expectError(error.IndexOutOfBounds, view.columnAt(1));
     }
 }
 
