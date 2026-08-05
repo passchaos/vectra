@@ -11938,8 +11938,16 @@ pub fn CooMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn materializeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
+        }
+
         pub fn materializeAndSynchronize(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn materializeAndSynchronizeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn hasPendingWork(self: Self) bool {
@@ -18584,8 +18592,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn materializeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
+        }
+
         pub fn materializeAndSynchronize(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn materializeAndSynchronizeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn hasPendingWork(self: Self) bool {
@@ -27123,8 +27139,16 @@ pub fn CscMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn materializeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
+        }
+
         pub fn materializeAndSynchronize(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn materializeAndSynchronizeOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn hasPendingWork(self: Self) bool {
@@ -29656,9 +29680,15 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var materialized = try coo.materialize();
     defer materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, materialized.data);
+    var materialized_out = try array_mod.Array(f64).zeros(gpa, dense.shape);
+    defer materialized_out.deinit();
+    try coo.materializeOut(materialized_out);
+    try std.testing.expectEqualSlices(f64, materialized.data, materialized_out.data);
     var materialized_sync = try coo.materializeAndSynchronize();
     defer materialized_sync.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, materialized_sync.data);
+    try coo.materializeAndSynchronizeOut(materialized_out);
+    try std.testing.expectEqualSlices(f64, materialized_sync.data, materialized_out.data);
     try std.testing.expect(!coo.hasPendingWork());
     try coo.synchronize();
 
@@ -37737,6 +37767,10 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var csr_materialized = try csr.materializeAndSynchronize();
     defer csr_materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csr_materialized.data);
+    var compressed_materialized_out = try array_mod.Array(f64).zeros(gpa, dense.shape);
+    defer compressed_materialized_out.deinit();
+    try csr.materializeAndSynchronizeOut(compressed_materialized_out);
+    try std.testing.expectEqualSlices(f64, csr_materialized.data, compressed_materialized_out.data);
     try std.testing.expect(!csr.hasPendingWork());
     try csr.synchronize();
 
@@ -37804,6 +37838,8 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var csc_materialized = try csc.materialize();
     defer csc_materialized.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csc_materialized.data);
+    try csc.materializeOut(compressed_materialized_out);
+    try std.testing.expectEqualSlices(f64, csc_materialized.data, compressed_materialized_out.data);
     try std.testing.expect(!csc.hasPendingWork());
     try csc.synchronize();
 
