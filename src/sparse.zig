@@ -8273,52 +8273,104 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseFlip(T, self, axis_index);
         }
 
+        pub fn flipOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flip(axis_index), out);
+        }
+
         pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(0);
+        }
+
+        pub fn flipudOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(0, out);
         }
 
         pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(1);
         }
 
+        pub fn fliplrOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(1, out);
+        }
+
         pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn flipAxesOut(self: Self, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flipAxes(axes), out);
         }
 
         pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRoll(T, self, shift, axis_index);
         }
 
+        pub fn rollOut(self: Self, shift: isize, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.roll(shift, axis_index), out);
+        }
+
         pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollFlatOut(self: Self, shift: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollFlat(shift), out);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
+        pub fn rollAxesOut(self: Self, shifts: []const isize, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollAxes(shifts, axes), out);
+        }
+
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn rot90Out(self: Self, k: isize, axes: [2]isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rot90(k, axes), out);
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
             return sparseDensePadConstant(T, self, before, after, value);
         }
 
+        pub fn padConstantOut(self: Self, before: []const usize, after: []const usize, value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padConstant(before, after, value), out);
+        }
+
         pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padEdgeOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padEdge(before, after), out);
         }
 
         pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadReflect(T, self, before, after);
         }
 
+        pub fn padReflectOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padReflect(before, after), out);
+        }
+
         pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadWrap(T, self, before, after);
         }
 
+        pub fn padWrapOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padWrap(before, after), out);
+        }
+
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn padSymmetricOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padSymmetric(before, after), out);
         }
 
         pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
@@ -15449,52 +15501,104 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseFlip(T, self, axis_index);
         }
 
+        pub fn flipOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flip(axis_index), out);
+        }
+
         pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(0);
+        }
+
+        pub fn flipudOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(0, out);
         }
 
         pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(1);
         }
 
+        pub fn fliplrOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(1, out);
+        }
+
         pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn flipAxesOut(self: Self, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flipAxes(axes), out);
         }
 
         pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRoll(T, self, shift, axis_index);
         }
 
+        pub fn rollOut(self: Self, shift: isize, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.roll(shift, axis_index), out);
+        }
+
         pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollFlatOut(self: Self, shift: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollFlat(shift), out);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
+        pub fn rollAxesOut(self: Self, shifts: []const isize, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollAxes(shifts, axes), out);
+        }
+
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn rot90Out(self: Self, k: isize, axes: [2]isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rot90(k, axes), out);
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
             return sparseDensePadConstant(T, self, before, after, value);
         }
 
+        pub fn padConstantOut(self: Self, before: []const usize, after: []const usize, value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padConstant(before, after, value), out);
+        }
+
         pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padEdgeOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padEdge(before, after), out);
         }
 
         pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadReflect(T, self, before, after);
         }
 
+        pub fn padReflectOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padReflect(before, after), out);
+        }
+
         pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadWrap(T, self, before, after);
         }
 
+        pub fn padWrapOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padWrap(before, after), out);
+        }
+
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn padSymmetricOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padSymmetric(before, after), out);
         }
 
         pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
@@ -22854,52 +22958,104 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseFlip(T, self, axis_index);
         }
 
+        pub fn flipOut(self: Self, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flip(axis_index), out);
+        }
+
         pub fn flipud(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(0);
+        }
+
+        pub fn flipudOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(0, out);
         }
 
         pub fn fliplr(self: Self) SparseError!array_mod.Array(T) {
             return self.flip(1);
         }
 
+        pub fn fliplrOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.flipOut(1, out);
+        }
+
         pub fn flipAxes(self: Self, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseFlipAxes(T, self, axes);
+        }
+
+        pub fn flipAxesOut(self: Self, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.flipAxes(axes), out);
         }
 
         pub fn roll(self: Self, shift: isize, axis_index: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRoll(T, self, shift, axis_index);
         }
 
+        pub fn rollOut(self: Self, shift: isize, axis_index: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.roll(shift, axis_index), out);
+        }
+
         pub fn rollFlat(self: Self, shift: isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollFlat(T, self, shift);
+        }
+
+        pub fn rollFlatOut(self: Self, shift: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollFlat(shift), out);
         }
 
         pub fn rollAxes(self: Self, shifts: []const isize, axes: []const isize) SparseError!array_mod.Array(T) {
             return sparseDenseRollAxes(T, self, shifts, axes);
         }
 
+        pub fn rollAxesOut(self: Self, shifts: []const isize, axes: []const isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rollAxes(shifts, axes), out);
+        }
+
         pub fn rot90(self: Self, k: isize, axes: [2]isize) SparseError!array_mod.Array(T) {
             return sparseDenseRot90(T, self, k, axes);
+        }
+
+        pub fn rot90Out(self: Self, k: isize, axes: [2]isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rot90(k, axes), out);
         }
 
         pub fn padConstant(self: Self, before: []const usize, after: []const usize, value: T) SparseError!array_mod.Array(T) {
             return sparseDensePadConstant(T, self, before, after, value);
         }
 
+        pub fn padConstantOut(self: Self, before: []const usize, after: []const usize, value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padConstant(before, after, value), out);
+        }
+
         pub fn padEdge(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadEdge(T, self, before, after);
+        }
+
+        pub fn padEdgeOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padEdge(before, after), out);
         }
 
         pub fn padReflect(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadReflect(T, self, before, after);
         }
 
+        pub fn padReflectOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padReflect(before, after), out);
+        }
+
         pub fn padWrap(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadWrap(T, self, before, after);
         }
 
+        pub fn padWrapOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padWrap(before, after), out);
+        }
+
         pub fn padSymmetric(self: Self, before: []const usize, after: []const usize) SparseError!array_mod.Array(T) {
             return sparseDensePadSymmetric(T, self, before, after);
+        }
+
+        pub fn padSymmetricOut(self: Self, before: []const usize, after: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.padSymmetric(before, after), out);
         }
 
         pub fn split(self: Self, split_size: usize, axis_index: isize) SparseError!array_mod.Array(T).SplitResult {
@@ -28656,30 +28812,46 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var flipped_rows = try matrix.flip(0);
             defer flipped_rows.deinit();
             try expectArray(flipped_rows, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+            var matrix_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer matrix_out.deinit();
+            try matrix.flipOut(0, matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, flipped_rows.data);
 
             var flipped_columns = try matrix.fliplr();
             defer flipped_columns.deinit();
             try expectArray(flipped_columns, &.{ 2, 3 }, &.{ 0, 0, 1, 3, 2, 0 });
+            try matrix.fliplrOut(matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, flipped_columns.data);
 
             var flipped_axes = try matrix.flipAxes(&.{ 0, 1 });
             defer flipped_axes.deinit();
             try expectArray(flipped_axes, &.{ 2, 3 }, &.{ 3, 2, 0, 0, 0, 1 });
+            try matrix.flipAxesOut(&.{ 0, 1 }, matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, flipped_axes.data);
 
             var flipped_up = try matrix.flipud();
             defer flipped_up.deinit();
             try expectArray(flipped_up, &.{ 2, 3 }, &.{ 0, 2, 3, 1, 0, 0 });
+            try matrix.flipudOut(matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, flipped_up.data);
 
             var rolled_columns = try matrix.roll(1, 1);
             defer rolled_columns.deinit();
             try expectArray(rolled_columns, &.{ 2, 3 }, &.{ 0, 1, 0, 3, 0, 2 });
+            try matrix.rollOut(1, 1, matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, rolled_columns.data);
 
             var rolled_flat = try matrix.rollFlat(1);
             defer rolled_flat.deinit();
             try expectArray(rolled_flat, &.{ 2, 3 }, &.{ 3, 1, 0, 0, 0, 2 });
+            try matrix.rollFlatOut(1, matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, rolled_flat.data);
 
             var rolled_axes = try matrix.rollAxes(&.{ 1, -1 }, &.{ 0, 1 });
             defer rolled_axes.deinit();
             try expectArray(rolled_axes, &.{ 2, 3 }, &.{ 2, 3, 0, 0, 0, 1 });
+            try matrix.rollAxesOut(&.{ 1, -1 }, &.{ 0, 1 }, matrix_out);
+            try expectArray(matrix_out, &.{ 2, 3 }, rolled_axes.data);
 
             var rotated = try matrix.rot90(1, .{ 0, 1 });
             defer rotated.deinit();
@@ -28688,6 +28860,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 2,
                 1, 0,
             });
+            try matrix.rot90Out(1, .{ 0, 1 }, shape_out_32);
+            try expectArray(shape_out_32, &.{ 3, 2 }, rotated.data);
             try std.testing.expectError(error.InvalidAxis, matrix.rot90(1, .{ 0, 0 }));
 
             var padded_constant = try matrix.padConstant(&.{ 1, 1 }, &.{ 0, 1 }, -1);
@@ -28697,6 +28871,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 -1, 1,  0,  0,  -1,
                 -1, 0,  2,  3,  -1,
             });
+            var pad_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 5 });
+            defer pad_out.deinit();
+            try matrix.padConstantOut(&.{ 1, 1 }, &.{ 0, 1 }, -1, pad_out);
+            try expectArray(pad_out, &.{ 3, 5 }, padded_constant.data);
 
             var padded_edge = try matrix.padEdge(&.{ 1, 1 }, &.{ 0, 1 });
             defer padded_edge.deinit();
@@ -28705,6 +28883,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 1, 1, 0, 0, 0,
                 0, 0, 2, 3, 3,
             });
+            try matrix.padEdgeOut(&.{ 1, 1 }, &.{ 0, 1 }, pad_out);
+            try expectArray(pad_out, &.{ 3, 5 }, padded_edge.data);
 
             var padded_reflect = try matrix.padReflect(&.{ 1, 1 }, &.{ 0, 1 });
             defer padded_reflect.deinit();
@@ -28713,6 +28893,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 1, 0, 0, 0,
                 2, 0, 2, 3, 2,
             });
+            try matrix.padReflectOut(&.{ 1, 1 }, &.{ 0, 1 }, pad_out);
+            try expectArray(pad_out, &.{ 3, 5 }, padded_reflect.data);
 
             var padded_wrap = try matrix.padWrap(&.{ 1, 1 }, &.{ 0, 1 });
             defer padded_wrap.deinit();
@@ -28721,6 +28903,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 1, 0, 0, 1,
                 3, 0, 2, 3, 0,
             });
+            try matrix.padWrapOut(&.{ 1, 1 }, &.{ 0, 1 }, pad_out);
+            try expectArray(pad_out, &.{ 3, 5 }, padded_wrap.data);
 
             var padded_symmetric = try matrix.padSymmetric(&.{ 1, 1 }, &.{ 0, 1 });
             defer padded_symmetric.deinit();
@@ -28729,6 +28913,8 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 1, 1, 0, 0, 0,
                 0, 0, 2, 3, 3,
             });
+            try matrix.padSymmetricOut(&.{ 1, 1 }, &.{ 0, 1 }, pad_out);
+            try expectArray(pad_out, &.{ 3, 5 }, padded_symmetric.data);
 
             try std.testing.expectError(error.ShapeMismatch, matrix.padConstant(&.{1}, &.{ 0, 0 }, -1));
             try std.testing.expectError(error.InvalidShape, matrix.padReflect(&.{ 2, 0 }, &.{ 0, 0 }));
