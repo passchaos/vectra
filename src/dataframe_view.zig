@@ -161,6 +161,120 @@ pub const DeviceDataFrameView = struct {
         return .{ .rows = self.rows, .cols = self.columns.len };
     }
 
+    pub fn columnDTypes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]array_mod.DType {
+        const out = try allocator.alloc(array_mod.DType, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype;
+        return out;
+    }
+
+    pub fn dtypes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]array_mod.DType {
+        return self.columnDTypes(allocator);
+    }
+
+    pub fn columnDTypeNames(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![][]const u8 {
+        const out = try allocator.alloc([]const u8, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype.name();
+        return out;
+    }
+
+    pub fn dtypeNames(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![][]const u8 {
+        return self.columnDTypeNames(allocator);
+    }
+
+    pub fn columnDTypeByteSizes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype.byteSize();
+        return out;
+    }
+
+    pub fn columnDTypeBitSizes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dtype.bitSize();
+        return out;
+    }
+
+    pub fn columnDTypeClassMask(
+        self: DeviceDataFrameView,
+        allocator: std.mem.Allocator,
+        class: options_mod.DeviceDTypeClass,
+    ) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = class.matches(column_value.dtype);
+        return out;
+    }
+
+    pub fn columnDTypeClassCount(self: DeviceDataFrameView, class: options_mod.DeviceDTypeClass) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (class.matches(column_value.dtype)) count += 1;
+        }
+        return count;
+    }
+
+    pub fn numericColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.numeric);
+    }
+
+    pub fn realColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.real);
+    }
+
+    pub fn floatColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.float);
+    }
+
+    pub fn integerColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.integer);
+    }
+
+    pub fn signedIntegerColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.signed_integer);
+    }
+
+    pub fn unsignedIntegerColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.unsigned_integer);
+    }
+
+    pub fn boolColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.bool);
+    }
+
+    pub fn complexColumnCount(self: DeviceDataFrameView) usize {
+        return self.columnDTypeClassCount(.complex);
+    }
+
+    pub fn columnIsNumericMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .numeric);
+    }
+
+    pub fn columnIsRealMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .real);
+    }
+
+    pub fn columnIsFloatMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .float);
+    }
+
+    pub fn columnIsIntegerMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .integer);
+    }
+
+    pub fn columnIsSignedIntegerMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .signed_integer);
+    }
+
+    pub fn columnIsUnsignedIntegerMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .unsigned_integer);
+    }
+
+    pub fn columnIsBoolMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .bool);
+    }
+
+    pub fn columnIsComplexMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        return self.columnDTypeClassMask(allocator, .complex);
+    }
+
     pub fn columnNullCounts(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
         const out = try allocator.alloc(usize, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.nullCount();

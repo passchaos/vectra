@@ -407,6 +407,18 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(view.hasShape(2, 1));
         try std.testing.expect(view.sameHeight(view));
         try std.testing.expect(view.sameWidth(view));
+        const view_dtypes = try view.columnDTypes(gpa);
+        defer gpa.free(view_dtypes);
+        try std.testing.expectEqualSlices(DeviceDType, &.{.i32}, view_dtypes);
+        const view_dtype_names = try view.dtypeNames(gpa);
+        defer gpa.free(view_dtype_names);
+        try std.testing.expectEqualStrings("i32", view_dtype_names[0]);
+        try std.testing.expectEqual(@as(usize, 1), view.numericColumnCount());
+        try std.testing.expectEqual(@as(usize, 1), view.integerColumnCount());
+        try std.testing.expectEqual(@as(usize, 1), view.signedIntegerColumnCount());
+        const view_integer_mask = try view.columnIsIntegerMask(gpa);
+        defer gpa.free(view_integer_mask);
+        try std.testing.expectEqualSlices(bool, &.{true}, view_integer_mask);
         try std.testing.expect(view.hasColumn("id"));
         try std.testing.expect(view.hasAllColumns(&.{"id"}));
         try std.testing.expectEqual(DeviceDType.i32, try view.columnDType("id"));
