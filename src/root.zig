@@ -487,6 +487,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(id_schema.isCpu());
         try std.testing.expect(!id_schema.isDeviceBacked());
         try std.testing.expectEqualStrings("cpu", id_schema.deviceBackendName());
+        try std.testing.expect(id_schema.schemaEquals(try view.columnSchemaAt(0)));
+        try std.testing.expect(id_schema.sameSchema(try view.columnSchema("id")));
+        try std.testing.expect(id_schema.schemaCompatible(try view.columnSchemaAt(0)));
         const schema = try view.schema(gpa);
         defer gpa.free(schema);
         try std.testing.expectEqual(@as(usize, 1), schema.len);

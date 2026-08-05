@@ -144,4 +144,13 @@ pub const DeviceColumnSchema = struct {
     pub fn deviceBackendName(self: @This()) []const u8 {
         return self.device.backendName();
     }
+
+    pub fn schemaEquals(self: @This(), other: @This()) bool {
+        return std.mem.eql(u8, self.name, other.name) and
+            self.dtype == other.dtype and
+            self.nullable == other.nullable;
+    }
+
+    pub const sameSchema = schemaEquals;
+    pub const schemaCompatible = schemaEquals;
 };
