@@ -490,6 +490,14 @@ pub const DeviceParquetScan = struct {
 };
 
 pub const DeviceDataFrame = struct {
+    pub fn columnLabels(_: DeviceDataFrame) []const []const u8 {
+        return &.{};
+    }
+
+    pub fn columnNames(_: DeviceDataFrame) []const []const u8 {
+        return &.{};
+    }
+
     pub fn columnDataMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
         return error.FeatureUnavailable;
     }

@@ -156,6 +156,10 @@ pub const DeviceDataFrame = struct {
         return self.names;
     }
 
+    pub fn columnLabels(self: DeviceDataFrame) []const []const u8 {
+        return self.columnNames();
+    }
+
     pub fn columnNamesUnique(self: DeviceDataFrame) bool {
         for (self.names, 0..) |name, index| {
             for (self.names[0..index]) |previous| {

@@ -203,7 +203,7 @@ construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
 `DeviceDataFrameView` metadata for backend bridges, and transfer the whole table
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,
-`rowCount`, `width`, `columnCount`, `columnNames`, `columnNamesUnique`, `hasDuplicateColumnNames`, `duplicateColumnNameCount`, `columnNameAt`, `columnDTypeAt`,
+`rowCount`, `width`, `columnCount`, `columnNames`/`columnLabels`, `columnNamesUnique`, `hasDuplicateColumnNames`, `duplicateColumnNameCount`, `columnNameAt`, `columnDTypeAt`,
 `cellCount`, `nullCount`, `validCount`, `nullRatio`, `validRatio`, `columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnDTypeNames`/`dtypeNames`, `columnDTypeByteSizes`, `columnDTypeBitSizes`, `columnDTypeClassMask`, `columnDTypeClassCount`, `numericColumnCount`, `floatColumnCount`, `integerColumnCount`, `boolColumnCount`, `columnIsNumericMask`, `columnIsFloatMask`, `columnIsIntegerMask`, `columnIsBoolMask`, `columnNullCounts`, `columnValidCounts`, `columnNullRatios`, `columnValidRatios`, `columnDistinctCounts`, `columnNUniqueCounts`/`columnNUnique`, `columnDuplicateCounts`/`columnRepeatedCounts`, `columnDistinctRatios`/`columnNUniqueRatios`, `columnDuplicateRatios`, `columnIsUniqueMask`, `columnHasDuplicatesMask`,
 `columnNullableMask`, `nullableColumnCount`, `nonNullableColumnCount`, `columnHasNullsMask`, `columnsWithNullsCount`, `columnsWithoutNullsCount`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `columnDataMemoryUsage`, `columnValidityMemoryUsage`, `columnMemoryUsage`, `dataNbytes`, `validityNbytes`,
