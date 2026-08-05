@@ -266,6 +266,21 @@ pub const DeviceColumn = union(DeviceDType) {
 
     pub const sameSchema = schemaEquals;
     pub const schemaCompatible = schemaEquals;
+
+    pub fn schema(self: DeviceColumn, name: []const u8) DeviceColumnSchema {
+        return .{
+            .name = name,
+            .dtype = self.dtype(),
+            .rows = self.len(),
+            .nullable = self.nullable(),
+            .null_count = self.nullCount(),
+            .valid_count = self.validCount(),
+            .data_nbytes = self.dataNbytes(),
+            .validity_nbytes = self.validityNbytes(),
+            .total_nbytes = self.totalNbytes(),
+            .device = self.device(),
+        };
+    }
 };
 
 pub const DeviceColumnDef = struct {

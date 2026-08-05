@@ -428,6 +428,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(units_col.validityNbytes(), units_col.validityMemoryUsage());
     try std.testing.expectEqual(units_col.totalNbytes(), units_col.memoryUsage());
     try std.testing.expectEqual(units_col.totalNbytes(), units_col.estimatedSize());
+    try std.testing.expect(units_col.schema("units").schemaEquals(units_schema));
 
     var view = try table.view();
     defer view.deinit();
@@ -522,6 +523,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!sales_column_view.isDeviceBacked());
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));
     try std.testing.expect(sales_column_view.data_ptr != 0);
+    try std.testing.expect(sales_column_view.schema("sales").schemaEquals(try view.columnSchema("sales")));
     const units_column_view = try view.columnViewAt(1);
     try std.testing.expect(sales_column_view.sameDevice(units_column_view));
     try std.testing.expect(sales_column_view.sameLength(units_column_view));

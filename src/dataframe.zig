@@ -514,19 +514,7 @@ pub const DeviceDataFrame = struct {
 
     pub fn columnSchemaAt(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceColumnSchema {
         if (index >= self.columns.len) return error.IndexOutOfBounds;
-        const column_value = self.columns[index];
-        return .{
-            .name = self.names[index],
-            .dtype = column_value.dtype(),
-            .rows = column_value.len(),
-            .nullable = column_value.nullable(),
-            .null_count = column_value.nullCount(),
-            .valid_count = column_value.validCount(),
-            .data_nbytes = column_value.dataNbytes(),
-            .validity_nbytes = column_value.validityNbytes(),
-            .total_nbytes = column_value.totalNbytes(),
-            .device = column_value.device(),
-        };
+        return self.columns[index].schema(self.names[index]);
     }
 
     pub fn columnSchema(self: DeviceDataFrame, name: []const u8) DataError!DeviceColumnSchema {

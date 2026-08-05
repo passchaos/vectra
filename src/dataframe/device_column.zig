@@ -5,9 +5,11 @@ const column_ops_mod = @import("device_column/ops.zig");
 const column_sort_mod = @import("device_column/sort.zig");
 const dataframe_typed_column_mod = @import("device_column/typed.zig");
 const dataframe_view_mod = @import("../dataframe_view.zig");
+const schema_mod = @import("../dataframe_schema.zig");
 
 const DeviceDType = array_mod.DType;
 const DeviceColumnView = dataframe_view_mod.DeviceColumnView;
+const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 
 pub const DeviceTypedColumn = dataframe_typed_column_mod.DeviceTypedColumn;
 pub const DeviceColumn = union(DeviceDType) {
@@ -221,6 +223,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return switch (self) {
             inline else => |typed| typed.view(),
         };
+    }
+
+    pub fn schema(self: DeviceColumn, name: []const u8) DeviceColumnSchema {
+        return self.view().schema(name);
     }
 
     pub fn sameDevice(self: DeviceColumn, other: DeviceColumn) bool {

@@ -203,6 +203,21 @@ pub fn DeviceViewTypes(
                     self.validity_nbytes == other.validity_nbytes and
                     self.validity_encoding == other.validity_encoding;
             }
+
+            pub fn schema(self: DeviceColumnView, name: []const u8) DeviceColumnSchema {
+                return .{
+                    .name = name,
+                    .dtype = self.dtype,
+                    .rows = self.rows,
+                    .nullable = self.nullable(),
+                    .null_count = self.nullCount(),
+                    .valid_count = self.validCount(),
+                    .data_nbytes = self.dataNbytes(),
+                    .validity_nbytes = self.validityNbytes(),
+                    .total_nbytes = self.totalNbytes(),
+                    .device = self.device,
+                };
+            }
         };
 
         /// Non-owning table metadata modeled after cuDF's `table_view`.
@@ -521,19 +536,7 @@ pub fn DeviceViewTypes(
 
             pub fn columnSchemaAt(self: DeviceDataFrameView, index: usize) DeviceDataFrameViewError!DeviceColumnSchema {
                 if (index >= self.columns.len) return error.IndexOutOfBounds;
-                const column_value = self.columns[index];
-                return .{
-                    .name = self.names[index],
-                    .dtype = column_value.dtype,
-                    .rows = column_value.rows,
-                    .nullable = column_value.nullable(),
-                    .null_count = column_value.nullCount(),
-                    .valid_count = column_value.validCount(),
-                    .data_nbytes = column_value.dataNbytes(),
-                    .validity_nbytes = column_value.validityNbytes(),
-                    .total_nbytes = column_value.totalNbytes(),
-                    .device = column_value.device,
-                };
+                return self.columns[index].schema(self.names[index]);
             }
 
             pub fn columnSchema(self: DeviceDataFrameView, name: []const u8) DataError!DeviceColumnSchema {

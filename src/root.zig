@@ -408,6 +408,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!column.sameDType(bool_column));
         try std.testing.expect(column.sameNullability(bool_column));
         try std.testing.expect(!column.schemaEquals(bool_column));
+        try std.testing.expect(column.schema("id").schemaEquals(column.schema("id")));
 
         const view_names = [_][]const u8{"id"};
         var view_columns = [_]DeviceColumnView{.{
