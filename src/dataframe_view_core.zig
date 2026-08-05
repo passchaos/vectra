@@ -32,6 +32,18 @@ pub fn DeviceViewTypes(
                 return self.rows;
             }
 
+            pub fn isEmpty(self: DeviceColumnView) bool {
+                return self.rows == 0;
+            }
+
+            pub fn isNonEmpty(self: DeviceColumnView) bool {
+                return !self.isEmpty();
+            }
+
+            pub fn hasRows(self: DeviceColumnView) bool {
+                return self.rows != 0;
+            }
+
             pub fn dtypeName(self: DeviceColumnView) []const u8 {
                 return self.dtype.name();
             }

@@ -62,6 +62,18 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn isEmpty(self: DeviceColumn) bool {
+        return self.len() == 0;
+    }
+
+    pub fn isNonEmpty(self: DeviceColumn) bool {
+        return !self.isEmpty();
+    }
+
+    pub fn hasRows(self: DeviceColumn) bool {
+        return self.len() != 0;
+    }
+
     pub fn dtype(self: DeviceColumn) DeviceDType {
         return std.meta.activeTag(self);
     }

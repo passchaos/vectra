@@ -20,6 +20,18 @@ pub const DeviceColumnSchema = struct {
         return self.rows;
     }
 
+    pub fn isEmpty(self: @This()) bool {
+        return self.rows == 0;
+    }
+
+    pub fn isNonEmpty(self: @This()) bool {
+        return !self.isEmpty();
+    }
+
+    pub fn hasRows(self: @This()) bool {
+        return self.rows != 0;
+    }
+
     pub fn dtypeName(self: @This()) []const u8 {
         return self.dtype.name();
     }
