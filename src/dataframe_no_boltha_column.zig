@@ -149,7 +149,15 @@ pub const DeviceColumn = union(DeviceDType) {
         return false;
     }
 
+    pub fn isCudaBacked(_: DeviceColumn) bool {
+        return false;
+    }
+
     pub fn isMps(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn isMpsBacked(_: DeviceColumn) bool {
         return false;
     }
 

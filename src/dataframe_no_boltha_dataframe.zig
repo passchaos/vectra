@@ -380,7 +380,15 @@ pub fn DeviceDataFrameType(
             return false;
         }
 
+        pub fn isCudaBacked(_: Self) bool {
+            return false;
+        }
+
         pub fn isMps(_: Self) bool {
+            return false;
+        }
+
+        pub fn isMpsBacked(_: Self) bool {
             return false;
         }
 

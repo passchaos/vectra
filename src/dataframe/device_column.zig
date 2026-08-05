@@ -166,8 +166,16 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.device().isCuda();
     }
 
+    pub fn isCudaBacked(self: DeviceColumn) bool {
+        return self.isCuda();
+    }
+
     pub fn isMps(self: DeviceColumn) bool {
         return self.device().isMps();
+    }
+
+    pub fn isMpsBacked(self: DeviceColumn) bool {
+        return self.isMps();
     }
 
     pub fn isDeviceBacked(self: DeviceColumn) bool {

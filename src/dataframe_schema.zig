@@ -195,8 +195,16 @@ pub const DeviceColumnSchema = struct {
         return self.device.isCuda();
     }
 
+    pub fn isCudaBacked(self: @This()) bool {
+        return self.isCuda();
+    }
+
     pub fn isMps(self: @This()) bool {
         return self.device.isMps();
+    }
+
+    pub fn isMpsBacked(self: @This()) bool {
+        return self.isMps();
     }
 
     pub fn isDeviceBacked(self: @This()) bool {

@@ -568,8 +568,16 @@ pub const DeviceDataFrame = struct {
         return self.device.isCuda();
     }
 
+    pub fn isCudaBacked(self: DeviceDataFrame) bool {
+        return self.isCuda();
+    }
+
     pub fn isMps(self: DeviceDataFrame) bool {
         return self.device.isMps();
+    }
+
+    pub fn isMpsBacked(self: DeviceDataFrame) bool {
+        return self.isMps();
     }
 
     pub fn isDeviceBacked(self: DeviceDataFrame) bool {

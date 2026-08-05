@@ -410,6 +410,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 0), frame.cellCount());
         try std.testing.expect(frame.isEmpty());
         try std.testing.expect(frame.isHostBacked());
+        try std.testing.expect(!frame.isCudaBacked());
+        try std.testing.expect(!frame.isMpsBacked());
         try std.testing.expect(!frame.isDeviceBacked());
         try std.testing.expect(frame.isDeviceAvailable());
         try std.testing.expectEqualStrings("cpu", frame.deviceBackendName());
@@ -459,6 +461,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(!column.isComplex());
         try std.testing.expect(column.isCpu());
         try std.testing.expect(column.isHostBacked());
+        try std.testing.expect(!column.isCudaBacked());
+        try std.testing.expect(!column.isMpsBacked());
         try std.testing.expect(!column.isDeviceBacked());
         try std.testing.expect(column.isDeviceAvailable());
         try std.testing.expectEqualStrings("cpu", column.deviceBackendName());
@@ -565,6 +569,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqualStrings("i32", id_view.dtypeName());
         try std.testing.expect(id_view.isCpu());
         try std.testing.expect(id_view.isHostBacked());
+        try std.testing.expect(!id_view.isCudaBacked());
+        try std.testing.expect(!id_view.isMpsBacked());
         try std.testing.expect(id_view.isDeviceAvailable());
         try std.testing.expectEqualStrings("cpu", id_view.deviceBackendName());
         try std.testing.expectEqual(Device.cpu.backend, id_view.deviceBackend());
@@ -632,6 +638,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(id_view.totalNbytes(), id_schema.memoryUsage());
         try std.testing.expect(id_schema.isCpu());
         try std.testing.expect(id_schema.isHostBacked());
+        try std.testing.expect(!id_schema.isCudaBacked());
+        try std.testing.expect(!id_schema.isMpsBacked());
         try std.testing.expect(!id_schema.isDeviceBacked());
         try std.testing.expect(id_schema.isDeviceAvailable());
         try std.testing.expectEqualStrings("cpu", id_schema.deviceBackendName());

@@ -209,8 +209,16 @@ pub fn DeviceViewTypes(
                 return self.device.isCuda();
             }
 
+            pub fn isCudaBacked(self: DeviceColumnView) bool {
+                return self.isCuda();
+            }
+
             pub fn isMps(self: DeviceColumnView) bool {
                 return self.device.isMps();
+            }
+
+            pub fn isMpsBacked(self: DeviceColumnView) bool {
+                return self.isMps();
             }
 
             pub fn isDeviceBacked(self: DeviceColumnView) bool {
@@ -681,8 +689,16 @@ pub fn DeviceViewTypes(
                 return self.device.isCuda();
             }
 
+            pub fn isCudaBacked(self: DeviceDataFrameView) bool {
+                return self.isCuda();
+            }
+
             pub fn isMps(self: DeviceDataFrameView) bool {
                 return self.device.isMps();
+            }
+
+            pub fn isMpsBacked(self: DeviceDataFrameView) bool {
+                return self.isMps();
             }
 
             pub fn isDeviceBacked(self: DeviceDataFrameView) bool {
