@@ -131,6 +131,12 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const toArrowRecordBatch = dataframe_mod.DeviceDataFrame.toArrowRecordBatch;
         pub const toArrowTable = dataframe_mod.DeviceDataFrame.toArrowTable;
         pub const toParquetBytes = dataframe_mod.DeviceDataFrame.toParquetBytes;
+        pub const fromArrowRecordBatch = dataframe_mod.DeviceDataFrame.fromArrowRecordBatch;
+        pub const fromArrowRecordBatchProjection = dataframe_mod.DeviceDataFrame.fromArrowRecordBatchProjection;
+        pub const fromArrowTable = dataframe_mod.DeviceDataFrame.fromArrowTable;
+        pub const fromArrowTableProjection = dataframe_mod.DeviceDataFrame.fromArrowTableProjection;
+        pub const fromParquetBytes = dataframe_mod.DeviceDataFrame.fromParquetBytes;
+        pub const fromParquetBytesPruned = dataframe_mod.DeviceDataFrame.fromParquetBytesPruned;
     };
 
     pub const Column = struct {

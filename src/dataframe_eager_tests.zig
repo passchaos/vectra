@@ -7863,6 +7863,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?i64, null), batch.columns[1].int64.value(1));
     try std.testing.expectEqual(@as(?bool, true), batch.columns[2].boolean.value(0));
     try std.testing.expectEqual(@as(usize, 1), batch.columns[1].nullCount());
+    var batch_roundtrip = try vectra.ArrowExport.DataFrame.fromArrowRecordBatch(gpa, batch, .cpu);
+    defer batch_roundtrip.deinit();
+    try std.testing.expectEqual(table.height(), batch_roundtrip.height());
+    try std.testing.expect(batch_roundtrip.schemaEquals(table));
 
     var arrow_table = try table.toArrowTable(gpa);
     defer arrow_table.deinit(gpa);
