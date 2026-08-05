@@ -379,6 +379,46 @@ pub fn DeviceParquetScan(
             return (try self.parquetFileSummary()).columnChunkCount();
         }
 
+        pub fn columnCount(self: Self) ParquetInteropError!usize {
+            return self.arrowFieldCount();
+        }
+
+        pub fn width(self: Self) ParquetInteropError!usize {
+            return self.columnCount();
+        }
+
+        pub fn cols(self: Self) ParquetInteropError!usize {
+            return self.columnCount();
+        }
+
+        pub fn nCols(self: Self) ParquetInteropError!usize {
+            return self.columnCount();
+        }
+
+        pub fn cellCount(self: Self) ParquetInteropError!usize {
+            return (try self.rowCount()) * (try self.columnCount());
+        }
+
+        pub fn shape(self: Self) ParquetInteropError!struct { rows: usize, cols: usize } {
+            return .{
+                .rows = try self.rowCount(),
+                .cols = try self.columnCount(),
+            };
+        }
+
+        pub fn hasRows(self: Self) bool {
+            return (self.rowCount() catch 0) != 0;
+        }
+
+        pub fn hasColumns(self: Self) bool {
+            return (self.columnCount() catch 0) != 0;
+        }
+
+        pub fn hasShape(self: Self, rows: usize, columns: usize) bool {
+            const current = self.shape() catch return false;
+            return current.rows == rows and current.cols == columns;
+        }
+
         pub fn parquetTotalNbytes(self: Self) ParquetInteropError!usize {
             return (try self.parquetFileSummary()).totalNbytes();
         }

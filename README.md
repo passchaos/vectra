@@ -1050,7 +1050,7 @@ also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*
 `ParquetScan.init` plus scan device metadata (`deviceValue`, `deviceBackend`,
 `deviceBackendName`, `deviceIndex`, `isCpu`/`isCuda`/`isMps`, backed-by
 predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
-metadata (`parquetFileSummary`/`DeviceParquetFileSummary`, `rowCount`/`nRows`, `rowGroupCount`, `parquetColumnChunkCount`, `hasRowGroups`, Parquet byte/coverage helpers (`parquetTotalNbytes`, `parquetTotalCompressedNbytes`, `parquetTotalUncompressedNbytes`, `parquetCompressionRatio`, `parquetMetadataCoverageRatio`, `parquetPageIndexCoverageRatio`), `sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `sourcePtr`/`dataPtr`/`hasSourcePtr`/`sourceEndPtr`,
+metadata (`parquetFileSummary`/`DeviceParquetFileSummary`, shape helpers (`rowCount`/`nRows`, `columnCount`/`width`/`cols`/`nCols`, `cellCount`, `shape`, `hasRows`/`hasColumns`/`hasShape`), `rowGroupCount`, `parquetColumnChunkCount`, `hasRowGroups`, Parquet byte/coverage helpers (`parquetTotalNbytes`, `parquetTotalCompressedNbytes`, `parquetTotalUncompressedNbytes`, `parquetCompressionRatio`, `parquetMetadataCoverageRatio`, `parquetPageIndexCoverageRatio`), `sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `sourcePtr`/`dataPtr`/`hasSourcePtr`/`sourceEndPtr`,
 `sourceRange`/`DeviceParquetScanSourceRange`, `sharesSource`/`sameSource`, `sharesStorage`/`sameStorage`, `sourceMayOverlap`/`mayOverlap`,
 `isEmpty`/`isNonEmpty`/`hasBytes`,
 `projectionMetadataNbytes`, `predicateMetadataNbytes`, `pushdownMetadataNbytes`,

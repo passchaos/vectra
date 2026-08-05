@@ -270,6 +270,42 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn width(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cols(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nCols(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cellCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn shape(_: DeviceParquetScan) ParquetInteropError!struct { rows: usize, cols: usize } {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasRows(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasColumns(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn hasShape(_: DeviceParquetScan, _: usize, _: usize) bool {
+                return false;
+            }
+
             pub fn parquetTotalNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
