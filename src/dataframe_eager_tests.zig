@@ -8312,6 +8312,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
     try vectra.ArrowExport.ParquetScan.whereLe(&grouped_scan, "sales", f64, 10.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 10.0);
+    try vectra.ArrowExport.ParquetScan.whereGt(&grouped_scan, "sales", f64, 1.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 1.0);
+    try vectra.ArrowExport.ParquetScan.whereLt(&grouped_scan, "sales", f64, 9.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 9.0);
     try vectra.ArrowExport.ParquetScan.whereEq(&grouped_scan, "sales", f64, 2.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 2.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 2.0);

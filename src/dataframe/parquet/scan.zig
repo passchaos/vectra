@@ -751,6 +751,19 @@ pub fn DeviceParquetScan(
             try self.whereMax(column, T, value);
         }
 
+        /// Alias for `whereGe`; Parquet statistics currently expose inclusive
+        /// row-group bounds, so strict comparisons are conservatively lowered
+        /// to inclusive pruning predicates and exact filtering remains a later
+        /// dataframe/lazy execution step.
+        pub fn whereGt(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
+            try self.whereGe(column, T, value);
+        }
+
+        /// Alias for `whereLe`; see `whereGt` for the inclusive-bound rationale.
+        pub fn whereLt(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
+            try self.whereLe(column, T, value);
+        }
+
         pub fn whereEq(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
             try self.whereBetween(column, T, value, value);
         }

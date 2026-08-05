@@ -625,6 +625,14 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn whereGt(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn whereLt(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn whereEq(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }
