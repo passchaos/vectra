@@ -552,65 +552,10 @@ pub fn DeviceParquetScan(
         pub const allArrowFieldsNullable = scan_metadata_mod.allArrowFieldsNullable;
         pub const hasArrowProjection = scan_metadata_mod.hasArrowProjection;
 
-        fn columnSchemaFromArrowField(self: Self, name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
-            const rows = try self.rowCount();
-            const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
-            return .{
-                .name = name,
-                .dtype = dtype,
-                .rows = rows,
-                .nullable = field.nullable,
-                .null_count = 0,
-                .valid_count = rows,
-                .data_nbytes = 0,
-                .validity_nbytes = 0,
-                .total_nbytes = 0,
-                .device = self.device,
-            };
-        }
-
-        pub fn arrowColumnSchemaAt(self: Self, index: usize) ParquetInteropError!?DeviceColumnSchema {
-            var schema_value = try self.toArrowSchema(self.allocator);
-            defer schema_value.deinit(self.allocator);
-            const field = schema_value.fieldAt(index) orelse return null;
-            return try self.columnSchemaFromArrowField("", field.*);
-        }
-
-        pub fn arrowColumnSchema(self: Self, name: []const u8) ParquetInteropError!DeviceColumnSchema {
-            var schema_value = try self.toArrowSchema(self.allocator);
-            defer schema_value.deinit(self.allocator);
-            const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
-            return try self.columnSchemaFromArrowField(name, field.*);
-        }
-
-        pub fn arrowColumnSchemas(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
-            var schema_value = try self.toArrowSchema(allocator);
-            defer schema_value.deinit(allocator);
-            const rows = try self.rowCount();
-            const schemas = try allocator.alloc(DeviceColumnSchema, schema_value.fields.len);
-            errdefer allocator.free(schemas);
-            for (schema_value.fields, schemas, 0..) |field, *slot, index| {
-                const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
-                const schema_name = if (self.projection) |names| names[index] else "";
-                slot.* = .{
-                    .name = schema_name,
-                    .dtype = dtype,
-                    .rows = rows,
-                    .nullable = field.nullable,
-                    .null_count = 0,
-                    .valid_count = rows,
-                    .data_nbytes = 0,
-                    .validity_nbytes = 0,
-                    .total_nbytes = 0,
-                    .device = self.device,
-                };
-            }
-            return schemas;
-        }
-
-        pub fn arrowSchemaSummary(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
-            return self.arrowColumnSchemas(allocator);
-        }
+        pub const arrowColumnSchemaAt = scan_metadata_mod.arrowColumnSchemaAt;
+        pub const arrowColumnSchema = scan_metadata_mod.arrowColumnSchema;
+        pub const arrowColumnSchemas = scan_metadata_mod.arrowColumnSchemas;
+        pub const arrowSchemaSummary = scan_metadata_mod.arrowSchemaSummary;
 
         pub fn clearProjection(self: *Self) void {
             if (self.projection) |names| {

@@ -10,9 +10,11 @@ const array_mod = @import("../../array.zig");
 const arrow_extensions_mod = @import("../arrow/extensions.zig");
 const dataframe_arrow_mod = @import("../arrow.zig");
 const options_mod = @import("../../dataframe_options.zig");
+const schema_mod = @import("../../dataframe_schema.zig");
 const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
+const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 
 pub fn cloneArrowFields(
@@ -244,6 +246,66 @@ pub fn nullableArrowFieldCount(scan: anytype) ParquetInteropError!usize {
 pub fn allArrowFieldsNullable(scan: anytype) bool {
     const total = arrowFieldCount(scan) catch return false;
     return total != 0 and (nullableArrowFieldCount(scan) catch return false) == total;
+}
+
+fn columnSchemaFromArrowField(scan: anytype, name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
+    const rows = try scan.rowCount();
+    const dtype = try deviceDTypeFromArrowField(field);
+    return .{
+        .name = name,
+        .dtype = dtype,
+        .rows = rows,
+        .nullable = field.nullable,
+        .null_count = 0,
+        .valid_count = rows,
+        .data_nbytes = 0,
+        .validity_nbytes = 0,
+        .total_nbytes = 0,
+        .device = scan.device,
+    };
+}
+
+pub fn arrowColumnSchemaAt(scan: anytype, index: usize) ParquetInteropError!?DeviceColumnSchema {
+    var schema_value = try toArrowSchema(scan, scan.allocator);
+    defer schema_value.deinit(scan.allocator);
+    const field = schema_value.fieldAt(index) orelse return null;
+    return try columnSchemaFromArrowField(scan, "", field.*);
+}
+
+pub fn arrowColumnSchema(scan: anytype, name: []const u8) ParquetInteropError!DeviceColumnSchema {
+    var schema_value = try toArrowSchema(scan, scan.allocator);
+    defer schema_value.deinit(scan.allocator);
+    const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
+    return try columnSchemaFromArrowField(scan, name, field.*);
+}
+
+pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+    var schema_value = try toArrowSchema(scan, allocator);
+    defer schema_value.deinit(allocator);
+    const rows = try scan.rowCount();
+    const schemas = try allocator.alloc(DeviceColumnSchema, schema_value.fields.len);
+    errdefer allocator.free(schemas);
+    for (schema_value.fields, schemas, 0..) |field, *slot, index| {
+        const dtype = try deviceDTypeFromArrowField(field);
+        const schema_name = if (scan.projection) |names| names[index] else "";
+        slot.* = .{
+            .name = schema_name,
+            .dtype = dtype,
+            .rows = rows,
+            .nullable = field.nullable,
+            .null_count = 0,
+            .valid_count = rows,
+            .data_nbytes = 0,
+            .validity_nbytes = 0,
+            .total_nbytes = 0,
+            .device = scan.device,
+        };
+    }
+    return schemas;
+}
+
+pub fn arrowSchemaSummary(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+    return arrowColumnSchemas(scan, allocator);
 }
 
 pub fn hasArrowProjection(scan: anytype, wanted_names: []const []const u8) bool {
