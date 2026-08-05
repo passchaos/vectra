@@ -211,6 +211,10 @@ pub const DeviceColumnSchema = struct {
         return self.isCudaBacked() or self.isMpsBacked();
     }
 
+    pub fn isRemoteBacked(self: @This()) bool {
+        return self.isAcceleratorBacked();
+    }
+
     pub fn isDeviceBacked(self: @This()) bool {
         return !self.isCpu();
     }

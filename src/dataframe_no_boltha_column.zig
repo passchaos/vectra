@@ -165,6 +165,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return false;
     }
 
+    pub fn isRemoteBacked(_: DeviceColumn) bool {
+        return false;
+    }
+
     pub fn isDeviceBacked(_: DeviceColumn) bool {
         return false;
     }

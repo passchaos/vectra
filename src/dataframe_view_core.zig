@@ -225,6 +225,10 @@ pub fn DeviceViewTypes(
                 return self.isCudaBacked() or self.isMpsBacked();
             }
 
+            pub fn isRemoteBacked(self: DeviceColumnView) bool {
+                return self.isAcceleratorBacked();
+            }
+
             pub fn isDeviceBacked(self: DeviceColumnView) bool {
                 return !self.device.isCpu();
             }
@@ -707,6 +711,10 @@ pub fn DeviceViewTypes(
 
             pub fn isAcceleratorBacked(self: DeviceDataFrameView) bool {
                 return self.isCudaBacked() or self.isMpsBacked();
+            }
+
+            pub fn isRemoteBacked(self: DeviceDataFrameView) bool {
+                return self.isAcceleratorBacked();
             }
 
             pub fn isDeviceBacked(self: DeviceDataFrameView) bool {

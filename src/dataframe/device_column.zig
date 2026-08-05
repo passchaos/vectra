@@ -182,6 +182,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.isCudaBacked() or self.isMpsBacked();
     }
 
+    pub fn isRemoteBacked(self: DeviceColumn) bool {
+        return self.isAcceleratorBacked();
+    }
+
     pub fn isDeviceBacked(self: DeviceColumn) bool {
         return !self.isCpu();
     }
