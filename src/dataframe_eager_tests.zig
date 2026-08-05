@@ -7817,6 +7817,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
     var table_view = try table.view();
     defer table_view.deinit();
+    var sales_view_field = try vectra.DeviceColumnViewArrow.toArrowField(try table_view.column("sales"), gpa, "sales");
+    defer sales_view_field.deinit(gpa);
+    try std.testing.expect(std.mem.eql(u8, "sales", sales_view_field.name));
+    try std.testing.expect(sales_view_field.data_type.eql(arrow_fields[0].data_type));
     const view_arrow_fields = try vectra.DeviceDataFrameViewArrow.toArrowFields(table_view, gpa);
     defer {
         for (view_arrow_fields) |*field| field.deinit(gpa);
