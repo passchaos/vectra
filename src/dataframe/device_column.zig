@@ -64,10 +64,42 @@ pub const DeviceColumn = union(DeviceDType) {
         return std.meta.activeTag(self);
     }
 
+    pub fn dtypeName(self: DeviceColumn) []const u8 {
+        return self.dtype().name();
+    }
+
+    pub fn dtypeByteSize(self: DeviceColumn) usize {
+        return self.dtype().byteSize();
+    }
+
+    pub fn dtypeBitSize(self: DeviceColumn) usize {
+        return self.dtype().bitSize();
+    }
+
     pub fn device(self: DeviceColumn) array_mod.Device {
         return switch (self) {
             inline else => |typed| typed.device(),
         };
+    }
+
+    pub fn isCpu(self: DeviceColumn) bool {
+        return self.device().isCpu();
+    }
+
+    pub fn isCuda(self: DeviceColumn) bool {
+        return self.device().isCuda();
+    }
+
+    pub fn isMps(self: DeviceColumn) bool {
+        return self.device().isMps();
+    }
+
+    pub fn isDeviceBacked(self: DeviceColumn) bool {
+        return !self.isCpu();
+    }
+
+    pub fn deviceBackendName(self: DeviceColumn) []const u8 {
+        return self.device().backendName();
     }
 
     pub fn nullable(self: DeviceColumn) bool {
@@ -129,12 +161,28 @@ pub const DeviceColumn = union(DeviceDType) {
         };
     }
 
+    pub fn dataMemoryUsage(self: DeviceColumn) usize {
+        return self.dataNbytes();
+    }
+
     pub fn validityNbytes(self: DeviceColumn) usize {
         return self.view().validity_nbytes;
     }
 
+    pub fn validityMemoryUsage(self: DeviceColumn) usize {
+        return self.validityNbytes();
+    }
+
     pub fn totalNbytes(self: DeviceColumn) usize {
         return self.dataNbytes() + self.validityNbytes();
+    }
+
+    pub fn memoryUsage(self: DeviceColumn) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: DeviceColumn) usize {
+        return self.totalNbytes();
     }
 
     pub fn view(self: DeviceColumn) DeviceColumnView {
@@ -142,6 +190,33 @@ pub const DeviceColumn = union(DeviceDType) {
             inline else => |typed| typed.view(),
         };
     }
+
+    pub fn sameDevice(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.device().sameDevice(other.device());
+    }
+
+    pub fn sameLength(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.len() == other.len();
+    }
+
+    pub fn lengthEquals(self: DeviceColumn, rows: usize) bool {
+        return self.len() == rows;
+    }
+
+    pub fn sameDType(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.dtype() == other.dtype();
+    }
+
+    pub fn sameNullability(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.nullable() == other.nullable();
+    }
+
+    pub fn schemaEquals(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.sameDType(other) and self.sameNullability(other);
+    }
+
+    pub const sameSchema = schemaEquals;
+    pub const schemaCompatible = schemaEquals;
 
     pub fn clone(self: DeviceColumn) array_mod.ArrayError!DeviceColumn {
         return switch (self) {

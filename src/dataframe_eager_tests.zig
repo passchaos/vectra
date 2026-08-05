@@ -409,6 +409,17 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_col.nullable());
     try std.testing.expect(units_col.hasNulls());
     try std.testing.expectEqual(@as(usize, 1), units_col.nullCount());
+    try std.testing.expectEqual(@as(usize, 3), units_col.len());
+    try std.testing.expectEqual(DeviceDType.i64, units_col.dtype());
+    try std.testing.expect(std.mem.eql(u8, "i64", units_col.dtypeName()));
+    try std.testing.expectEqual(DeviceDType.i64.bitSize(), units_col.dtypeBitSize());
+    try std.testing.expect(units_col.isCpu());
+    try std.testing.expect(!units_col.isDeviceBacked());
+    try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
+    try std.testing.expectEqual(units_col.dataNbytes(), units_col.dataMemoryUsage());
+    try std.testing.expectEqual(units_col.validityNbytes(), units_col.validityMemoryUsage());
+    try std.testing.expectEqual(units_col.totalNbytes(), units_col.memoryUsage());
+    try std.testing.expectEqual(units_col.totalNbytes(), units_col.estimatedSize());
 
     var view = try table.view();
     defer view.deinit();
@@ -508,6 +519,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(sales_column_view.schemaCompatible(sales_column_view));
     try std.testing.expect(sales_column_view.sameStorage(sales_column_view));
     try std.testing.expect(!sales_column_view.sameStorage(units_column_view));
+    const sales_col = try table.column("sales");
+    try std.testing.expect(sales_col.sameDevice(units_col.*));
+    try std.testing.expect(sales_col.sameLength(units_col.*));
+    try std.testing.expect(sales_col.lengthEquals(3));
+    try std.testing.expect(!sales_col.sameDType(units_col.*));
+    try std.testing.expect(!sales_col.sameNullability(units_col.*));
+    try std.testing.expect(!sales_col.schemaEquals(units_col.*));
+    try std.testing.expect(sales_col.schemaEquals(sales_col.*));
+    try std.testing.expect(sales_col.sameSchema(sales_col.*));
+    try std.testing.expect(sales_col.schemaCompatible(sales_col.*));
     try std.testing.expectEqual(DeviceDType.i64, units_column_view.dtype);
     try std.testing.expectEqual(DeviceValidityEncoding.bool_mask, units_column_view.validity_encoding);
     try std.testing.expectEqual(@as(usize, 1), units_column_view.nullCount());

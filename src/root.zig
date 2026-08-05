@@ -384,6 +384,23 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, frame.columnNullCounts(gpa));
         try std.testing.expectError(error.FeatureUnavailable, frame.columnSchemas(gpa));
 
+        const column = DeviceColumn{ .i32 = undefined };
+        const bool_column = DeviceColumn{ .bool = undefined };
+        try std.testing.expectEqual(@as(usize, 0), column.len());
+        try std.testing.expectEqual(DeviceDType.i32, column.dtype());
+        try std.testing.expectEqualStrings("i32", column.dtypeName());
+        try std.testing.expectEqual(DeviceDType.i32.bitSize(), column.dtypeBitSize());
+        try std.testing.expect(column.isCpu());
+        try std.testing.expect(!column.isDeviceBacked());
+        try std.testing.expectEqualStrings("cpu", column.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), column.memoryUsage());
+        try std.testing.expect(column.sameDevice(bool_column));
+        try std.testing.expect(column.sameLength(bool_column));
+        try std.testing.expect(column.lengthEquals(0));
+        try std.testing.expect(!column.sameDType(bool_column));
+        try std.testing.expect(column.sameNullability(bool_column));
+        try std.testing.expect(!column.schemaEquals(bool_column));
+
         const view_names = [_][]const u8{"id"};
         var view_columns = [_]DeviceColumnView{.{
             .dtype = .i32,

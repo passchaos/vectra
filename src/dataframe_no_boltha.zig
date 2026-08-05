@@ -89,6 +89,151 @@ pub const DeviceColumn = union(DeviceDType) {
     c64: DeviceTypedColumn(array_mod.Complex64),
     c128: DeviceTypedColumn(array_mod.Complex128),
     isize: DeviceTypedColumn(isize),
+
+    pub fn len(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn dtype(self: DeviceColumn) DeviceDType {
+        return std.meta.activeTag(self);
+    }
+
+    pub fn dtypeName(self: DeviceColumn) []const u8 {
+        return self.dtype().name();
+    }
+
+    pub fn dtypeByteSize(self: DeviceColumn) usize {
+        return self.dtype().byteSize();
+    }
+
+    pub fn dtypeBitSize(self: DeviceColumn) usize {
+        return self.dtype().bitSize();
+    }
+
+    pub fn device(_: DeviceColumn) array_mod.Device {
+        return .cpu;
+    }
+
+    pub fn isCpu(_: DeviceColumn) bool {
+        return true;
+    }
+
+    pub fn isCuda(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn isMps(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn isDeviceBacked(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn deviceBackendName(_: DeviceColumn) []const u8 {
+        return "cpu";
+    }
+
+    pub fn nullable(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn hasNulls(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn nullCount(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn validCount(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn anyNull(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn allNull(_: DeviceColumn) bool {
+        return true;
+    }
+
+    pub fn anyValid(_: DeviceColumn) bool {
+        return false;
+    }
+
+    pub fn allValid(_: DeviceColumn) bool {
+        return true;
+    }
+
+    fn ratioFromCount(count: usize, rows: usize) f64 {
+        _ = count;
+        if (rows == 0) return std.math.nan(f64);
+        return 0.0;
+    }
+
+    pub fn nullRatio(_: DeviceColumn) f64 {
+        return ratioFromCount(0, 0);
+    }
+
+    pub fn validRatio(_: DeviceColumn) f64 {
+        return ratioFromCount(0, 0);
+    }
+
+    pub fn dataNbytes(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn dataMemoryUsage(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn validityNbytes(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn validityMemoryUsage(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn totalNbytes(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn memoryUsage(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn estimatedSize(_: DeviceColumn) usize {
+        return 0;
+    }
+
+    pub fn sameDevice(_: DeviceColumn, _: DeviceColumn) bool {
+        return true;
+    }
+
+    pub fn sameLength(_: DeviceColumn, _: DeviceColumn) bool {
+        return true;
+    }
+
+    pub fn lengthEquals(_: DeviceColumn, rows: usize) bool {
+        return rows == 0;
+    }
+
+    pub fn sameDType(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.dtype() == other.dtype();
+    }
+
+    pub fn sameNullability(_: DeviceColumn, _: DeviceColumn) bool {
+        return true;
+    }
+
+    pub fn schemaEquals(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.sameDType(other) and self.sameNullability(other);
+    }
+
+    pub const sameSchema = schemaEquals;
+    pub const schemaCompatible = schemaEquals;
 };
 
 pub const DeviceColumnDef = struct {
