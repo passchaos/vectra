@@ -5644,44 +5644,88 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseDiagonalAxes(T, self, offset, axis1, axis2);
         }
 
+        pub fn diagonalAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalAxes(offset, axis1, axis2), out);
+        }
+
         pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTraceAxes(T, self, offset, axis1, axis2);
+        }
+
+        pub fn traceAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.traceAxes(offset, axis1, axis2), out);
         }
 
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.traceAxes(offset, axis1, axis2);
         }
 
+        pub fn traceOffsetAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.traceAxesOut(offset, axis1, axis2, out);
+        }
+
         pub fn diag(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiag(T, self, offset);
+        }
+
+        pub fn diagOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diag(offset), out);
         }
 
         pub fn diagflat(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagflat(T, self, offset);
         }
 
+        pub fn diagflatOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagflat(offset), out);
+        }
+
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn diagEmbedOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagEmbed(offset), out);
         }
 
         pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
         }
 
+        pub fn fillDiagonalOut(self: Self, value: T, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fillDiagonal(value, offset, axis1, axis2), out);
+        }
+
         pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatterOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalScatter(values, offset, axis1, axis2), out);
         }
 
         pub fn diagonalScatterArray(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.diagonalScatter(values, offset, axis1, axis2);
         }
 
+        pub fn diagonalScatterArrayOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalScatterOut(values, offset, axis1, axis2, out);
+        }
+
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTriu(T, self, diagonal_offset);
         }
 
+        pub fn triuOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.triu(diagonal_offset), out);
+        }
+
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn trilOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tril(diagonal_offset), out);
         }
 
         pub fn isDiagonalMatrix(self: Self) SparseError!bool {
@@ -13632,44 +13676,88 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseDiagonalAxes(T, self, offset, axis1, axis2);
         }
 
+        pub fn diagonalAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalAxes(offset, axis1, axis2), out);
+        }
+
         pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTraceAxes(T, self, offset, axis1, axis2);
+        }
+
+        pub fn traceAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.traceAxes(offset, axis1, axis2), out);
         }
 
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.traceAxes(offset, axis1, axis2);
         }
 
+        pub fn traceOffsetAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.traceAxesOut(offset, axis1, axis2, out);
+        }
+
         pub fn diag(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiag(T, self, offset);
+        }
+
+        pub fn diagOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diag(offset), out);
         }
 
         pub fn diagflat(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagflat(T, self, offset);
         }
 
+        pub fn diagflatOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagflat(offset), out);
+        }
+
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn diagEmbedOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagEmbed(offset), out);
         }
 
         pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
         }
 
+        pub fn fillDiagonalOut(self: Self, value: T, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fillDiagonal(value, offset, axis1, axis2), out);
+        }
+
         pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatterOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalScatter(values, offset, axis1, axis2), out);
         }
 
         pub fn diagonalScatterArray(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.diagonalScatter(values, offset, axis1, axis2);
         }
 
+        pub fn diagonalScatterArrayOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalScatterOut(values, offset, axis1, axis2, out);
+        }
+
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTriu(T, self, diagonal_offset);
         }
 
+        pub fn triuOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.triu(diagonal_offset), out);
+        }
+
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn trilOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tril(diagonal_offset), out);
         }
 
         pub fn isDiagonalMatrix(self: Self) SparseError!bool {
@@ -21833,44 +21921,88 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseDiagonalAxes(T, self, offset, axis1, axis2);
         }
 
+        pub fn diagonalAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalAxes(offset, axis1, axis2), out);
+        }
+
         pub fn traceAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTraceAxes(T, self, offset, axis1, axis2);
+        }
+
+        pub fn traceAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.traceAxes(offset, axis1, axis2), out);
         }
 
         pub fn traceOffsetAxes(self: Self, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.traceAxes(offset, axis1, axis2);
         }
 
+        pub fn traceOffsetAxesOut(self: Self, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.traceAxesOut(offset, axis1, axis2, out);
+        }
+
         pub fn diag(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiag(T, self, offset);
+        }
+
+        pub fn diagOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diag(offset), out);
         }
 
         pub fn diagflat(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagflat(T, self, offset);
         }
 
+        pub fn diagflatOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagflat(offset), out);
+        }
+
         pub fn diagEmbed(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagEmbed(T, self, offset);
+        }
+
+        pub fn diagEmbedOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagEmbed(offset), out);
         }
 
         pub fn fillDiagonal(self: Self, value: T, offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseFillDiagonal(T, self, value, offset, axis1, axis2);
         }
 
+        pub fn fillDiagonalOut(self: Self, value: T, offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fillDiagonal(value, offset, axis1, axis2), out);
+        }
+
         pub fn diagonalScatter(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalScatter(T, self, values, offset, axis1, axis2);
+        }
+
+        pub fn diagonalScatterOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalScatter(values, offset, axis1, axis2), out);
         }
 
         pub fn diagonalScatterArray(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize) SparseError!array_mod.Array(T) {
             return self.diagonalScatter(values, offset, axis1, axis2);
         }
 
+        pub fn diagonalScatterArrayOut(self: Self, values: array_mod.Array(T), offset: isize, axis1: isize, axis2: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalScatterOut(values, offset, axis1, axis2, out);
+        }
+
         pub fn triu(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTriu(T, self, diagonal_offset);
         }
 
+        pub fn triuOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.triu(diagonal_offset), out);
+        }
+
         pub fn tril(self: Self, diagonal_offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseTril(T, self, diagonal_offset);
+        }
+
+        pub fn trilOut(self: Self, diagonal_offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tril(diagonal_offset), out);
         }
 
         pub fn isDiagonalMatrix(self: Self) SparseError!bool {
@@ -30971,18 +31103,30 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var diagonal_axes = try matrix.diagonalAxes(0, 0, 1);
             defer diagonal_axes.deinit();
             try expectArray(diagonal_axes, &.{2}, &.{ 1, 2 });
+            var diag_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer diag_out.deinit();
+            try matrix.diagonalAxesOut(0, 0, 1, diag_out);
+            try expectArray(diag_out, &.{2}, diagonal_axes.data);
 
             var trace_axes = try matrix.traceAxes(0, 0, 1);
             defer trace_axes.deinit();
             try expectArray(trace_axes, &.{}, &.{3});
+            var trace_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
+            defer trace_out.deinit();
+            try matrix.traceAxesOut(0, 0, 1, trace_out);
+            try expectArray(trace_out, &.{}, trace_axes.data);
 
             var trace_axes_alias = try matrix.traceOffsetAxes(0, 0, 1);
             defer trace_axes_alias.deinit();
             try expectArray(trace_axes_alias, &.{}, trace_axes.data);
+            try matrix.traceOffsetAxesOut(0, 0, 1, trace_out);
+            try expectArray(trace_out, &.{}, trace_axes_alias.data);
 
             var diag_values = try matrix.diag(0);
             defer diag_values.deinit();
             try expectArray(diag_values, &.{2}, &.{ 1, 2 });
+            try matrix.diagOut(0, diag_out);
+            try expectArray(diag_out, &.{2}, diag_values.data);
 
             var diag_flat = try matrix.diagflat(1);
             defer diag_flat.deinit();
@@ -30995,6 +31139,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
                 0, 0, 0, 0, 0, 0, 3,
                 0, 0, 0, 0, 0, 0, 0,
             });
+            var diagflat_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 7, 7 });
+            defer diagflat_out.deinit();
+            try matrix.diagflatOut(1, diagflat_out);
+            try expectArray(diagflat_out, &.{ 7, 7 }, diag_flat.data);
 
             var diag_embed = try diagonal_axes.diagEmbed(0);
             defer diag_embed.deinit();
@@ -31003,16 +31151,22 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var filled_diagonal = try matrix.fillDiagonal(9, 0, 0, 1);
             defer filled_diagonal.deinit();
             try expectArray(filled_diagonal, &.{ 2, 3 }, &.{ 9, 0, 0, 0, 9, 3 });
+            try matrix.fillDiagonalOut(9, 0, 0, 1, atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, filled_diagonal.data);
 
             var scatter_diagonal_values = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 7, 8 }, &.{2});
             defer scatter_diagonal_values.deinit();
             var scattered_diagonal = try matrix.diagonalScatter(scatter_diagonal_values, 0, 0, 1);
             defer scattered_diagonal.deinit();
             try expectArray(scattered_diagonal, &.{ 2, 3 }, &.{ 7, 0, 0, 0, 8, 3 });
+            try matrix.diagonalScatterOut(scatter_diagonal_values, 0, 0, 1, atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, scattered_diagonal.data);
 
             var scattered_diagonal_array = try matrix.diagonalScatterArray(scatter_diagonal_values, 0, 0, 1);
             defer scattered_diagonal_array.deinit();
             try expectArray(scattered_diagonal_array, &.{ 2, 3 }, scattered_diagonal.data);
+            try matrix.diagonalScatterArrayOut(scatter_diagonal_values, 0, 0, 1, atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, scattered_diagonal_array.data);
 
             try std.testing.expectError(error.InvalidAxis, matrix.fillDiagonal(0, 0, 0, 0));
             try std.testing.expectError(error.ShapeMismatch, matrix.diagonalScatter(flattened, 0, 0, 1));
@@ -31020,10 +31174,14 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var upper_triangular = try matrix.triu(0);
             defer upper_triangular.deinit();
             try expectArray(upper_triangular, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 3 });
+            try matrix.triuOut(0, atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, upper_triangular.data);
 
             var lower_triangular = try matrix.tril(0);
             defer lower_triangular.deinit();
             try expectArray(lower_triangular, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 2, 0 });
+            try matrix.trilOut(0, atleast_out_23);
+            try expectArray(atleast_out_23, &.{ 2, 3 }, lower_triangular.data);
 
             try std.testing.expectError(error.InvalidAxis, matrix.diagonalAxes(0, 0, 0));
             try std.testing.expectError(error.InvalidAxis, matrix.traceAxes(0, 0, 0));
