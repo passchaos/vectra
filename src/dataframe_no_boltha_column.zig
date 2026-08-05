@@ -256,6 +256,10 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const sameSchema = schemaEquals;
     pub const schemaCompatible = schemaEquals;
 
+    pub fn sameStorage(_: DeviceColumn, _: DeviceColumn) bool {
+        return true;
+    }
+
     pub fn schema(self: DeviceColumn, name: []const u8) DeviceColumnSchema {
         return .{
             .name = name,

@@ -292,6 +292,10 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const sameSchema = schemaEquals;
     pub const schemaCompatible = schemaEquals;
 
+    pub fn sameStorage(self: DeviceColumn, other: DeviceColumn) bool {
+        return self.view().sameStorage(other.view());
+    }
+
     pub fn clone(self: DeviceColumn) array_mod.ArrayError!DeviceColumn {
         return switch (self) {
             inline else => |typed, tag| @unionInit(DeviceColumn, @tagName(tag), try typed.clone()),
