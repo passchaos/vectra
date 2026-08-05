@@ -207,7 +207,7 @@ with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is ava
 `cellCount`, `nullCount`, `validCount`, `nullRatio`, `validRatio`, `columnAt`, `columnView`, `columnViewAt`, `columnDTypes`/`dtypes`, `columnDTypeNames`/`dtypeNames`, `columnDTypeByteSizes`, `columnDTypeBitSizes`, `columnDTypeClassMask`, `columnDTypeClassCount`, `numericColumnCount`, `floatColumnCount`, `integerColumnCount`, `boolColumnCount`, `columnIsNumericMask`, `columnIsFloatMask`, `columnIsIntegerMask`, `columnIsBoolMask`, `columnNullCounts`, `columnValidCounts`, `columnNullRatios`, `columnValidRatios`, `columnDistinctCounts`, `columnNUniqueCounts`/`columnNUnique`, `columnDuplicateCounts`/`columnRepeatedCounts`, `columnDistinctRatios`/`columnNUniqueRatios`, `columnDuplicateRatios`, `columnIsUniqueMask`, `columnHasDuplicatesMask`,
 `columnNullableMask`, `nullableColumnCount`, `nonNullableColumnCount`, `columnHasNullsMask`, `columnsWithNullsCount`, `columnsWithoutNullsCount`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `dataNbytes`, `validityNbytes`,
-`totalNbytes`, `columnSchemas`/`schemaSummary`, `equals`/`frameEquals`, `allClose`/`frameAllClose`, `schemaEquals`/`sameSchema`/`schemaCompatible`, `deviceBackendName`, `isCpu`,
+`totalNbytes`, `columnSchema`/`columnSchemaAt`/`columnSchemas`/`schema`/`schemaSummary`, `equals`/`frameEquals`, `allClose`/`frameAllClose`, `schemaEquals`/`sameSchema`/`schemaCompatible`, `deviceBackendName`, `isCpu`,
 `isCuda`, `isMps`, `isDeviceBacked`, `sameDevice`, `shape`, `sameShape`, `shapeEquals`, `hasShape`, `sameHeight`, `sameWidth`, `isEmpty`,
 `isNonEmpty`, `hasRows`, `hasColumns`, `hasColumn`, `hasAllColumns`,
 `hasAnyColumn`) alongside the table

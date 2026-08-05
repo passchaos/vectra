@@ -479,23 +479,40 @@ pub const DeviceDataFrame = struct {
         return self.dataNbytes() + self.validityNbytes();
     }
 
+    pub fn columnSchemaAt(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceColumnSchema {
+        if (index >= self.columns.len) return error.IndexOutOfBounds;
+        const column_value = self.columns[index];
+        return .{
+            .name = self.names[index],
+            .dtype = column_value.dtype(),
+            .rows = column_value.len(),
+            .nullable = column_value.nullable(),
+            .null_count = column_value.nullCount(),
+            .valid_count = column_value.validCount(),
+            .data_nbytes = column_value.dataNbytes(),
+            .validity_nbytes = column_value.validityNbytes(),
+            .total_nbytes = column_value.totalNbytes(),
+            .device = column_value.device(),
+        };
+    }
+
+    pub fn columnSchema(self: DeviceDataFrame, name: []const u8) DataError!DeviceColumnSchema {
+        const index = self.columnIndex(name) orelse return error.ColumnNotFound;
+        // `columnIndex` returns only in-bounds positions from `self.names`, so
+        // the bounds guard in `columnSchemaAt` cannot fail here.  Keeping this
+        // method on the narrower `DataError` surface matches `column()` while
+        // `columnSchemaAt()` still reports index errors for positional access.
+        return self.columnSchemaAt(index) catch unreachable;
+    }
+
     pub fn columnSchemas(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
         const out = try allocator.alloc(DeviceColumnSchema, self.columns.len);
-        for (self.names, self.columns, out) |name, column_value, *slot| {
-            slot.* = .{
-                .name = name,
-                .dtype = column_value.dtype(),
-                .rows = column_value.len(),
-                .nullable = column_value.nullable(),
-                .null_count = column_value.nullCount(),
-                .valid_count = column_value.validCount(),
-                .data_nbytes = column_value.dataNbytes(),
-                .validity_nbytes = column_value.validityNbytes(),
-                .total_nbytes = column_value.totalNbytes(),
-                .device = column_value.device(),
-            };
-        }
+        for (out, 0..) |*slot, index| slot.* = self.columnSchemaAt(index) catch unreachable;
         return out;
+    }
+
+    pub fn schema(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
+        return self.columnSchemas(allocator);
     }
 
     pub fn schemaSummary(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]DeviceColumnSchema {
