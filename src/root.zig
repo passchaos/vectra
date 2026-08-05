@@ -402,6 +402,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 2), view.nRows());
         try std.testing.expectEqual(@as(usize, 1), view.nCols());
         try std.testing.expect(!view.isEmpty());
+        try std.testing.expect(view.columnNamesUnique());
+        try std.testing.expect(!view.hasDuplicateColumnNames());
+        try std.testing.expectEqual(@as(usize, 0), view.duplicateColumnNameCount());
         try std.testing.expect(view.sameDevice(view));
         try std.testing.expect(view.sameShape(view));
         try std.testing.expect(view.hasShape(2, 1));
@@ -423,6 +426,18 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(view.hasAllColumns(&.{"id"}));
         try std.testing.expectEqual(DeviceDType.i32, try view.columnDType("id"));
         try std.testing.expectEqual(DeviceDType.i32, try view.columnDTypeAt(0));
+        const duplicate_view_names = [_][]const u8{ "id", "id" };
+        var duplicate_view_columns = [_]DeviceColumnView{ view_columns[0], view_columns[0] };
+        const duplicate_view = DeviceDataFrameView{
+            .allocator = gpa,
+            .names = &duplicate_view_names,
+            .columns = &duplicate_view_columns,
+            .rows = 2,
+            .device = .cpu,
+        };
+        try std.testing.expect(!duplicate_view.columnNamesUnique());
+        try std.testing.expect(duplicate_view.hasDuplicateColumnNames());
+        try std.testing.expectEqual(@as(usize, 1), duplicate_view.duplicateColumnNameCount());
         const id_view = try view.columnView("id");
         try std.testing.expectEqual(DeviceDType.i32, id_view.dtype);
         try std.testing.expectEqual(@as(usize, 2), id_view.len());

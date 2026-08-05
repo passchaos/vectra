@@ -530,6 +530,32 @@ pub const DeviceDataFrameView = struct {
         return self.columnNames();
     }
 
+    pub fn columnNamesUnique(self: DeviceDataFrameView) bool {
+        for (self.names, 0..) |name, index| {
+            for (self.names[0..index]) |previous| {
+                if (std.mem.eql(u8, name, previous)) return false;
+            }
+        }
+        return true;
+    }
+
+    pub fn hasDuplicateColumnNames(self: DeviceDataFrameView) bool {
+        return !self.columnNamesUnique();
+    }
+
+    pub fn duplicateColumnNameCount(self: DeviceDataFrameView) usize {
+        var duplicates: usize = 0;
+        for (self.names, 0..) |name, index| {
+            for (self.names[0..index]) |previous| {
+                if (std.mem.eql(u8, name, previous)) {
+                    duplicates += 1;
+                    break;
+                }
+            }
+        }
+        return duplicates;
+    }
+
     pub fn columnIndex(self: DeviceDataFrameView, name: []const u8) ?usize {
         for (self.names, 0..) |existing, i| {
             if (std.mem.eql(u8, existing, name)) return i;

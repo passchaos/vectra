@@ -387,6 +387,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(view.width(), view.columnCount());
     try std.testing.expectEqual(view.width(), view.cols());
     try std.testing.expectEqual(view.width(), view.nCols());
+    try std.testing.expect(view.columnNamesUnique());
+    try std.testing.expect(!view.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 0), view.duplicateColumnNameCount());
     try std.testing.expect(!view.isEmpty());
     try std.testing.expect(view.isNonEmpty());
     try std.testing.expect(view.hasRows());
@@ -543,6 +546,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.sameHeight(selected_view));
     try std.testing.expect(!view.sameWidth(selected_view));
     try std.testing.expect(!view.sameShape(selected_view));
+
+    var duplicate_view = try duplicate_name_table.view();
+    defer duplicate_view.deinit();
+    try std.testing.expect(!duplicate_view.columnNamesUnique());
+    try std.testing.expect(duplicate_view.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 1), duplicate_view.duplicateColumnNameCount());
 
     var no_columns = try table.select(&.{});
     defer no_columns.deinit();
