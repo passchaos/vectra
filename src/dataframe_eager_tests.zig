@@ -8223,6 +8223,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 1), vectra.ArrowExport.ParquetScan.projectionIndex(grouped_scan, "units"));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.projectionContains(grouped_scan, "sales"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.projectionContains(grouped_scan, "missing"));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.projectionNamesUnique(grouped_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasDuplicateProjectionNames(grouped_scan));
+    try std.testing.expectEqual(@as(usize, 0), vectra.ArrowExport.ParquetScan.duplicateProjectionNameCount(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasAllProjectionNames(grouped_scan, &.{ "sales", "units" }));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasAnyProjectionName(grouped_scan, &.{ "missing", "units" }));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.projectsColumn(grouped_scan, "units"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.projectsColumn(grouped_scan, "missing"));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));

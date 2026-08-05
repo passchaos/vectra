@@ -429,6 +429,41 @@ pub fn DeviceParquetScan(
             return self.projectionIndex(name) != null;
         }
 
+        pub fn projectionNamesUnique(self: Self) bool {
+            const names = self.projection orelse return true;
+            for (names, 0..) |name, index| {
+                if (names_mod.nameInBorrowedList(name, names[0..index])) return false;
+            }
+            return true;
+        }
+
+        pub fn hasDuplicateProjectionNames(self: Self) bool {
+            return !self.projectionNamesUnique();
+        }
+
+        pub fn duplicateProjectionNameCount(self: Self) usize {
+            const names = self.projection orelse return 0;
+            var count: usize = 0;
+            for (names, 0..) |name, index| {
+                if (names_mod.nameInBorrowedList(name, names[0..index])) count += 1;
+            }
+            return count;
+        }
+
+        pub fn hasAllProjectionNames(self: Self, names: []const []const u8) bool {
+            for (names) |name| {
+                if (!self.projectionContains(name)) return false;
+            }
+            return true;
+        }
+
+        pub fn hasAnyProjectionName(self: Self, names: []const []const u8) bool {
+            for (names) |name| {
+                if (self.projectionContains(name)) return true;
+            }
+            return false;
+        }
+
         pub fn projectsColumn(self: Self, name: []const u8) bool {
             return self.projection == null or self.projectionContains(name);
         }

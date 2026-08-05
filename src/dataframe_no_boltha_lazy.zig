@@ -379,6 +379,26 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn projectionNamesUnique(_: DeviceParquetScan) bool {
+                return true;
+            }
+
+            pub fn hasDuplicateProjectionNames(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn duplicateProjectionNameCount(_: DeviceParquetScan) usize {
+                return 0;
+            }
+
+            pub fn hasAllProjectionNames(_: DeviceParquetScan, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn hasAnyProjectionName(_: DeviceParquetScan, _: []const []const u8) bool {
+                return false;
+            }
+
             pub fn projectsColumn(_: DeviceParquetScan, _: []const u8) bool {
                 return true;
             }
