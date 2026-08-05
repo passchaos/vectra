@@ -6662,20 +6662,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .deg2rad);
         }
 
+        pub fn deg2radOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.deg2rad(), out);
+        }
+
         pub fn radians(self: Self) SparseError!array_mod.Array(T) {
             return self.deg2rad();
+        }
+
+        pub fn radiansOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.deg2radOut(out);
         }
 
         pub fn rad2deg(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .rad2deg);
         }
 
+        pub fn rad2degOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rad2deg(), out);
+        }
+
         pub fn degrees(self: Self) SparseError!array_mod.Array(T) {
             return self.rad2deg();
         }
 
+        pub fn degreesOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.rad2degOut(out);
+        }
+
         pub fn sinc(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .sinc);
+        }
+
+        pub fn sincOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sinc(), out);
         }
 
         pub fn sin(self: Self) SparseError!array_mod.Array(T) {
@@ -6968,6 +6988,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn logit(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn logitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logit(), out);
         }
 
         pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
@@ -7840,6 +7864,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn ldexpScalarOut(self: Self, exponent: i32, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexpScalar(exponent), out);
         }
 
         pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
@@ -14534,20 +14562,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .deg2rad);
         }
 
+        pub fn deg2radOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.deg2rad(), out);
+        }
+
         pub fn radians(self: Self) SparseError!array_mod.Array(T) {
             return self.deg2rad();
+        }
+
+        pub fn radiansOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.deg2radOut(out);
         }
 
         pub fn rad2deg(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .rad2deg);
         }
 
+        pub fn rad2degOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rad2deg(), out);
+        }
+
         pub fn degrees(self: Self) SparseError!array_mod.Array(T) {
             return self.rad2deg();
         }
 
+        pub fn degreesOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.rad2degOut(out);
+        }
+
         pub fn sinc(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .sinc);
+        }
+
+        pub fn sincOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sinc(), out);
         }
 
         pub fn sin(self: Self) SparseError!array_mod.Array(T) {
@@ -14840,6 +14888,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn logit(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn logitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logit(), out);
         }
 
         pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
@@ -15712,6 +15764,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn ldexpScalarOut(self: Self, exponent: i32, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexpScalar(exponent), out);
         }
 
         pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
@@ -22619,20 +22675,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .deg2rad);
         }
 
+        pub fn deg2radOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.deg2rad(), out);
+        }
+
         pub fn radians(self: Self) SparseError!array_mod.Array(T) {
             return self.deg2rad();
+        }
+
+        pub fn radiansOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.deg2radOut(out);
         }
 
         pub fn rad2deg(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .rad2deg);
         }
 
+        pub fn rad2degOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rad2deg(), out);
+        }
+
         pub fn degrees(self: Self) SparseError!array_mod.Array(T) {
             return self.rad2deg();
         }
 
+        pub fn degreesOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.rad2degOut(out);
+        }
+
         pub fn sinc(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .sinc);
+        }
+
+        pub fn sincOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sinc(), out);
         }
 
         pub fn sin(self: Self) SparseError!array_mod.Array(T) {
@@ -22925,6 +23001,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn logit(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .logit);
+        }
+
+        pub fn logitOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logit(), out);
         }
 
         pub fn softplus(self: Self) SparseError!array_mod.Array(T) {
@@ -23797,6 +23877,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
+        }
+
+        pub fn ldexpScalarOut(self: Self, exponent: i32, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexpScalar(exponent), out);
         }
 
         pub fn frexp(self: Self) SparseError!array_mod.Array(T).FrexpResult {
@@ -33160,6 +33244,8 @@ test "sparse dense fused elementwise helpers" {
             var ldexp = try matrix.ldexpScalar(2);
             defer ldexp.deinit();
             try expectArray(ldexp, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 8, 12 });
+            try matrix.ldexpScalarOut(2, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, ldexp.data);
 
             var exponents = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
                 0, 1, 2,
@@ -34136,10 +34222,14 @@ test "sparse dense norm and logsumexp helpers" {
             var radians_values = try deg_matrix.deg2rad();
             defer radians_values.deinit();
             try expectArray(radians_values, &.{ 2, 3 }, &.{ std.math.pi, 0, 0, 0, std.math.pi / 2.0, -std.math.pi / 2.0 });
+            try deg_matrix.deg2radOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, radians_values.data);
 
             var radians_alias = try deg_matrix.radians();
             defer radians_alias.deinit();
             try expectArray(radians_alias, &.{ 2, 3 }, radians_values.data);
+            try deg_matrix.radiansOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, radians_alias.data);
 
             var rad_values = try cooFromSlices(f64, matrix.allocator, 2, 3, &.{ 0, 1, 1 }, &.{ 0, 1, 2 }, &.{ std.math.pi, std.math.pi / 2.0, -std.math.pi / 2.0 });
             defer rad_values.deinit();
@@ -34156,14 +34246,20 @@ test "sparse dense norm and logsumexp helpers" {
             var degrees_values = try rad_matrix.rad2deg();
             defer degrees_values.deinit();
             try expectArray(degrees_values, &.{ 2, 3 }, &.{ 180, 0, 0, 0, 90, -90 });
+            try rad_matrix.rad2degOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, degrees_values.data);
 
             var degrees_alias = try rad_matrix.degrees();
             defer degrees_alias.deinit();
             try expectArray(degrees_alias, &.{ 2, 3 }, degrees_values.data);
+            try rad_matrix.degreesOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, degrees_alias.data);
 
             var sinc_values = try matrix.sinc();
             defer sinc_values.deinit();
             try expectArray(sinc_values, &.{ 2, 3 }, &.{ 0, 1, 1, 1, 0, std.math.sin(3 * std.math.pi) / (3 * std.math.pi) });
+            try matrix.sincOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, sinc_values.data);
 
             var sin_values = try matrix.sin();
             defer sin_values.deinit();
@@ -34589,6 +34685,8 @@ test "sparse dense norm and logsumexp helpers" {
             var logit_values = try logit_matrix.logit();
             defer logit_values.deinit();
             try expectArray(logit_values, &.{ 2, 3 }, &.{ std.math.log(f64, std.math.e, 0.25 / 0.75), -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64), 0, std.math.log(f64, std.math.e, 0.75 / 0.25) });
+            try logit_matrix.logitOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, logit_values.data);
 
             var row_lse = try matrix.logsumexp(1, false);
             defer row_lse.deinit();
