@@ -8008,9 +8008,10 @@ test "device dataframe exports boltha arrow record batch" {
         .{ .f64 = .{ .min = 0.0 } },
         .cpu,
     ));
-    var grouped_scan = try vectra.ArrowExport.ParquetScan.init(gpa, grouped_parquet_bytes, .cpu);
+    var grouped_scan = try vectra.ArrowExport.ParquetScan.Lifecycle.init(gpa, grouped_parquet_bytes, .cpu);
     defer grouped_scan.deinit();
-    try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceValue(grouped_scan).sameDevice(.cpu));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.Device.deviceValue(grouped_scan).sameDevice(.cpu));
+    try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.Source.sourceNbytes(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.deviceBackend(grouped_scan) == .cpu);
     try std.testing.expectEqualStrings("cpu", vectra.ArrowExport.ParquetScan.deviceBackendName(grouped_scan));
     try std.testing.expectEqual(@as(usize, 0), vectra.ArrowExport.ParquetScan.deviceIndex(grouped_scan));
@@ -8055,6 +8056,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), parquet_file_summary.bloomFilterCoverageRatio(), 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 1.0), parquet_file_summary.sizedBloomFilterCoverageRatio(), 1e-12);
     try std.testing.expect(parquet_file_summary.compressionRatio() > 0.0);
+    try std.testing.expectEqual(table.height(), try vectra.ArrowExport.ParquetScan.File.rowCount(grouped_scan));
     try std.testing.expectEqual(table.height(), try vectra.ArrowExport.ParquetScan.rowCount(grouped_scan));
     try std.testing.expectEqual(table.height(), try vectra.ArrowExport.ParquetScan.nRows(grouped_scan));
     try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.rowGroupCount(grouped_scan));
@@ -8085,6 +8087,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(grouped_scan_source.isNonEmpty());
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasArrowProjection(grouped_scan, &.{ "sales", "units" }));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasArrowProjection(grouped_scan, &.{"missing"}));
+    try std.testing.expectEqual(@as(usize, 3), try vectra.ArrowExport.ParquetScan.Arrow.arrowFieldCount(grouped_scan));
     try std.testing.expectEqual(@as(usize, 3), try vectra.ArrowExport.ParquetScan.arrowFieldCount(grouped_scan));
     const scan_field_name = (try vectra.ArrowExport.ParquetScan.arrowFieldNameAt(grouped_scan, gpa, 1)).?;
     defer gpa.free(scan_field_name);
@@ -8191,7 +8194,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan) == null);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicateFor(grouped_scan, "sales"));
-    try vectra.ArrowExport.ParquetScan.select(&grouped_scan, &.{ "sales", "units" });
+    try vectra.ArrowExport.ParquetScan.Pushdown.select(&grouped_scan, &.{ "sales", "units" });
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
     try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
     try std.testing.expect(std.mem.eql(u8, "sales", vectra.ArrowExport.ParquetScan.projectionNames(grouped_scan)[0]));

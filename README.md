@@ -1044,7 +1044,7 @@ from CPU/CUDA/MPS columns rather than reimplementing Arrow inside Vectra.
 Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension
 metadata stay aligned across inspection and interchange paths.  Boltha builds
-also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*`/`fromParquet*`, `Column.toArrow*`,
+also expose grouped `vx.ArrowExport.ParquetScan` namespaces (`Lifecycle`, `Device`, `Source`, `File`, `Pushdown`, and `Arrow`) while retaining flat aliases, and `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*`/`fromParquet*`, `Column.toArrow*`,
 `ColumnSchema.arrowDataType`/`toArrowField`, `ColumnView.arrowDataType`/`toArrowField`,
 `ParquetScan.toArrowSchema`/`toArrowSchemaProjection`/`toArrowFields`/`toArrowFieldsProjection` plus Arrow field inspection (`arrowFieldCount`/`arrowFieldNameAt`/`arrowFieldNames`/`arrowFieldIndex`/`arrowFieldDTypeAt`/`arrowFieldDType`/`arrowFieldDTypes`/`arrowFieldDTypeNames`/`arrowFieldDTypeByteSizes`/`arrowFieldDTypeBitSizes`/`arrowFieldDTypeClassMask`/`arrowFieldDTypeClassCount`/`numericArrowFieldCount`/`floatArrowFieldCount`/`integerArrowFieldCount`/`boolArrowFieldCount`/`arrowFieldNullableAt`/`arrowFieldNullable`/`arrowFieldNullableMask`/`nullableArrowFieldCount`/`nonNullableArrowFieldCount`/`hasNullableArrowFields`/`allArrowFieldsNullable`, `arrowColumnSchemaAt`/`arrowColumnSchema`/`arrowColumnSchemas`/`arrowSchemaSummary`, `hasArrowField`/`hasAllArrowFields`/`hasAnyArrowField`/`hasArrowProjection`),
 `ParquetScan.init` plus scan device metadata (`deviceValue`, `deviceBackend`,
