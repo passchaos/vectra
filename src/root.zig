@@ -421,6 +421,24 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqualStrings("i32", id_view.dtypeName());
         try std.testing.expect(id_view.isCpu());
         try std.testing.expectEqualStrings("cpu", id_view.deviceBackendName());
+        const view_null_counts = try view.columnNullCounts(gpa);
+        defer gpa.free(view_null_counts);
+        try std.testing.expectEqualSlices(usize, &.{0}, view_null_counts);
+        const view_valid_counts = try view.columnValidCounts(gpa);
+        defer gpa.free(view_valid_counts);
+        try std.testing.expectEqualSlices(usize, &.{2}, view_valid_counts);
+        try std.testing.expectEqual(@as(usize, 0), view.nullCount());
+        try std.testing.expectEqual(@as(usize, 2), view.validCount());
+        try std.testing.expectEqual(@as(usize, 2), view.cellCount());
+        try std.testing.expectApproxEqAbs(@as(f64, 0.0), view.nullRatio(), 1e-12);
+        try std.testing.expectApproxEqAbs(@as(f64, 1.0), view.validRatio(), 1e-12);
+        const view_memory = try view.columnMemoryUsage(gpa);
+        defer gpa.free(view_memory);
+        try std.testing.expectEqualSlices(usize, &.{id_view.totalNbytes()}, view_memory);
+        try std.testing.expectEqual(id_view.dataNbytes(), view.dataNbytes());
+        try std.testing.expectEqual(id_view.validityNbytes(), view.validityNbytes());
+        try std.testing.expectEqual(id_view.totalNbytes(), view.totalNbytes());
+        try std.testing.expectEqual(view.totalNbytes(), view.estimatedSize());
         try std.testing.expect(std.mem.eql(u8, "id", try view.columnNameAt(0)));
         try std.testing.expectError(error.IndexOutOfBounds, view.columnAt(1));
     }

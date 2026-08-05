@@ -200,9 +200,9 @@ never by CPU generation followed by upload. Arrays implement Zig's standard `{f}
 with a PyTorch-like `tensor(...)` representation, e.g. `try writer.print("{f}", .{array})`;
 `DeviceDataFrame` follows the same device model for tabular fixed-width data:
 construct on `vx.cpu`, `vx.cuda(index)`, or `vx.mps(index)`, inspect zero-copy
-`DeviceDataFrameView` metadata (shape aliases, device/backend predicates,
-shape/device comparison, column lookup by name or index, and `DeviceColumnView`
-null/memory helpers) for backend bridges,
+`DeviceDataFrameView` metadata (shape aliases, table-level null/memory totals,
+device/backend predicates, shape/device comparison, column lookup by name or
+index, and `DeviceColumnView` null/memory helpers) for backend bridges,
 and transfer the whole table
 with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is available.
 `DeviceDataFrame` exposes shape, schema, and emptiness metadata (`height`,

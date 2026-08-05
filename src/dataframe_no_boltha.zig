@@ -199,6 +199,157 @@ pub const DeviceDataFrameView = struct {
         return .{ .rows = self.rows, .cols = self.columns.len };
     }
 
+    pub fn columnNullCounts(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.nullCount();
+        return out;
+    }
+
+    pub fn columnValidCounts(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.validCount();
+        return out;
+    }
+
+    pub fn nullCount(self: DeviceDataFrameView) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| count += column_value.nullCount();
+        return count;
+    }
+
+    pub fn validCount(self: DeviceDataFrameView) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| count += column_value.validCount();
+        return count;
+    }
+
+    pub fn cellCount(self: DeviceDataFrameView) usize {
+        return self.rows * self.columns.len;
+    }
+
+    fn ratioFromCount(count: usize, rows: usize) f64 {
+        if (rows == 0) return std.math.nan(f64);
+        return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));
+    }
+
+    pub fn nullRatio(self: DeviceDataFrameView) f64 {
+        return ratioFromCount(self.nullCount(), self.cellCount());
+    }
+
+    pub fn validRatio(self: DeviceDataFrameView) f64 {
+        return ratioFromCount(self.validCount(), self.cellCount());
+    }
+
+    pub fn columnNullRatios(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]f64 {
+        const out = try allocator.alloc(f64, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = ratioFromCount(column_value.nullCount(), self.rows);
+        return out;
+    }
+
+    pub fn columnValidRatios(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]f64 {
+        const out = try allocator.alloc(f64, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = ratioFromCount(column_value.validCount(), self.rows);
+        return out;
+    }
+
+    pub fn columnNullableMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.nullable();
+        return out;
+    }
+
+    pub fn nullableColumnCount(self: DeviceDataFrameView) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (column_value.nullable()) count += 1;
+        }
+        return count;
+    }
+
+    pub fn nonNullableColumnCount(self: DeviceDataFrameView) usize {
+        return self.columns.len - self.nullableColumnCount();
+    }
+
+    pub fn columnHasNullsMask(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]bool {
+        const out = try allocator.alloc(bool, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.hasNulls();
+        return out;
+    }
+
+    pub fn columnsWithNullsCount(self: DeviceDataFrameView) usize {
+        var count: usize = 0;
+        for (self.columns) |column_value| {
+            if (column_value.hasNulls()) count += 1;
+        }
+        return count;
+    }
+
+    pub fn columnsWithoutNullsCount(self: DeviceDataFrameView) usize {
+        return self.columns.len - self.columnsWithNullsCount();
+    }
+
+    pub fn columnDataNbytes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.dataNbytes();
+        return out;
+    }
+
+    pub fn columnDataMemoryUsage(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnDataNbytes(allocator);
+    }
+
+    pub fn columnValidityNbytes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.validityNbytes();
+        return out;
+    }
+
+    pub fn columnValidityMemoryUsage(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnValidityNbytes(allocator);
+    }
+
+    pub fn columnTotalNbytes(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        const out = try allocator.alloc(usize, self.columns.len);
+        for (self.columns, out) |column_value, *slot| slot.* = column_value.totalNbytes();
+        return out;
+    }
+
+    pub fn columnMemoryUsage(self: DeviceDataFrameView, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnTotalNbytes(allocator);
+    }
+
+    pub fn dataNbytes(self: DeviceDataFrameView) usize {
+        var total: usize = 0;
+        for (self.columns) |column_value| total += column_value.dataNbytes();
+        return total;
+    }
+
+    pub fn dataMemoryUsage(self: DeviceDataFrameView) usize {
+        return self.dataNbytes();
+    }
+
+    pub fn validityNbytes(self: DeviceDataFrameView) usize {
+        var total: usize = 0;
+        for (self.columns) |column_value| total += column_value.validityNbytes();
+        return total;
+    }
+
+    pub fn validityMemoryUsage(self: DeviceDataFrameView) usize {
+        return self.validityNbytes();
+    }
+
+    pub fn totalNbytes(self: DeviceDataFrameView) usize {
+        return self.dataNbytes() + self.validityNbytes();
+    }
+
+    pub fn memoryUsage(self: DeviceDataFrameView) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: DeviceDataFrameView) usize {
+        return self.totalNbytes();
+    }
+
     pub fn isEmpty(self: DeviceDataFrameView) bool {
         return self.rows == 0 or self.columns.len == 0;
     }
