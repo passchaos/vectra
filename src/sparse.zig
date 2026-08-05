@@ -1412,6 +1412,29 @@ fn sparseDenseCopyOut(comptime T: type, result_in: array_mod.Array(T), out: arra
     try out_view.copyFromArray(result);
 }
 
+fn sparseDenseUniqueCountsCopyOut(comptime T: type, result_in: array_mod.Array(T).UniqueCounts, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var values_view = try values_out.asView();
+    defer values_view.deinit();
+    try values_view.copyFromArray(result.values);
+    var counts_view = try counts_out.asView();
+    defer counts_view.deinit();
+    try counts_view.copyFromArray(result.counts);
+}
+
+fn sparseDenseHistogramCopyOut(comptime T: type, result_in: array_mod.Array(T).HistogramResult, counts_out: array_mod.Array(usize), edges_out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.counts.deinit();
+    defer result.edges.deinit();
+    var counts_view = try counts_out.asView();
+    defer counts_view.deinit();
+    try counts_view.copyFromArray(result.counts);
+    var edges_view = try edges_out.asView();
+    defer edges_view.deinit();
+    try edges_view.copyFromArray(result.edges);
+}
+
 fn sparseScalarComparisonOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
     // Scalar sparse comparisons intentionally preserve the stored sparse
     // structure. The caller-owned `*ScalarOut` APIs are dense Array parity
@@ -7814,16 +7837,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUniqueWithCounts(T, self);
         }
 
+        pub fn uniqueWithCountsOut(self: Self, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseUniqueCountsCopyOut(T, try self.uniqueWithCounts(), values_out, counts_out);
+        }
+
         pub fn bincount(self: Self, minlength: usize) SparseError!array_mod.Array(usize) {
             return sparseDenseBincount(T, self, minlength);
+        }
+
+        pub fn bincountOut(self: Self, minlength: usize, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bincount(minlength), out);
         }
 
         pub fn bincountWeighted(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize) SparseError!array_mod.Array(W) {
             return sparseDenseBincountWeighted(T, W, self, weights, minlength);
         }
 
+        pub fn bincountWeightedOut(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize, out: array_mod.Array(W)) SparseError!void {
+            try sparseDenseCopyOut(W, try self.bincountWeighted(W, weights, minlength), out);
+        }
+
         pub fn histogram(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange) SparseError!array_mod.Array(T).HistogramResult {
             return sparseDenseHistogram(T, self, bins, range);
+        }
+
+        pub fn histogramOut(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange, counts_out: array_mod.Array(usize), edges_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseHistogramCopyOut(T, try self.histogram(bins, range), counts_out, edges_out);
         }
 
         pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
@@ -14906,16 +14945,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUniqueWithCounts(T, self);
         }
 
+        pub fn uniqueWithCountsOut(self: Self, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseUniqueCountsCopyOut(T, try self.uniqueWithCounts(), values_out, counts_out);
+        }
+
         pub fn bincount(self: Self, minlength: usize) SparseError!array_mod.Array(usize) {
             return sparseDenseBincount(T, self, minlength);
+        }
+
+        pub fn bincountOut(self: Self, minlength: usize, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bincount(minlength), out);
         }
 
         pub fn bincountWeighted(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize) SparseError!array_mod.Array(W) {
             return sparseDenseBincountWeighted(T, W, self, weights, minlength);
         }
 
+        pub fn bincountWeightedOut(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize, out: array_mod.Array(W)) SparseError!void {
+            try sparseDenseCopyOut(W, try self.bincountWeighted(W, weights, minlength), out);
+        }
+
         pub fn histogram(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange) SparseError!array_mod.Array(T).HistogramResult {
             return sparseDenseHistogram(T, self, bins, range);
+        }
+
+        pub fn histogramOut(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange, counts_out: array_mod.Array(usize), edges_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseHistogramCopyOut(T, try self.histogram(bins, range), counts_out, edges_out);
         }
 
         pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
@@ -22211,16 +22266,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUniqueWithCounts(T, self);
         }
 
+        pub fn uniqueWithCountsOut(self: Self, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseUniqueCountsCopyOut(T, try self.uniqueWithCounts(), values_out, counts_out);
+        }
+
         pub fn bincount(self: Self, minlength: usize) SparseError!array_mod.Array(usize) {
             return sparseDenseBincount(T, self, minlength);
+        }
+
+        pub fn bincountOut(self: Self, minlength: usize, out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseCopyOut(usize, try self.bincount(minlength), out);
         }
 
         pub fn bincountWeighted(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize) SparseError!array_mod.Array(W) {
             return sparseDenseBincountWeighted(T, W, self, weights, minlength);
         }
 
+        pub fn bincountWeightedOut(self: Self, comptime W: type, weights: array_mod.Array(W), minlength: usize, out: array_mod.Array(W)) SparseError!void {
+            try sparseDenseCopyOut(W, try self.bincountWeighted(W, weights, minlength), out);
+        }
+
         pub fn histogram(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange) SparseError!array_mod.Array(T).HistogramResult {
             return sparseDenseHistogram(T, self, bins, range);
+        }
+
+        pub fn histogramOut(self: Self, bins: usize, range: ?array_mod.Array(T).HistogramRange, counts_out: array_mod.Array(usize), edges_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseHistogramCopyOut(T, try self.histogram(bins, range), counts_out, edges_out);
         }
 
         pub fn searchsorted(self: Self, values: array_mod.Array(T), side: array_mod.SearchSide) SparseError!array_mod.Array(usize) {
@@ -27551,6 +27622,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectArray(unique_counts.values, &.{4}, unique_values.data);
             try std.testing.expectEqualSlices(usize, &.{4}, unique_counts.counts.shape);
             try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 1 }, unique_counts.counts.data);
+            var unique_values_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{4});
+            defer unique_values_out.deinit();
+            var unique_counts_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{4});
+            defer unique_counts_out.deinit();
+            try matrix.uniqueWithCountsOut(unique_values_out, unique_counts_out);
+            try expectArray(unique_values_out, &.{4}, unique_counts.values.data);
+            try std.testing.expectEqualSlices(usize, unique_counts.counts.data, unique_counts_out.data);
 
             var union_values = try matrix.union1d(rhs_matrix);
             defer union_values.deinit();
@@ -29799,6 +29877,10 @@ test "sparse dense count and histogram helpers" {
             defer counts.deinit();
             try std.testing.expectEqualSlices(usize, &.{5}, counts.shape);
             try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 1, 0 }, counts.data);
+            var counts_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{5});
+            defer counts_out.deinit();
+            try matrix.bincountOut(5, counts_out);
+            try std.testing.expectEqualSlices(usize, counts.data, counts_out.data);
 
             var weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
@@ -29809,6 +29891,10 @@ test "sparse dense count and histogram helpers" {
             defer weighted_counts.deinit();
             try std.testing.expectEqualSlices(usize, &.{5}, weighted_counts.shape);
             try std.testing.expectEqualSlices(f64, &.{ 8, 3, 4, 6, 0 }, weighted_counts.data);
+            var weighted_counts_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{5});
+            defer weighted_counts_out.deinit();
+            try matrix.bincountWeightedOut(f64, weights, 5, weighted_counts_out);
+            try std.testing.expectEqualSlices(f64, weighted_counts.data, weighted_counts_out.data);
 
             var bad_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2, 3, 4, 5 }, &.{5});
             defer bad_weights.deinit();
@@ -29839,6 +29925,13 @@ test "sparse dense count and histogram helpers" {
             try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 0, 1 }, hist.counts.data);
             try std.testing.expectEqualSlices(usize, &.{6}, hist.edges.shape);
             try std.testing.expectEqualSlices(f64, &.{ 0, 1, 2, 3, 4, 5 }, hist.edges.data);
+            var counts_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{5});
+            defer counts_out.deinit();
+            var edges_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{6});
+            defer edges_out.deinit();
+            try matrix.histogramOut(5, .{ .min = 0, .max = 5 }, counts_out, edges_out);
+            try std.testing.expectEqualSlices(usize, hist.counts.data, counts_out.data);
+            try std.testing.expectEqualSlices(f64, hist.edges.data, edges_out.data);
 
             try std.testing.expectError(error.InvalidShape, matrix.histogram(0, .{ .min = 0, .max = 5 }));
         }
