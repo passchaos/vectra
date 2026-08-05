@@ -728,6 +728,21 @@ pub fn DeviceParquetScan(
             };
         }
 
+        pub fn whereMin(self: *Self, column: []const u8, comptime T: type, min_value: T) std.mem.Allocator.Error!void {
+            const tag = comptime array_mod.DType.of(T);
+            try self.whereRange(column, @unionInit(ParquetRangePredicate, @tagName(tag), .{ .min = min_value }));
+        }
+
+        pub fn whereMax(self: *Self, column: []const u8, comptime T: type, max_value: T) std.mem.Allocator.Error!void {
+            const tag = comptime array_mod.DType.of(T);
+            try self.whereRange(column, @unionInit(ParquetRangePredicate, @tagName(tag), .{ .max = max_value }));
+        }
+
+        pub fn whereBetween(self: *Self, column: []const u8, comptime T: type, min_value: T, max_value: T) std.mem.Allocator.Error!void {
+            const tag = comptime array_mod.DType.of(T);
+            try self.whereRange(column, @unionInit(ParquetRangePredicate, @tagName(tag), .{ .min = min_value, .max = max_value }));
+        }
+
         pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
             self.clearNullPredicate();
             self.clearRangePredicate();

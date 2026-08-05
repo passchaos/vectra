@@ -8289,7 +8289,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqualStrings("sales", explicit_scan_fields[0].name);
     const projection_metadata_nbytes = 2 * @sizeOf([]const u8) + "sales".len + "units".len;
     try std.testing.expectEqual(@as(usize, projection_metadata_nbytes), vectra.ArrowExport.ParquetScan.projectionMetadataNbytes(grouped_scan));
-    try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
+    try vectra.ArrowExport.ParquetScan.Pushdown.whereMin(&grouped_scan, "sales", f64, 0.0);
     try vectra.ArrowExport.ParquetScan.validatePredicate(grouped_scan);
     try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
@@ -8303,6 +8303,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasRangePredicateFor(grouped_scan, "units"));
     try std.testing.expectEqual(vectra.DeviceDType.f64, vectra.ArrowExport.ParquetScan.rangePredicateDType(grouped_scan).?);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
+    try vectra.ArrowExport.ParquetScan.whereMax(&grouped_scan, "sales", f64, 10.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 10.0);
+    try vectra.ArrowExport.ParquetScan.whereBetween(&grouped_scan, "sales", f64, 0.0, 10.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 10.0);
     var wrong_dtype_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer wrong_dtype_scan.deinit();
     try vectra.ArrowExport.ParquetScan.whereRange(&wrong_dtype_scan, "sales", .{ .i64 = .{ .min = 0 } });

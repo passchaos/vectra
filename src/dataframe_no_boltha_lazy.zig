@@ -605,6 +605,18 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn whereMin(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn whereMax(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn whereBetween(_: *DeviceParquetScan, _: []const u8, comptime _: type, _: anytype, _: anytype) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn whereNull(_: *DeviceParquetScan, _: []const u8, _: bool) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }
