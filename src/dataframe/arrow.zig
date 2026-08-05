@@ -142,17 +142,26 @@ pub const fromArrowRecordBatchProjection = arrow_import_mod.fromArrowRecordBatch
 ///
 /// The dataframe may own CPU, CUDA, or MPS columns; schema export only inspects
 /// column metadata, while array materialization remains in `toArrowRecordBatch`.
-pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
+pub fn toArrowFields(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError![]boltha.arrow.Field {
     var fields = try allocator.alloc(boltha.arrow.Field, frame.columns.len);
-    defer allocator.free(fields);
     var initialized: usize = 0;
-    defer {
+    errdefer {
         for (fields[0..initialized]) |*field| field.deinit(allocator);
+        allocator.free(fields);
     }
 
     for (frame.names, frame.columns, 0..) |name, col, i| {
         fields[i] = try deviceColumnSchemaToArrowField(allocator, col.schema(name));
         initialized += 1;
+    }
+    return fields;
+}
+
+pub fn toArrowSchema(frame: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Schema {
+    const fields = try toArrowFields(frame, allocator);
+    defer {
+        for (fields) |*field| field.deinit(allocator);
+        allocator.free(fields);
     }
     return boltha.arrow.Schema.init(allocator, fields);
 }

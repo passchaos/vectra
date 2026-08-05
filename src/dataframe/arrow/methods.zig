@@ -30,6 +30,10 @@ pub fn toArrowSchema(self: anytype, allocator: std.mem.Allocator) ArrowInteropEr
     return dataframe_arrow_mod.toArrowSchema(frameValue(self), allocator);
 }
 
+pub fn toArrowFields(self: anytype, allocator: std.mem.Allocator) ArrowInteropError![]boltha.arrow.Field {
+    return dataframe_arrow_mod.toArrowFields(frameValue(self), allocator);
+}
+
 pub fn toArrowRecordBatch(self: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.RecordBatch {
     return dataframe_arrow_mod.toArrowRecordBatch(frameValue(self), allocator);
 }

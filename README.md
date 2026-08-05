@@ -1038,8 +1038,8 @@ pairs; the non-`On` join names remain single-key convenience wrappers.
 strategies, preserving all left rows and nullable right payloads when no
 candidate exists.
 Arrow/Parquet/IPC interoperability is intentionally delegated to the sibling
-[`../boltha`](../boltha) package: `DeviceDataFrame.toArrowSchema`,
-`toArrowRecordBatch`, and `toArrowTable` materialize Boltha-owned Arrow objects
+[`../boltha`](../boltha) package: `DeviceDataFrame.toArrowFields`,
+`toArrowSchema`, `toArrowRecordBatch`, and `toArrowTable` materialize Boltha-owned Arrow objects
 from CPU/CUDA/MPS columns rather than reimplementing Arrow inside Vectra.
 Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension

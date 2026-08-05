@@ -7777,6 +7777,14 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 0), schema.fieldIndexByName("sales"));
     const table_schema = try table.schema(gpa);
     defer gpa.free(table_schema);
+    const arrow_fields = try table.toArrowFields(gpa);
+    defer {
+        for (arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(arrow_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 3), arrow_fields.len);
+    try std.testing.expect(std.mem.eql(u8, table_schema[0].name, arrow_fields[0].name));
+    try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, schema.fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), schema.fields[1].nullable);
     try std.testing.expectEqual(table_schema[2].nullableColumn(), schema.fields[2].nullable);

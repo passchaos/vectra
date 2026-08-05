@@ -1165,6 +1165,7 @@ pub const DeviceDataFrame = struct {
     pub const dropRowsByColumnMask = table_methods_mod.dropRowsByColumnMask;
     pub const whereIndicesColumn = table_methods_mod.whereIndicesColumn;
     pub const argwhereColumn = table_methods_mod.argwhereColumn;
+    pub const toArrowFields = arrow_methods_mod.toArrowFields;
     pub const toArrowSchema = arrow_methods_mod.toArrowSchema;
     pub const toArrowRecordBatch = arrow_methods_mod.toArrowRecordBatch;
     pub const toArrowTable = arrow_methods_mod.toArrowTable;
