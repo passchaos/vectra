@@ -451,10 +451,18 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn columnDataMemoryUsage(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnDataNbytes(allocator);
+    }
+
     pub fn columnValidityNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
         const out = try allocator.alloc(usize, self.columns.len);
         for (self.columns, out) |column_value, *slot| slot.* = column_value.validityNbytes();
         return out;
+    }
+
+    pub fn columnValidityMemoryUsage(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnValidityNbytes(allocator);
     }
 
     pub fn columnTotalNbytes(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
@@ -463,10 +471,18 @@ pub const DeviceDataFrame = struct {
         return out;
     }
 
+    pub fn columnMemoryUsage(self: DeviceDataFrame, allocator: std.mem.Allocator) std.mem.Allocator.Error![]usize {
+        return self.columnTotalNbytes(allocator);
+    }
+
     pub fn dataNbytes(self: DeviceDataFrame) usize {
         var total: usize = 0;
         for (self.columns) |column_value| total += column_value.dataNbytes();
         return total;
+    }
+
+    pub fn dataMemoryUsage(self: DeviceDataFrame) usize {
+        return self.dataNbytes();
     }
 
     pub fn validityNbytes(self: DeviceDataFrame) usize {
@@ -475,8 +491,20 @@ pub const DeviceDataFrame = struct {
         return total;
     }
 
+    pub fn validityMemoryUsage(self: DeviceDataFrame) usize {
+        return self.validityNbytes();
+    }
+
     pub fn totalNbytes(self: DeviceDataFrame) usize {
         return self.dataNbytes() + self.validityNbytes();
+    }
+
+    pub fn memoryUsage(self: DeviceDataFrame) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: DeviceDataFrame) usize {
+        return self.totalNbytes();
     }
 
     pub fn columnSchemaAt(self: DeviceDataFrame, index: usize) DeviceDataError!DeviceColumnSchema {
