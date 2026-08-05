@@ -7862,32 +7862,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSetOp(T, self, rhs, .union1d);
         }
 
+        pub fn union1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1d(rhs), out);
+        }
+
         pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1dArray(rhs), out);
         }
 
         pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
         }
 
+        pub fn intersect1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1d(rhs), out);
+        }
+
         pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1dArray(rhs), out);
         }
 
         pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
         }
 
+        pub fn setdiff1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1d(rhs), out);
+        }
+
         pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1dArray(rhs), out);
         }
 
         pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
+        pub fn setxor1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1d(rhs), out);
+        }
+
         pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1dArray(rhs), out);
         }
 
         pub fn solveTriangular(self: Self, rhs: array_mod.Array(T), triangle: Triangle, diagonal_kind: Diagonal) SparseError!array_mod.Array(T) {
@@ -14890,32 +14922,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSetOp(T, self, rhs, .union1d);
         }
 
+        pub fn union1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1d(rhs), out);
+        }
+
         pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1dArray(rhs), out);
         }
 
         pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
         }
 
+        pub fn intersect1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1d(rhs), out);
+        }
+
         pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1dArray(rhs), out);
         }
 
         pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
         }
 
+        pub fn setdiff1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1d(rhs), out);
+        }
+
         pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1dArray(rhs), out);
         }
 
         pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
+        pub fn setxor1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1d(rhs), out);
+        }
+
         pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1dArray(rhs), out);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -22131,32 +22195,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSetOp(T, self, rhs, .union1d);
         }
 
+        pub fn union1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1d(rhs), out);
+        }
+
         pub fn union1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .union1d);
+        }
+
+        pub fn union1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.union1dArray(rhs), out);
         }
 
         pub fn intersect1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
         }
 
+        pub fn intersect1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1d(rhs), out);
+        }
+
         pub fn intersect1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .intersect1d);
+        }
+
+        pub fn intersect1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.intersect1dArray(rhs), out);
         }
 
         pub fn setdiff1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
         }
 
+        pub fn setdiff1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1d(rhs), out);
+        }
+
         pub fn setdiff1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setdiff1d);
+        }
+
+        pub fn setdiff1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setdiff1dArray(rhs), out);
         }
 
         pub fn setxor1d(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
         }
 
+        pub fn setxor1dOut(self: Self, rhs: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1d(rhs), out);
+        }
+
         pub fn setxor1dArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSetOp(T, self, rhs, .setxor1d);
+        }
+
+        pub fn setxor1dArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.setxor1dArray(rhs), out);
         }
 
         pub fn matrixNorm(self: Self, order: array_mod.MatrixNormOrder, tolerance: T) SparseError!T {
@@ -27363,34 +27459,58 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var union_values = try matrix.union1d(rhs_matrix);
             defer union_values.deinit();
             try expectArray(union_values, &.{7}, &.{ -2, 0, 1, 2, 3, 4, 6 });
+            var union_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{7});
+            defer union_out.deinit();
+            try matrix.union1dOut(rhs_matrix, union_out);
+            try expectArray(union_out, &.{7}, union_values.data);
 
             var union_array_values = try matrix.union1dArray(rhs_dense);
             defer union_array_values.deinit();
             try expectArray(union_array_values, &.{7}, union_values.data);
+            try matrix.union1dArrayOut(rhs_dense, union_out);
+            try expectArray(union_out, &.{7}, union_array_values.data);
 
             var intersection_values = try matrix.intersect1d(rhs_matrix);
             defer intersection_values.deinit();
             try expectArray(intersection_values, &.{1}, &.{0});
+            var intersection_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{1});
+            defer intersection_out.deinit();
+            try matrix.intersect1dOut(rhs_matrix, intersection_out);
+            try expectArray(intersection_out, &.{1}, intersection_values.data);
 
             var intersection_array_values = try matrix.intersect1dArray(rhs_dense);
             defer intersection_array_values.deinit();
             try expectArray(intersection_array_values, &.{1}, intersection_values.data);
+            try matrix.intersect1dArrayOut(rhs_dense, intersection_out);
+            try expectArray(intersection_out, &.{1}, intersection_array_values.data);
 
             var difference_values = try matrix.setdiff1d(rhs_matrix);
             defer difference_values.deinit();
             try expectArray(difference_values, &.{3}, &.{ 1, 2, 3 });
+            var difference_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer difference_out.deinit();
+            try matrix.setdiff1dOut(rhs_matrix, difference_out);
+            try expectArray(difference_out, &.{3}, difference_values.data);
 
             var difference_array_values = try matrix.setdiff1dArray(rhs_dense);
             defer difference_array_values.deinit();
             try expectArray(difference_array_values, &.{3}, difference_values.data);
+            try matrix.setdiff1dArrayOut(rhs_dense, difference_out);
+            try expectArray(difference_out, &.{3}, difference_array_values.data);
 
             var xor_values = try matrix.setxor1d(rhs_matrix);
             defer xor_values.deinit();
             try expectArray(xor_values, &.{6}, &.{ -2, 1, 2, 3, 4, 6 });
+            var xor_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{6});
+            defer xor_out.deinit();
+            try matrix.setxor1dOut(rhs_matrix, xor_out);
+            try expectArray(xor_out, &.{6}, xor_values.data);
 
             var xor_array_values = try matrix.setxor1dArray(rhs_dense);
             defer xor_array_values.deinit();
             try expectArray(xor_array_values, &.{6}, xor_values.data);
+            try matrix.setxor1dArrayOut(rhs_dense, xor_out);
+            try expectArray(xor_out, &.{6}, xor_array_values.data);
 
             var flat_indices = try array_mod.Array(usize).fromSlice(matrix.allocator, &.{ 5, 0, 4 }, &.{3});
             defer flat_indices.deinit();
