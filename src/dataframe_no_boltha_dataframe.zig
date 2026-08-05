@@ -416,6 +416,10 @@ pub fn DeviceDataFrameType(
             return true;
         }
 
+        pub fn sameStorage(_: Self, _: Self) bool {
+            return true;
+        }
+
         pub fn shapeEquals(_: Self, rows: usize, columns: usize) bool {
             return rows == 0 and columns == 0;
         }

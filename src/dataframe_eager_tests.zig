@@ -363,6 +363,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!table.hasAnyColumn(&.{ "missing", "absent" }));
     var table_clone = try table.clone();
     defer table_clone.deinit();
+    try std.testing.expect(table.sameStorage(table));
+    try std.testing.expect(!table.sameStorage(table_clone));
     try std.testing.expect(table.sameShape(table_clone));
     try std.testing.expect(table.sameHeight(table_clone));
     try std.testing.expect(table.sameWidth(table_clone));

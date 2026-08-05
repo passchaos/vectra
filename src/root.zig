@@ -421,6 +421,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 0), shape_value.rows);
         try std.testing.expectEqual(@as(usize, 0), shape_value.cols);
         try std.testing.expect(frame.hasShape(0, 0));
+        try std.testing.expect(frame.sameStorage(frame));
         try std.testing.expect(frame.columnIndex("missing") == null);
         try std.testing.expectError(error.ColumnNotFound, frame.columnDType("missing"));
         try std.testing.expectError(error.IndexOutOfBounds, frame.columnDTypeAt(0));

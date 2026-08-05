@@ -610,6 +610,14 @@ pub const DeviceDataFrame = struct {
         return self.rows == other.rows and self.columns.len == other.columns.len;
     }
 
+    pub fn sameStorage(self: DeviceDataFrame, other: DeviceDataFrame) bool {
+        if (!self.sameShape(other)) return false;
+        for (self.columns, other.columns) |left_column, right_column| {
+            if (!left_column.sameStorage(right_column)) return false;
+        }
+        return true;
+    }
+
     pub fn shapeEquals(self: DeviceDataFrame, rows: usize, columns: usize) bool {
         return self.rows == rows and self.columns.len == columns;
     }
