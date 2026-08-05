@@ -543,6 +543,22 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn validateProjection(_: DeviceParquetScan) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validatePredicate(_: DeviceParquetScan) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validatePushdown(_: DeviceParquetScan) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn pushdownValid(_: DeviceParquetScan) bool {
+                return false;
+            }
+
             pub fn pushdownSummary(_: DeviceParquetScan) DeviceParquetScanPushdownSummary {
                 return .{};
             }

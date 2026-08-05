@@ -8206,6 +8206,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan) == null);
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasPredicateFor(grouped_scan, "sales"));
     try vectra.ArrowExport.ParquetScan.Pushdown.select(&grouped_scan, &.{ "sales", "units" });
+    try vectra.ArrowExport.ParquetScan.Pushdown.validateProjection(grouped_scan);
+    try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasProjection(grouped_scan));
     try std.testing.expectEqual(@as(usize, 2), vectra.ArrowExport.ParquetScan.projectionColumnCount(grouped_scan));
     try std.testing.expect(std.mem.eql(u8, "sales", vectra.ArrowExport.ParquetScan.projectionNames(grouped_scan)[0]));
@@ -8258,6 +8261,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), explicit_scan_schema.fieldCount());
     try std.testing.expectEqualStrings("active", explicit_scan_schema.fields[0].name);
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.toArrowSchemaProjection(grouped_scan, gpa, &.{"missing"}));
+    var invalid_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
+    defer invalid_scan.deinit();
+    vectra.ArrowExport.ParquetScan.clearPushdown(&invalid_scan);
+    try vectra.ArrowExport.ParquetScan.select(&invalid_scan, &.{"missing"});
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.validateProjection(invalid_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.pushdownValid(invalid_scan));
     const projected_scan_fields = try vectra.ArrowExport.ParquetScan.toArrowFields(grouped_scan, gpa);
     defer {
         for (projected_scan_fields) |*field| field.deinit(gpa);
@@ -8275,6 +8284,9 @@ test "device dataframe exports boltha arrow record batch" {
     const projection_metadata_nbytes = 2 * @sizeOf([]const u8) + "sales".len + "units".len;
     try std.testing.expectEqual(@as(usize, projection_metadata_nbytes), vectra.ArrowExport.ParquetScan.projectionMetadataNbytes(grouped_scan));
     try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
+    try vectra.ArrowExport.ParquetScan.validatePredicate(grouped_scan);
+    try vectra.ArrowExport.ParquetScan.validatePushdown(grouped_scan);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.pushdownValid(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPredicate(grouped_scan));
     try std.testing.expectEqualStrings("sales", vectra.ArrowExport.ParquetScan.predicateColumn(grouped_scan).?);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPredicateFor(grouped_scan, "sales"));

@@ -491,6 +491,28 @@ pub fn DeviceParquetScan(
             return self.hasProjection() or self.hasRangePredicate() or self.hasNullPredicate();
         }
 
+        pub fn validateProjection(self: Self) ParquetInteropError!void {
+            if (self.projection) |names| {
+                var schema = try self.toArrowSchemaProjection(self.allocator, names);
+                defer schema.deinit(self.allocator);
+            }
+        }
+
+        pub fn validatePredicate(self: Self) ParquetInteropError!void {
+            const column = self.predicateColumn() orelse return;
+            if (!self.hasArrowProjection(&.{column})) return error.ColumnNotFound;
+        }
+
+        pub fn validatePushdown(self: Self) ParquetInteropError!void {
+            try self.validateProjection();
+            try self.validatePredicate();
+        }
+
+        pub fn pushdownValid(self: Self) bool {
+            self.validatePushdown() catch return false;
+            return true;
+        }
+
         pub fn pushdownSummary(self: Self) DeviceParquetScanPushdownSummary {
             return .{
                 .has_projection = self.hasProjection(),
