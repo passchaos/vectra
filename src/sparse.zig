@@ -11360,6 +11360,10 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowNorms(), out);
+        }
+
         pub fn columnNorms(self: Self) SparseError!array_mod.Array(T) {
             ensureFloat(T);
             var out = try array_mod.Array(T).zeros(self.allocator, &.{self.cols});
@@ -11367,6 +11371,10 @@ pub fn CooMatrix(comptime T: type) type {
             for (self.values, 0..) |value, i| out.data[self.col_indices[i]] += value * value;
             for (out.data) |*value| value.* = @sqrt(value.*);
             return out;
+        }
+
+        pub fn columnNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnNorms(), out);
         }
 
         pub fn rowNormsInRange(self: Self, min_norm: T, max_norm: T) SparseError!bool {
@@ -20266,6 +20274,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn rowNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowNorms(), out);
+        }
+
         fn rowNormsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CsrMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.rows) catch return error.BackendFailure;
@@ -20287,6 +20299,10 @@ pub fn CsrMatrix(comptime T: type) type {
             }
             for (out.data) |*value| value.* = @sqrt(value.*);
             return out;
+        }
+
+        pub fn columnNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnNorms(), out);
         }
 
         fn columnNormsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -28802,6 +28818,10 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn columnNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.columnNorms(), out);
+        }
+
         fn columnNormsF64(self: Self) SparseError!array_mod.Array(f64) {
             const veyra_view = try @as(CscMatrix(f64), self).asVeyraView();
             var out = veyra.Vector(f64).zeros(self.allocator, self.cols) catch return error.BackendFailure;
@@ -28823,6 +28843,10 @@ pub fn CscMatrix(comptime T: type) type {
             }
             for (out.data) |*value| value.* = @sqrt(value.*);
             return out;
+        }
+
+        pub fn rowNormsOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.rowNorms(), out);
         }
 
         fn rowNormsF64(self: Self) SparseError!array_mod.Array(f64) {
@@ -30399,6 +30423,8 @@ test "coo sparse row and column statistics" {
 
     var row_norms = try coo.rowNorms();
     defer row_norms.deinit();
+    try coo.rowNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(5.0)), row_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(41.0)), row_norms.data[2], 1e-12);
@@ -30407,6 +30433,8 @@ test "coo sparse row and column statistics" {
     try std.testing.expectError(error.InvalidShape, coo.rowNormsInRange(-0.1, 1));
     var col_norms = try coo.columnNorms();
     defer col_norms.deinit();
+    try coo.columnNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
@@ -38464,6 +38492,8 @@ test "csr sparse row and column statistics" {
 
     var row_norms = try csr.rowNorms();
     defer row_norms.deinit();
+    try csr.rowNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(5.0)), row_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(41.0)), row_norms.data[2], 1e-12);
@@ -38472,6 +38502,8 @@ test "csr sparse row and column statistics" {
     try std.testing.expectError(error.InvalidShape, csr.rowNormsInRange(-0.1, 1));
     var col_norms = try csr.columnNorms();
     defer col_norms.deinit();
+    try csr.columnNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
@@ -39216,6 +39248,8 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expect(!(try csc.columnAbsSumsInRange(4, 7)));
     var row_norms = try csc.rowNorms();
     defer row_norms.deinit();
+    try csc.rowNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, row_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(5.0)), row_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), row_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(41.0)), row_norms.data[2], 1e-12);
@@ -39224,6 +39258,8 @@ test "csc sparse transpose products and row column stats" {
     try std.testing.expectError(error.InvalidShape, csc.rowNormsInRange(-0.1, 1));
     var col_norms = try csc.columnNorms();
     defer col_norms.deinit();
+    try csc.columnNormsOut(row_value_out);
+    try std.testing.expectEqualSlices(f64, col_norms.data, row_value_out.data);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(17.0)), col_norms.data[0], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, 3), col_norms.data[1], 1e-12);
     try std.testing.expectApproxEqAbs(@as(f64, @sqrt(29.0)), col_norms.data[2], 1e-12);
