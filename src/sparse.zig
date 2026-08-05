@@ -1412,6 +1412,17 @@ fn sparseDenseCopyOut(comptime T: type, result_in: array_mod.Array(T), out: arra
     try out_view.copyFromArray(result);
 }
 
+fn sparseDenseFrexpCopyOut(comptime T: type, result_in: array_mod.Array(T).FrexpResult, significand_out: array_mod.Array(T), exponent_out: array_mod.Array(i32)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var significand_view = try significand_out.asView();
+    defer significand_view.deinit();
+    try significand_view.copyFromArray(result.significand);
+    var exponent_view = try exponent_out.asView();
+    defer exponent_view.deinit();
+    try exponent_view.copyFromArray(result.exponent);
+}
+
 fn sparseDenseUniqueCountsCopyOut(comptime T: type, result_in: array_mod.Array(T).UniqueCounts, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
     var result = result_in;
     defer result.deinit();
@@ -8234,6 +8245,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseLdexp(T, self, exponents);
         }
 
+        pub fn ldexpOut(self: Self, exponents: array_mod.Array(i32), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexp(exponents), out);
+        }
+
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
         }
@@ -8246,32 +8261,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseFrexp(T, self);
         }
 
+        pub fn frexpOut(self: Self, significand_out: array_mod.Array(T), exponent_out: array_mod.Array(i32)) SparseError!void {
+            try sparseDenseFrexpCopyOut(T, try self.frexp(), significand_out, exponent_out);
+        }
+
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addcmulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcmul(input1, input2, value), out);
         }
 
         pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addCMulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
+        }
+
         pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcmulArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
         }
 
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
+        pub fn addcdivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcdiv(input1, input2, value), out);
+        }
+
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addCDivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
         }
 
         pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
+        pub fn addcdivArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
+        }
+
         pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseClipArray(T, self, min_values, max_values);
+        }
+
+        pub fn clipArrayOut(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.clipArray(min_values, max_values), out);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -16506,6 +16553,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseLdexp(T, self, exponents);
         }
 
+        pub fn ldexpOut(self: Self, exponents: array_mod.Array(i32), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexp(exponents), out);
+        }
+
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
         }
@@ -16518,32 +16569,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseFrexp(T, self);
         }
 
+        pub fn frexpOut(self: Self, significand_out: array_mod.Array(T), exponent_out: array_mod.Array(i32)) SparseError!void {
+            try sparseDenseFrexpCopyOut(T, try self.frexp(), significand_out, exponent_out);
+        }
+
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addcmulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcmul(input1, input2, value), out);
         }
 
         pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addCMulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
+        }
+
         pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcmulArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
         }
 
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
+        pub fn addcdivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcdiv(input1, input2, value), out);
+        }
+
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addCDivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
         }
 
         pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
+        pub fn addcdivArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
+        }
+
         pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseClipArray(T, self, min_values, max_values);
+        }
+
+        pub fn clipArrayOut(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.clipArray(min_values, max_values), out);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -24991,6 +25074,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseLdexp(T, self, exponents);
         }
 
+        pub fn ldexpOut(self: Self, exponents: array_mod.Array(i32), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.ldexp(exponents), out);
+        }
+
         pub fn ldexpScalar(self: Self, exponent: i32) SparseError!array_mod.Array(T) {
             return sparseDenseLdexpScalar(T, self, exponent);
         }
@@ -25003,32 +25090,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseFrexp(T, self);
         }
 
+        pub fn frexpOut(self: Self, significand_out: array_mod.Array(T), exponent_out: array_mod.Array(i32)) SparseError!void {
+            try sparseDenseFrexpCopyOut(T, try self.frexp(), significand_out, exponent_out);
+        }
+
         pub fn addcmul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcmul(T, self, input1, input2, value);
+        }
+
+        pub fn addcmulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcmul(input1, input2, value), out);
         }
 
         pub fn addCMul(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
         }
 
+        pub fn addCMulOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
+        }
+
         pub fn addcmulArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcmul(input1, input2, value);
+        }
+
+        pub fn addcmulArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcmulOut(input1, input2, value, out);
         }
 
         pub fn addcdiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return sparseDenseAddcdiv(T, self, input1, input2, value);
         }
 
+        pub fn addcdivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.addcdiv(input1, input2, value), out);
+        }
+
         pub fn addCDiv(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
+        }
+
+        pub fn addCDivOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
         }
 
         pub fn addcdivArray(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T) SparseError!array_mod.Array(T) {
             return self.addcdiv(input1, input2, value);
         }
 
+        pub fn addcdivArrayOut(self: Self, input1: array_mod.Array(T), input2: array_mod.Array(T), value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.addcdivOut(input1, input2, value, out);
+        }
+
         pub fn clipArray(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseClipArray(T, self, min_values, max_values);
+        }
+
+        pub fn clipArrayOut(self: Self, min_values: array_mod.Array(T), max_values: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.clipArray(min_values, max_values), out);
         }
 
         pub fn cumsum(self: Self) SparseError!array_mod.Array(T) {
@@ -34550,6 +34669,8 @@ test "sparse dense fused elementwise helpers" {
             var ldexp_array = try matrix.ldexp(exponents);
             defer ldexp_array.deinit();
             try expectArray(ldexp_array, &.{ 2, 3 }, &.{ 1, 0, 0, 0, 32, 96 });
+            try matrix.ldexpOut(exponents, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, ldexp_array.data);
 
             var exponent_columns = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{ 0, 1, 2 }, &.{ 1, 3 });
             defer exponent_columns.deinit();
@@ -34566,6 +34687,13 @@ test "sparse dense fused elementwise helpers" {
             try expectArray(frexp_result.significand, &.{ 2, 3 }, &.{ 0.5, 0, 0, 0, 0.5, 0.75 });
             try std.testing.expectEqualSlices(usize, &.{ 2, 3 }, frexp_result.exponent.shape);
             try std.testing.expectEqualSlices(i32, &.{ 1, 0, 0, 0, 2, 2 }, frexp_result.exponent.data);
+            var frexp_significand_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer frexp_significand_out.deinit();
+            var frexp_exponent_out = try array_mod.Array(i32).zeros(matrix.allocator, &.{ 2, 3 });
+            defer frexp_exponent_out.deinit();
+            try matrix.frexpOut(frexp_significand_out, frexp_exponent_out);
+            try expectArray(frexp_significand_out, &.{ 2, 3 }, frexp_result.significand.data);
+            try std.testing.expectEqualSlices(i32, frexp_result.exponent.data, frexp_exponent_out.data);
 
             var input1 = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 1, 2, 3,
@@ -34581,26 +34709,38 @@ test "sparse dense fused elementwise helpers" {
             var addcmul = try matrix.addcmul(input1, input2, 0.5);
             defer addcmul.deinit();
             try expectArray(addcmul, &.{ 2, 3 }, &.{ 2, 3, 6, 10, 17, 24 });
+            try matrix.addcmulOut(input1, input2, 0.5, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcmul.data);
 
             var addcmul_alias = try matrix.addCMul(input1, input2, 0.5);
             defer addcmul_alias.deinit();
             try expectArray(addcmul_alias, &.{ 2, 3 }, addcmul.data);
+            try matrix.addCMulOut(input1, input2, 0.5, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcmul_alias.data);
 
             var addcmul_array_alias = try matrix.addcmulArray(input1, input2, 0.5);
             defer addcmul_array_alias.deinit();
             try expectArray(addcmul_array_alias, &.{ 2, 3 }, addcmul.data);
+            try matrix.addcmulArrayOut(input1, input2, 0.5, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcmul_array_alias.data);
 
             var addcdiv = try matrix.addcdiv(input1, input2, 2);
             defer addcdiv.deinit();
             try expectArray(addcdiv, &.{ 2, 3 }, &.{ 2, 4.0 / 3.0, 1.5, 1.6, 11.0 / 3.0, 33.0 / 7.0 });
+            try matrix.addcdivOut(input1, input2, 2, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcdiv.data);
 
             var addcdiv_alias = try matrix.addCDiv(input1, input2, 2);
             defer addcdiv_alias.deinit();
             try expectArray(addcdiv_alias, &.{ 2, 3 }, addcdiv.data);
+            try matrix.addCDivOut(input1, input2, 2, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcdiv_alias.data);
 
             var addcdiv_array_alias = try matrix.addcdivArray(input1, input2, 2);
             defer addcdiv_array_alias.deinit();
             try expectArray(addcdiv_array_alias, &.{ 2, 3 }, addcdiv.data);
+            try matrix.addcdivArrayOut(input1, input2, 2, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, addcdiv_array_alias.data);
 
             var lower = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 0.5, 0.5, 0.5,
@@ -34615,6 +34755,8 @@ test "sparse dense fused elementwise helpers" {
             var clipped = try matrix.clipArray(lower, upper);
             defer clipped.deinit();
             try expectArray(clipped, &.{ 2, 3 }, &.{ 1, 0.5, 0.5, 0.5, 2, 2.5 });
+            try matrix.clipArrayOut(lower, upper, divided_out);
+            try expectArray(divided_out, &.{ 2, 3 }, clipped.data);
 
             var bad = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
             defer bad.deinit();
