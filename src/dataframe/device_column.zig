@@ -178,6 +178,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.isMps();
     }
 
+    pub fn isAcceleratorBacked(self: DeviceColumn) bool {
+        return self.isCudaBacked() or self.isMpsBacked();
+    }
+
     pub fn isDeviceBacked(self: DeviceColumn) bool {
         return !self.isCpu();
     }

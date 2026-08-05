@@ -300,6 +300,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!schema[1].isCudaBacked());
     try std.testing.expect(!schema[1].isMps());
     try std.testing.expect(!schema[1].isMpsBacked());
+    try std.testing.expect(!schema[1].isAcceleratorBacked());
     const schema_alias = try table.schema(gpa);
     defer gpa.free(schema_alias);
     try std.testing.expectEqual(@as(usize, 3), schema_alias.len);
@@ -418,6 +419,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!table.isCudaBacked());
     try std.testing.expect(!table.isMps());
     try std.testing.expect(!table.isMpsBacked());
+    try std.testing.expect(!table.isAcceleratorBacked());
     try std.testing.expect(!table.isDeviceBacked());
     try std.testing.expect(table.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", table.deviceBackendName()));
@@ -457,6 +459,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_col.isHostBacked());
     try std.testing.expect(!units_col.isCudaBacked());
     try std.testing.expect(!units_col.isMpsBacked());
+    try std.testing.expect(!units_col.isAcceleratorBacked());
     try std.testing.expect(!units_col.isDeviceBacked());
     try std.testing.expect(units_col.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
@@ -493,6 +496,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.isHostBacked());
     try std.testing.expect(!view.isCudaBacked());
     try std.testing.expect(!view.isMpsBacked());
+    try std.testing.expect(!view.isAcceleratorBacked());
     try std.testing.expect(!view.isDeviceBacked());
     try std.testing.expect(view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", view.deviceBackendName()));
@@ -583,6 +587,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(sales_column_view.isHostBacked());
     try std.testing.expect(!sales_column_view.isCudaBacked());
     try std.testing.expect(!sales_column_view.isMpsBacked());
+    try std.testing.expect(!sales_column_view.isAcceleratorBacked());
     try std.testing.expect(!sales_column_view.isDeviceBacked());
     try std.testing.expect(sales_column_view.isDeviceAvailable());
     try std.testing.expect(std.mem.eql(u8, "cpu", sales_column_view.deviceBackendName()));

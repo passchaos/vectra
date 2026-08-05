@@ -580,6 +580,10 @@ pub const DeviceDataFrame = struct {
         return self.isMps();
     }
 
+    pub fn isAcceleratorBacked(self: DeviceDataFrame) bool {
+        return self.isCudaBacked() or self.isMpsBacked();
+    }
+
     pub fn isDeviceBacked(self: DeviceDataFrame) bool {
         return !self.isCpu();
     }

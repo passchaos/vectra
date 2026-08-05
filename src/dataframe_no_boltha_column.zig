@@ -161,6 +161,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return false;
     }
 
+    pub fn isAcceleratorBacked(_: DeviceColumn) bool {
+        return false;
+    }
+
     pub fn isDeviceBacked(_: DeviceColumn) bool {
         return false;
     }

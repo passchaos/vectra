@@ -392,6 +392,10 @@ pub fn DeviceDataFrameType(
             return false;
         }
 
+        pub fn isAcceleratorBacked(_: Self) bool {
+            return false;
+        }
+
         pub fn isDeviceBacked(_: Self) bool {
             return false;
         }
