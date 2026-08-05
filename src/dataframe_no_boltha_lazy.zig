@@ -523,6 +523,22 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowSchemaEquals(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn arrowSameSchema(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn arrowSchemaCompatible(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn arrowSchemaEqualsSchemas(_: DeviceParquetScan, _: []const DeviceColumnSchema) bool {
+                return false;
+            }
+
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
             }

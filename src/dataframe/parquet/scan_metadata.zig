@@ -308,6 +308,36 @@ pub fn arrowSchemaSummary(scan: anytype, allocator: std.mem.Allocator) ParquetIn
     return arrowColumnSchemas(scan, allocator);
 }
 
+fn schemasEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
+    if (left.len != right.len) return false;
+    for (left, right) |left_schema, right_schema| {
+        if (!left_schema.schemaEquals(right_schema)) return false;
+    }
+    return true;
+}
+
+pub fn arrowSchemaEquals(scan: anytype, other: @TypeOf(scan)) bool {
+    const left = arrowColumnSchemas(scan, scan.allocator) catch return false;
+    defer scan.allocator.free(left);
+    const right = arrowColumnSchemas(other, other.allocator) catch return false;
+    defer other.allocator.free(right);
+    return schemasEqual(left, right);
+}
+
+pub fn arrowSameSchema(scan: anytype, other: @TypeOf(scan)) bool {
+    return arrowSchemaEquals(scan, other);
+}
+
+pub fn arrowSchemaCompatible(scan: anytype, other: @TypeOf(scan)) bool {
+    return arrowSchemaEquals(scan, other);
+}
+
+pub fn arrowSchemaEqualsSchemas(scan: anytype, schemas: []const DeviceColumnSchema) bool {
+    const left = arrowColumnSchemas(scan, scan.allocator) catch return false;
+    defer scan.allocator.free(left);
+    return schemasEqual(left, schemas);
+}
+
 pub fn hasArrowProjection(scan: anytype, wanted_names: []const []const u8) bool {
     var schema = boltha.parquet.readSchema(scan.allocator, scan.bytes) catch return false;
     defer schema.deinit(scan.allocator);

@@ -8170,6 +8170,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 3), scan_schema_summary.len);
     try std.testing.expectEqual(vectra.DeviceDType.f64, scan_schema_summary[0].dtype);
     try std.testing.expectEqual(table.height(), scan_schema_summary[0].len());
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.Arrow.arrowSchemaEquals(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSameSchema(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaCompatible(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaEqualsSchemas(grouped_scan, scan_schema_summary));
     var scan_arrow_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer scan_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), scan_arrow_schema.fieldCount());
@@ -8242,6 +8246,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqualStrings("sales", projected_column_schemas[0].name);
     try std.testing.expectEqual(vectra.DeviceDType.f64, projected_column_schemas[0].dtype);
     try std.testing.expectEqual(vectra.DeviceDType.i64, projected_column_schemas[1].dtype);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaEqualsSchemas(grouped_scan, projected_column_schemas));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.arrowSchemaEquals(grouped_scan, grouped_scan));
     var projected_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer projected_scan_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 2), projected_scan_schema.fieldCount());

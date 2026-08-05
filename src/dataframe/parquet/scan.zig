@@ -576,6 +576,10 @@ pub fn DeviceParquetScan(
         pub const arrowColumnSchema = scan_metadata_mod.arrowColumnSchema;
         pub const arrowColumnSchemas = scan_metadata_mod.arrowColumnSchemas;
         pub const arrowSchemaSummary = scan_metadata_mod.arrowSchemaSummary;
+        pub const arrowSchemaEquals = scan_metadata_mod.arrowSchemaEquals;
+        pub const arrowSameSchema = scan_metadata_mod.arrowSameSchema;
+        pub const arrowSchemaCompatible = scan_metadata_mod.arrowSchemaCompatible;
+        pub const arrowSchemaEqualsSchemas = scan_metadata_mod.arrowSchemaEqualsSchemas;
 
         pub fn clearProjection(self: *Self) void {
             if (self.projection) |names| {
