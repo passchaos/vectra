@@ -54,6 +54,33 @@ pub fn DeviceParquetScan(
             };
         }
 
+        pub fn fromFileInDir(
+            allocator: std.mem.Allocator,
+            dir: std.Io.Dir,
+            io: std.Io,
+            path: []const u8,
+            limit: std.Io.Limit,
+            device_value: array_mod.Device,
+        ) !Self {
+            const bytes = try dir.readFileAlloc(io, path, allocator, limit);
+            errdefer allocator.free(bytes);
+            return .{
+                .allocator = allocator,
+                .bytes = bytes,
+                .device = device_value,
+            };
+        }
+
+        pub fn fromFile(
+            allocator: std.mem.Allocator,
+            io: std.Io,
+            path: []const u8,
+            limit: std.Io.Limit,
+            device_value: array_mod.Device,
+        ) !Self {
+            return Self.fromFileInDir(allocator, std.Io.Dir.cwd(), io, path, limit, device_value);
+        }
+
         pub fn deinit(self: *Self) void {
             self.clearPushdown();
             self.allocator.free(self.bytes);

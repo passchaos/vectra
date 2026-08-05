@@ -49,6 +49,14 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn fromFileInDir(_: std.mem.Allocator, _: std.Io.Dir, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn fromFile(_: std.mem.Allocator, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
             pub fn deinit(_: *DeviceParquetScan) void {}
 
             pub fn clone(_: DeviceParquetScan) ParquetInteropError!DeviceParquetScan {
