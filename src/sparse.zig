@@ -6122,16 +6122,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSumAxes(T, self, axes, keepdims);
         }
 
+        pub fn sumAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumAxes(axes, keepdims), out);
+        }
+
         pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumDim(dim_opt, keepdim), out);
         }
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
         }
 
+        pub fn sumDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sumAxesOut(dims, keepdim, out);
+        }
+
         pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseSumToSize(T, self, dims);
+        }
+
+        pub fn sumToSizeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumToSize(dims), out);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12654,16 +12670,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSumAxes(T, self, axes, keepdims);
         }
 
+        pub fn sumAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumAxes(axes, keepdims), out);
+        }
+
         pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumDim(dim_opt, keepdim), out);
         }
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
         }
 
+        pub fn sumDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sumAxesOut(dims, keepdim, out);
+        }
+
         pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseSumToSize(T, self, dims);
+        }
+
+        pub fn sumToSizeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumToSize(dims), out);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19399,16 +19431,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSumAxes(T, self, axes, keepdims);
         }
 
+        pub fn sumAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumAxes(axes, keepdims), out);
+        }
+
         pub fn sumDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return sparseDenseSumDim(T, self, dim_opt, keepdim);
+        }
+
+        pub fn sumDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumDim(dim_opt, keepdim), out);
         }
 
         pub fn sumDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.sumAxes(dims, keepdim);
         }
 
+        pub fn sumDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.sumAxesOut(dims, keepdim, out);
+        }
+
         pub fn sumToSize(self: Self, dims: []const usize) SparseError!array_mod.Array(T) {
             return sparseDenseSumToSize(T, self, dims);
+        }
+
+        pub fn sumToSizeOut(self: Self, dims: []const usize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.sumToSize(dims), out);
         }
 
         pub fn prod(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29176,30 +29224,56 @@ test "sparse dense reduction helpers" {
             var row_sum = try matrix.sumDim(1, false);
             defer row_sum.deinit();
             try expectArray(row_sum, &.{2}, &.{ 1, 5 });
+            var row_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer row_out.deinit();
+            try matrix.sumDimOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_sum.data);
 
             var column_sum = try matrix.sumDim(0, false);
             defer column_sum.deinit();
             try expectArray(column_sum, &.{3}, &.{ 1, 2, 3 });
+            var column_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{3});
+            defer column_out.deinit();
+            try matrix.sumDimOut(0, false, column_out);
+            try expectArray(column_out, &.{3}, column_sum.data);
 
             var all_sum_keep = try matrix.sumAxes(&.{ 0, 1 }, true);
             defer all_sum_keep.deinit();
             try expectArray(all_sum_keep, &.{ 1, 1 }, &.{6});
+            var keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
+            defer keepdim_out.deinit();
+            try matrix.sumAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_sum_keep.data);
 
             var all_sum_dims = try matrix.sumDims(&.{ 0, 1 }, false);
             defer all_sum_dims.deinit();
             try expectArray(all_sum_dims, &.{}, all_sum_keep.data);
+            var scalar_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
+            defer scalar_out.deinit();
+            try matrix.sumDimsOut(&.{ 0, 1 }, false, scalar_out);
+            try expectArray(scalar_out, &.{}, all_sum_dims.data);
 
             var row_sums_to_size = try matrix.sumToSize(&.{ 2, 1 });
             defer row_sums_to_size.deinit();
             try expectArray(row_sums_to_size, &.{ 2, 1 }, &.{ 1, 5 });
+            var row_to_size_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer row_to_size_out.deinit();
+            try matrix.sumToSizeOut(&.{ 2, 1 }, row_to_size_out);
+            try expectArray(row_to_size_out, &.{ 2, 1 }, row_sums_to_size.data);
 
             var column_sums_to_size = try matrix.sumToSize(&.{ 1, 3 });
             defer column_sums_to_size.deinit();
             try expectArray(column_sums_to_size, &.{ 1, 3 }, column_sum.data);
+            var column_to_size_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 3 });
+            defer column_to_size_out.deinit();
+            try matrix.sumToSizeOut(&.{ 1, 3 }, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_sums_to_size.data);
 
             var flat_sum_to_size = try matrix.sumToSize(&.{});
             defer flat_sum_to_size.deinit();
             try expectArray(flat_sum_to_size, &.{}, all_sum_dims.data);
+            try matrix.sumToSizeOut(&.{}, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_sum_to_size.data);
 
             var flat_product = try matrix.prod(null, false);
             defer flat_product.deinit();
