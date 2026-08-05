@@ -9,6 +9,7 @@ const series_mod = @import("../../series.zig");
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const ArrowInteropError = DeviceDataError || boltha.arrow.ArrayError || boltha.arrow.RecordBatchError || boltha.arrow.TableError;
 const deviceDTypeToArrowDataType = dataframe_arrow_mod.deviceDTypeToArrowDataType;
+const deviceColumnSchemaToArrowField = dataframe_arrow_mod.deviceColumnSchemaToArrowField;
 const primitiveColumnToArrow = dataframe_arrow_mod.primitiveColumnToArrow;
 const boolColumnToArrow = dataframe_arrow_mod.boolColumnToArrow;
 const indexColumnToArrow = dataframe_arrow_mod.indexColumnToArrow;
@@ -26,6 +27,10 @@ fn columnValue(self: anytype) switch (@typeInfo(@TypeOf(self))) {
 
 pub fn arrowDataType(self: anytype) ArrowInteropError!boltha.arrow.DataType {
     return deviceDTypeToArrowDataType(columnValue(self).dtype());
+}
+
+pub fn toArrowField(self: anytype, allocator: std.mem.Allocator, name: []const u8) ArrowInteropError!boltha.arrow.Field {
+    return deviceColumnSchemaToArrowField(allocator, columnValue(self).schema(name));
 }
 
 pub fn toArrowArray(self: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.AnyArray {

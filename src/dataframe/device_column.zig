@@ -637,6 +637,7 @@ pub const DeviceColumn = union(DeviceDType) {
     pub const logicalXorScalar = column_ops_mod.logicalXorScalar;
 
     pub const arrowDataType = column_arrow_mod.arrowDataType;
+    pub const toArrowField = column_arrow_mod.toArrowField;
     pub const toArrowArray = column_arrow_mod.toArrowArray;
 };
 

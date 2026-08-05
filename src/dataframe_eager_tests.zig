@@ -7800,6 +7800,10 @@ test "device dataframe exports boltha arrow record batch" {
         for (arrow_fields) |*field| field.deinit(gpa);
         gpa.free(arrow_fields);
     }
+    var sales_field = try sales.toArrowField(gpa, "sales");
+    defer sales_field.deinit(gpa);
+    try std.testing.expect(std.mem.eql(u8, "sales", sales_field.name));
+    try std.testing.expect(sales_field.data_type.eql(arrow_fields[0].data_type));
     try std.testing.expectEqual(@as(usize, 3), arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, arrow_fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
