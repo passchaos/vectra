@@ -16,6 +16,22 @@ pub const DeviceColumnView = struct {
     null_count: usize = 0,
     validity_encoding: options_mod.DeviceValidityEncoding = .none,
 
+    pub fn len(self: DeviceColumnView) usize {
+        return self.rows;
+    }
+
+    pub fn dtypeName(self: DeviceColumnView) []const u8 {
+        return self.dtype.name();
+    }
+
+    pub fn dtypeByteSize(self: DeviceColumnView) usize {
+        return self.dtype.byteSize();
+    }
+
+    pub fn dtypeBitSize(self: DeviceColumnView) usize {
+        return self.dtype.bitSize();
+    }
+
     pub fn nullable(self: DeviceColumnView) bool {
         return self.validity_ptr != null;
     }
@@ -24,8 +40,73 @@ pub const DeviceColumnView = struct {
         return self.null_count != 0;
     }
 
+    pub fn nullCount(self: DeviceColumnView) usize {
+        return self.null_count;
+    }
+
+    pub fn validCount(self: DeviceColumnView) usize {
+        return self.rows - self.null_count;
+    }
+
+    fn ratioFromCount(count: usize, rows: usize) f64 {
+        if (rows == 0) return std.math.nan(f64);
+        return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(rows));
+    }
+
+    pub fn nullRatio(self: DeviceColumnView) f64 {
+        return ratioFromCount(self.null_count, self.rows);
+    }
+
+    pub fn validRatio(self: DeviceColumnView) f64 {
+        return ratioFromCount(self.validCount(), self.rows);
+    }
+
+    pub fn dataNbytes(self: DeviceColumnView) usize {
+        return self.data_nbytes;
+    }
+
+    pub fn dataMemoryUsage(self: DeviceColumnView) usize {
+        return self.data_nbytes;
+    }
+
+    pub fn validityNbytes(self: DeviceColumnView) usize {
+        return self.validity_nbytes;
+    }
+
+    pub fn validityMemoryUsage(self: DeviceColumnView) usize {
+        return self.validity_nbytes;
+    }
+
+    pub fn totalNbytes(self: DeviceColumnView) usize {
+        return self.data_nbytes + self.validity_nbytes;
+    }
+
+    pub fn memoryUsage(self: DeviceColumnView) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: DeviceColumnView) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn isCpu(self: DeviceColumnView) bool {
+        return self.device.isCpu();
+    }
+
+    pub fn isCuda(self: DeviceColumnView) bool {
+        return self.device.isCuda();
+    }
+
+    pub fn isMps(self: DeviceColumnView) bool {
+        return self.device.isMps();
+    }
+
     pub fn isDeviceBacked(self: DeviceColumnView) bool {
         return !self.device.isCpu();
+    }
+
+    pub fn deviceBackendName(self: DeviceColumnView) []const u8 {
+        return self.device.backendName();
     }
 };
 
