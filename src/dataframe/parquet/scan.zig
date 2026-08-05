@@ -83,8 +83,16 @@ pub fn DeviceParquetScan(
             return self.range_predicate != null;
         }
 
+        pub fn rangePredicateColumn(self: Self) ?[]const u8 {
+            return if (self.range_predicate) |predicate| predicate.column else null;
+        }
+
         pub fn hasNullPredicate(self: Self) bool {
             return self.null_predicate != null;
+        }
+
+        pub fn nullPredicateColumn(self: Self) ?[]const u8 {
+            return if (self.null_predicate) |predicate| predicate.column else null;
         }
 
         pub fn hasPushdown(self: Self) bool {

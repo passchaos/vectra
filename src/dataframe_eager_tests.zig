@@ -8018,7 +8018,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
     try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasRangePredicate(grouped_scan));
+    try std.testing.expect(std.mem.eql(u8, "sales", vectra.ArrowExport.ParquetScan.rangePredicateColumn(grouped_scan).?));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasNullPredicate(grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.nullPredicateColumn(grouped_scan) == null);
     const grouped_scan_explain = try vectra.ArrowExport.ParquetScan.explain(grouped_scan, gpa);
     defer gpa.free(grouped_scan_explain);
     try std.testing.expect(std.mem.indexOf(u8, grouped_scan_explain, "pushdown") != null);

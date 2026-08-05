@@ -68,8 +68,16 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn rangePredicateColumn(_: DeviceParquetScan) ?[]const u8 {
+                return null;
+            }
+
             pub fn hasNullPredicate(_: DeviceParquetScan) bool {
                 return false;
+            }
+
+            pub fn nullPredicateColumn(_: DeviceParquetScan) ?[]const u8 {
+                return null;
             }
 
             pub fn hasPushdown(_: DeviceParquetScan) bool {
