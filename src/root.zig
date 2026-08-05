@@ -163,6 +163,10 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const toArrowSchema = dataframe_mod.deviceDataFrameViewToArrowSchema;
         pub const toArrowSchemaProjection = dataframe_mod.deviceDataFrameViewToArrowSchemaProjection;
     };
+
+    pub const ParquetScan = struct {
+        pub const init = dataframe_mod.DeviceParquetScan.init;
+    };
 } else struct {};
 
 pub const DeviceDataFrameArrow = if (build_options.enable_boltha) ArrowExport.DataFrame else struct {};

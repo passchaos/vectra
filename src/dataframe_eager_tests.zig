@@ -8008,6 +8008,10 @@ test "device dataframe exports boltha arrow record batch" {
         .{ .f64 = .{ .min = 0.0 } },
         .cpu,
     ));
+    var grouped_scan = try vectra.ArrowExport.ParquetScan.init(gpa, grouped_parquet_bytes, .cpu);
+    defer grouped_scan.deinit();
+    var grouped_scan_lazy = try grouped_scan.lazy();
+    defer grouped_scan_lazy.deinit();
 }
 
 test "device dataframe preserves zero-column row count through boltha arrow" {
