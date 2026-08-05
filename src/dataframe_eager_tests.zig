@@ -8072,6 +8072,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasRows(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasColumns(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasShape(grouped_scan, table.height(), table.width()));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.shapeEquals(grouped_scan, table.height(), table.width()));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameHeight(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameWidth(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameShape(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.File.sameRowGroups(grouped_scan, grouped_scan));
     try std.testing.expectEqual(parquet_file_summary.totalNbytes(), try vectra.ArrowExport.ParquetScan.parquetTotalNbytes(grouped_scan));
     try std.testing.expectEqual(parquet_file_summary.totalCompressedNbytes(), try vectra.ArrowExport.ParquetScan.parquetTotalCompressedNbytes(grouped_scan));
     try std.testing.expectEqual(parquet_file_summary.totalUncompressedNbytes(), try vectra.ArrowExport.ParquetScan.parquetTotalUncompressedNbytes(grouped_scan));
@@ -8214,6 +8219,10 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(table.height(), projected_scan_shape.rows);
     try std.testing.expectEqual(@as(usize, 2), projected_scan_shape.cols);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasShape(grouped_scan, table.height(), 2));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.shapeEquals(grouped_scan, table.height(), table.width()));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameHeight(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameWidth(grouped_scan, grouped_scan));
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.sameShape(grouped_scan, grouped_scan));
     try std.testing.expectEqual(@as(usize, 2), try vectra.ArrowExport.ParquetScan.arrowFieldCount(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasArrowField(grouped_scan, "units"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasArrowField(grouped_scan, "active"));

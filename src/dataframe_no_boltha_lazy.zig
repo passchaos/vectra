@@ -307,6 +307,26 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn sameHeight(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn sameWidth(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn sameShape(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn shapeEquals(_: DeviceParquetScan, _: usize, _: usize) bool {
+                return false;
+            }
+
+            pub fn sameRowGroups(_: DeviceParquetScan, _: DeviceParquetScan) bool {
+                return false;
+            }
+
             pub fn parquetTotalNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }

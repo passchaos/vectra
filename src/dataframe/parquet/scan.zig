@@ -350,6 +350,26 @@ pub fn DeviceParquetScan(
             return current.rows == rows and current.cols == columns;
         }
 
+        pub fn sameHeight(self: Self, other: Self) bool {
+            return (self.rowCount() catch return false) == (other.rowCount() catch return false);
+        }
+
+        pub fn sameWidth(self: Self, other: Self) bool {
+            return (self.columnCount() catch return false) == (other.columnCount() catch return false);
+        }
+
+        pub fn sameShape(self: Self, other: Self) bool {
+            return self.sameHeight(other) and self.sameWidth(other);
+        }
+
+        pub fn shapeEquals(self: Self, rows: usize, columns: usize) bool {
+            return self.hasShape(rows, columns);
+        }
+
+        pub fn sameRowGroups(self: Self, other: Self) bool {
+            return (self.rowGroupCount() catch return false) == (other.rowGroupCount() catch return false);
+        }
+
         pub fn parquetTotalNbytes(self: Self) ParquetInteropError!usize {
             return (try self.parquetFileSummary()).totalNbytes();
         }
