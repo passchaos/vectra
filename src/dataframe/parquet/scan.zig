@@ -207,6 +207,43 @@ pub fn DeviceParquetScan(
             return if (self.projection) |names| names else &.{};
         }
 
+        pub fn projectionNameAt(self: Self, index: usize) ?[]const u8 {
+            const names = self.projection orelse return null;
+            if (index >= names.len) return null;
+            return names[index];
+        }
+
+        pub fn projectionIndex(self: Self, name: []const u8) ?usize {
+            const names = self.projection orelse return null;
+            for (names, 0..) |candidate, index| {
+                if (std.mem.eql(u8, candidate, name)) return index;
+            }
+            return null;
+        }
+
+        pub fn projectionContains(self: Self, name: []const u8) bool {
+            return self.projectionIndex(name) != null;
+        }
+
+        pub fn projectsColumn(self: Self, name: []const u8) bool {
+            return self.projection == null or self.projectionContains(name);
+        }
+
+        pub fn hasPredicate(self: Self) bool {
+            return self.hasRangePredicate() or self.hasNullPredicate();
+        }
+
+        pub fn predicateColumn(self: Self) ?[]const u8 {
+            if (self.range_predicate) |predicate| return predicate.column;
+            if (self.null_predicate) |predicate| return predicate.column;
+            return null;
+        }
+
+        pub fn hasPredicateFor(self: Self, column: []const u8) bool {
+            const active_column = self.predicateColumn() orelse return false;
+            return std.mem.eql(u8, active_column, column);
+        }
+
         pub fn hasRangePredicate(self: Self) bool {
             return self.range_predicate != null;
         }
@@ -215,12 +252,35 @@ pub fn DeviceParquetScan(
             return if (self.range_predicate) |predicate| predicate.column else null;
         }
 
+        pub fn rangePredicate(self: Self) ?ParquetRangePredicate {
+            return if (self.range_predicate) |predicate| predicate.predicate else null;
+        }
+
+        pub fn rangePredicateDType(self: Self) ?array_mod.DType {
+            const predicate = self.rangePredicate() orelse return null;
+            return std.meta.activeTag(predicate);
+        }
+
+        pub fn hasRangePredicateFor(self: Self, column: []const u8) bool {
+            const active_column = self.rangePredicateColumn() orelse return false;
+            return std.mem.eql(u8, active_column, column);
+        }
+
         pub fn hasNullPredicate(self: Self) bool {
             return self.null_predicate != null;
         }
 
         pub fn nullPredicateColumn(self: Self) ?[]const u8 {
             return if (self.null_predicate) |predicate| predicate.column else null;
+        }
+
+        pub fn nullPredicateWantNulls(self: Self) ?bool {
+            return if (self.null_predicate) |predicate| predicate.want_nulls else null;
+        }
+
+        pub fn hasNullPredicateFor(self: Self, column: []const u8) bool {
+            const active_column = self.nullPredicateColumn() orelse return false;
+            return std.mem.eql(u8, active_column, column);
         }
 
         pub fn hasPushdown(self: Self) bool {

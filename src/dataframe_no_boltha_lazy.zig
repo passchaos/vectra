@@ -184,6 +184,34 @@ pub fn DeviceLazyParquetTypes(
                 return &.{};
             }
 
+            pub fn projectionNameAt(_: DeviceParquetScan, _: usize) ?[]const u8 {
+                return null;
+            }
+
+            pub fn projectionIndex(_: DeviceParquetScan, _: []const u8) ?usize {
+                return null;
+            }
+
+            pub fn projectionContains(_: DeviceParquetScan, _: []const u8) bool {
+                return false;
+            }
+
+            pub fn projectsColumn(_: DeviceParquetScan, _: []const u8) bool {
+                return true;
+            }
+
+            pub fn hasPredicate(_: DeviceParquetScan) bool {
+                return false;
+            }
+
+            pub fn predicateColumn(_: DeviceParquetScan) ?[]const u8 {
+                return null;
+            }
+
+            pub fn hasPredicateFor(_: DeviceParquetScan, _: []const u8) bool {
+                return false;
+            }
+
             pub fn hasRangePredicate(_: DeviceParquetScan) bool {
                 return false;
             }
@@ -192,12 +220,32 @@ pub fn DeviceLazyParquetTypes(
                 return null;
             }
 
+            pub fn rangePredicate(_: DeviceParquetScan) ?ParquetRangePredicate {
+                return null;
+            }
+
+            pub fn rangePredicateDType(_: DeviceParquetScan) ?array_mod.DType {
+                return null;
+            }
+
+            pub fn hasRangePredicateFor(_: DeviceParquetScan, _: []const u8) bool {
+                return false;
+            }
+
             pub fn hasNullPredicate(_: DeviceParquetScan) bool {
                 return false;
             }
 
             pub fn nullPredicateColumn(_: DeviceParquetScan) ?[]const u8 {
                 return null;
+            }
+
+            pub fn nullPredicateWantNulls(_: DeviceParquetScan) ?bool {
+                return null;
+            }
+
+            pub fn hasNullPredicateFor(_: DeviceParquetScan, _: []const u8) bool {
+                return false;
             }
 
             pub fn hasPushdown(_: DeviceParquetScan) bool {
