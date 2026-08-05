@@ -5566,20 +5566,40 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseInverse(T, self);
         }
 
+        pub fn inverseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.inverse(), out);
+        }
+
         pub fn inv(self: Self) SparseError!array_mod.Array(T) {
             return self.inverse();
+        }
+
+        pub fn invOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.inverseOut(out);
         }
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
         }
 
+        pub fn matrixPowerOut(self: Self, exponent: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matrixPower(exponent), out);
+        }
+
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solve(rhs), out);
+        }
+
         pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.solve(rhs);
+        }
+
+        pub fn solveArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.solveOut(rhs, out);
         }
 
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -12890,20 +12910,40 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseInverse(T, self);
         }
 
+        pub fn inverseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.inverse(), out);
+        }
+
         pub fn inv(self: Self) SparseError!array_mod.Array(T) {
             return self.inverse();
+        }
+
+        pub fn invOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.inverseOut(out);
         }
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
         }
 
+        pub fn matrixPowerOut(self: Self, exponent: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matrixPower(exponent), out);
+        }
+
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solve(rhs), out);
+        }
+
         pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.solve(rhs);
+        }
+
+        pub fn solveArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.solveOut(rhs, out);
         }
 
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -20427,20 +20467,40 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseInverse(T, self);
         }
 
+        pub fn inverseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.inverse(), out);
+        }
+
         pub fn inv(self: Self) SparseError!array_mod.Array(T) {
             return self.inverse();
+        }
+
+        pub fn invOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.inverseOut(out);
         }
 
         pub fn matrixPower(self: Self, exponent: isize) SparseError!array_mod.Array(T) {
             return sparseDenseMatrixPower(T, self, exponent);
         }
 
+        pub fn matrixPowerOut(self: Self, exponent: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.matrixPower(exponent), out);
+        }
+
         pub fn solve(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSolve(T, self, rhs);
         }
 
+        pub fn solveOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.solve(rhs), out);
+        }
+
         pub fn solveArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.solve(rhs);
+        }
+
+        pub fn solveArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.solveOut(rhs, out);
         }
 
         pub fn matmul(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -29462,10 +29522,20 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, -2.0 / 3.0), inverse.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), inverse.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 3.0), inverse.data[3], 1e-12);
+            var matrix_out = try array_mod.Array(f64).zeros(upper.allocator, &.{ 2, 2 });
+            defer matrix_out.deinit();
+            try upper.inverseOut(matrix_out);
+            for (inverse.data, matrix_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var inverse_alias = try upper.inv();
             defer inverse_alias.deinit();
             try std.testing.expectEqualSlices(f64, inverse.data, inverse_alias.data);
+            try upper.invOut(matrix_out);
+            for (inverse_alias.data, matrix_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var squared = try upper.matrixPower(2);
             defer squared.deinit();
@@ -29474,6 +29544,10 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectApproxEqAbs(@as(f64, 8), squared.data[1], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 0), squared.data[2], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 9), squared.data[3], 1e-12);
+            try upper.matrixPowerOut(2, matrix_out);
+            for (squared.data, matrix_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var rhs = try array_mod.Array(f64).fromSlice(upper.allocator, &.{ 5, 6 }, &.{2});
             defer rhs.deinit();
@@ -29482,11 +29556,21 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try std.testing.expectEqualSlices(usize, &.{2}, solution.shape);
             try std.testing.expectApproxEqAbs(@as(f64, 1), solution.data[0], 1e-12);
             try std.testing.expectApproxEqAbs(@as(f64, 2), solution.data[1], 1e-12);
+            var vector_out = try array_mod.Array(f64).zeros(upper.allocator, &.{2});
+            defer vector_out.deinit();
+            try upper.solveOut(rhs, vector_out);
+            for (solution.data, vector_out.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
 
             var solution_array = try upper.solveArray(rhs);
             defer solution_array.deinit();
             try std.testing.expectEqualSlices(usize, solution.shape, solution_array.shape);
             for (solution.data, solution_array.data) |expected, actual| {
+                try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
+            }
+            try upper.solveArrayOut(rhs, vector_out);
+            for (solution_array.data, vector_out.data) |expected, actual| {
                 try std.testing.expectApproxEqAbs(expected, actual, 1e-12);
             }
 
