@@ -8225,16 +8225,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseReal(T, self);
         }
 
+        pub fn realOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.real(), out);
+        }
+
         pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseImag(T, self);
+        }
+
+        pub fn imagOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.imag(), out);
         }
 
         pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseConjugate(T, self);
         }
 
+        pub fn conjugateOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.conjugate(), out);
+        }
+
         pub fn conj(self: Self) SparseError!array_mod.Array(T) {
             return self.conjugate();
+        }
+
+        pub fn conjOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.conjugateOut(out);
         }
 
         pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
@@ -8245,28 +8261,56 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMagnitude(T, self);
         }
 
+        pub fn magnitudeOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.magnitude(), out);
+        }
+
         pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.magnitude();
+        }
+
+        pub fn absComplexOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.magnitudeOut(out);
         }
 
         pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseAngle(T, self);
         }
 
+        pub fn angleOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.angle(), out);
+        }
+
         pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.angle();
+        }
+
+        pub fn phaseOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.angleOut(out);
         }
 
         pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsReal(T, self);
         }
 
+        pub fn isRealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isReal(), out);
+        }
+
         pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
             return self.isReal();
         }
 
+        pub fn isrealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try self.isRealOut(out);
+        }
+
         pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsComplex(T, self);
+        }
+
+        pub fn iscomplexOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscomplex(), out);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -15453,16 +15497,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseReal(T, self);
         }
 
+        pub fn realOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.real(), out);
+        }
+
         pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseImag(T, self);
+        }
+
+        pub fn imagOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.imag(), out);
         }
 
         pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseConjugate(T, self);
         }
 
+        pub fn conjugateOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.conjugate(), out);
+        }
+
         pub fn conj(self: Self) SparseError!array_mod.Array(T) {
             return self.conjugate();
+        }
+
+        pub fn conjOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.conjugateOut(out);
         }
 
         pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
@@ -15473,28 +15533,56 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMagnitude(T, self);
         }
 
+        pub fn magnitudeOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.magnitude(), out);
+        }
+
         pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.magnitude();
+        }
+
+        pub fn absComplexOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.magnitudeOut(out);
         }
 
         pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseAngle(T, self);
         }
 
+        pub fn angleOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.angle(), out);
+        }
+
         pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.angle();
+        }
+
+        pub fn phaseOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.angleOut(out);
         }
 
         pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsReal(T, self);
         }
 
+        pub fn isRealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isReal(), out);
+        }
+
         pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
             return self.isReal();
         }
 
+        pub fn isrealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try self.isRealOut(out);
+        }
+
         pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsComplex(T, self);
+        }
+
+        pub fn iscomplexOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscomplex(), out);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -22910,16 +22998,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseReal(T, self);
         }
 
+        pub fn realOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.real(), out);
+        }
+
         pub fn imag(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseImag(T, self);
+        }
+
+        pub fn imagOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.imag(), out);
         }
 
         pub fn conjugate(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseConjugate(T, self);
         }
 
+        pub fn conjugateOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.conjugate(), out);
+        }
+
         pub fn conj(self: Self) SparseError!array_mod.Array(T) {
             return self.conjugate();
+        }
+
+        pub fn conjOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.conjugateOut(out);
         }
 
         pub fn isHermitian(self: Self, rtol: T, atol: T) SparseError!bool {
@@ -22930,28 +23034,56 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMagnitude(T, self);
         }
 
+        pub fn magnitudeOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.magnitude(), out);
+        }
+
         pub fn absComplex(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.magnitude();
+        }
+
+        pub fn absComplexOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.magnitudeOut(out);
         }
 
         pub fn angle(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return sparseDenseAngle(T, self);
         }
 
+        pub fn angleOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try sparseDenseCopyOut(sparseComplexRealType(T), try self.angle(), out);
+        }
+
         pub fn phase(self: Self) SparseError!array_mod.Array(sparseComplexRealType(T)) {
             return self.angle();
+        }
+
+        pub fn phaseOut(self: Self, out: array_mod.Array(sparseComplexRealType(T))) SparseError!void {
+            try self.angleOut(out);
         }
 
         pub fn isReal(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsReal(T, self);
         }
 
+        pub fn isRealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.isReal(), out);
+        }
+
         pub fn isreal(self: Self) SparseError!array_mod.Array(bool) {
             return self.isReal();
         }
 
+        pub fn isrealOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try self.isRealOut(out);
+        }
+
         pub fn iscomplex(self: Self) SparseError!array_mod.Array(bool) {
             return sparseDenseIsComplex(T, self);
+        }
+
+        pub fn iscomplexOut(self: Self, out: array_mod.Array(bool)) SparseError!void {
+            try sparseDenseCopyOut(bool, try self.iscomplex(), out);
         }
 
         pub fn flip(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -33512,11 +33644,17 @@ test "sparse complex helpers dense materialize" {
             defer real_part.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, real_part.shape);
             try std.testing.expectEqualSlices(f32, &.{ 1, 2, 2, 4 }, real_part.data);
+            var real_out = try array_mod.Array(f32).zeros(matrix.allocator, &.{ 2, 2 });
+            defer real_out.deinit();
+            try matrix.realOut(real_out);
+            try std.testing.expectEqualSlices(f32, real_part.data, real_out.data);
 
             var imaginary_part = try matrix.imag();
             defer imaginary_part.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, imaginary_part.shape);
             try std.testing.expectEqualSlices(f32, &.{ 0, 3, -3, 0 }, imaginary_part.data);
+            try matrix.imagOut(real_out);
+            try std.testing.expectEqualSlices(f32, imaginary_part.data, real_out.data);
 
             var conjugated = try matrix.conj();
             defer conjugated.deinit();
@@ -33525,10 +33663,16 @@ test "sparse complex helpers dense materialize" {
             try std.testing.expectEqual(C.init(2, -3), conjugated.data[1]);
             try std.testing.expectEqual(C.init(2, 3), conjugated.data[2]);
             try std.testing.expectEqual(C.init(4, 0), conjugated.data[3]);
+            var complex_out = try array_mod.Array(C).zeros(matrix.allocator, &.{ 2, 2 });
+            defer complex_out.deinit();
+            try matrix.conjOut(complex_out);
+            try std.testing.expectEqualSlices(C, conjugated.data, complex_out.data);
 
             var conjugated_alias = try matrix.conjugate();
             defer conjugated_alias.deinit();
             try std.testing.expectEqualSlices(C, conjugated.data, conjugated_alias.data);
+            try matrix.conjugateOut(complex_out);
+            try std.testing.expectEqualSlices(C, conjugated_alias.data, complex_out.data);
 
             try std.testing.expect(try matrix.isHermitian(C.init(1e-5, 0), C.init(1e-5, 0)));
 
@@ -33539,10 +33683,14 @@ test "sparse complex helpers dense materialize" {
             try std.testing.expectApproxEqAbs(@as(f32, @sqrt(13.0)), magnitudes.data[1], 1e-6);
             try std.testing.expectApproxEqAbs(@as(f32, @sqrt(13.0)), magnitudes.data[2], 1e-6);
             try std.testing.expectApproxEqAbs(@as(f32, 4), magnitudes.data[3], 1e-6);
+            try matrix.magnitudeOut(real_out);
+            try std.testing.expectEqualSlices(f32, magnitudes.data, real_out.data);
 
             var abs_alias = try matrix.absComplex();
             defer abs_alias.deinit();
             try std.testing.expectEqualSlices(f32, magnitudes.data, abs_alias.data);
+            try matrix.absComplexOut(real_out);
+            try std.testing.expectEqualSlices(f32, abs_alias.data, real_out.data);
 
             var angles = try matrix.angle();
             defer angles.deinit();
@@ -33551,22 +33699,34 @@ test "sparse complex helpers dense materialize" {
             try std.testing.expectApproxEqAbs(@as(f32, std.math.atan2(@as(f32, 3), @as(f32, 2))), angles.data[1], 1e-6);
             try std.testing.expectApproxEqAbs(@as(f32, std.math.atan2(@as(f32, -3), @as(f32, 2))), angles.data[2], 1e-6);
             try std.testing.expectApproxEqAbs(@as(f32, 0), angles.data[3], 1e-6);
+            try matrix.angleOut(real_out);
+            try std.testing.expectEqualSlices(f32, angles.data, real_out.data);
 
             var phases = try matrix.phase();
             defer phases.deinit();
             try std.testing.expectEqualSlices(f32, angles.data, phases.data);
+            try matrix.phaseOut(real_out);
+            try std.testing.expectEqualSlices(f32, phases.data, real_out.data);
 
             var real_mask = try matrix.isreal();
             defer real_mask.deinit();
             try std.testing.expectEqualSlices(bool, &.{ true, false, false, true }, real_mask.data);
+            var bool_out = try array_mod.Array(bool).zeros(matrix.allocator, &.{ 2, 2 });
+            defer bool_out.deinit();
+            try matrix.isrealOut(bool_out);
+            try std.testing.expectEqualSlices(bool, real_mask.data, bool_out.data);
 
             var real_mask_alias = try matrix.isReal();
             defer real_mask_alias.deinit();
             try std.testing.expectEqualSlices(bool, real_mask.data, real_mask_alias.data);
+            try matrix.isRealOut(bool_out);
+            try std.testing.expectEqualSlices(bool, real_mask_alias.data, bool_out.data);
 
             var complex_mask = try matrix.iscomplex();
             defer complex_mask.deinit();
             try std.testing.expectEqualSlices(bool, &.{ false, true, true, false }, complex_mask.data);
+            try matrix.iscomplexOut(bool_out);
+            try std.testing.expectEqualSlices(bool, complex_mask.data, bool_out.data);
         }
     }.check;
 
