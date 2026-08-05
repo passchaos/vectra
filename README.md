@@ -1044,7 +1044,7 @@ from CPU/CUDA/MPS columns rather than reimplementing Arrow inside Vectra.
 Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension
 metadata stay aligned across inspection and interchange paths.  Boltha builds
-also expose `vx.ArrowExport.ColumnSchema.toArrowField`,
+also expose `vx.ArrowExport.Column.toArrowField`, `ColumnSchema.toArrowField`,
 `vx.ArrowExport.ColumnView.toArrowField`, and
 `vx.ArrowExport.DataFrameView.toArrowFields`/`toArrowSchema` for exporting
 schema and non-owning view metadata directly (with the older `Device*Arrow`

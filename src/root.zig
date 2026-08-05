@@ -125,6 +125,10 @@ pub const DeviceAsofOptions = dataframe_mod.DeviceAsofOptions;
 pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const ArrowExport = if (build_options.enable_boltha) struct {
+    pub const Column = struct {
+        pub const toArrowField = dataframe_mod.deviceColumnToArrowField;
+    };
+
     pub const ColumnSchema = struct {
         pub const toArrowField = dataframe_mod.deviceColumnSchemaToArrowField;
     };
@@ -140,6 +144,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
 } else struct {};
 
 pub const DeviceDataFrameViewArrow = if (build_options.enable_boltha) ArrowExport.DataFrameView else struct {};
+pub const DeviceColumnArrow = if (build_options.enable_boltha) ArrowExport.Column else struct {};
 pub const DeviceColumnViewArrow = if (build_options.enable_boltha) ArrowExport.ColumnView else struct {};
 pub const DeviceColumnSchemaArrow = if (build_options.enable_boltha) ArrowExport.ColumnSchema else struct {};
 
