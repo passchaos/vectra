@@ -8297,6 +8297,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasRangePredicateFor(grouped_scan, "units"));
     try std.testing.expectEqual(vectra.DeviceDType.f64, vectra.ArrowExport.ParquetScan.rangePredicateDType(grouped_scan).?);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
+    var wrong_dtype_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
+    defer wrong_dtype_scan.deinit();
+    try vectra.ArrowExport.ParquetScan.whereRange(&wrong_dtype_scan, "sales", .{ .i64 = .{ .min = 0 } });
+    try std.testing.expectError(error.TypeMismatch, vectra.ArrowExport.ParquetScan.validatePredicate(wrong_dtype_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.pushdownValid(wrong_dtype_scan));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.Pushdown.pushdownValid(wrong_dtype_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasNullPredicate(grouped_scan));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.nullPredicateColumn(grouped_scan) == null);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.nullPredicateWantNulls(grouped_scan) == null);

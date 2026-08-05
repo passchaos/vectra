@@ -501,6 +501,10 @@ pub fn DeviceParquetScan(
         pub fn validatePredicate(self: Self) ParquetInteropError!void {
             const column = self.predicateColumn() orelse return;
             if (!self.hasArrowProjection(&.{column})) return error.ColumnNotFound;
+            if (self.rangePredicateDType()) |predicate_dtype| {
+                const field_dtype = try self.arrowFieldDType(column);
+                if (field_dtype != predicate_dtype) return error.TypeMismatch;
+            }
         }
 
         pub fn validatePushdown(self: Self) ParquetInteropError!void {
