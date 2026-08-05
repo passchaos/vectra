@@ -1059,6 +1059,7 @@ metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `sourcePtr`/`da
 `hasPredicate`/`predicateColumn`/`hasPredicateFor`, `hasRangePredicate`/`rangePredicateColumn`/`rangePredicate`/`rangePredicateDType`/`hasRangePredicateFor`,
 `hasNullPredicate`/`nullPredicateColumn`/`nullPredicateWantNulls`/`hasNullPredicateFor`),
 pushdown reset helpers (`clearProjection`, `clearRangePredicate`, `clearNullPredicate`, `clearPredicate`, `clearPushdown`/`resetPushdown`),
+scan retarget helpers (`setDevice`/`retarget`, `to`/`withDevice`, `cpu`/`cuda`/`mps`),
 `select`/`whereRange`/`whereNull`/`collect`/`lazy`/`explain`, and
 `DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` for exporting owning schema and
 non-owning view metadata directly (with the older `Device*Arrow`

@@ -171,6 +171,13 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const init = dataframe_mod.DeviceParquetScan.init;
         pub const clone = dataframe_mod.DeviceParquetScan.clone;
         pub const lazy = dataframe_mod.DeviceParquetScan.lazy;
+        pub const setDevice = dataframe_mod.DeviceParquetScan.setDevice;
+        pub const retarget = dataframe_mod.DeviceParquetScan.retarget;
+        pub const to = dataframe_mod.DeviceParquetScan.to;
+        pub const withDevice = dataframe_mod.DeviceParquetScan.withDevice;
+        pub const cpu = dataframe_mod.DeviceParquetScan.cpu;
+        pub const cuda = dataframe_mod.DeviceParquetScan.cuda;
+        pub const mps = dataframe_mod.DeviceParquetScan.mps;
         pub const deviceValue = dataframe_mod.DeviceParquetScan.deviceValue;
         pub const deviceBackend = dataframe_mod.DeviceParquetScan.deviceBackend;
         pub const deviceBackendName = dataframe_mod.DeviceParquetScan.deviceBackendName;
@@ -546,6 +553,14 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(parquet_scan.sameSource(parquet_scan));
         try std.testing.expect(parquet_scan.sameStorage(parquet_scan));
         try std.testing.expect(!parquet_scan.mayOverlap(parquet_scan));
+        var retarget_scan = parquet_scan;
+        try std.testing.expectError(error.FeatureUnavailable, retarget_scan.setDevice(.cpu));
+        try std.testing.expectError(error.FeatureUnavailable, retarget_scan.retarget(.cpu));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.to(.cpu));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.withDevice(.cpu));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.cpu());
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.cuda(0));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.mps(0));
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.sourceByteCount());
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.nbytes());
         try std.testing.expectEqual(@as(usize, 0), parquet_scan.byteCount());

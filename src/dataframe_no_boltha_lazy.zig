@@ -57,6 +57,34 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn setDevice(_: *DeviceParquetScan, _: array_mod.Device) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn retarget(_: *DeviceParquetScan, _: array_mod.Device) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn to(_: DeviceParquetScan, _: array_mod.Device) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn withDevice(_: DeviceParquetScan, _: array_mod.Device) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cpu(_: DeviceParquetScan) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cuda(_: DeviceParquetScan, _: usize) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn mps(_: DeviceParquetScan, _: usize) ParquetInteropError!DeviceParquetScan {
+                return error.FeatureUnavailable;
+            }
+
             pub fn deviceValue(_: DeviceParquetScan) array_mod.Device {
                 return .cpu;
             }

@@ -69,6 +69,46 @@ pub fn DeviceParquetScan(
             return DeviceLazyFrame.initParquetScan(self.allocator, self);
         }
 
+        fn requireDeviceAvailable(device_value: array_mod.Device) array_mod.ArrayError!void {
+            if (!device_value.isAvailable()) return error.InvalidDevice;
+        }
+
+        /// Retarget the device used when `collect()` materializes decoded
+        /// Arrow columns. The Parquet byte buffer itself remains host-owned;
+        /// this mirrors lazy dataframe planning where scan bytes are metadata
+        /// and device residency begins at the Arrow -> Vectra column boundary.
+        pub fn setDevice(self: *Self, device_value: array_mod.Device) array_mod.ArrayError!void {
+            try requireDeviceAvailable(device_value);
+            self.device = device_value;
+        }
+
+        pub fn retarget(self: *Self, device_value: array_mod.Device) array_mod.ArrayError!void {
+            try self.setDevice(device_value);
+        }
+
+        pub fn to(self: Self, device_value: array_mod.Device) array_mod.ArrayError!Self {
+            try requireDeviceAvailable(device_value);
+            var cloned = try self.clone();
+            cloned.device = device_value;
+            return cloned;
+        }
+
+        pub fn withDevice(self: Self, device_value: array_mod.Device) array_mod.ArrayError!Self {
+            return self.to(device_value);
+        }
+
+        pub fn cpu(self: Self) array_mod.ArrayError!Self {
+            return self.to(.cpu);
+        }
+
+        pub fn cuda(self: Self, index: usize) array_mod.ArrayError!Self {
+            return self.to(array_mod.Device.cuda(index));
+        }
+
+        pub fn mps(self: Self, index: usize) array_mod.ArrayError!Self {
+            return self.to(array_mod.Device.mps(index));
+        }
+
         pub fn deviceValue(self: Self) array_mod.Device {
             return self.device;
         }
