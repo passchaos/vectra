@@ -7948,6 +7948,19 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), arrow_table.batchCount());
     try std.testing.expectEqual(@as(usize, 3), arrow_table.row_count);
     try std.testing.expectEqual(@as(?usize, 1), arrow_table.columnIndexByName("units"));
+    var grouped_arrow_table = try vectra.ArrowExport.DataFrame.toArrowTable(table, gpa);
+    defer grouped_arrow_table.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), grouped_arrow_table.row_count);
+    var table_roundtrip = try vectra.ArrowExport.DataFrame.fromArrowTable(gpa, grouped_arrow_table, .cpu);
+    defer table_roundtrip.deinit();
+    try std.testing.expectEqual(table.height(), table_roundtrip.height());
+    try std.testing.expect(table_roundtrip.schemaEquals(table));
+    const grouped_parquet_bytes = try vectra.ArrowExport.DataFrame.toParquetBytes(table, gpa);
+    defer gpa.free(grouped_parquet_bytes);
+    var parquet_roundtrip = try vectra.ArrowExport.DataFrame.fromParquetBytes(gpa, grouped_parquet_bytes, .cpu);
+    defer parquet_roundtrip.deinit();
+    try std.testing.expectEqual(table.height(), parquet_roundtrip.height());
+    try std.testing.expect(parquet_roundtrip.schemaEquals(table));
 }
 
 test "device dataframe preserves zero-column row count through boltha arrow" {
