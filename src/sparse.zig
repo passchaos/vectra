@@ -6746,16 +6746,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseLogsumexp(T, self, axis_index, keepdims);
         }
 
+        pub fn logsumexpOut(self: Self, axis_index: isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexp(axis_index, keepdims), out);
+        }
+
         pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexpAxes(axes, keepdims), out);
         }
 
         pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexp(dim_index, keepdim);
         }
 
+        pub fn logsumexpDimOut(self: Self, dim_index: isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpOut(dim_index, keepdim, out);
+        }
+
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn logsumexpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpAxesOut(dims, keepdim, out);
         }
 
         pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -13450,16 +13466,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseLogsumexp(T, self, axis_index, keepdims);
         }
 
+        pub fn logsumexpOut(self: Self, axis_index: isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexp(axis_index, keepdims), out);
+        }
+
         pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexpAxes(axes, keepdims), out);
         }
 
         pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexp(dim_index, keepdim);
         }
 
+        pub fn logsumexpDimOut(self: Self, dim_index: isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpOut(dim_index, keepdim, out);
+        }
+
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn logsumexpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpAxesOut(dims, keepdim, out);
         }
 
         pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -20367,16 +20399,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseLogsumexp(T, self, axis_index, keepdims);
         }
 
+        pub fn logsumexpOut(self: Self, axis_index: isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexp(axis_index, keepdims), out);
+        }
+
         pub fn logsumexpAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseLogsumexpAxes(T, self, axes, keepdims);
+        }
+
+        pub fn logsumexpAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.logsumexpAxes(axes, keepdims), out);
         }
 
         pub fn logsumexpDim(self: Self, dim_index: isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexp(dim_index, keepdim);
         }
 
+        pub fn logsumexpDimOut(self: Self, dim_index: isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpOut(dim_index, keepdim, out);
+        }
+
         pub fn logsumexpDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.logsumexpAxes(dims, keepdim);
+        }
+
+        pub fn logsumexpDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.logsumexpAxesOut(dims, keepdim, out);
         }
 
         pub fn softmax(self: Self, axis_index: isize) SparseError!array_mod.Array(T) {
@@ -30429,18 +30477,34 @@ test "sparse dense norm and logsumexp helpers" {
                 std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + 2),
                 std.math.log(f64, std.math.e, 1 + std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 3))),
             });
+            var row_lse_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{2});
+            defer row_lse_out.deinit();
+            try matrix.logsumexpOut(1, false, row_lse_out);
+            try expectArray(row_lse_out, &.{2}, row_lse.data);
 
             var row_lse_dim = try matrix.logsumexpDim(-1, true);
             defer row_lse_dim.deinit();
             try expectArray(row_lse_dim, &.{ 2, 1 }, row_lse.data);
+            var row_lse_keepdim_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 1 });
+            defer row_lse_keepdim_out.deinit();
+            try matrix.logsumexpDimOut(-1, true, row_lse_keepdim_out);
+            try expectArray(row_lse_keepdim_out, &.{ 2, 1 }, row_lse_dim.data);
 
             var all_lse = try matrix.logsumexpAxes(&.{ 0, 1 }, false);
             defer all_lse.deinit();
             try expectArray(all_lse, &.{}, &.{std.math.log(f64, std.math.e, std.math.exp(@as(f64, 1)) + std.math.exp(@as(f64, 2)) + std.math.exp(@as(f64, 3)) + 3)});
+            var all_lse_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{});
+            defer all_lse_out.deinit();
+            try matrix.logsumexpAxesOut(&.{ 0, 1 }, false, all_lse_out);
+            try expectArray(all_lse_out, &.{}, all_lse.data);
 
             var all_lse_keep = try matrix.logsumexpDims(&.{ 0, 1 }, true);
             defer all_lse_keep.deinit();
             try expectArray(all_lse_keep, &.{ 1, 1 }, all_lse.data);
+            var all_lse_keep_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 1, 1 });
+            defer all_lse_keep_out.deinit();
+            try matrix.logsumexpDimsOut(&.{ 0, 1 }, true, all_lse_keep_out);
+            try expectArray(all_lse_keep_out, &.{ 1, 1 }, all_lse_keep.data);
 
             var softmax_rows = try matrix.softmax(1);
             defer softmax_rows.deinit();
