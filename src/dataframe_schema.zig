@@ -48,6 +48,10 @@ pub const DeviceColumnSchema = struct {
         return self.rows != 0;
     }
 
+    pub fn cellCount(self: @This()) usize {
+        return self.rows;
+    }
+
     pub fn dtypeName(self: @This()) []const u8 {
         return self.dtype.name();
     }

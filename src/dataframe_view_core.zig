@@ -60,6 +60,10 @@ pub fn DeviceViewTypes(
                 return self.rows != 0;
             }
 
+            pub fn cellCount(self: DeviceColumnView) usize {
+                return self.rows;
+            }
+
             pub fn dtypeName(self: DeviceColumnView) []const u8 {
                 return self.dtype.name();
             }

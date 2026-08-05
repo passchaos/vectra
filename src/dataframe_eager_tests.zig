@@ -419,6 +419,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!units_col.isEmpty());
     try std.testing.expect(units_col.isNonEmpty());
     try std.testing.expect(units_col.hasRows());
+    try std.testing.expectEqual(units_col.len(), units_col.cellCount());
     try std.testing.expectEqual(DeviceDType.i64, units_col.dtype());
     try std.testing.expect(std.mem.eql(u8, "i64", units_col.dtypeName()));
     try std.testing.expectEqual(DeviceDType.i64.bitSize(), units_col.dtypeBitSize());
@@ -515,6 +516,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!sales_column_view.isEmpty());
     try std.testing.expect(sales_column_view.isNonEmpty());
     try std.testing.expect(sales_column_view.hasRows());
+    try std.testing.expectEqual(sales_column_view.len(), sales_column_view.cellCount());
     try std.testing.expect(std.mem.eql(u8, "f64", sales_column_view.dtypeName()));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), sales_column_view.dtypeByteSize());
     try std.testing.expectEqual(@as(usize, @bitSizeOf(f64)), sales_column_view.dtypeBitSize());
@@ -636,6 +638,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!sales_schema.isEmpty());
     try std.testing.expect(sales_schema.isNonEmpty());
     try std.testing.expect(sales_schema.hasRows());
+    try std.testing.expectEqual(sales_schema.len(), sales_schema.cellCount());
     try std.testing.expect(sales_schema.isFloat());
     try std.testing.expect(!sales_schema.isComplex());
     try std.testing.expect(!sales_schema.nullableColumn());

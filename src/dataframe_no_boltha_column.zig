@@ -75,6 +75,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return false;
     }
 
+    pub fn cellCount(_: DeviceColumn) usize {
+        return 0;
+    }
+
     pub fn dtype(self: DeviceColumn) DeviceDType {
         return std.meta.activeTag(self);
     }
