@@ -1446,6 +1446,56 @@ fn sparseDenseSplitCopyOut(comptime T: type, result_in: array_mod.Array(T).Split
     }
 }
 
+fn sparseDenseQrCopyOut(comptime T: type, result_in: array_mod.QrResult(T), q_out: array_mod.Array(T), r_out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var q_view = try q_out.asView();
+    defer q_view.deinit();
+    try q_view.copyFromArray(result.q);
+    var r_view = try r_out.asView();
+    defer r_view.deinit();
+    try r_view.copyFromArray(result.r);
+}
+
+fn sparseDenseLuCopyOut(comptime T: type, result_in: array_mod.LuResult(T), p_out: array_mod.Array(T), l_out: array_mod.Array(T), u_out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var p_view = try p_out.asView();
+    defer p_view.deinit();
+    try p_view.copyFromArray(result.p);
+    var l_view = try l_out.asView();
+    defer l_view.deinit();
+    try l_view.copyFromArray(result.l);
+    var u_view = try u_out.asView();
+    defer u_view.deinit();
+    try u_view.copyFromArray(result.u);
+}
+
+fn sparseDenseSvdCopyOut(comptime T: type, result_in: array_mod.SvdResult(T), u_out: array_mod.Array(T), s_out: array_mod.Array(T), vt_out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var u_view = try u_out.asView();
+    defer u_view.deinit();
+    try u_view.copyFromArray(result.u);
+    var s_view = try s_out.asView();
+    defer s_view.deinit();
+    try s_view.copyFromArray(result.s);
+    var vt_view = try vt_out.asView();
+    defer vt_view.deinit();
+    try vt_view.copyFromArray(result.vt);
+}
+
+fn sparseDenseEighCopyOut(comptime T: type, result_in: array_mod.EighResult(T), values_out: array_mod.Array(T), vectors_out: array_mod.Array(T)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var values_view = try values_out.asView();
+    defer values_view.deinit();
+    try values_view.copyFromArray(result.values);
+    var vectors_view = try vectors_out.asView();
+    defer vectors_view.deinit();
+    try vectors_view.copyFromArray(result.vectors);
+}
+
 fn sparseScalarComparisonOut(comptime T: type, matrix: anytype, scalar: T, out: array_mod.Array(bool), comptime comparison: SparseScalarComparison) SparseError!void {
     // Scalar sparse comparisons intentionally preserve the stored sparse
     // structure. The caller-owned `*ScalarOut` APIs are dense Array parity
@@ -8068,6 +8118,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSvd(T, self, tolerance);
         }
 
+        pub fn svdOut(self: Self, tolerance: T, u_out: array_mod.Array(T), s_out: array_mod.Array(T), vt_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseSvdCopyOut(T, try self.svd(tolerance), u_out, s_out, vt_out);
+        }
+
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
         }
@@ -8100,12 +8154,24 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseQr(T, self);
         }
 
+        pub fn qrOut(self: Self, q_out: array_mod.Array(T), r_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseQrCopyOut(T, try self.qr(), q_out, r_out);
+        }
+
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
         }
 
+        pub fn luOut(self: Self, p_out: array_mod.Array(T), l_out: array_mod.Array(T), u_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseLuCopyOut(T, try self.lu(), p_out, l_out, u_out);
+        }
+
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
             return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eighOut(self: Self, max_sweeps: usize, tolerance: T, values_out: array_mod.Array(T), vectors_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseEighCopyOut(T, try self.eigh(max_sweeps, tolerance), values_out, vectors_out);
         }
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
@@ -15428,6 +15494,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSvd(T, self, tolerance);
         }
 
+        pub fn svdOut(self: Self, tolerance: T, u_out: array_mod.Array(T), s_out: array_mod.Array(T), vt_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseSvdCopyOut(T, try self.svd(tolerance), u_out, s_out, vt_out);
+        }
+
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
         }
@@ -15460,12 +15530,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseQr(T, self);
         }
 
+        pub fn qrOut(self: Self, q_out: array_mod.Array(T), r_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseQrCopyOut(T, try self.qr(), q_out, r_out);
+        }
+
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
         }
 
+        pub fn luOut(self: Self, p_out: array_mod.Array(T), l_out: array_mod.Array(T), u_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseLuCopyOut(T, try self.lu(), p_out, l_out, u_out);
+        }
+
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
             return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eighOut(self: Self, max_sweeps: usize, tolerance: T, values_out: array_mod.Array(T), vectors_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseEighCopyOut(T, try self.eigh(max_sweeps, tolerance), values_out, vectors_out);
         }
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
@@ -23017,6 +23099,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSvd(T, self, tolerance);
         }
 
+        pub fn svdOut(self: Self, tolerance: T, u_out: array_mod.Array(T), s_out: array_mod.Array(T), vt_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseSvdCopyOut(T, try self.svd(tolerance), u_out, s_out, vt_out);
+        }
+
         pub fn cond(self: Self, tolerance: T) SparseError!T {
             return sparseDenseCond(T, self, tolerance);
         }
@@ -23049,12 +23135,24 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseQr(T, self);
         }
 
+        pub fn qrOut(self: Self, q_out: array_mod.Array(T), r_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseQrCopyOut(T, try self.qr(), q_out, r_out);
+        }
+
         pub fn lu(self: Self) SparseError!array_mod.LuResult(T) {
             return sparseDenseLu(T, self);
         }
 
+        pub fn luOut(self: Self, p_out: array_mod.Array(T), l_out: array_mod.Array(T), u_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseLuCopyOut(T, try self.lu(), p_out, l_out, u_out);
+        }
+
         pub fn eigh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.EighResult(T) {
             return sparseDenseEigh(T, self, max_sweeps, tolerance);
+        }
+
+        pub fn eighOut(self: Self, max_sweeps: usize, tolerance: T, values_out: array_mod.Array(T), vectors_out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseEighCopyOut(T, try self.eigh(max_sweeps, tolerance), values_out, vectors_out);
         }
 
         pub fn eigvalsh(self: Self, max_sweeps: usize, tolerance: T) SparseError!array_mod.Array(T) {
@@ -29881,6 +29979,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var qr_result = try upper.qr();
             defer qr_result.deinit();
+            var qr_q_out = try array_mod.Array(f64).zeros(upper.allocator, qr_result.q.shape);
+            defer qr_q_out.deinit();
+            var qr_r_out = try array_mod.Array(f64).zeros(upper.allocator, qr_result.r.shape);
+            defer qr_r_out.deinit();
+            try upper.qrOut(qr_q_out, qr_r_out);
+            try std.testing.expectEqualSlices(f64, qr_result.q.data, qr_q_out.data);
+            try std.testing.expectEqualSlices(f64, qr_result.r.data, qr_r_out.data);
             var qr_reconstructed = try qr_result.q.matmul(qr_result.r);
             defer qr_reconstructed.deinit();
             try std.testing.expectEqualSlices(usize, &.{ 2, 2 }, qr_reconstructed.shape);
@@ -29891,6 +29996,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
 
             var lu_result = try upper.lu();
             defer lu_result.deinit();
+            var lu_p_out = try array_mod.Array(f64).zeros(upper.allocator, lu_result.p.shape);
+            defer lu_p_out.deinit();
+            var lu_l_out = try array_mod.Array(f64).zeros(upper.allocator, lu_result.l.shape);
+            defer lu_l_out.deinit();
+            var lu_u_out = try array_mod.Array(f64).zeros(upper.allocator, lu_result.u.shape);
+            defer lu_u_out.deinit();
+            try upper.luOut(lu_p_out, lu_l_out, lu_u_out);
+            try std.testing.expectEqualSlices(f64, lu_result.p.data, lu_p_out.data);
+            try std.testing.expectEqualSlices(f64, lu_result.l.data, lu_l_out.data);
+            try std.testing.expectEqualSlices(f64, lu_result.u.data, lu_u_out.data);
             var lu_product = try lu_result.l.matmul(lu_result.u);
             defer lu_product.deinit();
             var lu_reconstructed = try lu_result.p.matmul(lu_product);
@@ -29929,6 +30044,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
             }
             var svd_result = try upper.svd(1e-12);
             defer svd_result.deinit();
+            var svd_u_out = try array_mod.Array(f64).zeros(upper.allocator, svd_result.u.shape);
+            defer svd_u_out.deinit();
+            var svd_s_out = try array_mod.Array(f64).zeros(upper.allocator, svd_result.s.shape);
+            defer svd_s_out.deinit();
+            var svd_vt_out = try array_mod.Array(f64).zeros(upper.allocator, svd_result.vt.shape);
+            defer svd_vt_out.deinit();
+            try upper.svdOut(1e-12, svd_u_out, svd_s_out, svd_vt_out);
+            try std.testing.expectEqualSlices(f64, svd_result.u.data, svd_u_out.data);
+            try std.testing.expectEqualSlices(f64, svd_result.s.data, svd_s_out.data);
+            try std.testing.expectEqualSlices(f64, svd_result.vt.data, svd_vt_out.data);
             var singular_diagonal = try svd_result.s.diagEmbed(0);
             defer singular_diagonal.deinit();
             var svd_left = try svd_result.u.matmul(singular_diagonal);
@@ -29959,6 +30084,13 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var eigen = try diagonal.eigh(64, 1e-12);
             defer eigen.deinit();
             try std.testing.expectEqualSlices(usize, &.{2}, eigen.values.shape);
+            var eigen_values_out = try array_mod.Array(f64).zeros(diagonal.allocator, eigen.values.shape);
+            defer eigen_values_out.deinit();
+            var eigen_vectors_out = try array_mod.Array(f64).zeros(diagonal.allocator, eigen.vectors.shape);
+            defer eigen_vectors_out.deinit();
+            try diagonal.eighOut(64, 1e-12, eigen_values_out, eigen_vectors_out);
+            try std.testing.expectEqualSlices(f64, eigen.values.data, eigen_values_out.data);
+            try std.testing.expectEqualSlices(f64, eigen.vectors.data, eigen_vectors_out.data);
             const eigen_min = @min(eigen.values.data[0], eigen.values.data[1]);
             const eigen_max = @max(eigen.values.data[0], eigen.values.data[1]);
             try std.testing.expectApproxEqAbs(@as(f64, 1), eigen_min, 1e-10);
