@@ -12,6 +12,7 @@ const lazy_format_mod = @import("../lazy.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
+const schema_mod = @import("../../dataframe_schema.zig");
 const scan_metadata_mod = @import("scan_metadata.zig");
 const series_mod = @import("../../series.zig");
 const boltha = @import("boltha");
@@ -21,6 +22,7 @@ const freeNameList = names_mod.freeNameList;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
@@ -706,6 +708,65 @@ pub fn DeviceParquetScan(
         pub fn allArrowFieldsNullable(self: Self) bool {
             const total = self.arrowFieldCount() catch return false;
             return total != 0 and (self.nullableArrowFieldCount() catch return false) == total;
+        }
+
+        fn columnSchemaFromArrowField(self: Self, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
+            const rows = try self.rowCount();
+            const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
+            return .{
+                .name = field.name,
+                .dtype = dtype,
+                .rows = rows,
+                .nullable = field.nullable,
+                .null_count = 0,
+                .valid_count = rows,
+                .data_nbytes = 0,
+                .validity_nbytes = 0,
+                .total_nbytes = 0,
+                .device = self.device,
+            };
+        }
+
+        pub fn arrowColumnSchemaAt(self: Self, index: usize) ParquetInteropError!?DeviceColumnSchema {
+            var schema_value = try self.toArrowSchema(self.allocator);
+            defer schema_value.deinit(self.allocator);
+            const field = schema_value.fieldAt(index) orelse return null;
+            return try self.columnSchemaFromArrowField(field.*);
+        }
+
+        pub fn arrowColumnSchema(self: Self, name: []const u8) ParquetInteropError!DeviceColumnSchema {
+            var schema_value = try self.toArrowSchema(self.allocator);
+            defer schema_value.deinit(self.allocator);
+            const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
+            return try self.columnSchemaFromArrowField(field.*);
+        }
+
+        pub fn arrowColumnSchemas(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+            var schema_value = try self.toArrowSchema(allocator);
+            defer schema_value.deinit(allocator);
+            const rows = try self.rowCount();
+            const schemas = try allocator.alloc(DeviceColumnSchema, schema_value.fields.len);
+            errdefer allocator.free(schemas);
+            for (schema_value.fields, schemas) |field, *slot| {
+                const dtype = try scan_metadata_mod.deviceDTypeFromArrowField(field);
+                slot.* = .{
+                    .name = field.name,
+                    .dtype = dtype,
+                    .rows = rows,
+                    .nullable = field.nullable,
+                    .null_count = 0,
+                    .valid_count = rows,
+                    .data_nbytes = 0,
+                    .validity_nbytes = 0,
+                    .total_nbytes = 0,
+                    .device = self.device,
+                };
+            }
+            return schemas;
+        }
+
+        pub fn arrowSchemaSummary(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+            return self.arrowColumnSchemas(allocator);
         }
 
         pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {

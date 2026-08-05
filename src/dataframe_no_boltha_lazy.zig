@@ -8,6 +8,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
+const DeviceColumnSchema = @import("dataframe_schema.zig").DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
@@ -484,6 +485,22 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn allArrowFieldsNullable(_: DeviceParquetScan) bool {
                 return false;
+            }
+
+            pub fn arrowColumnSchemaAt(_: DeviceParquetScan, _: usize) ParquetInteropError!?DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowColumnSchema(_: DeviceParquetScan, _: []const u8) ParquetInteropError!DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowColumnSchemas(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowSchemaSummary(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
             }
 
             pub fn hasPushdown(_: DeviceParquetScan) bool {
