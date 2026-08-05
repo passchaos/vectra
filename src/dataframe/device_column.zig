@@ -170,6 +170,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.device().backendName();
     }
 
+    pub fn deviceIndex(self: DeviceColumn) usize {
+        return self.device().index;
+    }
+
     pub fn nullable(self: DeviceColumn) bool {
         return switch (self) {
             inline else => |typed| typed.nullable(),

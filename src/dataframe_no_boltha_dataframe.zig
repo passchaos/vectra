@@ -388,6 +388,10 @@ pub fn DeviceDataFrameType(
             return "cpu";
         }
 
+        pub fn deviceIndex(_: Self) usize {
+            return 0;
+        }
+
         pub fn sameDevice(_: Self, _: Self) bool {
             return true;
         }

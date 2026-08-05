@@ -153,6 +153,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return "cpu";
     }
 
+    pub fn deviceIndex(_: DeviceColumn) usize {
+        return 0;
+    }
+
     pub fn nullable(_: DeviceColumn) bool {
         return false;
     }

@@ -217,6 +217,10 @@ pub fn DeviceViewTypes(
                 return self.device.backendName();
             }
 
+            pub fn deviceIndex(self: DeviceColumnView) usize {
+                return self.device.index;
+            }
+
             pub fn sameDevice(self: DeviceColumnView, other: DeviceColumnView) bool {
                 return self.device.sameDevice(other.device);
             }
@@ -667,6 +671,10 @@ pub fn DeviceViewTypes(
 
             pub fn deviceBackendName(self: DeviceDataFrameView) []const u8 {
                 return self.device.backendName();
+            }
+
+            pub fn deviceIndex(self: DeviceDataFrameView) usize {
+                return self.device.index;
             }
 
             pub fn sameDevice(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {

@@ -576,6 +576,10 @@ pub const DeviceDataFrame = struct {
         return self.device.backendName();
     }
 
+    pub fn deviceIndex(self: DeviceDataFrame) usize {
+        return self.device.index;
+    }
+
     pub fn sameDevice(self: DeviceDataFrame, other: DeviceDataFrame) bool {
         return self.device.sameDevice(other.device);
     }

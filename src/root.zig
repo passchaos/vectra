@@ -411,6 +411,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(frame.isEmpty());
         try std.testing.expect(!frame.isDeviceBacked());
         try std.testing.expectEqualStrings("cpu", frame.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), frame.deviceIndex());
         try std.testing.expect(frame.columnNamesUnique());
         try std.testing.expect(!frame.hasDuplicateColumnNames());
         try std.testing.expect(frame.hasAllColumns(&.{}));
@@ -454,6 +455,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(column.isCpu());
         try std.testing.expect(!column.isDeviceBacked());
         try std.testing.expectEqualStrings("cpu", column.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), column.deviceIndex());
         try std.testing.expectEqual(@as(usize, 0), column.memoryUsage());
         try std.testing.expectEqual(@as(u64, 0), column.dataPtr());
         try std.testing.expect(!column.hasValidity());
@@ -554,6 +556,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqualStrings("i32", id_view.dtypeName());
         try std.testing.expect(id_view.isCpu());
         try std.testing.expectEqualStrings("cpu", id_view.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), id_view.deviceIndex());
         try std.testing.expect(id_view.sameDevice(view_columns[0]));
         try std.testing.expect(id_view.sameLength(view_columns[0]));
         try std.testing.expect(id_view.sameShape(view_columns[0]));
@@ -617,6 +620,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expect(id_schema.isCpu());
         try std.testing.expect(!id_schema.isDeviceBacked());
         try std.testing.expectEqualStrings("cpu", id_schema.deviceBackendName());
+        try std.testing.expectEqual(@as(usize, 0), id_schema.deviceIndex());
         try std.testing.expect(id_schema.schemaEquals(try view.columnSchemaAt(0)));
         try std.testing.expect(id_schema.sameSchema(try view.columnSchema("id")));
         try std.testing.expect(id_schema.schemaCompatible(try view.columnSchemaAt(0)));
