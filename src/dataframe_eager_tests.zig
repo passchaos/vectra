@@ -7869,6 +7869,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 0), schema.fieldIndexByName("sales"));
     const table_schema = try table.schema(gpa);
     defer gpa.free(table_schema);
+    try std.testing.expect(vectra.ArrowExport.DataFrame.hasArrowProjection(table, &.{ "sales", "active" }));
+    try std.testing.expect(!vectra.ArrowExport.DataFrame.hasArrowProjection(table, &.{"missing"}));
     const grouped_arrow_fields = try vectra.ArrowExport.DataFrame.toArrowFields(table, gpa);
     defer {
         for (grouped_arrow_fields) |*field| field.deinit(gpa);

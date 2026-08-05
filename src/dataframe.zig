@@ -5057,6 +5057,10 @@ pub fn deviceDataFrame(allocator: std.mem.Allocator, defs: []const DeviceColumnD
     return DeviceDataFrame.init(allocator, defs);
 }
 
+pub fn deviceDataFrameHasArrowProjection(frame: DeviceDataFrame, wanted_names: []const []const u8) bool {
+    return frame.hasAllColumns(wanted_names);
+}
+
 pub fn deviceColumnToArrowField(column: DeviceColumn, allocator: std.mem.Allocator, name: []const u8) ArrowInteropError!boltha.arrow.Field {
     return column.toArrowField(allocator, name);
 }

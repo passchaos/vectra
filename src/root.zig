@@ -126,6 +126,7 @@ pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const ArrowExport = if (build_options.enable_boltha) struct {
     pub const DataFrame = struct {
+        pub const hasArrowProjection = dataframe_mod.deviceDataFrameHasArrowProjection;
         pub const toArrowFields = dataframe_mod.DeviceDataFrame.toArrowFields;
         pub const toArrowSchema = dataframe_mod.DeviceDataFrame.toArrowSchema;
         pub const toArrowRecordBatch = dataframe_mod.DeviceDataFrame.toArrowRecordBatch;
