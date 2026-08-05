@@ -5694,32 +5694,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseConvolve1d(T, self, kernel, mode);
         }
 
+        pub fn convolve1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve1d(kernel, mode), out);
+        }
+
         pub fn convolve1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.convolve1d(kernel, mode);
+        }
+
+        pub fn convolve1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.convolve1dOut(kernel, mode, out);
         }
 
         pub fn correlate1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate1d(T, self, kernel, mode);
         }
 
+        pub fn correlate1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate1d(kernel, mode), out);
+        }
+
         pub fn correlate1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.correlate1d(kernel, mode);
+        }
+
+        pub fn correlate1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.correlate1dOut(kernel, mode, out);
         }
 
         pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2d(T, self, kernel, mode);
         }
 
+        pub fn convolve2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2d(kernel, mode), out);
+        }
+
         pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2dArray(kernel, mode), out);
         }
 
         pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2d(T, self, kernel, mode);
         }
 
+        pub fn correlate2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2d(kernel, mode), out);
+        }
+
         pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2dArray(kernel, mode), out);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -13038,32 +13070,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseConvolve1d(T, self, kernel, mode);
         }
 
+        pub fn convolve1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve1d(kernel, mode), out);
+        }
+
         pub fn convolve1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.convolve1d(kernel, mode);
+        }
+
+        pub fn convolve1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.convolve1dOut(kernel, mode, out);
         }
 
         pub fn correlate1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate1d(T, self, kernel, mode);
         }
 
+        pub fn correlate1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate1d(kernel, mode), out);
+        }
+
         pub fn correlate1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.correlate1d(kernel, mode);
+        }
+
+        pub fn correlate1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.correlate1dOut(kernel, mode, out);
         }
 
         pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2d(T, self, kernel, mode);
         }
 
+        pub fn convolve2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2d(kernel, mode), out);
+        }
+
         pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2dArray(kernel, mode), out);
         }
 
         pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2d(T, self, kernel, mode);
         }
 
+        pub fn correlate2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2d(kernel, mode), out);
+        }
+
         pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2dArray(kernel, mode), out);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -20595,32 +20659,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseConvolve1d(T, self, kernel, mode);
         }
 
+        pub fn convolve1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve1d(kernel, mode), out);
+        }
+
         pub fn convolve1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.convolve1d(kernel, mode);
+        }
+
+        pub fn convolve1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.convolve1dOut(kernel, mode, out);
         }
 
         pub fn correlate1d(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate1d(T, self, kernel, mode);
         }
 
+        pub fn correlate1dOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate1d(kernel, mode), out);
+        }
+
         pub fn correlate1dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return self.correlate1d(kernel, mode);
+        }
+
+        pub fn correlate1dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try self.correlate1dOut(kernel, mode, out);
         }
 
         pub fn convolve2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2d(T, self, kernel, mode);
         }
 
+        pub fn convolve2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2d(kernel, mode), out);
+        }
+
         pub fn convolve2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseConvolve2dArray(T, self, kernel, mode);
+        }
+
+        pub fn convolve2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.convolve2dArray(kernel, mode), out);
         }
 
         pub fn correlate2d(self: Self, kernel: Self, mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2d(T, self, kernel, mode);
         }
 
+        pub fn correlate2dOut(self: Self, kernel: Self, mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2d(kernel, mode), out);
+        }
+
         pub fn correlate2dArray(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode) SparseError!array_mod.Array(T) {
             return sparseDenseCorrelate2dArray(T, self, kernel, mode);
+        }
+
+        pub fn correlate2dArrayOut(self: Self, kernel: array_mod.Array(T), mode: array_mod.ConvMode, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.correlate2dArray(kernel, mode), out);
         }
 
         pub fn sort(self: Self, axis_opt: ?isize) SparseError!array_mod.Array(T) {
@@ -31577,38 +31673,62 @@ test "sparse dense signal helpers" {
             var convolved_1d = try signal_same_format.convolve1d(kernel_1d, .full);
             defer convolved_1d.deinit();
             try expectArray(convolved_1d, &.{5}, &.{ 1, 4, 7, 10, 8 });
+            var signal_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{5});
+            defer signal_out.deinit();
+            try signal_same_format.convolve1dOut(kernel_1d, .full, signal_out);
+            try expectArray(signal_out, &.{5}, convolved_1d.data);
 
             var convolved_1d_array = try signal_same_format.convolve1dArray(kernel_1d, .full);
             defer convolved_1d_array.deinit();
             try expectArray(convolved_1d_array, &.{5}, convolved_1d.data);
+            try signal_same_format.convolve1dArrayOut(kernel_1d, .full, signal_out);
+            try expectArray(signal_out, &.{5}, convolved_1d_array.data);
 
             var correlated_1d = try signal_same_format.correlate1d(kernel_1d, .full);
             defer correlated_1d.deinit();
             try expectArray(correlated_1d, &.{5}, &.{ 2, 5, 8, 11, 4 });
+            try signal_same_format.correlate1dOut(kernel_1d, .full, signal_out);
+            try expectArray(signal_out, &.{5}, correlated_1d.data);
 
             var correlated_1d_array = try signal_same_format.correlate1dArray(kernel_1d, .full);
             defer correlated_1d_array.deinit();
             try expectArray(correlated_1d_array, &.{5}, correlated_1d.data);
+            try signal_same_format.correlate1dArrayOut(kernel_1d, .full, signal_out);
+            try expectArray(signal_out, &.{5}, correlated_1d_array.data);
 
             var convolved = try matrix.convolve2d(kernel_same_format, .full);
             defer convolved.deinit();
             try expectArray(convolved, &.{ 3, 3 }, &.{ 1, 2, 0, 3, 6, 4, 0, 6, 8 });
+            var matrix_full_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 3, 3 });
+            defer matrix_full_out.deinit();
+            try matrix.convolve2dOut(kernel_same_format, .full, matrix_full_out);
+            try expectArray(matrix_full_out, &.{ 3, 3 }, convolved.data);
 
             var convolved_array = try matrix.convolve2dArray(kernel_dense, .full);
             defer convolved_array.deinit();
             try expectArray(convolved_array, &.{ 3, 3 }, convolved.data);
+            try matrix.convolve2dArrayOut(kernel_dense, .full, matrix_full_out);
+            try expectArray(matrix_full_out, &.{ 3, 3 }, convolved_array.data);
 
             var correlated = try matrix.correlate2d(kernel_same_format, .full);
             defer correlated.deinit();
             try expectArray(correlated, &.{ 3, 3 }, &.{ 4, 3, 0, 2, 9, 6, 0, 4, 2 });
+            try matrix.correlate2dOut(kernel_same_format, .full, matrix_full_out);
+            try expectArray(matrix_full_out, &.{ 3, 3 }, correlated.data);
 
             var correlated_array = try matrix.correlate2dArray(kernel_dense, .full);
             defer correlated_array.deinit();
             try expectArray(correlated_array, &.{ 3, 3 }, correlated.data);
+            try matrix.correlate2dArrayOut(kernel_dense, .full, matrix_full_out);
+            try expectArray(matrix_full_out, &.{ 3, 3 }, correlated_array.data);
 
             var same_convolution = try matrix.convolve2d(kernel_same_format, .same);
             defer same_convolution.deinit();
             try expectArray(same_convolution, &.{ 2, 2 }, &.{ 1, 2, 3, 6 });
+            var matrix_same_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 2 });
+            defer matrix_same_out.deinit();
+            try matrix.convolve2dOut(kernel_same_format, .same, matrix_same_out);
+            try expectArray(matrix_same_out, &.{ 2, 2 }, same_convolution.data);
 
             var bad_kernel = try array_mod.Array(f64).ones(matrix.allocator, &.{2});
             defer bad_kernel.deinit();
