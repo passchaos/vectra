@@ -743,6 +743,18 @@ pub fn DeviceParquetScan(
             try self.whereRange(column, @unionInit(ParquetRangePredicate, @tagName(tag), .{ .min = min_value, .max = max_value }));
         }
 
+        pub fn whereGe(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
+            try self.whereMin(column, T, value);
+        }
+
+        pub fn whereLe(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
+            try self.whereMax(column, T, value);
+        }
+
+        pub fn whereEq(self: *Self, column: []const u8, comptime T: type, value: T) std.mem.Allocator.Error!void {
+            try self.whereBetween(column, T, value, value);
+        }
+
         pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
             self.clearNullPredicate();
             self.clearRangePredicate();

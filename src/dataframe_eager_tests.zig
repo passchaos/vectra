@@ -8308,6 +8308,13 @@ test "device dataframe exports boltha arrow record batch" {
     try vectra.ArrowExport.ParquetScan.whereBetween(&grouped_scan, "sales", f64, 0.0, 10.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 10.0);
+    try vectra.ArrowExport.ParquetScan.Pushdown.whereGe(&grouped_scan, "sales", f64, 0.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 0.0);
+    try vectra.ArrowExport.ParquetScan.whereLe(&grouped_scan, "sales", f64, 10.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 10.0);
+    try vectra.ArrowExport.ParquetScan.whereEq(&grouped_scan, "sales", f64, 2.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 2.0);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 2.0);
     var wrong_dtype_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer wrong_dtype_scan.deinit();
     try vectra.ArrowExport.ParquetScan.whereRange(&wrong_dtype_scan, "sales", .{ .i64 = .{ .min = 0 } });
