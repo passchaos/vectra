@@ -7,6 +7,7 @@ const column_mod = @import("dataframe_no_boltha_column.zig");
 const lazy_options_mod = @import("dataframe_no_boltha_lazy_options.zig");
 const lazy_mod = @import("dataframe_no_boltha_lazy.zig");
 const dataframe_stub_mod = @import("dataframe_no_boltha_dataframe.zig");
+const parquet_scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
 pub const DataError = host_mod.DataError;
 pub const DType = host_mod.DType;
@@ -54,6 +55,7 @@ pub const Range = options_mod.Range;
 pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 pub const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
+pub const DeviceParquetScanPushdownSummary = parquet_scan_summary_mod.DeviceParquetScanPushdownSummary;
 
 const view_types = view_core_mod.DeviceViewTypes(DeviceValidityEncoding, DeviceDTypeClass, DataError);
 pub const DeviceDataFrameViewError = view_types.DeviceDataFrameViewError;

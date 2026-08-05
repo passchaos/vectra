@@ -14,6 +14,7 @@ const profile_methods_mod = @import("dataframe/profile.zig");
 const relation_methods_mod = @import("dataframe_relation_methods.zig");
 const table_methods_mod = @import("dataframe_table_methods.zig");
 const arrow_methods_mod = @import("dataframe/arrow/methods.zig");
+const parquet_scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
 pub const DataError = series_mod.DataError;
 pub const DType = dataframe_host_mod.DType;
@@ -66,6 +67,7 @@ pub const DeviceRollingRobustOptions = options_mod.DeviceRollingRobustOptions;
 pub const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 pub const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 pub const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
+pub const DeviceParquetScanPushdownSummary = parquet_scan_summary_mod.DeviceParquetScanPushdownSummary;
 pub const Range = options_mod.Range;
 
 pub const DeviceColumnView = dataframe_view_mod.DeviceColumnView;

@@ -6,6 +6,9 @@
 
 const std = @import("std");
 const array_mod = @import("array.zig");
+const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
+
+const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 
 pub fn DeviceLazyParquetTypes(
     comptime DeviceDataFrame: type,
@@ -250,6 +253,10 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
+            }
+
+            pub fn pushdownSummary(_: DeviceParquetScan) DeviceParquetScanPushdownSummary {
+                return .{};
             }
 
             pub fn clearProjection(_: *DeviceParquetScan) void {}

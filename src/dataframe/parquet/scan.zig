@@ -11,6 +11,7 @@ const dataframe_arrow_mod = @import("../arrow.zig");
 const lazy_format_mod = @import("../lazy.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
+const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 const series_mod = @import("../../series.zig");
 const boltha = @import("boltha");
 
@@ -19,6 +20,7 @@ const freeNameList = names_mod.freeNameList;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
 
@@ -283,6 +285,25 @@ pub fn DeviceParquetScan(
 
         pub fn hasPushdown(self: Self) bool {
             return self.hasProjection() or self.hasRangePredicate() or self.hasNullPredicate();
+        }
+
+        pub fn pushdownSummary(self: Self) DeviceParquetScanPushdownSummary {
+            return .{
+                .has_projection = self.hasProjection(),
+                .projection_count = self.projectionColumnCount(),
+                .projection_names = self.projectionNames(),
+                .has_range_predicate = self.hasRangePredicate(),
+                .range_predicate_column = self.rangePredicateColumn(),
+                .range_predicate_dtype = self.rangePredicateDType(),
+                .has_null_predicate = self.hasNullPredicate(),
+                .null_predicate_column = self.nullPredicateColumn(),
+                .null_predicate_want_nulls = self.nullPredicateWantNulls(),
+                .projection_metadata_nbytes = self.projectionMetadataNbytes(),
+                .range_predicate_metadata_nbytes = self.rangePredicateMetadataNbytes(),
+                .null_predicate_metadata_nbytes = self.nullPredicateMetadataNbytes(),
+                .predicate_metadata_nbytes = self.predicateMetadataNbytes(),
+                .pushdown_metadata_nbytes = self.pushdownMetadataNbytes(),
+            };
         }
 
         pub fn clearProjection(self: *Self) void {
