@@ -6186,32 +6186,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMin(T, self, axis_opt, keepdims);
         }
 
+        pub fn minOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.min(axis_opt, keepdims), out);
+        }
+
         pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.min(axis_opt, keepdims);
+        }
+
+        pub fn aminOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(axis_opt, keepdims, out);
         }
 
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMinAxes(T, self, axes, keepdims);
         }
 
+        pub fn minAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minAxes(axes, keepdims), out);
+        }
+
         pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(axes, keepdims);
+        }
+
+        pub fn aminAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(axes, keepdims, out);
         }
 
         pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.min(dim_opt, keepdim);
         }
 
+        pub fn minDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(dim_opt, keepdim, out);
+        }
+
         pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn aminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminOut(dim_opt, keepdim, out);
         }
 
         pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(dims, keepdim);
         }
 
+        pub fn minDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(dims, keepdim, out);
+        }
+
         pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn aminDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminAxesOut(dims, keepdim, out);
         }
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12750,32 +12782,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMin(T, self, axis_opt, keepdims);
         }
 
+        pub fn minOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.min(axis_opt, keepdims), out);
+        }
+
         pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.min(axis_opt, keepdims);
+        }
+
+        pub fn aminOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(axis_opt, keepdims, out);
         }
 
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMinAxes(T, self, axes, keepdims);
         }
 
+        pub fn minAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minAxes(axes, keepdims), out);
+        }
+
         pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(axes, keepdims);
+        }
+
+        pub fn aminAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(axes, keepdims, out);
         }
 
         pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.min(dim_opt, keepdim);
         }
 
+        pub fn minDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(dim_opt, keepdim, out);
+        }
+
         pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn aminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminOut(dim_opt, keepdim, out);
         }
 
         pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(dims, keepdim);
         }
 
+        pub fn minDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(dims, keepdim, out);
+        }
+
         pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn aminDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminAxesOut(dims, keepdim, out);
         }
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19527,32 +19591,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMin(T, self, axis_opt, keepdims);
         }
 
+        pub fn minOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.min(axis_opt, keepdims), out);
+        }
+
         pub fn amin(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.min(axis_opt, keepdims);
+        }
+
+        pub fn aminOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(axis_opt, keepdims, out);
         }
 
         pub fn minAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseMinAxes(T, self, axes, keepdims);
         }
 
+        pub fn minAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minAxes(axes, keepdims), out);
+        }
+
         pub fn aminAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(axes, keepdims);
+        }
+
+        pub fn aminAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(axes, keepdims, out);
         }
 
         pub fn minDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.min(dim_opt, keepdim);
         }
 
+        pub fn minDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minOut(dim_opt, keepdim, out);
+        }
+
         pub fn aminDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.amin(dim_opt, keepdim);
+        }
+
+        pub fn aminDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminOut(dim_opt, keepdim, out);
         }
 
         pub fn minDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.minAxes(dims, keepdim);
         }
 
+        pub fn minDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.minAxesOut(dims, keepdim, out);
+        }
+
         pub fn aminDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.aminAxes(dims, keepdim);
+        }
+
+        pub fn aminDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.aminAxesOut(dims, keepdim, out);
         }
 
         pub fn max(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29356,22 +29452,40 @@ test "sparse dense reduction helpers" {
             var flat_min = try matrix.min(null, false);
             defer flat_min.deinit();
             try expectArray(flat_min, &.{}, &.{0});
+            try matrix.minOut(null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_min.data);
+            try matrix.aminOut(null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_min.data);
 
             var row_min = try matrix.amin(1, false);
             defer row_min.deinit();
             try expectArray(row_min, &.{2}, &.{ 0, 0 });
+            try matrix.aminOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_min.data);
 
             var column_min_keep = try matrix.minDim(0, true);
             defer column_min_keep.deinit();
             try expectArray(column_min_keep, &.{ 1, 3 }, &.{ 0, 0, 0 });
+            try matrix.minDimOut(0, true, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_min_keep.data);
+            try matrix.aminDimOut(0, true, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_min_keep.data);
 
             var all_min_keep = try matrix.minAxes(&.{ 0, 1 }, true);
             defer all_min_keep.deinit();
             try expectArray(all_min_keep, &.{ 1, 1 }, &.{0});
+            try matrix.minAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_min_keep.data);
+            try matrix.aminAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_min_keep.data);
 
             var row_min_dims = try matrix.aminDims(&.{1}, false);
             defer row_min_dims.deinit();
             try expectArray(row_min_dims, &.{2}, row_min.data);
+            try matrix.minDimsOut(&.{1}, false, row_out);
+            try expectArray(row_out, &.{2}, row_min_dims.data);
+            try matrix.aminDimsOut(&.{1}, false, row_out);
+            try expectArray(row_out, &.{2}, row_min_dims.data);
 
             var flat_max = try matrix.max(null, false);
             defer flat_max.deinit();
