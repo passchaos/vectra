@@ -433,6 +433,7 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(@as(usize, 0), view.duplicateColumnNameCount());
         try std.testing.expect(view.sameDevice(view));
         try std.testing.expect(view.sameShape(view));
+        try std.testing.expect(view.sameStorage(view));
         try std.testing.expect(view.hasShape(2, 1));
         try std.testing.expect(view.sameHeight(view));
         try std.testing.expect(view.sameWidth(view));

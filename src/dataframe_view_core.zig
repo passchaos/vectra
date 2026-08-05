@@ -615,6 +615,14 @@ pub fn DeviceViewTypes(
                 return self.rows == other.rows and self.columns.len == other.columns.len;
             }
 
+            pub fn sameStorage(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+                if (!self.sameShape(other)) return false;
+                for (self.columns, other.columns) |left_column, right_column| {
+                    if (!left_column.sameStorage(right_column)) return false;
+                }
+                return true;
+            }
+
             pub fn shapeEquals(self: DeviceDataFrameView, rows: usize, columns: usize) bool {
                 return self.rows == rows and self.columns.len == columns;
             }
