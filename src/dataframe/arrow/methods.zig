@@ -38,6 +38,10 @@ pub fn toArrowFieldFromView(view: anytype, allocator: std.mem.Allocator, name: [
     return dataframe_arrow_mod.deviceColumnSchemaToArrowField(allocator, view.schema(name));
 }
 
+pub fn arrowDataTypeFromSchema(schema_value: anytype) ArrowInteropError!boltha.arrow.DataType {
+    return dataframe_arrow_mod.deviceDTypeToArrowDataType(schema_value.dtype);
+}
+
 pub fn toArrowFieldFromSchema(schema_value: anytype, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Field {
     return dataframe_arrow_mod.deviceColumnSchemaToArrowField(allocator, schema_value);
 }

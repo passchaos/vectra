@@ -146,10 +146,12 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
     };
 
     pub const ColumnSchema = struct {
+        pub const arrowDataType = dataframe_mod.deviceColumnSchemaToArrowDataType;
         pub const toArrowField = dataframe_mod.deviceColumnSchemaToArrowField;
     };
 
     pub const ColumnView = struct {
+        pub const arrowDataType = dataframe_mod.deviceColumnViewToArrowDataType;
         pub const toArrowField = dataframe_mod.deviceColumnViewToArrowField;
     };
 

@@ -1045,7 +1045,7 @@ Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension
 metadata stay aligned across inspection and interchange paths.  Boltha builds
 also expose `vx.ArrowExport.DataFrame.toArrow*`/`fromArrow*`/`fromParquet*`, `Column.toArrow*`,
-`ColumnSchema.toArrowField`, `ColumnView.toArrowField`, and
+`ColumnSchema.arrowDataType`/`toArrowField`, `ColumnView.arrowDataType`/`toArrowField`, and
 `DataFrameView.toArrowFields`/`toArrowSchema` for exporting owning schema and
 non-owning view metadata directly (with the older `Device*Arrow`
 names retained as aliases).

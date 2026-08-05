@@ -5017,8 +5017,16 @@ pub fn deviceColumnToArrowField(column: DeviceColumn, allocator: std.mem.Allocat
     return column.toArrowField(allocator, name);
 }
 
+pub fn deviceColumnSchemaToArrowDataType(schema_value: DeviceColumnSchema) ArrowInteropError!boltha.arrow.DataType {
+    return arrow_methods_mod.arrowDataTypeFromSchema(schema_value);
+}
+
 pub fn deviceColumnSchemaToArrowField(schema_value: DeviceColumnSchema, allocator: std.mem.Allocator) ArrowInteropError!boltha.arrow.Field {
     return arrow_methods_mod.toArrowFieldFromSchema(schema_value, allocator);
+}
+
+pub fn deviceColumnViewToArrowDataType(view: DeviceColumnView) ArrowInteropError!boltha.arrow.DataType {
+    return arrow_methods_mod.arrowDataTypeFromSchema(view.schema(""));
 }
 
 pub fn deviceColumnViewToArrowField(view: DeviceColumnView, allocator: std.mem.Allocator, name: []const u8) ArrowInteropError!boltha.arrow.Field {

@@ -7829,6 +7829,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 3), arrow_fields.len);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, arrow_fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), arrow_fields[1].nullable);
+    const units_schema_dtype = try vectra.ArrowExport.ColumnSchema.arrowDataType(table_schema[1]);
+    try std.testing.expect(units_schema_dtype.eql(arrow_fields[1].data_type));
     var units_schema_field = try vectra.ArrowExport.ColumnSchema.toArrowField(table_schema[1], gpa);
     defer units_schema_field.deinit(gpa);
     try std.testing.expect(std.mem.eql(u8, "units", units_schema_field.name));
@@ -7836,6 +7838,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(units_schema_field.data_type.eql(arrow_fields[1].data_type));
     var table_view = try table.view();
     defer table_view.deinit();
+    const sales_view_dtype = try vectra.ArrowExport.ColumnView.arrowDataType(try table_view.column("sales"));
+    try std.testing.expect(sales_view_dtype.eql(arrow_fields[0].data_type));
     var sales_view_field = try vectra.ArrowExport.ColumnView.toArrowField(try table_view.column("sales"), gpa, "sales");
     defer sales_view_field.deinit(gpa);
     try std.testing.expect(std.mem.eql(u8, "sales", sales_view_field.name));
