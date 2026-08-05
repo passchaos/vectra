@@ -543,6 +543,10 @@ pub const DeviceParquetScan = struct {
 };
 
 pub const DeviceDataFrame = struct {
+    fn unavailableSlice(comptime T: type) DeviceDataError![]T {
+        return error.FeatureUnavailable;
+    }
+
     pub fn height(_: DeviceDataFrame) usize {
         return 0;
     }
@@ -579,23 +583,265 @@ pub const DeviceDataFrame = struct {
         return &.{};
     }
 
+    pub fn columnNamesUnique(_: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn hasDuplicateColumnNames(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn duplicateColumnNameCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn columnDTypes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]DeviceDType {
+        return unavailableSlice(DeviceDType);
+    }
+
+    pub fn dtypes(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]DeviceDType {
+        return self.columnDTypes(allocator);
+    }
+
+    pub fn columnDTypeNames(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![][]const u8 {
+        return unavailableSlice([]const u8);
+    }
+
+    pub fn dtypeNames(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![][]const u8 {
+        return self.columnDTypeNames(allocator);
+    }
+
+    pub fn columnDTypeByteSizes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn columnDTypeBitSizes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn columnDTypeClassMask(_: DeviceDataFrame, _: std.mem.Allocator, _: DeviceDTypeClass) DeviceDataError![]bool {
+        return unavailableSlice(bool);
+    }
+
+    pub fn columnDTypeClassCount(_: DeviceDataFrame, _: DeviceDTypeClass) usize {
+        return 0;
+    }
+
+    pub fn numericColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.numeric);
+    }
+
+    pub fn realColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.real);
+    }
+
+    pub fn floatColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.float);
+    }
+
+    pub fn integerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.integer);
+    }
+
+    pub fn signedIntegerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.signed_integer);
+    }
+
+    pub fn unsignedIntegerColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.unsigned_integer);
+    }
+
+    pub fn boolColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.bool);
+    }
+
+    pub fn complexColumnCount(self: DeviceDataFrame) usize {
+        return self.columnDTypeClassCount(.complex);
+    }
+
+    pub fn columnIsNumericMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .numeric);
+    }
+
+    pub fn columnIsRealMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .real);
+    }
+
+    pub fn columnIsFloatMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .float);
+    }
+
+    pub fn columnIsIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .integer);
+    }
+
+    pub fn columnIsSignedIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .signed_integer);
+    }
+
+    pub fn columnIsUnsignedIntegerMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .unsigned_integer);
+    }
+
+    pub fn columnIsBoolMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .bool);
+    }
+
+    pub fn columnIsComplexMask(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnDTypeClassMask(allocator, .complex);
+    }
+
+    pub fn columnNullCounts(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn columnValidCounts(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn nullCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn validCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn cellCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    fn ratioFromCount(count: usize, rows: usize) f64 {
+        _ = count;
+        if (rows == 0) return std.math.nan(f64);
+        return 0.0;
+    }
+
+    pub fn nullRatio(_: DeviceDataFrame) f64 {
+        return ratioFromCount(0, 0);
+    }
+
+    pub fn validRatio(_: DeviceDataFrame) f64 {
+        return ratioFromCount(0, 0);
+    }
+
+    pub fn columnNullRatios(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]f64 {
+        return unavailableSlice(f64);
+    }
+
+    pub fn columnValidRatios(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]f64 {
+        return unavailableSlice(f64);
+    }
+
+    pub fn columnDistinctCounts(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn columnNUniqueCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDistinctCounts(allocator);
+    }
+
+    pub fn columnNUnique(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDistinctCounts(allocator);
+    }
+
+    pub fn columnDuplicateCounts(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
+    pub fn columnRepeatedCounts(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]usize {
+        return self.columnDuplicateCounts(allocator);
+    }
+
+    pub fn columnDistinctRatios(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]f64 {
+        return unavailableSlice(f64);
+    }
+
+    pub fn columnNUniqueRatios(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]f64 {
+        return self.columnDistinctRatios(allocator);
+    }
+
+    pub fn columnDuplicateRatios(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]f64 {
+        return unavailableSlice(f64);
+    }
+
+    pub fn columnIsUniqueMask(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]bool {
+        return unavailableSlice(bool);
+    }
+
+    pub fn columnHasDuplicatesMask(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]bool {
+        return unavailableSlice(bool);
+    }
+
+    pub fn columnHasDuplicateValues(self: DeviceDataFrame, allocator: std.mem.Allocator) DeviceDataError![]bool {
+        return self.columnHasDuplicatesMask(allocator);
+    }
+
+    pub fn columnNullableMask(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]bool {
+        return unavailableSlice(bool);
+    }
+
+    pub fn nullableColumnCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn nonNullableColumnCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn columnHasNullsMask(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]bool {
+        return unavailableSlice(bool);
+    }
+
+    pub fn columnsWithNullsCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn columnsWithoutNullsCount(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn columnDataNbytes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
     pub fn columnDataMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
         return error.FeatureUnavailable;
+    }
+
+    pub fn columnValidityNbytes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
     }
 
     pub fn columnValidityMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
         return error.FeatureUnavailable;
     }
 
+    pub fn columnTotalNbytes(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
+        return unavailableSlice(usize);
+    }
+
     pub fn columnMemoryUsage(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]usize {
         return error.FeatureUnavailable;
+    }
+
+    pub fn dataNbytes(_: DeviceDataFrame) usize {
+        return 0;
     }
 
     pub fn dataMemoryUsage(_: DeviceDataFrame) usize {
         return 0;
     }
 
+    pub fn validityNbytes(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
     pub fn validityMemoryUsage(_: DeviceDataFrame) usize {
+        return 0;
+    }
+
+    pub fn totalNbytes(_: DeviceDataFrame) usize {
         return 0;
     }
 
@@ -625,6 +871,114 @@ pub const DeviceDataFrame = struct {
 
     pub fn schemaSummary(_: DeviceDataFrame, _: std.mem.Allocator) DeviceDataError![]DeviceColumnSchema {
         return error.FeatureUnavailable;
+    }
+
+    pub fn isEmpty(_: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn isNonEmpty(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn hasRows(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn hasColumns(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn isCpu(_: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn isCuda(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn isMps(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn isDeviceBacked(_: DeviceDataFrame) bool {
+        return false;
+    }
+
+    pub fn deviceBackendName(_: DeviceDataFrame) []const u8 {
+        return "cpu";
+    }
+
+    pub fn sameDevice(_: DeviceDataFrame, _: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn hasColumn(_: DeviceDataFrame, _: []const u8) bool {
+        return false;
+    }
+
+    pub fn hasAllColumns(_: DeviceDataFrame, names: []const []const u8) bool {
+        return names.len == 0;
+    }
+
+    pub fn hasAnyColumn(_: DeviceDataFrame, _: []const []const u8) bool {
+        return false;
+    }
+
+    pub fn shape(_: DeviceDataFrame) struct { rows: usize, cols: usize } {
+        return .{ .rows = 0, .cols = 0 };
+    }
+
+    pub fn sameShape(_: DeviceDataFrame, _: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn shapeEquals(_: DeviceDataFrame, rows: usize, columns: usize) bool {
+        return rows == 0 and columns == 0;
+    }
+
+    pub fn hasShape(self: DeviceDataFrame, rows: usize, columns: usize) bool {
+        return self.shapeEquals(rows, columns);
+    }
+
+    pub fn sameHeight(_: DeviceDataFrame, _: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn sameWidth(_: DeviceDataFrame, _: DeviceDataFrame) bool {
+        return true;
+    }
+
+    pub fn columnIndex(_: DeviceDataFrame, _: []const u8) ?usize {
+        return null;
+    }
+
+    pub fn column(_: *const DeviceDataFrame, _: []const u8) DataError!*const DeviceColumn {
+        return error.ColumnNotFound;
+    }
+
+    pub fn columnAt(_: *const DeviceDataFrame, _: usize) DeviceDataError!*const DeviceColumn {
+        return error.IndexOutOfBounds;
+    }
+
+    pub fn columnView(_: *const DeviceDataFrame, _: []const u8) DataError!DeviceColumnView {
+        return error.ColumnNotFound;
+    }
+
+    pub fn columnViewAt(_: *const DeviceDataFrame, _: usize) DeviceDataError!DeviceColumnView {
+        return error.IndexOutOfBounds;
+    }
+
+    pub fn columnNameAt(_: DeviceDataFrame, _: usize) DeviceDataError![]const u8 {
+        return error.IndexOutOfBounds;
+    }
+
+    pub fn columnDType(_: DeviceDataFrame, _: []const u8) DataError!DeviceDType {
+        return error.ColumnNotFound;
+    }
+
+    pub fn columnDTypeAt(_: DeviceDataFrame, _: usize) DeviceDataError!DeviceDType {
+        return error.IndexOutOfBounds;
     }
 
     pub fn init(_: std.mem.Allocator, _: []const DeviceColumnDef) DeviceDataError!DeviceDataFrame {

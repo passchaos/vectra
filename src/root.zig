@@ -357,6 +357,35 @@ test "top-level ops respect device dispatch" {
     try @import("std").testing.expectError(error.InvalidDevice, add(lhs, cuda_rhs));
 }
 
+test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
+    if (!build_options.enable_boltha) {
+        const gpa = std.testing.allocator;
+        const frame: DeviceDataFrame = .{};
+
+        try std.testing.expectEqual(@as(usize, 0), frame.height());
+        try std.testing.expectEqual(@as(usize, 0), frame.width());
+        try std.testing.expectEqual(@as(usize, 0), frame.cellCount());
+        try std.testing.expect(frame.isEmpty());
+        try std.testing.expect(!frame.isDeviceBacked());
+        try std.testing.expectEqualStrings("cpu", frame.deviceBackendName());
+        try std.testing.expect(frame.columnNamesUnique());
+        try std.testing.expect(!frame.hasDuplicateColumnNames());
+        try std.testing.expect(frame.hasAllColumns(&.{}));
+        try std.testing.expect(!frame.hasAnyColumn(&.{ "missing", "absent" }));
+
+        const shape_value = frame.shape();
+        try std.testing.expectEqual(@as(usize, 0), shape_value.rows);
+        try std.testing.expectEqual(@as(usize, 0), shape_value.cols);
+        try std.testing.expect(frame.hasShape(0, 0));
+        try std.testing.expect(frame.columnIndex("missing") == null);
+        try std.testing.expectError(error.ColumnNotFound, frame.columnDType("missing"));
+        try std.testing.expectError(error.IndexOutOfBounds, frame.columnDTypeAt(0));
+        try std.testing.expectError(error.FeatureUnavailable, frame.columnDTypes(gpa));
+        try std.testing.expectError(error.FeatureUnavailable, frame.columnNullCounts(gpa));
+        try std.testing.expectError(error.FeatureUnavailable, frame.columnSchemas(gpa));
+    }
+}
+
 test {
     _ = array_mod;
     _ = axiom_backend;
