@@ -8278,6 +8278,12 @@ test "device dataframe exports boltha arrow record batch" {
     try vectra.ArrowExport.ParquetScan.select(&invalid_scan, &.{"missing"});
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.validateProjection(invalid_scan));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.pushdownValid(invalid_scan));
+    var duplicate_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
+    defer duplicate_scan.deinit();
+    vectra.ArrowExport.ParquetScan.clearPushdown(&duplicate_scan);
+    try vectra.ArrowExport.ParquetScan.select(&duplicate_scan, &.{ "sales", "sales" });
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasDuplicateProjectionNames(duplicate_scan));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.validateProjection(duplicate_scan));
     const projected_scan_fields = try vectra.ArrowExport.ParquetScan.toArrowFields(grouped_scan, gpa);
     defer {
         for (projected_scan_fields) |*field| field.deinit(gpa);

@@ -528,6 +528,7 @@ pub fn DeviceParquetScan(
 
         pub fn validateProjection(self: Self) ParquetInteropError!void {
             if (self.projection) |names| {
+                if (!self.projectionNamesUnique()) return error.ColumnNotFound;
                 var schema = try self.toArrowSchemaProjection(self.allocator, names);
                 defer schema.deinit(self.allocator);
             }
