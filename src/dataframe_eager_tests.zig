@@ -333,6 +333,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_schema.schemaEquals(try table.columnSchemaAt(1)));
     try std.testing.expect(units_schema.sameSchema(try table.columnSchema("units")));
     try std.testing.expect(units_schema.schemaCompatible(try table.columnSchemaAt(1)));
+    try std.testing.expect(units_schema.sameStorage(try table.columnSchemaAt(1)));
     const active_schema = try table.columnSchemaAt(2);
     try std.testing.expect(std.mem.eql(u8, "active", active_schema.name));
     try std.testing.expectEqual(DeviceDType.bool, active_schema.dtype);
@@ -342,6 +343,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_schema.lengthEquals(3));
     try std.testing.expect(!units_schema.sameDType(active_schema));
     try std.testing.expect(!units_schema.sameNullability(active_schema));
+    try std.testing.expect(!units_schema.sameStorage(active_schema));
     try std.testing.expect(!units_schema.schemaEquals(active_schema));
     try std.testing.expectError(error.ColumnNotFound, table.columnSchema("missing"));
     try std.testing.expectError(error.IndexOutOfBounds, table.columnSchemaAt(3));
@@ -673,6 +675,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(units_view_schema.sameShape(sales_schema));
     try std.testing.expect(!units_view_schema.sameDType(sales_schema));
     try std.testing.expect(!units_view_schema.sameNullability(sales_schema));
+    try std.testing.expect(!units_view_schema.sameStorage(sales_schema));
     try std.testing.expect(units_view_schema.schemaEquals(units_schema));
     try std.testing.expect(!sales_schema.schemaEquals(units_view_schema));
     const view_schema = try view.schema(gpa);

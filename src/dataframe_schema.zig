@@ -243,4 +243,11 @@ pub const DeviceColumnSchema = struct {
 
     pub const sameSchema = schemaEquals;
     pub const schemaCompatible = schemaEquals;
+
+    pub fn sameStorage(self: @This(), other: @This()) bool {
+        return self.data_ptr == other.data_ptr and
+            self.data_nbytes == other.data_nbytes and
+            self.validity_ptr == other.validity_ptr and
+            self.validity_nbytes == other.validity_nbytes;
+    }
 };
