@@ -8335,6 +8335,11 @@ test "device dataframe exports boltha arrow record batch" {
     try vectra.ArrowExport.ParquetScan.whereEq(&grouped_scan, "sales", f64, 2.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.min.? == 2.0);
     try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.f64.max.? == 2.0);
+    try vectra.ArrowExport.ParquetScan.whereBool(&grouped_scan, "active", true);
+    try std.testing.expectEqual(vectra.DeviceDType.bool, vectra.ArrowExport.ParquetScan.rangePredicateDType(grouped_scan).?);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.bool.min.?);
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.rangePredicate(grouped_scan).?.bool.max.?);
+    try vectra.ArrowExport.ParquetScan.whereEq(&grouped_scan, "sales", f64, 2.0);
     var wrong_dtype_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer wrong_dtype_scan.deinit();
     try vectra.ArrowExport.ParquetScan.whereRange(&wrong_dtype_scan, "sales", .{ .i64 = .{ .min = 0 } });

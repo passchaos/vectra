@@ -819,6 +819,10 @@ pub fn DeviceParquetScan(
             try self.whereBetween(column, T, value, value);
         }
 
+        pub fn whereBool(self: *Self, column: []const u8, value: bool) std.mem.Allocator.Error!void {
+            try self.whereEq(column, bool, value);
+        }
+
         pub fn whereNull(self: *Self, column: []const u8, want_nulls: bool) std.mem.Allocator.Error!void {
             self.clearNullPredicate();
             self.clearRangePredicate();

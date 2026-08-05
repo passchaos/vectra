@@ -677,6 +677,10 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn whereBool(_: *DeviceParquetScan, _: []const u8, _: bool) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn whereNull(_: *DeviceParquetScan, _: []const u8, _: bool) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }
