@@ -6154,16 +6154,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseProd(T, self, axis_opt, keepdims);
         }
 
+        pub fn prodOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prod(axis_opt, keepdims), out);
+        }
+
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prodAxes(axes, keepdims), out);
         }
 
         pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prod(dim_opt, keepdim);
         }
 
+        pub fn prodDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodOut(dim_opt, keepdim, out);
+        }
+
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn prodDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodAxesOut(dims, keepdim, out);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12702,16 +12718,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseProd(T, self, axis_opt, keepdims);
         }
 
+        pub fn prodOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prod(axis_opt, keepdims), out);
+        }
+
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prodAxes(axes, keepdims), out);
         }
 
         pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prod(dim_opt, keepdim);
         }
 
+        pub fn prodDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodOut(dim_opt, keepdim, out);
+        }
+
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn prodDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodAxesOut(dims, keepdim, out);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19463,16 +19495,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseProd(T, self, axis_opt, keepdims);
         }
 
+        pub fn prodOut(self: Self, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prod(axis_opt, keepdims), out);
+        }
+
         pub fn prodAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseProdAxes(T, self, axes, keepdims);
+        }
+
+        pub fn prodAxesOut(self: Self, axes: []const isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.prodAxes(axes, keepdims), out);
         }
 
         pub fn prodDim(self: Self, dim_opt: ?isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prod(dim_opt, keepdim);
         }
 
+        pub fn prodDimOut(self: Self, dim_opt: ?isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodOut(dim_opt, keepdim, out);
+        }
+
         pub fn prodDims(self: Self, dims: []const isize, keepdim: bool) SparseError!array_mod.Array(T) {
             return self.prodAxes(dims, keepdim);
+        }
+
+        pub fn prodDimsOut(self: Self, dims: []const isize, keepdim: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.prodAxesOut(dims, keepdim, out);
         }
 
         pub fn min(self: Self, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29278,22 +29326,32 @@ test "sparse dense reduction helpers" {
             var flat_product = try matrix.prod(null, false);
             defer flat_product.deinit();
             try expectArray(flat_product, &.{}, &.{0});
+            try matrix.prodOut(null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, flat_product.data);
 
             var row_product = try matrix.prod(1, false);
             defer row_product.deinit();
             try expectArray(row_product, &.{2}, &.{ 0, 0 });
+            try matrix.prodOut(1, false, row_out);
+            try expectArray(row_out, &.{2}, row_product.data);
 
             var column_product_keep = try matrix.prodDim(0, true);
             defer column_product_keep.deinit();
             try expectArray(column_product_keep, &.{ 1, 3 }, &.{ 0, 0, 0 });
+            try matrix.prodDimOut(0, true, column_to_size_out);
+            try expectArray(column_to_size_out, &.{ 1, 3 }, column_product_keep.data);
 
             var all_product_keep = try matrix.prodAxes(&.{ 0, 1 }, true);
             defer all_product_keep.deinit();
             try expectArray(all_product_keep, &.{ 1, 1 }, &.{0});
+            try matrix.prodAxesOut(&.{ 0, 1 }, true, keepdim_out);
+            try expectArray(keepdim_out, &.{ 1, 1 }, all_product_keep.data);
 
             var row_product_dims = try matrix.prodDims(&.{1}, false);
             defer row_product_dims.deinit();
             try expectArray(row_product_dims, &.{2}, row_product.data);
+            try matrix.prodDimsOut(&.{1}, false, row_out);
+            try expectArray(row_out, &.{2}, row_product_dims.data);
 
             var flat_min = try matrix.min(null, false);
             defer flat_min.deinit();
