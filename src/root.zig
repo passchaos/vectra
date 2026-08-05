@@ -175,6 +175,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const lazy = dataframe_mod.DeviceParquetScan.lazy;
             pub const collect = dataframe_mod.DeviceParquetScan.collect;
             pub const explain = dataframe_mod.DeviceParquetScan.explain;
+            pub const explainSummary = dataframe_mod.DeviceParquetScan.explainSummary;
         };
 
         pub const Device = struct {
@@ -539,6 +540,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const whereNotNull = dataframe_mod.DeviceParquetScan.whereNotNull;
         pub const collect = dataframe_mod.DeviceParquetScan.collect;
         pub const explain = dataframe_mod.DeviceParquetScan.explain;
+        pub const explainSummary = dataframe_mod.DeviceParquetScan.explainSummary;
     };
 } else struct {};
 

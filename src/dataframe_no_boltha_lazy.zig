@@ -688,6 +688,10 @@ pub fn DeviceLazyParquetTypes(
             pub fn explain(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]u8 {
                 return error.FeatureUnavailable;
             }
+
+            pub fn explainSummary(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]u8 {
+                return error.FeatureUnavailable;
+            }
         };
     };
 }

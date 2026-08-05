@@ -1061,7 +1061,7 @@ metadata (`parquetFileSummary`/`DeviceParquetFileSummary`, shape helpers (`rowCo
 `hasNullPredicate`/`nullPredicateColumn`/`nullPredicateWantNulls`/`hasNullPredicateFor`),
 pushdown reset helpers (`clearProjection`, `clearRangePredicate`, `clearNullPredicate`, `clearPredicate`, `clearPushdown`/`resetPushdown`),
 scan retarget helpers (`setDevice`/`retarget`, `to`/`withDevice`, `cpu`/`cuda`/`mps`),
-`select`/`appendSelect`/`dropSelected`/`selectAll`/`selectExcept`/`intersectSelect`/`whereRange`/`whereMin`/`whereMax`/`whereBetween`/`whereGe`/`whereLe`/`whereGt`/`whereLt`/`whereEq`/`whereNull`/`whereIsNull`/`whereIsNotNull`/`whereNotNull`/`collect`/`lazy`/`explain`, and
+`select`/`appendSelect`/`dropSelected`/`selectAll`/`selectExcept`/`intersectSelect`/`whereRange`/`whereMin`/`whereMax`/`whereBetween`/`whereGe`/`whereLe`/`whereGt`/`whereLt`/`whereEq`/`whereNull`/`whereIsNull`/`whereIsNotNull`/`whereNotNull`/`collect`/`lazy`/`explain`/`explainSummary`, and
 `DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` for exporting owning schema and
 non-owning view metadata directly (with the older `Device*Arrow`
 names retained as aliases).

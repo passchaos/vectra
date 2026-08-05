@@ -865,5 +865,25 @@ pub fn DeviceParquetScan(
             try aw.writer.print(")\n", .{});
             return aw.toOwnedSlice();
         }
+
+        pub fn explainSummary(self: Self, allocator: std.mem.Allocator) (ParquetInteropError || std.Io.Writer.Error)![]u8 {
+            const file_summary = try self.parquetFileSummary();
+            var aw: std.Io.Writer.Allocating = .init(allocator);
+            errdefer aw.deinit();
+            try aw.writer.print(
+                "DeviceParquetScanSummary(bytes={d}, rows={d}, cols={d}, row_groups={d}, device={s}, projection={d}, predicate={s}, valid={})\n",
+                .{
+                    self.sourceNbytes(),
+                    file_summary.rowCount(),
+                    try self.columnCount(),
+                    file_summary.rowGroupCount(),
+                    self.deviceBackendName(),
+                    self.projectionColumnCount(),
+                    self.predicateColumn() orelse "none",
+                    self.collectValid(),
+                },
+            );
+            return aw.toOwnedSlice();
+        }
     };
 }

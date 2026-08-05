@@ -8458,6 +8458,10 @@ test "device dataframe exports boltha arrow record batch" {
     const grouped_scan_explain = try vectra.ArrowExport.ParquetScan.explain(grouped_scan, gpa);
     defer gpa.free(grouped_scan_explain);
     try std.testing.expect(std.mem.indexOf(u8, grouped_scan_explain, "pushdown") != null);
+    const grouped_scan_summary_explain = try vectra.ArrowExport.ParquetScan.Lifecycle.explainSummary(grouped_scan, gpa);
+    defer gpa.free(grouped_scan_summary_explain);
+    try std.testing.expect(std.mem.indexOf(u8, grouped_scan_summary_explain, "rows=") != null);
+    try std.testing.expect(std.mem.indexOf(u8, grouped_scan_summary_explain, "valid=true") != null);
     var grouped_scan_clone = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer grouped_scan_clone.deinit();
     try std.testing.expect(vectra.ArrowExport.ParquetScan.sameDevice(grouped_scan, grouped_scan_clone));
