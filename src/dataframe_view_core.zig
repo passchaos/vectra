@@ -213,6 +213,10 @@ pub fn DeviceViewTypes(
                 return !self.device.isCpu();
             }
 
+            pub fn isDeviceAvailable(self: DeviceColumnView) bool {
+                return self.device.isAvailable();
+            }
+
             pub fn deviceBackendName(self: DeviceColumnView) []const u8 {
                 return self.device.backendName();
             }
@@ -671,6 +675,10 @@ pub fn DeviceViewTypes(
 
             pub fn isDeviceBacked(self: DeviceDataFrameView) bool {
                 return !self.isCpu();
+            }
+
+            pub fn isDeviceAvailable(self: DeviceDataFrameView) bool {
+                return self.device.isAvailable();
             }
 
             pub fn deviceBackendName(self: DeviceDataFrameView) []const u8 {

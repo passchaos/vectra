@@ -572,6 +572,10 @@ pub const DeviceDataFrame = struct {
         return !self.isCpu();
     }
 
+    pub fn isDeviceAvailable(self: DeviceDataFrame) bool {
+        return self.device.isAvailable();
+    }
+
     pub fn deviceBackendName(self: DeviceDataFrame) []const u8 {
         return self.device.backendName();
     }

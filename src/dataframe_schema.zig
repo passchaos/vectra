@@ -199,6 +199,10 @@ pub const DeviceColumnSchema = struct {
         return !self.isCpu();
     }
 
+    pub fn isDeviceAvailable(self: @This()) bool {
+        return self.device.isAvailable();
+    }
+
     pub fn deviceBackendName(self: @This()) []const u8 {
         return self.device.backendName();
     }

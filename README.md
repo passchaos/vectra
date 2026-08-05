@@ -212,7 +212,7 @@ with `df.to(device)` / `df.cuda(index)` / `df.mps(index)` when the target is ava
 `columnNullableMask`, `nullableColumnCount`, `nonNullableColumnCount`, `columnHasNullsMask`, `columnsWithNullsCount`, `columnsWithoutNullsCount`, `columnDataNbytes`,
 `columnValidityNbytes`, `columnTotalNbytes`, `columnDataMemoryUsage`, `columnValidityMemoryUsage`, `columnMemoryUsage`, `dataNbytes`, `validityNbytes`,
 `totalNbytes`, `dataMemoryUsage`, `validityMemoryUsage`, `memoryUsage`, `estimatedSize`, `columnSchema`/`columnSchemaAt`/`columnSchemas`/`schema`/`schemaSummary` with per-column dtype/null-validity/memory/pointer/device/shape/schema-compatibility helpers, `equals`/`frameEquals`, `allClose`/`frameAllClose`, `schemaEquals`/`sameSchema`/`schemaCompatible`, `deviceBackend`, `deviceBackendName`, `deviceIndex`, `isCpu`,
-`isCuda`, `isMps`, `isDeviceBacked`, `sameDevice`, `sameStorage`, `shape`, `sameShape`, `shapeEquals`, `hasShape`, `sameHeight`, `sameWidth`, `isEmpty`,
+`isCuda`, `isMps`, `isDeviceBacked`, `isDeviceAvailable`, `sameDevice`, `sameStorage`, `shape`, `sameShape`, `shapeEquals`, `hasShape`, `sameHeight`, `sameWidth`, `isEmpty`,
 `isNonEmpty`, `hasRows`, `hasColumns`, `hasColumn`, `hasAllColumns`,
 `hasAnyColumn`) alongside the table
 operations below. `DeviceDataFrame.concatRows`/`appendRows`/`vstack` concatenate compatible

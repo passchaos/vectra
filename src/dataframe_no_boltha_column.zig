@@ -149,6 +149,10 @@ pub const DeviceColumn = union(DeviceDType) {
         return false;
     }
 
+    pub fn isDeviceAvailable(_: DeviceColumn) bool {
+        return true;
+    }
+
     pub fn deviceBackendName(_: DeviceColumn) []const u8 {
         return "cpu";
     }

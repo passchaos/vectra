@@ -384,6 +384,10 @@ pub fn DeviceDataFrameType(
             return false;
         }
 
+        pub fn isDeviceAvailable(_: Self) bool {
+            return true;
+        }
+
         pub fn deviceBackendName(_: Self) []const u8 {
             return "cpu";
         }
