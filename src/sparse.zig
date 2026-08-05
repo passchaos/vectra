@@ -11499,12 +11499,24 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonal(), out);
+        }
+
         pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalOffset(T, self, offset);
         }
 
+        pub fn diagonalOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalOffset(offset), out);
+        }
+
         pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return self.diagonalOffset(offset);
+        }
+
+        pub fn diagonalWithOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalOffsetOut(offset, out);
         }
 
         pub fn minAbsDiagonal(self: Self) SparseError!T {
@@ -20149,12 +20161,24 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonal(), out);
+        }
+
         pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalOffset(T, self, offset);
         }
 
+        pub fn diagonalOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalOffset(offset), out);
+        }
+
         pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return self.diagonalOffset(offset);
+        }
+
+        pub fn diagonalWithOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalOffsetOut(offset, out);
         }
 
         pub fn setDiagonal(self: *Self, value: T) SparseError!void {
@@ -28667,12 +28691,24 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn diagonalOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonal(), out);
+        }
+
         pub fn diagonalOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return sparseDenseDiagonalOffset(T, self, offset);
         }
 
+        pub fn diagonalOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.diagonalOffset(offset), out);
+        }
+
         pub fn diagonalWithOffset(self: Self, offset: isize) SparseError!array_mod.Array(T) {
             return self.diagonalOffset(offset);
+        }
+
+        pub fn diagonalWithOffsetOut(self: Self, offset: isize, out: array_mod.Array(T)) SparseError!void {
+            try self.diagonalOffsetOut(offset, out);
         }
 
         pub fn setDiagonal(self: *Self, value: T) SparseError!void {
@@ -29412,9 +29448,15 @@ test "sparse eye and identity constructors" {
     var upper_offset_diag = try upper_diag.diagonalOffset(2);
     defer upper_offset_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 2, 0, 3 }, upper_offset_diag.data);
+    var upper_offset_diag_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer upper_offset_diag_out.deinit();
+    try upper_diag.diagonalOffsetOut(2, upper_offset_diag_out);
+    try std.testing.expectEqualSlices(f64, upper_offset_diag.data, upper_offset_diag_out.data);
     var upper_alias_diag = try upper_diag.diagonalWithOffset(2);
     defer upper_alias_diag.deinit();
     try std.testing.expectEqualSlices(f64, upper_offset_diag.data, upper_alias_diag.data);
+    try upper_diag.diagonalWithOffsetOut(2, upper_offset_diag_out);
+    try std.testing.expectEqualSlices(f64, upper_alias_diag.data, upper_offset_diag_out.data);
     var upper_empty_diag = try upper_diag.diagonalOffset(5);
     defer upper_empty_diag.deinit();
     try std.testing.expectEqual(@as(usize, 0), upper_empty_diag.data.len);
@@ -29436,6 +29478,10 @@ test "sparse eye and identity constructors" {
     var lower_csr_offset_diag = try lower_csr.diagonalOffset(-1);
     defer lower_csr_offset_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csr_offset_diag.data);
+    var lower_offset_diag_out = try array_mod.Array(f64).zeros(gpa, &.{2});
+    defer lower_offset_diag_out.deinit();
+    try lower_csr.diagonalOffsetOut(-1, lower_offset_diag_out);
+    try std.testing.expectEqualSlices(f64, lower_csr_offset_diag.data, lower_offset_diag_out.data);
     var lower_csr_upper_empty = try lower_csr.diagonalOffset(3);
     defer lower_csr_upper_empty.deinit();
     try std.testing.expectEqual(@as(usize, 0), lower_csr_upper_empty.data.len);
@@ -29456,6 +29502,8 @@ test "sparse eye and identity constructors" {
     var lower_csc_offset_diag = try lower_csc.diagonalWithOffset(-1);
     defer lower_csc_offset_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5 }, lower_csc_offset_diag.data);
+    try lower_csc.diagonalWithOffsetOut(-1, lower_offset_diag_out);
+    try std.testing.expectEqualSlices(f64, lower_csc_offset_diag.data, lower_offset_diag_out.data);
     var lower_csc_upper_empty = try lower_csc.diagonalOffset(3);
     defer lower_csc_upper_empty.deinit();
     try std.testing.expectEqual(@as(usize, 0), lower_csc_upper_empty.data.len);
@@ -37300,6 +37348,10 @@ test "coo sparse diagnostics and duplicate coordinate access" {
     var diagonal = try symmetric.diagonal();
     defer diagonal.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 4, 5, 6 }, diagonal.data);
+    var diagonal_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer diagonal_out.deinit();
+    try symmetric.diagonalOut(diagonal_out);
+    try std.testing.expectEqualSlices(f64, diagonal.data, diagonal_out.data);
     var diagonal_mut = try symmetric.clone();
     defer diagonal_mut.deinit();
     try diagonal_mut.addToDiagonal(1);
@@ -37649,6 +37701,10 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csr_diag = try square_csr.diagonal();
     defer square_csr_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 7, 8 }, square_csr_diag.data);
+    var square_diag_out = try array_mod.Array(f64).zeros(gpa, &.{3});
+    defer square_diag_out.deinit();
+    try square_csr.diagonalOut(square_diag_out);
+    try std.testing.expectEqualSlices(f64, square_csr_diag.data, square_diag_out.data);
     try square_csr.setDiagonal(3);
     var square_csr_set_diag = try square_csr.diagonal();
     defer square_csr_set_diag.deinit();
@@ -37715,6 +37771,8 @@ test "csr sparse bridge dense roundtrip and matvec" {
     var square_csc_diag = try square_csc.diagonal();
     defer square_csc_diag.deinit();
     try std.testing.expectEqualSlices(f64, &.{ 6, 7, 8 }, square_csc_diag.data);
+    try square_csc.diagonalOut(square_diag_out);
+    try std.testing.expectEqualSlices(f64, square_csc_diag.data, square_diag_out.data);
     try square_csc.setDiagonal(3);
     var square_csc_set_diag = try square_csc.diagonal();
     defer square_csc_set_diag.deinit();
