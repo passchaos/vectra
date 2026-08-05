@@ -1423,6 +1423,17 @@ fn sparseDenseFrexpCopyOut(comptime T: type, result_in: array_mod.Array(T).Frexp
     try exponent_view.copyFromArray(result.exponent);
 }
 
+fn sparseDenseSortResultCopyOut(comptime T: type, result_in: array_mod.Array(T).SortResult, values_out: array_mod.Array(T), indices_out: array_mod.Array(usize)) SparseError!void {
+    var result = result_in;
+    defer result.deinit();
+    var values_view = try values_out.asView();
+    defer values_view.deinit();
+    try values_view.copyFromArray(result.values);
+    var indices_view = try indices_out.asView();
+    defer indices_view.deinit();
+    try indices_view.copyFromArray(result.indices);
+}
+
 fn sparseDenseUniqueCountsCopyOut(comptime T: type, result_in: array_mod.Array(T).UniqueCounts, values_out: array_mod.Array(T), counts_out: array_mod.Array(usize)) SparseError!void {
     var result = result_in;
     defer result.deinit();
@@ -6099,6 +6110,10 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
+        pub fn sortWithIndicesOut(self: Self, axis_opt: ?isize, descending: bool, values_out: array_mod.Array(T), indices_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseSortResultCopyOut(T, try self.sortWithIndices(axis_opt, descending), values_out, indices_out);
+        }
+
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
@@ -8843,6 +8858,10 @@ pub fn CooMatrix(comptime T: type) type {
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unique(), out);
         }
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
@@ -14407,6 +14426,10 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
+        pub fn sortWithIndicesOut(self: Self, axis_opt: ?isize, descending: bool, values_out: array_mod.Array(T), indices_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseSortResultCopyOut(T, try self.sortWithIndices(axis_opt, descending), values_out, indices_out);
+        }
+
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
@@ -17151,6 +17174,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unique(), out);
         }
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
@@ -22928,6 +22955,10 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseSortWithIndices(T, self, axis_opt, descending);
         }
 
+        pub fn sortWithIndicesOut(self: Self, axis_opt: ?isize, descending: bool, values_out: array_mod.Array(T), indices_out: array_mod.Array(usize)) SparseError!void {
+            try sparseDenseSortResultCopyOut(T, try self.sortWithIndices(axis_opt, descending), values_out, indices_out);
+        }
+
         pub fn partition(self: Self, kth: usize, axis_opt: ?isize, descending: bool) SparseError!array_mod.Array(T) {
             return sparseDensePartition(T, self, kth, axis_opt, descending);
         }
@@ -25672,6 +25703,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn unique(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnique(T, self);
+        }
+
+        pub fn uniqueOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.unique(), out);
         }
 
         pub fn uniqueWithCounts(self: Self) SparseError!array_mod.Array(T).UniqueCounts {
@@ -31235,12 +31270,18 @@ test "sparse addition canonicalizes duplicate coordinates" {
             try expectArray(sorted_with_indices.values, &.{6}, sorted_flat.data);
             try std.testing.expectEqualSlices(usize, argsorted_flat.shape, sorted_with_indices.indices.shape);
             try std.testing.expectEqualSlices(usize, argsorted_flat.data, sorted_with_indices.indices.data);
+            try matrix.sortWithIndicesOut(null, false, sorted_flat_out, argsorted_flat_out);
+            try std.testing.expectEqualSlices(f64, sorted_with_indices.values.data, sorted_flat_out.data);
+            try std.testing.expectEqualSlices(usize, sorted_with_indices.indices.data, argsorted_flat_out.data);
 
             var row_sort_with_indices = try matrix.sortWithIndices(1, false);
             defer row_sort_with_indices.deinit();
             try expectMatrix(row_sort_with_indices.values, sorted_rows.data);
             try std.testing.expectEqualSlices(usize, argsorted_rows.shape, row_sort_with_indices.indices.shape);
             try std.testing.expectEqualSlices(usize, argsorted_rows.data, row_sort_with_indices.indices.data);
+            try matrix.sortWithIndicesOut(1, false, sorted_rows_out, argsorted_rows_out);
+            try std.testing.expectEqualSlices(f64, row_sort_with_indices.values.data, sorted_rows_out.data);
+            try std.testing.expectEqualSlices(usize, row_sort_with_indices.indices.data, argsorted_rows_out.data);
 
             var partitioned_flat = try matrix.partition(3, null, false);
             defer partitioned_flat.deinit();
@@ -31329,14 +31370,16 @@ test "sparse addition canonicalizes duplicate coordinates" {
             var unique_values = try matrix.unique();
             defer unique_values.deinit();
             try expectArray(unique_values, &.{4}, &.{ 0, 1, 2, 3 });
+            var unique_values_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{4});
+            defer unique_values_out.deinit();
+            try matrix.uniqueOut(unique_values_out);
+            try expectArray(unique_values_out, &.{4}, unique_values.data);
 
             var unique_counts = try matrix.uniqueWithCounts();
             defer unique_counts.deinit();
             try expectArray(unique_counts.values, &.{4}, unique_values.data);
             try std.testing.expectEqualSlices(usize, &.{4}, unique_counts.counts.shape);
             try std.testing.expectEqualSlices(usize, &.{ 3, 1, 1, 1 }, unique_counts.counts.data);
-            var unique_values_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{4});
-            defer unique_values_out.deinit();
             var unique_counts_out = try array_mod.Array(usize).zeros(matrix.allocator, &.{4});
             defer unique_counts_out.deinit();
             try matrix.uniqueWithCountsOut(unique_values_out, unique_counts_out);
