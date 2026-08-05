@@ -8,6 +8,123 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 
+pub const DeviceParquetScanSummary = struct {
+    device: array_mod.Device = .cpu,
+    source_nbytes: usize = 0,
+    owned_nbytes: usize = 0,
+    pushdown: DeviceParquetScanPushdownSummary = .{},
+
+    const Self = @This();
+
+    pub fn deviceValue(self: Self) array_mod.Device {
+        return self.device;
+    }
+
+    pub fn deviceBackend(self: Self) array_mod.Backend {
+        return self.device.backend;
+    }
+
+    pub fn deviceBackendName(self: Self) []const u8 {
+        return self.device.backendName();
+    }
+
+    pub fn deviceIndex(self: Self) usize {
+        return self.device.index;
+    }
+
+    pub fn isCpu(self: Self) bool {
+        return self.device.isCpu();
+    }
+
+    pub fn isHostBacked(self: Self) bool {
+        return self.isCpu();
+    }
+
+    pub fn isCuda(self: Self) bool {
+        return self.device.isCuda();
+    }
+
+    pub fn isCudaBacked(self: Self) bool {
+        return self.isCuda();
+    }
+
+    pub fn isMps(self: Self) bool {
+        return self.device.isMps();
+    }
+
+    pub fn isMpsBacked(self: Self) bool {
+        return self.isMps();
+    }
+
+    pub fn isAcceleratorBacked(self: Self) bool {
+        return self.isCudaBacked() or self.isMpsBacked();
+    }
+
+    pub fn isRemoteBacked(self: Self) bool {
+        return self.isAcceleratorBacked();
+    }
+
+    pub fn isDeviceBacked(self: Self) bool {
+        return !self.isCpu();
+    }
+
+    pub fn isDeviceAvailable(self: Self) bool {
+        return self.device.isAvailable();
+    }
+
+    pub fn sameDevice(self: Self, other: Self) bool {
+        return self.device.sameDevice(other.device);
+    }
+
+    pub fn sourceNbytes(self: Self) usize {
+        return self.source_nbytes;
+    }
+
+    pub fn sourceByteCount(self: Self) usize {
+        return self.sourceNbytes();
+    }
+
+    pub fn nbytes(self: Self) usize {
+        return self.sourceNbytes();
+    }
+
+    pub fn byteCount(self: Self) usize {
+        return self.sourceNbytes();
+    }
+
+    pub fn hasBytes(self: Self) bool {
+        return self.source_nbytes != 0;
+    }
+
+    pub fn isEmpty(self: Self) bool {
+        return !self.hasBytes();
+    }
+
+    pub fn isNonEmpty(self: Self) bool {
+        return self.hasBytes();
+    }
+
+    pub fn pushdownSummary(self: Self) DeviceParquetScanPushdownSummary {
+        return self.pushdown;
+    }
+
+    pub fn hasPushdown(self: Self) bool {
+        return self.pushdown.hasPushdown();
+    }
+
+    pub fn ownedNbytes(self: Self) usize {
+        return self.owned_nbytes;
+    }
+
+    pub fn memoryUsage(self: Self) usize {
+        return self.owned_nbytes;
+    }
+
+    pub fn estimatedSize(self: Self) usize {
+        return self.owned_nbytes;
+    }
+};
+
 pub const DeviceParquetScanPushdownSummary = struct {
     has_projection: bool = false,
     projection_count: usize = 0,

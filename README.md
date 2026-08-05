@@ -1051,8 +1051,9 @@ also expose `vx.ArrowExport.DataFrame.hasArrowProjection`/`toArrow*`/`fromArrow*
 predicates, `isDeviceAvailable`, and `sameDevice`), scan byte/owned-memory
 metadata (`sourceNbytes`/`sourceByteCount`/`nbytes`/`byteCount`, `isEmpty`/`isNonEmpty`/`hasBytes`,
 `projectionMetadataNbytes`, `predicateMetadataNbytes`, `pushdownMetadataNbytes`,
-`ownedNbytes`/`memoryUsage`/`estimatedSize`), pushdown inspection
-(`DeviceParquetScanPushdownSummary` snapshots via `pushdownSummary`, plus `hasPushdown`/`hasProjection`/`projectionColumnCount`/`projectionNames`/`projectionNameAt`/`projectionIndex`/`projectionContains`/`projectsColumn`,
+`ownedNbytes`/`memoryUsage`/`estimatedSize`), metadata snapshots
+(`DeviceParquetScanSummary` via `summary` and `DeviceParquetScanPushdownSummary` via `pushdownSummary`), pushdown inspection
+(`hasPushdown`/`hasProjection`/`projectionColumnCount`/`projectionNames`/`projectionNameAt`/`projectionIndex`/`projectionContains`/`projectsColumn`,
 `hasPredicate`/`predicateColumn`/`hasPredicateFor`, `hasRangePredicate`/`rangePredicateColumn`/`rangePredicate`/`rangePredicateDType`/`hasRangePredicateFor`,
 `hasNullPredicate`/`nullPredicateColumn`/`nullPredicateWantNulls`/`hasNullPredicateFor`),
 pushdown reset helpers (`clearProjection`, `clearRangePredicate`, `clearNullPredicate`, `clearPredicate`, `clearPushdown`/`resetPushdown`),

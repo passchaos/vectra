@@ -20,6 +20,7 @@ const freeNameList = names_mod.freeNameList;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
+const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
@@ -303,6 +304,15 @@ pub fn DeviceParquetScan(
                 .null_predicate_metadata_nbytes = self.nullPredicateMetadataNbytes(),
                 .predicate_metadata_nbytes = self.predicateMetadataNbytes(),
                 .pushdown_metadata_nbytes = self.pushdownMetadataNbytes(),
+            };
+        }
+
+        pub fn summary(self: Self) DeviceParquetScanSummary {
+            return .{
+                .device = self.deviceValue(),
+                .source_nbytes = self.sourceNbytes(),
+                .owned_nbytes = self.ownedNbytes(),
+                .pushdown = self.pushdownSummary(),
             };
         }
 

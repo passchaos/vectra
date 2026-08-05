@@ -8,6 +8,7 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
+const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 
 pub fn DeviceLazyParquetTypes(
@@ -256,6 +257,10 @@ pub fn DeviceLazyParquetTypes(
             }
 
             pub fn pushdownSummary(_: DeviceParquetScan) DeviceParquetScanPushdownSummary {
+                return .{};
+            }
+
+            pub fn summary(_: DeviceParquetScan) DeviceParquetScanSummary {
                 return .{};
             }
 
