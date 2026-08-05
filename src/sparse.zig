@@ -7522,28 +7522,56 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseLerp(T, self, end, weight);
         }
 
+        pub fn lerpOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerp(end, weight), out);
+        }
+
         pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.lerp(end, weight);
+        }
+
+        pub fn lerpArrayOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.lerpOut(end, weight, out);
         }
 
         pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
             return sparseDenseLerpScalar(T, self, end, weight);
         }
 
+        pub fn lerpScalarOut(self: Self, end: array_mod.Array(T), weight: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerpScalar(end, weight), out);
+        }
+
         pub fn addArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAddArray(T, self, rhs);
+        }
+
+        pub fn addArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.addOut(rhs, out);
         }
 
         pub fn subArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSubArray(T, self, rhs);
         }
 
+        pub fn subArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.subOut(rhs, out);
+        }
+
         pub fn mulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMulArray(T, self, rhs);
         }
 
+        pub fn mulArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.mulOut(rhs, out);
+        }
+
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn divArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.divOut(rhs, out);
         }
 
         pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
@@ -7590,16 +7618,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDensePowArray(T, self, rhs);
         }
 
+        pub fn powArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.powArray(rhs), out);
+        }
+
         pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn floorDivArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDivArray(rhs), out);
         }
 
         pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseModArray(T, self, rhs);
         }
 
+        pub fn modArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.modArray(rhs), out);
+        }
+
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn remainderArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.modArrayOut(rhs, out);
         }
 
         pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -7670,16 +7714,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseMaximumArray(T, self, rhs);
         }
 
+        pub fn maximumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximumArray(rhs), out);
+        }
+
         pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn minimumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimumArray(rhs), out);
         }
 
         pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFmaxArray(T, self, rhs);
         }
 
+        pub fn fmaxArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmaxArray(rhs), out);
+        }
+
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn fminArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fminArray(rhs), out);
         }
 
         pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -15662,28 +15722,56 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseLerp(T, self, end, weight);
         }
 
+        pub fn lerpOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerp(end, weight), out);
+        }
+
         pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.lerp(end, weight);
+        }
+
+        pub fn lerpArrayOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.lerpOut(end, weight, out);
         }
 
         pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
             return sparseDenseLerpScalar(T, self, end, weight);
         }
 
+        pub fn lerpScalarOut(self: Self, end: array_mod.Array(T), weight: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerpScalar(end, weight), out);
+        }
+
         pub fn addArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAddArray(T, self, rhs);
+        }
+
+        pub fn addArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.addOut(rhs, out);
         }
 
         pub fn subArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSubArray(T, self, rhs);
         }
 
+        pub fn subArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.subOut(rhs, out);
+        }
+
         pub fn mulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMulArray(T, self, rhs);
         }
 
+        pub fn mulArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.mulOut(rhs, out);
+        }
+
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn divArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.divOut(rhs, out);
         }
 
         pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
@@ -15730,16 +15818,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDensePowArray(T, self, rhs);
         }
 
+        pub fn powArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.powArray(rhs), out);
+        }
+
         pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn floorDivArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDivArray(rhs), out);
         }
 
         pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseModArray(T, self, rhs);
         }
 
+        pub fn modArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.modArray(rhs), out);
+        }
+
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn remainderArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.modArrayOut(rhs, out);
         }
 
         pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -15810,16 +15914,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseMaximumArray(T, self, rhs);
         }
 
+        pub fn maximumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximumArray(rhs), out);
+        }
+
         pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn minimumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimumArray(rhs), out);
         }
 
         pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFmaxArray(T, self, rhs);
         }
 
+        pub fn fmaxArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmaxArray(rhs), out);
+        }
+
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn fminArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fminArray(rhs), out);
         }
 
         pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -24015,28 +24135,56 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseLerp(T, self, end, weight);
         }
 
+        pub fn lerpOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerp(end, weight), out);
+        }
+
         pub fn lerpArray(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.lerp(end, weight);
+        }
+
+        pub fn lerpArrayOut(self: Self, end: array_mod.Array(T), weight: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.lerpOut(end, weight, out);
         }
 
         pub fn lerpScalar(self: Self, end: array_mod.Array(T), weight: T) SparseError!array_mod.Array(T) {
             return sparseDenseLerpScalar(T, self, end, weight);
         }
 
+        pub fn lerpScalarOut(self: Self, end: array_mod.Array(T), weight: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.lerpScalar(end, weight), out);
+        }
+
         pub fn addArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseAddArray(T, self, rhs);
+        }
+
+        pub fn addArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.addOut(rhs, out);
         }
 
         pub fn subArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseSubArray(T, self, rhs);
         }
 
+        pub fn subArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.subOut(rhs, out);
+        }
+
         pub fn mulArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMulArray(T, self, rhs);
         }
 
+        pub fn mulArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.mulOut(rhs, out);
+        }
+
         pub fn divArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseDivArray(T, self, rhs);
+        }
+
+        pub fn divArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.divOut(rhs, out);
         }
 
         pub fn addOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
@@ -24083,16 +24231,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDensePowArray(T, self, rhs);
         }
 
+        pub fn powArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.powArray(rhs), out);
+        }
+
         pub fn floorDivArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFloorDivArray(T, self, rhs);
+        }
+
+        pub fn floorDivArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.floorDivArray(rhs), out);
         }
 
         pub fn modArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseModArray(T, self, rhs);
         }
 
+        pub fn modArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.modArray(rhs), out);
+        }
+
         pub fn remainderArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return self.modArray(rhs);
+        }
+
+        pub fn remainderArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try self.modArrayOut(rhs, out);
         }
 
         pub fn pow(self: Self, rhs: Self) SparseError!array_mod.Array(T) {
@@ -24163,16 +24327,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseMaximumArray(T, self, rhs);
         }
 
+        pub fn maximumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.maximumArray(rhs), out);
+        }
+
         pub fn minimumArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseMinimumArray(T, self, rhs);
+        }
+
+        pub fn minimumArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.minimumArray(rhs), out);
         }
 
         pub fn fmaxArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFmaxArray(T, self, rhs);
         }
 
+        pub fn fmaxArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fmaxArray(rhs), out);
+        }
+
         pub fn fminArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
             return sparseDenseFminArray(T, self, rhs);
+        }
+
+        pub fn fminArrayOut(self: Self, rhs: array_mod.Array(T), out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.fminArray(rhs), out);
         }
 
         pub fn hypotArray(self: Self, rhs: array_mod.Array(T)) SparseError!array_mod.Array(T) {
@@ -33739,30 +33919,46 @@ test "sparse dense fused elementwise helpers" {
             var lerped = try matrix.lerp(end_values, weights);
             defer lerped.deinit();
             try expectArray(lerped, &.{ 2, 3 }, &.{ 1, 1, 2.5, 3, 5.75, 8 });
+            var fused_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
+            defer fused_out.deinit();
+            try matrix.lerpOut(end_values, weights, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, lerped.data);
 
             var lerp_alias = try matrix.lerpArray(end_values, weights);
             defer lerp_alias.deinit();
             try expectArray(lerp_alias, &.{ 2, 3 }, lerped.data);
+            try matrix.lerpArrayOut(end_values, weights, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, lerp_alias.data);
 
             var lerped_scalar = try matrix.lerpScalar(end_values, 0.5);
             defer lerped_scalar.deinit();
             try expectArray(lerped_scalar, &.{ 2, 3 }, &.{ 2, 2, 2.5, 3, 4.5, 5.5 });
+            try matrix.lerpScalarOut(end_values, 0.5, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, lerped_scalar.data);
 
             var added_array = try matrix.addArray(end_values);
             defer added_array.deinit();
             try expectArray(added_array, &.{ 2, 3 }, &.{ 4, 4, 5, 6, 9, 11 });
+            try matrix.addArrayOut(end_values, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, added_array.data);
 
             var subtracted_array = try matrix.subArray(end_values);
             defer subtracted_array.deinit();
             try expectArray(subtracted_array, &.{ 2, 3 }, &.{ -2, -4, -5, -6, -5, -5 });
+            try matrix.subArrayOut(end_values, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, subtracted_array.data);
 
             var multiplied_array = try matrix.mulArray(end_values);
             defer multiplied_array.deinit();
             try expectArray(multiplied_array, &.{ 2, 3 }, &.{ 3, 0, 0, 0, 14, 24 });
+            try matrix.mulArrayOut(end_values, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, multiplied_array.data);
 
             var divided_array = try matrix.divArray(end_values);
             defer divided_array.deinit();
             try expectArray(divided_array, &.{ 2, 3 }, &.{ 1.0 / 3.0, 0, 0, 0, 2.0 / 7.0, 3.0 / 8.0 });
+            try matrix.divArrayOut(end_values, fused_out);
+            try expectArray(fused_out, &.{ 2, 3 }, divided_array.data);
 
             var added_out = try array_mod.Array(f64).zeros(matrix.allocator, &.{ 2, 3 });
             defer added_out.deinit();
@@ -34407,6 +34603,10 @@ test "sparse dense numeric array helpers" {
             var powers = try matrix.powArray(exponents);
             defer powers.deinit();
             try expectArray(powers, &.{ 2, 3 }, &.{ 4, 0, 0, 0, 1, 8 });
+            var dense_binary_out = try array_mod.Array(i32).zeros(matrix.allocator, &.{ 2, 3 });
+            defer dense_binary_out.deinit();
+            try matrix.powArrayOut(exponents, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, powers.data);
 
             var divisors = try array_mod.Array(i32).fromSlice(matrix.allocator, &.{
                 2, 2, 3,
@@ -34416,14 +34616,20 @@ test "sparse dense numeric array helpers" {
             var floored = try matrix.floorDivArray(divisors);
             defer floored.deinit();
             try expectArray(floored, &.{ 2, 3 }, &.{ 1, 0, 0, 0, -1, 1 });
+            try matrix.floorDivArrayOut(divisors, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, floored.data);
 
             var modded = try matrix.modArray(divisors);
             defer modded.deinit();
             try expectArray(modded, &.{ 2, 3 }, &.{ 0, 0, 0, 0, 4, 0 });
+            try matrix.modArrayOut(divisors, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, modded.data);
 
             var remainder_alias = try matrix.remainderArray(divisors);
             defer remainder_alias.deinit();
             try expectArray(remainder_alias, &.{ 2, 3 }, modded.data);
+            try matrix.remainderArrayOut(divisors, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, remainder_alias.data);
 
             var promoted_rhs = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{
                 0.5, 1, 2,
@@ -34565,18 +34771,26 @@ test "sparse dense numeric array helpers" {
             var maximum = try matrix.maximumArray(bounds);
             defer maximum.deinit();
             try expectArray(maximum, &.{ 2, 3 }, &.{ 2, 0, 3, 0, 4, 5 });
+            try matrix.maximumArrayOut(bounds, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, maximum.data);
 
             var minimum = try matrix.minimumArray(bounds);
             defer minimum.deinit();
             try expectArray(minimum, &.{ 2, 3 }, &.{ 1, -1, 0, 0, -1, 2 });
+            try matrix.minimumArrayOut(bounds, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, minimum.data);
 
             var fmax = try matrix.fmaxArray(bounds);
             defer fmax.deinit();
             try expectArray(fmax, &.{ 2, 3 }, maximum.data);
+            try matrix.fmaxArrayOut(bounds, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, fmax.data);
 
             var fmin = try matrix.fminArray(bounds);
             defer fmin.deinit();
             try expectArray(fmin, &.{ 2, 3 }, minimum.data);
+            try matrix.fminArrayOut(bounds, dense_binary_out);
+            try expectArray(dense_binary_out, &.{ 2, 3 }, fmin.data);
 
             var scalar_power = try matrix.powScalar(2);
             defer scalar_power.deinit();
