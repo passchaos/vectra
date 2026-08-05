@@ -26,6 +26,52 @@ const SourceRange = scan_summary_mod.SourceRange;
 const ParquetRangePredicate = options_mod.ParquetRangePredicate;
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
 
+fn cloneArrowFields(
+    allocator: std.mem.Allocator,
+    fields: []const boltha.arrow.Field,
+) ParquetInteropError![]boltha.arrow.Field {
+    const owned = try allocator.alloc(boltha.arrow.Field, fields.len);
+    var initialized: usize = 0;
+    errdefer {
+        for (owned[0..initialized]) |*field| field.deinit(allocator);
+        allocator.free(owned);
+    }
+    for (fields, owned) |field, *slot| {
+        slot.* = try field.clone(allocator);
+        initialized += 1;
+    }
+    return owned;
+}
+
+fn schemaProjectionIndices(
+    allocator: std.mem.Allocator,
+    schema: boltha.arrow.Schema,
+    wanted_names: []const []const u8,
+) ParquetInteropError![]usize {
+    const indices = try allocator.alloc(usize, wanted_names.len);
+    errdefer allocator.free(indices);
+    for (wanted_names, indices) |name, *slot| {
+        slot.* = schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+    }
+    return indices;
+}
+
+fn projectArrowSchemaByName(
+    allocator: std.mem.Allocator,
+    schema: boltha.arrow.Schema,
+    wanted_names: []const []const u8,
+) ParquetInteropError!boltha.arrow.Schema {
+    const indices = try schemaProjectionIndices(allocator, schema, wanted_names);
+    defer allocator.free(indices);
+    return schema.project(allocator, indices) catch |err| switch (err) {
+        // `schemaProjectionIndices` resolves every name against this exact
+        // schema, so the only invalid-index outcome would be an internal logic
+        // error or concurrent mutation of an immutable schema value.
+        error.InvalidFieldIndex => unreachable,
+        else => |e| return e,
+    };
+}
+
 pub fn DeviceParquetScan(
     comptime DeviceDataFrame: type,
     comptime DeviceLazyFrame: type,
@@ -404,6 +450,45 @@ pub fn DeviceParquetScan(
                 .owned_nbytes = self.ownedNbytes(),
                 .pushdown = self.pushdownSummary(),
             };
+        }
+
+        pub fn toArrowSchema(self: Self, allocator: std.mem.Allocator) ParquetInteropError!boltha.arrow.Schema {
+            var schema = try boltha.parquet.readSchema(allocator, self.bytes);
+            errdefer schema.deinit(allocator);
+            if (self.projection) |names| {
+                var projected = try projectArrowSchemaByName(allocator, schema, names);
+                errdefer projected.deinit(allocator);
+                schema.deinit(allocator);
+                return projected;
+            }
+            return schema;
+        }
+
+        pub fn toArrowSchemaProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError!boltha.arrow.Schema {
+            var schema = try boltha.parquet.readSchema(allocator, self.bytes);
+            defer schema.deinit(allocator);
+            return projectArrowSchemaByName(allocator, schema, wanted_names);
+        }
+
+        pub fn toArrowFields(self: Self, allocator: std.mem.Allocator) ParquetInteropError![]boltha.arrow.Field {
+            var schema = try self.toArrowSchema(allocator);
+            defer schema.deinit(allocator);
+            return cloneArrowFields(allocator, schema.fieldsView());
+        }
+
+        pub fn toArrowFieldsProjection(self: Self, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]boltha.arrow.Field {
+            var schema = try self.toArrowSchemaProjection(allocator, wanted_names);
+            defer schema.deinit(allocator);
+            return cloneArrowFields(allocator, schema.fieldsView());
+        }
+
+        pub fn hasArrowProjection(self: Self, wanted_names: []const []const u8) bool {
+            var schema = boltha.parquet.readSchema(self.allocator, self.bytes) catch return false;
+            defer schema.deinit(self.allocator);
+            for (wanted_names) |name| {
+                if (schema.fieldIndexByName(name) == null) return false;
+            }
+            return true;
         }
 
         pub fn clearProjection(self: *Self) void {

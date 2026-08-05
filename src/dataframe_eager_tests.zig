@@ -8035,6 +8035,19 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(vectra.ArrowExport.ParquetScan.sourceEndPtr(grouped_scan), grouped_scan_source.sourceEndPtr());
     try std.testing.expect(grouped_scan_source.hasPtr());
     try std.testing.expect(grouped_scan_source.isNonEmpty());
+    try std.testing.expect(vectra.ArrowExport.ParquetScan.hasArrowProjection(grouped_scan, &.{ "sales", "units" }));
+    try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasArrowProjection(grouped_scan, &.{"missing"}));
+    var scan_arrow_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
+    defer scan_arrow_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), scan_arrow_schema.fieldCount());
+    try std.testing.expectEqual(@as(?usize, 0), scan_arrow_schema.fieldIndexByName("sales"));
+    const scan_arrow_fields = try vectra.ArrowExport.ParquetScan.toArrowFields(grouped_scan, gpa);
+    defer {
+        for (scan_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(scan_arrow_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 3), scan_arrow_fields.len);
+    try std.testing.expectEqualStrings("units", scan_arrow_fields[1].name);
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.sourceByteCount(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.nbytes(grouped_scan));
     try std.testing.expectEqual(grouped_parquet_bytes.len, vectra.ArrowExport.ParquetScan.byteCount(grouped_scan));
@@ -8067,6 +8080,30 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.projectsColumn(grouped_scan, "units"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.projectsColumn(grouped_scan, "missing"));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasPushdown(grouped_scan));
+    var projected_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
+    defer projected_scan_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 2), projected_scan_schema.fieldCount());
+    try std.testing.expectEqualStrings("sales", projected_scan_schema.fields[0].name);
+    try std.testing.expectEqualStrings("units", projected_scan_schema.fields[1].name);
+    var explicit_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchemaProjection(grouped_scan, gpa, &.{"active"});
+    defer explicit_scan_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 1), explicit_scan_schema.fieldCount());
+    try std.testing.expectEqualStrings("active", explicit_scan_schema.fields[0].name);
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.toArrowSchemaProjection(grouped_scan, gpa, &.{"missing"}));
+    const projected_scan_fields = try vectra.ArrowExport.ParquetScan.toArrowFields(grouped_scan, gpa);
+    defer {
+        for (projected_scan_fields) |*field| field.deinit(gpa);
+        gpa.free(projected_scan_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 2), projected_scan_fields.len);
+    try std.testing.expectEqualStrings("units", projected_scan_fields[1].name);
+    const explicit_scan_fields = try vectra.ArrowExport.ParquetScan.toArrowFieldsProjection(grouped_scan, gpa, &.{"sales"});
+    defer {
+        for (explicit_scan_fields) |*field| field.deinit(gpa);
+        gpa.free(explicit_scan_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 1), explicit_scan_fields.len);
+    try std.testing.expectEqualStrings("sales", explicit_scan_fields[0].name);
     const projection_metadata_nbytes = 2 * @sizeOf([]const u8) + "sales".len + "units".len;
     try std.testing.expectEqual(@as(usize, projection_metadata_nbytes), vectra.ArrowExport.ParquetScan.projectionMetadataNbytes(grouped_scan));
     try vectra.ArrowExport.ParquetScan.whereRange(&grouped_scan, "sales", .{ .f64 = .{ .min = 0.0 } });
