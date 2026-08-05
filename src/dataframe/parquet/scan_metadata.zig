@@ -6,6 +6,8 @@
 
 const std = @import("std");
 const boltha = @import("boltha");
+const array_mod = @import("../../array.zig");
+const arrow_extensions_mod = @import("../arrow/extensions.zig");
 const dataframe_arrow_mod = @import("../arrow.zig");
 const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 
@@ -54,6 +56,32 @@ pub fn projectArrowSchemaByName(
         // schema, so invalid-index would indicate internal logic drift.
         error.InvalidFieldIndex => unreachable,
         else => |e| return e,
+    };
+}
+
+pub fn deviceDTypeFromArrowField(field: boltha.arrow.Field) ParquetInteropError!array_mod.DType {
+    if (arrow_extensions_mod.dtypeFromField(field)) |dtype| return dtype;
+    return switch (field.data_type) {
+        .bool => .bool,
+        .int => |info| if (info.signed) switch (info.bit_width) {
+            8 => .i8,
+            16 => .i16,
+            32 => .i32,
+            64 => .i64,
+            else => error.TypeUnsupported,
+        } else switch (info.bit_width) {
+            8 => .u8,
+            16 => .u16,
+            32 => .u32,
+            64 => .u64,
+            else => error.TypeUnsupported,
+        },
+        .floating_point => |fp| switch (fp) {
+            .half => .f16,
+            .single => .f32,
+            .double => .f64,
+        },
+        else => error.TypeUnsupported,
     };
 }
 

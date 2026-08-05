@@ -8105,6 +8105,18 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasAllArrowFields(grouped_scan, &.{ "sales", "missing" }));
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasAnyArrowField(grouped_scan, &.{ "missing", "active" }));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasAnyArrowField(grouped_scan, &.{"missing"}));
+    try std.testing.expectEqual(@as(?vectra.DeviceDType, .f64), try vectra.ArrowExport.ParquetScan.arrowFieldDTypeAt(grouped_scan, 0));
+    try std.testing.expect((try vectra.ArrowExport.ParquetScan.arrowFieldDTypeAt(grouped_scan, 99)) == null);
+    try std.testing.expectEqual(vectra.DeviceDType.i64, try vectra.ArrowExport.ParquetScan.arrowFieldDType(grouped_scan, "units"));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldDType(grouped_scan, "missing"));
+    const scan_dtypes = try vectra.ArrowExport.ParquetScan.arrowFieldDTypes(grouped_scan, gpa);
+    defer gpa.free(scan_dtypes);
+    try std.testing.expectEqualSlices(vectra.DeviceDType, &.{ .f64, .i64, .bool }, scan_dtypes);
+    const scan_dtype_names = try vectra.ArrowExport.ParquetScan.arrowFieldDTypeNames(grouped_scan, gpa);
+    defer gpa.free(scan_dtype_names);
+    try std.testing.expectEqualStrings("f64", scan_dtype_names[0]);
+    try std.testing.expectEqualStrings("i64", scan_dtype_names[1]);
+    try std.testing.expectEqualStrings("bool", scan_dtype_names[2]);
     var scan_arrow_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer scan_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), scan_arrow_schema.fieldCount());
@@ -8158,6 +8170,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(vectra.ArrowExport.ParquetScan.hasArrowField(grouped_scan, "units"));
     try std.testing.expect(!vectra.ArrowExport.ParquetScan.hasArrowField(grouped_scan, "active"));
     try std.testing.expectEqual(@as(?usize, 1), try vectra.ArrowExport.ParquetScan.arrowFieldIndex(grouped_scan, "units"));
+    const projected_scan_dtypes = try vectra.ArrowExport.ParquetScan.arrowFieldDTypes(grouped_scan, gpa);
+    defer gpa.free(projected_scan_dtypes);
+    try std.testing.expectEqualSlices(vectra.DeviceDType, &.{ .f64, .i64 }, projected_scan_dtypes);
     var projected_scan_schema = try vectra.ArrowExport.ParquetScan.toArrowSchema(grouped_scan, gpa);
     defer projected_scan_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 2), projected_scan_schema.fieldCount());

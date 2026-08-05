@@ -410,6 +410,22 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn arrowFieldDTypeAt(_: DeviceParquetScan, _: usize) ParquetInteropError!?array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDType(_: DeviceParquetScan, _: []const u8) ParquetInteropError!array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeNames(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn hasPushdown(_: DeviceParquetScan) bool {
                 return false;
             }
