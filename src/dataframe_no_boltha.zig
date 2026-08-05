@@ -110,6 +110,38 @@ pub const DeviceColumn = union(DeviceDType) {
         return self.dtype().bitSize();
     }
 
+    pub fn isNumeric(self: DeviceColumn) bool {
+        return self.dtype().isNumeric();
+    }
+
+    pub fn isReal(self: DeviceColumn) bool {
+        return self.dtype().isReal();
+    }
+
+    pub fn isFloat(self: DeviceColumn) bool {
+        return self.dtype().isFloat();
+    }
+
+    pub fn isInteger(self: DeviceColumn) bool {
+        return self.dtype().isInteger();
+    }
+
+    pub fn isSignedInteger(self: DeviceColumn) bool {
+        return self.dtype().isSigned();
+    }
+
+    pub fn isUnsignedInteger(self: DeviceColumn) bool {
+        return self.dtype().isUnsigned();
+    }
+
+    pub fn isBool(self: DeviceColumn) bool {
+        return self.dtype().isBool();
+    }
+
+    pub fn isComplex(self: DeviceColumn) bool {
+        return self.dtype().isComplex();
+    }
+
     pub fn device(_: DeviceColumn) array_mod.Device {
         return .cpu;
     }

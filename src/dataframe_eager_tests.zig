@@ -413,6 +413,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(DeviceDType.i64, units_col.dtype());
     try std.testing.expect(std.mem.eql(u8, "i64", units_col.dtypeName()));
     try std.testing.expectEqual(DeviceDType.i64.bitSize(), units_col.dtypeBitSize());
+    try std.testing.expect(units_col.isNumeric());
+    try std.testing.expect(units_col.isReal());
+    try std.testing.expect(!units_col.isFloat());
+    try std.testing.expect(units_col.isInteger());
+    try std.testing.expect(units_col.isSignedInteger());
+    try std.testing.expect(!units_col.isUnsignedInteger());
+    try std.testing.expect(!units_col.isBool());
+    try std.testing.expect(!units_col.isComplex());
     try std.testing.expect(units_col.isCpu());
     try std.testing.expect(!units_col.isDeviceBacked());
     try std.testing.expect(std.mem.eql(u8, "cpu", units_col.deviceBackendName()));
@@ -491,6 +499,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(std.mem.eql(u8, "f64", sales_column_view.dtypeName()));
     try std.testing.expectEqual(@as(usize, @sizeOf(f64)), sales_column_view.dtypeByteSize());
     try std.testing.expectEqual(@as(usize, @bitSizeOf(f64)), sales_column_view.dtypeBitSize());
+    try std.testing.expect(sales_column_view.isNumeric());
+    try std.testing.expect(sales_column_view.isReal());
+    try std.testing.expect(sales_column_view.isFloat());
+    try std.testing.expect(!sales_column_view.isInteger());
+    try std.testing.expect(!sales_column_view.isBool());
+    try std.testing.expect(!sales_column_view.isComplex());
     try std.testing.expectEqual(@as(usize, 3 * @sizeOf(f64)), sales_column_view.dataNbytes());
     try std.testing.expectEqual(sales_column_view.dataNbytes(), sales_column_view.dataMemoryUsage());
     try std.testing.expectEqual(@as(usize, 0), sales_column_view.validityNbytes());
@@ -539,6 +553,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!units_column_view.allValid());
     try std.testing.expectEqual(units_column_view.totalNbytes(), units_column_view.dataNbytes() + units_column_view.validityNbytes());
     const active_column_view = try view.columnViewAt(2);
+    try std.testing.expect(active_column_view.isBool());
+    try std.testing.expect(!active_column_view.isNumeric());
     const view_null_counts = try view.columnNullCounts(gpa);
     defer gpa.free(view_null_counts);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, view_null_counts);

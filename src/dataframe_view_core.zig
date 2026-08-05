@@ -44,6 +44,38 @@ pub fn DeviceViewTypes(
                 return self.dtype.bitSize();
             }
 
+            pub fn isNumeric(self: DeviceColumnView) bool {
+                return self.dtype.isNumeric();
+            }
+
+            pub fn isReal(self: DeviceColumnView) bool {
+                return self.dtype.isReal();
+            }
+
+            pub fn isFloat(self: DeviceColumnView) bool {
+                return self.dtype.isFloat();
+            }
+
+            pub fn isInteger(self: DeviceColumnView) bool {
+                return self.dtype.isInteger();
+            }
+
+            pub fn isSignedInteger(self: DeviceColumnView) bool {
+                return self.dtype.isSigned();
+            }
+
+            pub fn isUnsignedInteger(self: DeviceColumnView) bool {
+                return self.dtype.isUnsigned();
+            }
+
+            pub fn isBool(self: DeviceColumnView) bool {
+                return self.dtype.isBool();
+            }
+
+            pub fn isComplex(self: DeviceColumnView) bool {
+                return self.dtype.isComplex();
+            }
+
             pub fn nullable(self: DeviceColumnView) bool {
                 return self.validity_ptr != null;
             }

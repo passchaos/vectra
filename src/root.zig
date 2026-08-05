@@ -390,6 +390,14 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectEqual(DeviceDType.i32, column.dtype());
         try std.testing.expectEqualStrings("i32", column.dtypeName());
         try std.testing.expectEqual(DeviceDType.i32.bitSize(), column.dtypeBitSize());
+        try std.testing.expect(column.isNumeric());
+        try std.testing.expect(column.isReal());
+        try std.testing.expect(!column.isFloat());
+        try std.testing.expect(column.isInteger());
+        try std.testing.expect(column.isSignedInteger());
+        try std.testing.expect(!column.isUnsignedInteger());
+        try std.testing.expect(!column.isBool());
+        try std.testing.expect(!column.isComplex());
         try std.testing.expect(column.isCpu());
         try std.testing.expect(!column.isDeviceBacked());
         try std.testing.expectEqualStrings("cpu", column.deviceBackendName());
