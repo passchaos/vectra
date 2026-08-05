@@ -154,6 +154,30 @@ pub const DeviceDataFrameView = struct {
         return self.device.backendName();
     }
 
+    pub fn sameDevice(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+        return self.device.sameDevice(other.device);
+    }
+
+    pub fn sameShape(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+        return self.rows == other.rows and self.columns.len == other.columns.len;
+    }
+
+    pub fn shapeEquals(self: DeviceDataFrameView, rows: usize, columns: usize) bool {
+        return self.rows == rows and self.columns.len == columns;
+    }
+
+    pub fn hasShape(self: DeviceDataFrameView, rows: usize, columns: usize) bool {
+        return self.shapeEquals(rows, columns);
+    }
+
+    pub fn sameHeight(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+        return self.rows == other.rows;
+    }
+
+    pub fn sameWidth(self: DeviceDataFrameView, other: DeviceDataFrameView) bool {
+        return self.columns.len == other.columns.len;
+    }
+
     pub fn columnNames(self: DeviceDataFrameView) []const []const u8 {
         return self.names;
     }

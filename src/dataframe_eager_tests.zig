@@ -394,6 +394,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(view.isCpu());
     try std.testing.expect(!view.isDeviceBacked());
     try std.testing.expect(std.mem.eql(u8, "cpu", view.deviceBackendName()));
+    try std.testing.expect(view.sameDevice(view));
+    try std.testing.expect(view.sameShape(view));
+    try std.testing.expect(view.shapeEquals(3, 3));
+    try std.testing.expect(view.hasShape(3, 3));
     try std.testing.expect(view.hasColumn("sales"));
     try std.testing.expect(view.hasAllColumns(&.{ "sales", "units" }));
     try std.testing.expect(view.hasAnyColumn(&.{ "missing", "units" }));
@@ -416,6 +420,12 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer selected.deinit();
     try std.testing.expectEqual(@as(usize, 1), selected.width());
     try std.testing.expectEqual(DeviceDType.f64, try selected.columnDType("sales"));
+    var selected_view = try selected.view();
+    defer selected_view.deinit();
+    try std.testing.expect(view.sameDevice(selected_view));
+    try std.testing.expect(view.sameHeight(selected_view));
+    try std.testing.expect(!view.sameWidth(selected_view));
+    try std.testing.expect(!view.sameShape(selected_view));
 
     var no_columns = try table.select(&.{});
     defer no_columns.deinit();
