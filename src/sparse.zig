@@ -6090,16 +6090,32 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
         }
 
+        pub fn weightedQuantileOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedQuantile(weights, q, axis_opt, keepdims), out);
+        }
+
         pub fn weightedQuantileArray(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedQuantile(weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedQuantileArrayOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedQuantileOut(weights, q, axis_opt, keepdims, out);
         }
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMedianOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMedian(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMedianArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMedian(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedianArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMedianOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -12606,16 +12622,32 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
         }
 
+        pub fn weightedQuantileOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedQuantile(weights, q, axis_opt, keepdims), out);
+        }
+
         pub fn weightedQuantileArray(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedQuantile(weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedQuantileArrayOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedQuantileOut(weights, q, axis_opt, keepdims, out);
         }
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMedianOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMedian(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMedianArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMedian(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedianArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMedianOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -19335,16 +19367,32 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseWeightedQuantile(T, self, weights, q, axis_opt, keepdims);
         }
 
+        pub fn weightedQuantileOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedQuantile(weights, q, axis_opt, keepdims), out);
+        }
+
         pub fn weightedQuantileArray(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedQuantile(weights, q, axis_opt, keepdims);
+        }
+
+        pub fn weightedQuantileArrayOut(self: Self, weights: array_mod.Array(T), q: T, axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedQuantileOut(weights, q, axis_opt, keepdims, out);
         }
 
         pub fn weightedMedian(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return sparseDenseWeightedMedian(T, self, weights, axis_opt, keepdims);
         }
 
+        pub fn weightedMedianOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.weightedMedian(weights, axis_opt, keepdims), out);
+        }
+
         pub fn weightedMedianArray(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool) SparseError!array_mod.Array(T) {
             return self.weightedMedian(weights, axis_opt, keepdims);
+        }
+
+        pub fn weightedMedianArrayOut(self: Self, weights: array_mod.Array(T), axis_opt: ?isize, keepdims: bool, out: array_mod.Array(T)) SparseError!void {
+            try self.weightedMedianOut(weights, axis_opt, keepdims, out);
         }
 
         pub fn sumAxes(self: Self, axes: []const isize, keepdims: bool) SparseError!array_mod.Array(T) {
@@ -29954,26 +30002,38 @@ test "sparse dense weighted statistic helpers" {
             var weighted_quantile_flat = try matrix.weightedQuantile(weights, 0.5, null, false);
             defer weighted_quantile_flat.deinit();
             try expectArray(weighted_quantile_flat, &.{}, &.{0});
+            try matrix.weightedQuantileOut(weights, 0.5, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_quantile_flat.data);
 
             var weighted_quantile_array_flat = try matrix.weightedQuantileArray(weights, 0.5, null, false);
             defer weighted_quantile_array_flat.deinit();
             try expectArray(weighted_quantile_array_flat, &.{}, weighted_quantile_flat.data);
+            try matrix.weightedQuantileArrayOut(weights, 0.5, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_quantile_array_flat.data);
 
             var weighted_quantile_rows = try matrix.weightedQuantile(weights, 0.75, 1, false);
             defer weighted_quantile_rows.deinit();
             try expectArray(weighted_quantile_rows, &.{2}, &.{ 0, 2 });
+            try matrix.weightedQuantileOut(weights, 0.75, 1, false, row_out);
+            try expectArray(row_out, &.{2}, weighted_quantile_rows.data);
 
             var weighted_median_flat = try matrix.weightedMedian(weights, null, false);
             defer weighted_median_flat.deinit();
             try expectArray(weighted_median_flat, &.{}, weighted_quantile_flat.data);
+            try matrix.weightedMedianOut(weights, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_median_flat.data);
 
             var weighted_median_array_flat = try matrix.weightedMedianArray(weights, null, false);
             defer weighted_median_array_flat.deinit();
             try expectArray(weighted_median_array_flat, &.{}, weighted_median_flat.data);
+            try matrix.weightedMedianArrayOut(weights, null, false, scalar_out);
+            try expectArray(scalar_out, &.{}, weighted_median_array_flat.data);
 
             var weighted_median_rows = try matrix.weightedMedian(weights, 1, false);
             defer weighted_median_rows.deinit();
             try expectArray(weighted_median_rows, &.{2}, &.{ 0, 0 });
+            try matrix.weightedMedianOut(weights, 1, false, row_out);
+            try expectArray(row_out, &.{2}, weighted_median_rows.data);
 
             var bad_weights = try array_mod.Array(f64).fromSlice(matrix.allocator, &.{ 1, 2 }, &.{2});
             defer bad_weights.deinit();
