@@ -4797,6 +4797,10 @@ pub fn CooMatrix(comptime T: type) type {
             return self.toDense();
         }
 
+        pub fn contiguousOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
+        }
+
         pub fn len(self: Self) SparseError!usize {
             _ = try self.numel();
             return self.rows;
@@ -10958,8 +10962,16 @@ pub fn CooMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn toDenseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.toDense(), out);
+        }
+
         pub fn toArray(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn toArrayOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn asSlice(self: Self) SparseError![]T {
@@ -12187,6 +12199,10 @@ pub fn CsrMatrix(comptime T: type) type {
 
         pub fn contiguous(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn contiguousOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn len(self: Self) SparseError!usize {
@@ -16680,8 +16696,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn toDenseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.toDense(), out);
+        }
+
         pub fn toArray(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn toArrayOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn asSlice(self: Self) SparseError![]T {
@@ -19792,6 +19816,10 @@ pub fn CscMatrix(comptime T: type) type {
 
         pub fn contiguous(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn contiguousOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn len(self: Self) SparseError!usize {
@@ -24283,8 +24311,16 @@ pub fn CscMatrix(comptime T: type) type {
             return out;
         }
 
+        pub fn toDenseOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.toDense(), out);
+        }
+
         pub fn toArray(self: Self) SparseError!array_mod.Array(T) {
             return self.toDense();
+        }
+
+        pub fn toArrayOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.toDenseOut(out);
         }
 
         pub fn asSlice(self: Self) SparseError![]T {
@@ -27011,6 +27047,24 @@ test "coo sparse dense roundtrip and compressed conversions" {
     var csc_coo_dense = try coo_from_csc.toDense();
     defer csc_coo_dense.deinit();
     try std.testing.expectEqualSlices(f64, dense.data, csc_coo_dense.data);
+
+    const expectDenseMaterializationOut = struct {
+        fn check(comptime Matrix: type, matrix: Matrix, expected: array_mod.Array(f64)) !void {
+            var dense_out = try array_mod.Array(f64).zeros(matrix.allocator, expected.shape);
+            defer dense_out.deinit();
+            try matrix.toDenseOut(dense_out);
+            try std.testing.expectEqualSlices(f64, expected.data, dense_out.data);
+            @memset(dense_out.data, 0);
+            try matrix.toArrayOut(dense_out);
+            try std.testing.expectEqualSlices(f64, expected.data, dense_out.data);
+            @memset(dense_out.data, 0);
+            try matrix.contiguousOut(dense_out);
+            try std.testing.expectEqualSlices(f64, expected.data, dense_out.data);
+        }
+    }.check;
+    try expectDenseMaterializationOut(@TypeOf(coo), coo, dense);
+    try expectDenseMaterializationOut(@TypeOf(csr), csr, dense);
+    try expectDenseMaterializationOut(@TypeOf(csc), csc, dense);
 
     var manual = try cooFromSlices(f64, gpa, 2, 3, &.{ 0, 1, 1 }, &.{ 2, 0, 2 }, &.{ 4.0, 5.0, 6.0 });
     defer manual.deinit();
