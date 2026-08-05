@@ -6818,32 +6818,64 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
 
+        pub fn hardtanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardtanh(min_value, max_value), out);
+        }
+
         pub fn hardTanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return self.hardtanh(min_value, max_value);
+        }
+
+        pub fn hardTanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardtanhOut(min_value, max_value, out);
         }
 
         pub fn hardshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardshrink(T, self, lambd);
         }
 
+        pub fn hardshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardshrink(lambd), out);
+        }
+
         pub fn hardShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.hardshrink(lambd);
+        }
+
+        pub fn hardShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardshrinkOut(lambd, out);
         }
 
         pub fn softshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseSoftshrink(T, self, lambd);
         }
 
+        pub fn softshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softshrink(lambd), out);
+        }
+
         pub fn softShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.softshrink(lambd);
+        }
+
+        pub fn softShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.softshrinkOut(lambd, out);
         }
 
         pub fn tanhshrink(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tanhshrink);
         }
 
+        pub fn tanhshrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tanhshrink(), out);
+        }
+
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn tanhShrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.tanhshrinkOut(out);
         }
 
         pub fn expit(self: Self) SparseError!array_mod.Array(T) {
@@ -6898,8 +6930,16 @@ pub fn CooMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .mish);
         }
 
+        pub fn mishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mish(), out);
+        }
+
         pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .gelu);
+        }
+
+        pub fn geluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gelu(), out);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -14350,32 +14390,64 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
 
+        pub fn hardtanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardtanh(min_value, max_value), out);
+        }
+
         pub fn hardTanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return self.hardtanh(min_value, max_value);
+        }
+
+        pub fn hardTanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardtanhOut(min_value, max_value, out);
         }
 
         pub fn hardshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardshrink(T, self, lambd);
         }
 
+        pub fn hardshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardshrink(lambd), out);
+        }
+
         pub fn hardShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.hardshrink(lambd);
+        }
+
+        pub fn hardShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardshrinkOut(lambd, out);
         }
 
         pub fn softshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseSoftshrink(T, self, lambd);
         }
 
+        pub fn softshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softshrink(lambd), out);
+        }
+
         pub fn softShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.softshrink(lambd);
+        }
+
+        pub fn softShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.softshrinkOut(lambd, out);
         }
 
         pub fn tanhshrink(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tanhshrink);
         }
 
+        pub fn tanhshrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tanhshrink(), out);
+        }
+
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn tanhShrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.tanhshrinkOut(out);
         }
 
         pub fn expit(self: Self) SparseError!array_mod.Array(T) {
@@ -14430,8 +14502,16 @@ pub fn CsrMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .mish);
         }
 
+        pub fn mishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mish(), out);
+        }
+
         pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .gelu);
+        }
+
+        pub fn geluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gelu(), out);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -22095,32 +22175,64 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseHardtanh(T, self, min_value, max_value);
         }
 
+        pub fn hardtanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardtanh(min_value, max_value), out);
+        }
+
         pub fn hardTanh(self: Self, min_value: T, max_value: T) SparseError!array_mod.Array(T) {
             return self.hardtanh(min_value, max_value);
+        }
+
+        pub fn hardTanhOut(self: Self, min_value: T, max_value: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardtanhOut(min_value, max_value, out);
         }
 
         pub fn hardshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseHardshrink(T, self, lambd);
         }
 
+        pub fn hardshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.hardshrink(lambd), out);
+        }
+
         pub fn hardShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.hardshrink(lambd);
+        }
+
+        pub fn hardShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.hardshrinkOut(lambd, out);
         }
 
         pub fn softshrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return sparseDenseSoftshrink(T, self, lambd);
         }
 
+        pub fn softshrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.softshrink(lambd), out);
+        }
+
         pub fn softShrink(self: Self, lambd: T) SparseError!array_mod.Array(T) {
             return self.softshrink(lambd);
+        }
+
+        pub fn softShrinkOut(self: Self, lambd: T, out: array_mod.Array(T)) SparseError!void {
+            try self.softshrinkOut(lambd, out);
         }
 
         pub fn tanhshrink(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .tanhshrink);
         }
 
+        pub fn tanhshrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.tanhshrink(), out);
+        }
+
         pub fn tanhShrink(self: Self) SparseError!array_mod.Array(T) {
             return self.tanhshrink();
+        }
+
+        pub fn tanhShrinkOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try self.tanhshrinkOut(out);
         }
 
         pub fn expit(self: Self) SparseError!array_mod.Array(T) {
@@ -22175,8 +22287,16 @@ pub fn CscMatrix(comptime T: type) type {
             return sparseDenseUnary(T, self, .mish);
         }
 
+        pub fn mishOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.mish(), out);
+        }
+
         pub fn gelu(self: Self) SparseError!array_mod.Array(T) {
             return sparseDenseUnary(T, self, .gelu);
+        }
+
+        pub fn geluOut(self: Self, out: array_mod.Array(T)) SparseError!void {
+            try sparseDenseCopyOut(T, try self.gelu(), out);
         }
 
         pub fn elu(self: Self, alpha: T) SparseError!array_mod.Array(T) {
@@ -33241,34 +33361,50 @@ test "sparse dense norm and logsumexp helpers" {
             var hardtanh_values = try activation_matrix.hardtanh(-1, 1);
             defer hardtanh_values.deinit();
             try expectArray(hardtanh_values, &.{ 2, 3 }, &.{ -1, 0, 0, 0, 0.5, 1 });
+            try activation_matrix.hardtanhOut(-1, 1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hardtanh_values.data);
 
             var hard_tanh_alias = try activation_matrix.hardTanh(-1, 1);
             defer hard_tanh_alias.deinit();
             try expectArray(hard_tanh_alias, &.{ 2, 3 }, hardtanh_values.data);
+            try activation_matrix.hardTanhOut(-1, 1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_tanh_alias.data);
 
             var hardshrink_values = try activation_matrix.hardshrink(1);
             defer hardshrink_values.deinit();
             try expectArray(hardshrink_values, &.{ 2, 3 }, &.{ -2, 0, 0, 0, 0, 7 });
+            try activation_matrix.hardshrinkOut(1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hardshrink_values.data);
 
             var hard_shrink_alias = try activation_matrix.hardShrink(1);
             defer hard_shrink_alias.deinit();
             try expectArray(hard_shrink_alias, &.{ 2, 3 }, hardshrink_values.data);
+            try activation_matrix.hardShrinkOut(1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, hard_shrink_alias.data);
 
             var softshrink_values = try activation_matrix.softshrink(1);
             defer softshrink_values.deinit();
             try expectArray(softshrink_values, &.{ 2, 3 }, &.{ -1, 0, 0, 0, 0, 6 });
+            try activation_matrix.softshrinkOut(1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, softshrink_values.data);
 
             var soft_shrink_alias = try activation_matrix.softShrink(1);
             defer soft_shrink_alias.deinit();
             try expectArray(soft_shrink_alias, &.{ 2, 3 }, softshrink_values.data);
+            try activation_matrix.softShrinkOut(1, unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, soft_shrink_alias.data);
 
             var tanhshrink_values = try activation_matrix.tanhshrink();
             defer tanhshrink_values.deinit();
             try expectArray(tanhshrink_values, &.{ 2, 3 }, &.{ -2 - std.math.tanh(@as(f64, -2)), 0, 0, 0, 0.5 - std.math.tanh(@as(f64, 0.5)), 7 - std.math.tanh(@as(f64, 7)) });
+            try activation_matrix.tanhshrinkOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, tanhshrink_values.data);
 
             var tanh_shrink_alias = try activation_matrix.tanhShrink();
             defer tanh_shrink_alias.deinit();
             try expectArray(tanh_shrink_alias, &.{ 2, 3 }, tanhshrink_values.data);
+            try activation_matrix.tanhShrinkOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, tanh_shrink_alias.data);
 
             var expit_values = try activation_matrix.expit();
             defer expit_values.deinit();
@@ -33316,6 +33452,8 @@ test "sparse dense norm and logsumexp helpers" {
                 0.5 * std.math.tanh(0.5 + std.math.log1p(std.math.exp(@as(f64, -0.5)))),
                 7 * std.math.tanh(7 + std.math.log1p(std.math.exp(@as(f64, -7)))),
             });
+            try activation_matrix.mishOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, mish_values.data);
 
             var gelu_values = try activation_matrix.gelu();
             defer gelu_values.deinit();
@@ -33327,6 +33465,8 @@ test "sparse dense norm and logsumexp helpers" {
                 @as(f64, 0.5) * @as(f64, 0.5) * (1 + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, 0.5) + @as(f64, 0.044715) * @as(f64, 0.125)))),
                 @as(f64, 0.5) * @as(f64, 7) * (1 + std.math.tanh(@sqrt(@as(f64, 2.0) / std.math.pi) * (@as(f64, 7) + @as(f64, 0.044715) * @as(f64, 343)))),
             });
+            try activation_matrix.geluOut(unary_out);
+            try expectArray(unary_out, &.{ 2, 3 }, gelu_values.data);
 
             var hard_sigmoid_values = try activation_matrix.hardsigmoid();
             defer hard_sigmoid_values.deinit();
