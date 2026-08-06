@@ -8266,6 +8266,16 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(file_lazy_scan.opCount(), file_lazy_scan.rawOpCount());
     try std.testing.expectEqual(@as(usize, 1), try file_lazy_scan.optimizedOpCount());
     try std.testing.expect(!file_lazy_scan.isOptimizedNoOp());
+    var file_lazy_pushdown = try file_lazy_scan.scanPushdownSummary();
+    defer file_lazy_pushdown.deinit();
+    try std.testing.expect(file_lazy_scan.hasScanPushdown());
+    try std.testing.expect(file_lazy_pushdown.hasProjection());
+    try std.testing.expectEqual(@as(usize, 1), file_lazy_pushdown.projectionColumnCount());
+    try std.testing.expect(file_lazy_pushdown.projectionContains("sales"));
+    try std.testing.expect(file_lazy_pushdown.projectsColumn("sales"));
+    try std.testing.expect(!file_lazy_pushdown.projectsColumn("units"));
+    try std.testing.expect(!file_lazy_pushdown.hasPredicate());
+    try std.testing.expect(file_lazy_pushdown.pushdownMetadataNbytes() >= "sales".len);
     const file_lazy_summary = try file_lazy_scan.explainSummary(gpa);
     defer gpa.free(file_lazy_summary);
     try std.testing.expect(std.mem.indexOf(u8, file_lazy_summary, "DeviceLazyFrame(raw_ops=1, optimized_ops=1, source=parquet_scan)") != null);

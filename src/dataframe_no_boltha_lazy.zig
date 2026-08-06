@@ -8,6 +8,108 @@ const std = @import("std");
 const array_mod = @import("array.zig");
 const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
 
+pub const LazyScanPushdown = struct {
+    allocator: std.mem.Allocator,
+
+    pub fn deinit(_: *LazyScanPushdown) void {}
+
+    pub fn hasProjection(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn projectionColumnCount(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn projectionNames(_: LazyScanPushdown) []const []const u8 {
+        return &.{};
+    }
+
+    pub fn projectionNameAt(_: LazyScanPushdown, _: usize) ?[]const u8 {
+        return null;
+    }
+
+    pub fn projectionIndex(_: LazyScanPushdown, _: []const u8) ?usize {
+        return null;
+    }
+
+    pub fn projectionContains(_: LazyScanPushdown, _: []const u8) bool {
+        return false;
+    }
+
+    pub fn projectsColumn(_: LazyScanPushdown, _: []const u8) bool {
+        return true;
+    }
+
+    pub fn hasRangePredicate(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn rangePredicateColumn(_: LazyScanPushdown) ?[]const u8 {
+        return null;
+    }
+
+    pub fn rangePredicateDType(_: LazyScanPushdown) ?array_mod.DType {
+        return null;
+    }
+
+    pub fn hasRangePredicateFor(_: LazyScanPushdown, _: []const u8) bool {
+        return false;
+    }
+
+    pub fn hasNullPredicate(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn nullPredicateColumn(_: LazyScanPushdown) ?[]const u8 {
+        return null;
+    }
+
+    pub fn nullPredicateWantNulls(_: LazyScanPushdown) ?bool {
+        return null;
+    }
+
+    pub fn hasNullPredicateFor(_: LazyScanPushdown, _: []const u8) bool {
+        return false;
+    }
+
+    pub fn hasPredicate(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn hasPushdown(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn isEmpty(_: LazyScanPushdown) bool {
+        return true;
+    }
+
+    pub fn isNonEmpty(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn projectionMetadataNbytes(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn rangePredicateMetadataNbytes(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn nullPredicateMetadataNbytes(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn predicateMetadataNbytes(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn pushdownMetadataNbytes(_: LazyScanPushdown) usize {
+        return 0;
+    }
+};
+
 const DeviceColumnSchema = @import("dataframe_schema.zig").DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
@@ -69,6 +171,14 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn optimizedOpCount(_: *const DeviceLazyFrame) DeviceDataError!usize {
                 return 0;
+            }
+
+            pub fn scanPushdownSummary(_: *const DeviceLazyFrame) DeviceDataError!LazyScanPushdown {
+                return .{ .allocator = std.heap.smp_allocator };
+            }
+
+            pub fn hasScanPushdown(_: *const DeviceLazyFrame) bool {
+                return false;
             }
 
             pub fn isOptimizedNoOp(_: *const DeviceLazyFrame) bool {

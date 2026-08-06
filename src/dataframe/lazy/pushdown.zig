@@ -1,6 +1,7 @@
 //! Parquet scan pushdown planning for lazy dataframe plans.
 
 const std = @import("std");
+const array_mod = @import("../../array.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const profile_pushdown_mod = @import("pushdown_profile.zig");
 const null_pushdown_mod = @import("pushdown/null.zig");
@@ -44,6 +45,120 @@ pub const LazyScanPushdown = struct {
     projection: ?[][]const u8 = null,
     range_predicate: ?DeviceParquetRangeFilter = null,
     null_predicate: ?DeviceParquetNullFilter = null,
+
+    pub fn hasProjection(self: LazyScanPushdown) bool {
+        return self.projection != null;
+    }
+
+    pub fn projectionColumnCount(self: LazyScanPushdown) usize {
+        return if (self.projection) |names| names.len else 0;
+    }
+
+    pub fn projectionNames(self: LazyScanPushdown) []const []const u8 {
+        return if (self.projection) |names| names else &.{};
+    }
+
+    pub fn projectionNameAt(self: LazyScanPushdown, index: usize) ?[]const u8 {
+        const names = self.projection orelse return null;
+        if (index >= names.len) return null;
+        return names[index];
+    }
+
+    pub fn projectionIndex(self: LazyScanPushdown, name: []const u8) ?usize {
+        const names = self.projection orelse return null;
+        for (names, 0..) |candidate, index| {
+            if (std.mem.eql(u8, candidate, name)) return index;
+        }
+        return null;
+    }
+
+    pub fn projectionContains(self: LazyScanPushdown, name: []const u8) bool {
+        return self.projectionIndex(name) != null;
+    }
+
+    pub fn projectsColumn(self: LazyScanPushdown, name: []const u8) bool {
+        return !self.hasProjection() or self.projectionContains(name);
+    }
+
+    pub fn hasRangePredicate(self: LazyScanPushdown) bool {
+        return self.range_predicate != null;
+    }
+
+    pub fn rangePredicateColumn(self: LazyScanPushdown) ?[]const u8 {
+        return if (self.range_predicate) |predicate| predicate.column else null;
+    }
+
+    pub fn rangePredicateDType(self: LazyScanPushdown) ?array_mod.DType {
+        const predicate = self.range_predicate orelse return null;
+        return switch (predicate.predicate) {
+            .f64 => .f64,
+            .f32 => .f32,
+            .i64 => .i64,
+            .i32 => .i32,
+            .bool => .bool,
+        };
+    }
+
+    pub fn hasRangePredicateFor(self: LazyScanPushdown, column: []const u8) bool {
+        const active_column = self.rangePredicateColumn() orelse return false;
+        return std.mem.eql(u8, active_column, column);
+    }
+
+    pub fn hasNullPredicate(self: LazyScanPushdown) bool {
+        return self.null_predicate != null;
+    }
+
+    pub fn nullPredicateColumn(self: LazyScanPushdown) ?[]const u8 {
+        return if (self.null_predicate) |predicate| predicate.column else null;
+    }
+
+    pub fn nullPredicateWantNulls(self: LazyScanPushdown) ?bool {
+        return if (self.null_predicate) |predicate| predicate.want_nulls else null;
+    }
+
+    pub fn hasNullPredicateFor(self: LazyScanPushdown, column: []const u8) bool {
+        const active_column = self.nullPredicateColumn() orelse return false;
+        return std.mem.eql(u8, active_column, column);
+    }
+
+    pub fn hasPredicate(self: LazyScanPushdown) bool {
+        return self.hasRangePredicate() or self.hasNullPredicate();
+    }
+
+    pub fn hasPushdown(self: LazyScanPushdown) bool {
+        return self.hasProjection() or self.hasPredicate();
+    }
+
+    pub fn isEmpty(self: LazyScanPushdown) bool {
+        return !self.hasPushdown();
+    }
+
+    pub fn isNonEmpty(self: LazyScanPushdown) bool {
+        return self.hasPushdown();
+    }
+
+    pub fn projectionMetadataNbytes(self: LazyScanPushdown) usize {
+        const names = self.projection orelse return 0;
+        var total = names.len * @sizeOf([]const u8);
+        for (names) |name| total += name.len;
+        return total;
+    }
+
+    pub fn rangePredicateMetadataNbytes(self: LazyScanPushdown) usize {
+        return if (self.range_predicate) |predicate| predicate.column.len else 0;
+    }
+
+    pub fn nullPredicateMetadataNbytes(self: LazyScanPushdown) usize {
+        return if (self.null_predicate) |predicate| predicate.column.len else 0;
+    }
+
+    pub fn predicateMetadataNbytes(self: LazyScanPushdown) usize {
+        return self.rangePredicateMetadataNbytes() + self.nullPredicateMetadataNbytes();
+    }
+
+    pub fn pushdownMetadataNbytes(self: LazyScanPushdown) usize {
+        return self.projectionMetadataNbytes() + self.predicateMetadataNbytes();
+    }
 
     pub fn deinit(self: *LazyScanPushdown) void {
         if (self.projection) |names| freeNameList(self.allocator, names);

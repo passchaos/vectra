@@ -2231,7 +2231,7 @@ pub fn explain(comptime DeviceLazyOp: type, self: anytype, allocator: std.mem.Al
     return aw.toOwnedSlice();
 }
 
-fn optimizedOps(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!std.ArrayList(DeviceLazyOp) {
+pub fn optimizedOps(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!std.ArrayList(DeviceLazyOp) {
     var optimized: std.ArrayList(DeviceLazyOp) = .empty;
     errdefer deinitLazyOps(self.allocator, &optimized);
     for (self.ops.items) |op| {

@@ -13,6 +13,7 @@ const lazy_relation_methods_mod = @import("relation_methods.zig");
 const lazy_profile_methods_mod = @import("profile_methods.zig");
 const lazy_sort_mod = @import("sort_plan.zig");
 const lazy_op_mod = @import("op.zig");
+const lazy_pushdown_mod = @import("pushdown.zig");
 const names_mod = @import("../../dataframe_names.zig");
 const options_mod = @import("../../dataframe_options.zig");
 const parquet_scan_mod = @import("../parquet/scan.zig");
@@ -184,6 +185,19 @@ pub fn DeviceLazyTypes(
 
             pub fn optimizedOpCount(self: *const DeviceLazyFrame) DeviceDataError!usize {
                 return lazy_exec_mod.optimizedOpCount(DeviceLazyOp, self.*);
+            }
+
+            pub fn scanPushdownSummary(self: *const DeviceLazyFrame) DeviceDataError!lazy_pushdown_mod.LazyScanPushdown {
+                if (self.source != .parquet_scan) return .{ .allocator = self.allocator };
+                var optimized = try lazy_exec_mod.optimizedOps(DeviceLazyOp, self.*);
+                defer deinitLazyOps(self.allocator, &optimized);
+                return lazy_pushdown_mod.planLazyScanPushdown(self.allocator, optimized.items);
+            }
+
+            pub fn hasScanPushdown(self: *const DeviceLazyFrame) bool {
+                var pushdown = self.scanPushdownSummary() catch return false;
+                defer pushdown.deinit();
+                return pushdown.hasPushdown();
             }
 
             pub fn isOptimizedNoOp(self: *const DeviceLazyFrame) bool {
