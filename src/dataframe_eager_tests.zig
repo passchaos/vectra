@@ -8293,8 +8293,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(filtered_pushdown.hasPredicate());
     try std.testing.expectEqualStrings("sales", filtered_pushdown.predicateColumn().?);
     try std.testing.expect(filtered_pushdown.hasPredicateFor("sales"));
+    try std.testing.expect(filtered_pushdown.hasRangePredicate());
+    try std.testing.expect(filtered_pushdown.rangePredicate() != null);
     try std.testing.expect(filtered_pushdown.hasRangePredicateFor("sales"));
     try std.testing.expectEqual(vectra.DeviceDType.f64, filtered_pushdown.rangePredicateDType().?);
+    try std.testing.expect(filtered_pushdown.nullPredicate() == null);
     try std.testing.expectEqual(table.height(), try file_lazy_scan.rowCount());
     try std.testing.expectEqual(@as(usize, 3), try file_lazy_scan.columnCount());
     var file_lazy_rows = try file_lazy_scan.collect();

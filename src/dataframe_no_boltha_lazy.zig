@@ -7,6 +7,10 @@
 const std = @import("std");
 const array_mod = @import("array.zig");
 const scan_summary_mod = @import("dataframe_parquet_scan_summary.zig");
+const options_mod = @import("dataframe_no_boltha_options.zig");
+
+const LazyParquetRangePredicate = options_mod.ParquetRangePredicate;
+const LazyParquetNullFilter = options_mod.DeviceParquetNullFilter;
 
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
@@ -69,6 +73,10 @@ pub const LazyScanPushdown = struct {
         return null;
     }
 
+    pub fn rangePredicate(_: LazyScanPushdown) ?LazyParquetRangePredicate {
+        return null;
+    }
+
     pub fn rangePredicateDType(_: LazyScanPushdown) ?array_mod.DType {
         return null;
     }
@@ -82,6 +90,10 @@ pub const LazyScanPushdown = struct {
     }
 
     pub fn nullPredicateColumn(_: LazyScanPushdown) ?[]const u8 {
+        return null;
+    }
+
+    pub fn nullPredicate(_: LazyScanPushdown) ?LazyParquetNullFilter {
         return null;
     }
 

@@ -123,6 +123,10 @@ pub const LazyScanPushdown = struct {
         return if (self.range_predicate) |predicate| predicate.column else null;
     }
 
+    pub fn rangePredicate(self: LazyScanPushdown) ?options_mod.ParquetRangePredicate {
+        return if (self.range_predicate) |predicate| predicate.predicate else null;
+    }
+
     pub fn rangePredicateDType(self: LazyScanPushdown) ?array_mod.DType {
         const predicate = self.range_predicate orelse return null;
         return switch (predicate.predicate) {
@@ -141,6 +145,10 @@ pub const LazyScanPushdown = struct {
 
     pub fn nullPredicateColumn(self: LazyScanPushdown) ?[]const u8 {
         return if (self.null_predicate) |predicate| predicate.column else null;
+    }
+
+    pub fn nullPredicate(self: LazyScanPushdown) ?DeviceParquetNullFilter {
+        return self.null_predicate;
     }
 
     pub fn nullPredicateWantNulls(self: LazyScanPushdown) ?bool {
