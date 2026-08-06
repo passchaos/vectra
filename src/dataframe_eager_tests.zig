@@ -8865,6 +8865,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(scan_units_schema.nullableColumn());
     try std.testing.expectEqual(@as(usize, 1), scan_units_schema.nullCount());
     try std.testing.expectEqual(@as(usize, 2), scan_units_schema.validCount());
+    try std.testing.expect(scan_units_schema.dataNbytes() != 0);
+    try std.testing.expectEqual(scan_units_schema.totalNbytes(), scan_units_schema.dataNbytes() + scan_units_schema.validityNbytes());
     try std.testing.expect(scan_units_schema.isCpu());
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowColumnSchema(grouped_scan, "missing"));
     const scan_schema_at = (try vectra.ArrowExport.ParquetScan.arrowColumnSchemaAt(grouped_scan, 0)).?;
@@ -8875,7 +8877,9 @@ test "device dataframe exports boltha arrow record batch" {
     defer gpa.free(scan_column_schemas);
     try std.testing.expectEqual(@as(usize, 3), scan_column_schemas.len);
     try std.testing.expectEqualStrings("", scan_column_schemas[0].name);
+    try std.testing.expect(scan_column_schemas[0].dataNbytes() != 0);
     try std.testing.expectEqual(vectra.DeviceDType.bool, scan_column_schemas[2].dtype);
+    try std.testing.expect(scan_column_schemas[2].totalNbytes() != 0);
     const scan_schema_summary = try vectra.ArrowExport.ParquetScan.arrowSchemaSummary(grouped_scan, gpa);
     defer gpa.free(scan_schema_summary);
     try std.testing.expectEqual(@as(usize, 3), scan_schema_summary.len);

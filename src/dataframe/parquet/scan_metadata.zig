@@ -424,6 +424,52 @@ fn parquetNullCountsForFields(
     return counts;
 }
 
+const ParquetFieldStorageNbytes = struct {
+    data: usize,
+    validity: usize,
+
+    fn total(self: @This()) ParquetInteropError!usize {
+        return checkedAddUsize(self.data, self.validity);
+    }
+};
+
+fn parquetStorageNbytesForFieldIndex(
+    file_metadata: boltha.parquet.FileMetaData,
+    field_index: usize,
+    nullable: bool,
+) ParquetInteropError!ParquetFieldStorageNbytes {
+    var data_nbytes: usize = 0;
+    var validity_nbytes: usize = 0;
+    for (file_metadata.row_groups) |row_group| {
+        if (field_index >= row_group.columns.len) return error.UnsupportedParquetSchema;
+        const column_metadata = row_group.columns[field_index].metadata orelse return error.UnsupportedParquetSchema;
+        data_nbytes = try checkedAddUsize(data_nbytes, try nonNegativeI64ToUsize(column_metadata.total_uncompressed_size));
+        if (nullable) {
+            const null_count = if (column_metadata.statistics) |statistics|
+                try nonNegativeI64ToUsize(statistics.null_count orelse 0)
+            else
+                0;
+            if (null_count != 0) {
+                // Vectra's device-column validity representation is currently a
+                // byte-per-row boolean mask.  Mirror eager dataframe schema
+                // accounting instead of Arrow's packed-bit validity layout.
+                validity_nbytes = try checkedAddUsize(validity_nbytes, try nonNegativeI64ToUsize(row_group.num_rows));
+            }
+        }
+    }
+    return .{ .data = data_nbytes, .validity = validity_nbytes };
+}
+
+fn parquetStorageNbytesForField(scan: anytype, name: []const u8, nullable: bool) ParquetInteropError!ParquetFieldStorageNbytes {
+    var full_schema = try boltha.parquet.readSchema(scan.allocator, scan.bytes);
+    defer full_schema.deinit(scan.allocator);
+    const full_index = full_schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+    return parquetStorageNbytesForFieldIndex(file_metadata, full_index, nullable);
+}
+
 pub fn arrowFieldNullCount(scan: anytype, name: []const u8) ParquetInteropError!usize {
     var schema_value = try toArrowSchema(scan, scan.allocator);
     defer schema_value.deinit(scan.allocator);
@@ -552,6 +598,7 @@ fn columnSchemaFromArrowField(scan: anytype, schema_name: []const u8, lookup_nam
     const rows = try scan.rowCount();
     const dtype = try deviceDTypeFromArrowField(field);
     const null_count = try parquetNullCountForField(scan, lookup_name, field.nullable);
+    const storage_nbytes = try parquetStorageNbytesForField(scan, lookup_name, field.nullable);
     return .{
         .name = schema_name,
         .dtype = dtype,
@@ -559,9 +606,9 @@ fn columnSchemaFromArrowField(scan: anytype, schema_name: []const u8, lookup_nam
         .nullable = field.nullable,
         .null_count = null_count,
         .valid_count = try checkedSubUsize(rows, null_count),
-        .data_nbytes = 0,
-        .validity_nbytes = 0,
-        .total_nbytes = 0,
+        .data_nbytes = storage_nbytes.data,
+        .validity_nbytes = storage_nbytes.validity,
+        .total_nbytes = try storage_nbytes.total(),
         .device = scan.device,
     };
 }
@@ -590,6 +637,7 @@ pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetIn
         const dtype = try deviceDTypeFromArrowField(field);
         const schema_name = if (scan.projection) |names| names[index] else "";
         const null_count = try parquetNullCountForField(scan, field.name, field.nullable);
+        const storage_nbytes = try parquetStorageNbytesForField(scan, field.name, field.nullable);
         slot.* = .{
             .name = schema_name,
             .dtype = dtype,
@@ -597,9 +645,9 @@ pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetIn
             .nullable = field.nullable,
             .null_count = null_count,
             .valid_count = try checkedSubUsize(rows, null_count),
-            .data_nbytes = 0,
-            .validity_nbytes = 0,
-            .total_nbytes = 0,
+            .data_nbytes = storage_nbytes.data,
+            .validity_nbytes = storage_nbytes.validity,
+            .total_nbytes = try storage_nbytes.total(),
             .device = scan.device,
         };
     }
@@ -615,6 +663,7 @@ pub fn arrowColumnSchemasProjection(scan: anytype, allocator: std.mem.Allocator,
     for (schema_value.fields, schemas, wanted_names) |field, *slot, name| {
         const dtype = try deviceDTypeFromArrowField(field);
         const null_count = try parquetNullCountForField(scan, field.name, field.nullable);
+        const storage_nbytes = try parquetStorageNbytesForField(scan, field.name, field.nullable);
         slot.* = .{
             .name = name,
             .dtype = dtype,
@@ -622,9 +671,9 @@ pub fn arrowColumnSchemasProjection(scan: anytype, allocator: std.mem.Allocator,
             .nullable = field.nullable,
             .null_count = null_count,
             .valid_count = try checkedSubUsize(rows, null_count),
-            .data_nbytes = 0,
-            .validity_nbytes = 0,
-            .total_nbytes = 0,
+            .data_nbytes = storage_nbytes.data,
+            .validity_nbytes = storage_nbytes.validity,
+            .total_nbytes = try storage_nbytes.total(),
             .device = scan.device,
         };
     }
