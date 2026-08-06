@@ -8056,6 +8056,23 @@ test "device dataframe exports boltha arrow record batch" {
         gpa.free(lazy_table_arrow_fields);
     }
     try std.testing.expectEqualStrings("sales", lazy_table_arrow_fields[0].name);
+    try std.testing.expect(lazy_table.hasArrowProjection(&.{ "active", "sales" }));
+    try std.testing.expect(!lazy_table.hasArrowProjection(&.{"missing"}));
+    const lazy_table_projected_fields = try lazy_table.toArrowFieldsProjection(gpa, &.{ "active", "sales" });
+    defer {
+        for (lazy_table_projected_fields) |*field| field.deinit(gpa);
+        gpa.free(lazy_table_projected_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 2), lazy_table_projected_fields.len);
+    try std.testing.expectEqualStrings("active", lazy_table_projected_fields[0].name);
+    try std.testing.expectEqualStrings("sales", lazy_table_projected_fields[1].name);
+    var lazy_table_projected_schema = try lazy_table.toArrowSchemaProjection(gpa, &.{ "active", "sales" });
+    defer lazy_table_projected_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 2), lazy_table_projected_schema.fieldCount());
+    try std.testing.expectEqualStrings("active", lazy_table_projected_schema.fields[0].name);
+    try std.testing.expectEqualStrings("sales", lazy_table_projected_schema.fields[1].name);
+    try std.testing.expectError(error.ColumnNotFound, lazy_table.toArrowFieldsProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, lazy_table.toArrowSchemaProjection(gpa, &.{"missing"}));
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, schema.fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), schema.fields[1].nullable);
     try std.testing.expectEqual(table_schema[2].nullableColumn(), schema.fields[2].nullable);
@@ -8221,6 +8238,23 @@ test "device dataframe exports boltha arrow record batch" {
         gpa.free(lazy_scan_arrow_fields);
     }
     try std.testing.expectEqualStrings("units", lazy_scan_arrow_fields[1].name);
+    try std.testing.expect(owned_lazy_scan.hasArrowProjection(&.{ "active", "sales" }));
+    try std.testing.expect(!owned_lazy_scan.hasArrowProjection(&.{"missing"}));
+    const lazy_scan_projected_fields = try owned_lazy_scan.toArrowFieldsProjection(gpa, &.{ "active", "sales" });
+    defer {
+        for (lazy_scan_projected_fields) |*field| field.deinit(gpa);
+        gpa.free(lazy_scan_projected_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 2), lazy_scan_projected_fields.len);
+    try std.testing.expectEqualStrings("active", lazy_scan_projected_fields[0].name);
+    try std.testing.expectEqualStrings("sales", lazy_scan_projected_fields[1].name);
+    var lazy_scan_projected_schema = try owned_lazy_scan.toArrowSchemaProjection(gpa, &.{ "active", "sales" });
+    defer lazy_scan_projected_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 2), lazy_scan_projected_schema.fieldCount());
+    try std.testing.expectEqualStrings("active", lazy_scan_projected_schema.fields[0].name);
+    try std.testing.expectEqualStrings("sales", lazy_scan_projected_schema.fields[1].name);
+    try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.toArrowFieldsProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.toArrowSchemaProjection(gpa, &.{"missing"}));
     try std.testing.expect(owned_lazy_scan.schemaEqualsSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.sameSchemaSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.schemaCompatibleSchemas(lazy_schema_summary));

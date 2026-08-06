@@ -631,6 +631,41 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn hasArrowProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.hasAllColumns(names),
+                    .parquet_scan => |scan| scan.hasArrowProjection(names),
+                };
+            }
+
+            pub fn toArrowSchemaProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError!boltha.arrow.Schema {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        // Reuse the eager dataframe projection/export path so
+                        // lazy source metadata stays byte-for-byte aligned with
+                        // eager Arrow extension and nullability handling.
+                        var projection = try frame.select(names);
+                        defer projection.deinit();
+                        break :blk try projection.toArrowSchema(allocator);
+                    },
+                    .parquet_scan => |scan| try scan.toArrowSchemaProjection(allocator, names),
+                };
+            }
+
+            pub fn toArrowFieldsProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]boltha.arrow.Field {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        // Keep field materialization on the same eager path as
+                        // `toArrowSchemaProjection`; this avoids a second lazy
+                        // implementation of Arrow dtype-extension metadata.
+                        var projection = try frame.select(names);
+                        defer projection.deinit();
+                        break :blk try projection.toArrowFields(allocator);
+                    },
+                    .parquet_scan => |scan| try scan.toArrowFieldsProjection(allocator, names),
+                };
+            }
+
             pub fn sourceNbytes(self: *const DeviceLazyFrame) usize {
                 return switch (self.source) {
                     .dataframe => |frame| frame.totalNbytes(),

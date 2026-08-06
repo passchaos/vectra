@@ -1062,8 +1062,7 @@ metadata (`parquetFileSummary`/`DeviceParquetFileSummary`, shape helpers (`rowCo
 pushdown reset helpers (`clearProjection`, `clearRangePredicate`, `clearNullPredicate`, `clearPredicate`, `clearPushdown`/`resetPushdown`),
 scan retarget helpers (`setDevice`/`retarget`, `to`/`withDevice`, `cpu`/`cuda`/`mps`),
 `select`/`appendSelect`/`dropSelected`/`selectAll`/`selectExcept`/`intersectSelect`/`whereRange`/`whereMin`/`whereMax`/`whereBetween`/`whereGe`/`whereLe`/`whereGt`/`whereLt`/`whereEq`/`whereBool`/`whereNull`/`whereIsNull`/`whereIsNotNull`/`whereNotNull`/`collect`/`lazy`/`explain`/`explainSummary`, and
-`DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` for exporting owning schema and
-non-owning view metadata directly (with the older `Device*Arrow`
+`DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` plus `DeviceLazyFrame.hasArrowProjection`/`toArrowFieldsProjection`/`toArrowSchemaProjection` for exporting owning, non-owning view, and lazy source metadata directly (with the older `Device*Arrow`
 names retained as aliases).
 `toParquetBytes`/`fromParquetBytes` and `writeParquetFile*`/`fromParquetFile*` reuse Boltha's simple Parquet
 reader/writer and allow readback directly onto the requested Vectra device.

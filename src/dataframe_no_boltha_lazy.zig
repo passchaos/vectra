@@ -571,6 +571,18 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn hasArrowProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn toArrowSchemaProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn toArrowFieldsProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn sourceNbytes(_: *const DeviceLazyFrame) usize {
                 return 0;
             }
