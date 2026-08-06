@@ -942,6 +942,127 @@ pub fn DeviceLazyTypes(
                 return self.schemaCompatibleSchemas(other_schemas);
             }
 
+            fn schemaMetricValues(
+                self: *const DeviceLazyFrame,
+                allocator: std.mem.Allocator,
+                maybe_names: ?[]const []const u8,
+                comptime field_name: []const u8,
+            ) ParquetInteropError![]usize {
+                const schemas = if (maybe_names) |names|
+                    try self.columnSchemasProjection(allocator, names)
+                else
+                    try self.columnSchemas(allocator);
+                defer allocator.free(schemas);
+                const values = try allocator.alloc(usize, schemas.len);
+                errdefer allocator.free(values);
+                for (schemas, values) |schema_value, *slot| slot.* = @field(schema_value, field_name);
+                return values;
+            }
+
+            fn sumSchemaField(self: *const DeviceLazyFrame, maybe_names: ?[]const []const u8, comptime field_name: []const u8) ParquetInteropError!usize {
+                const values = try schemaMetricValues(self, self.allocator, maybe_names, field_name);
+                defer self.allocator.free(values);
+                var total: usize = 0;
+                for (values) |value| total += value;
+                return total;
+            }
+
+            pub fn columnDataNbytes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, null, "data_nbytes");
+            }
+
+            pub fn columnDataNbytesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, names, "data_nbytes");
+            }
+
+            pub fn columnDataMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnDataNbytes(allocator);
+            }
+
+            pub fn columnDataMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnDataNbytesProjection(allocator, names);
+            }
+
+            pub fn columnValidityNbytes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, null, "validity_nbytes");
+            }
+
+            pub fn columnValidityNbytesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, names, "validity_nbytes");
+            }
+
+            pub fn columnValidityMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnValidityNbytes(allocator);
+            }
+
+            pub fn columnValidityMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnValidityNbytesProjection(allocator, names);
+            }
+
+            pub fn columnTotalNbytes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, null, "total_nbytes");
+            }
+
+            pub fn columnTotalNbytesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return schemaMetricValues(self, allocator, names, "total_nbytes");
+            }
+
+            pub fn columnMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnTotalNbytes(allocator);
+            }
+
+            pub fn columnMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnTotalNbytesProjection(allocator, names);
+            }
+
+            pub fn dataNbytes(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return sumSchemaField(self, null, "data_nbytes");
+            }
+
+            pub fn dataNbytesProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return sumSchemaField(self, names, "data_nbytes");
+            }
+
+            pub fn dataMemoryUsage(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.dataNbytes();
+            }
+
+            pub fn dataMemoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.dataNbytesProjection(names);
+            }
+
+            pub fn validityNbytes(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return sumSchemaField(self, null, "validity_nbytes");
+            }
+
+            pub fn validityNbytesProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return sumSchemaField(self, names, "validity_nbytes");
+            }
+
+            pub fn validityMemoryUsage(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.validityNbytes();
+            }
+
+            pub fn validityMemoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.validityNbytesProjection(names);
+            }
+
+            pub fn totalNbytes(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return sumSchemaField(self, null, "total_nbytes");
+            }
+
+            pub fn totalNbytesProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return sumSchemaField(self, names, "total_nbytes");
+            }
+
+            pub fn memoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.totalNbytesProjection(names);
+            }
+
+            pub fn estimatedSizeProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.totalNbytesProjection(names);
+            }
+
             pub fn toArrowSchema(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError!boltha.arrow.Schema {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.toArrowSchema(allocator),

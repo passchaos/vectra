@@ -720,6 +720,102 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn columnDataNbytes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDataNbytesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDataMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnDataNbytes(allocator);
+            }
+
+            pub fn columnDataMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnDataNbytesProjection(allocator, names);
+            }
+
+            pub fn columnValidityNbytes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidityNbytesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidityMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnValidityNbytes(allocator);
+            }
+
+            pub fn columnValidityMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnValidityNbytesProjection(allocator, names);
+            }
+
+            pub fn columnTotalNbytes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnTotalNbytesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnMemoryUsage(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return self.columnTotalNbytes(allocator);
+            }
+
+            pub fn columnMemoryUsageProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return self.columnTotalNbytesProjection(allocator, names);
+            }
+
+            pub fn dataNbytes(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn dataNbytesProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn dataMemoryUsage(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.dataNbytes();
+            }
+
+            pub fn dataMemoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.dataNbytesProjection(names);
+            }
+
+            pub fn validityNbytes(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validityNbytesProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validityMemoryUsage(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.validityNbytes();
+            }
+
+            pub fn validityMemoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.validityNbytesProjection(names);
+            }
+
+            pub fn totalNbytes(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn totalNbytesProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn memoryUsageProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.totalNbytesProjection(names);
+            }
+
+            pub fn estimatedSizeProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.totalNbytesProjection(names);
+            }
+
             pub fn toArrowSchema(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError!void {
                 return error.FeatureUnavailable;
             }
