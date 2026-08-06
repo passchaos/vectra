@@ -8278,6 +8278,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(file_lazy_pushdown.hasAllProjectionNames(&.{"sales"}));
     try std.testing.expect(file_lazy_pushdown.hasAnyProjectionName(&.{ "missing", "sales" }));
     try std.testing.expect(!file_lazy_pushdown.hasAnyProjectionName(&.{"missing"}));
+    const file_lazy_pushdown_explain = try file_lazy_pushdown.explain(gpa);
+    defer gpa.free(file_lazy_pushdown_explain);
+    try std.testing.expect(std.mem.indexOf(u8, file_lazy_pushdown_explain, "projection=[sales]") != null);
     try std.testing.expect(file_lazy_pushdown.projectsColumn("sales"));
     try std.testing.expect(!file_lazy_pushdown.projectsColumn("units"));
     try std.testing.expect(!file_lazy_pushdown.hasPredicate());

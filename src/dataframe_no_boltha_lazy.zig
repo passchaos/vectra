@@ -170,6 +170,12 @@ pub const LazyScanPushdown = struct {
         return self.pushdownMetadataNbytes();
     }
 
+    pub fn format(_: LazyScanPushdown, _: *std.Io.Writer) std.Io.Writer.Error!void {}
+
+    pub fn explain(_: LazyScanPushdown, allocator: std.mem.Allocator) std.mem.Allocator.Error![]u8 {
+        return allocator.dupe(u8, "none");
+    }
+
     pub fn summary(_: LazyScanPushdown) DeviceParquetScanPushdownSummary {
         return .{};
     }

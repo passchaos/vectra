@@ -3,6 +3,7 @@
 const std = @import("std");
 const array_mod = @import("../../array.zig");
 const names_mod = @import("../../dataframe_names.zig");
+const format_mod = @import("format.zig");
 const profile_pushdown_mod = @import("pushdown_profile.zig");
 const null_pushdown_mod = @import("pushdown/null.zig");
 const range_pushdown_mod = @import("pushdown/range.zig");
@@ -237,6 +238,17 @@ pub const LazyScanPushdown = struct {
 
     pub fn estimatedSize(self: LazyScanPushdown) usize {
         return self.pushdownMetadataNbytes();
+    }
+
+    pub fn format(self: LazyScanPushdown, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        return format_mod.formatLazyScanPushdown(writer, self);
+    }
+
+    pub fn explain(self: LazyScanPushdown, allocator: std.mem.Allocator) (std.mem.Allocator.Error || std.Io.Writer.Error)![]u8 {
+        var aw: std.Io.Writer.Allocating = .init(allocator);
+        errdefer aw.deinit();
+        try self.format(&aw.writer);
+        return aw.toOwnedSlice();
     }
 
     pub fn summary(self: LazyScanPushdown) DeviceParquetScanPushdownSummary {
