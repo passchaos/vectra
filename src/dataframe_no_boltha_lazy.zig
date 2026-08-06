@@ -243,6 +243,38 @@ pub fn DeviceLazyParquetTypes(
                 return self.schemaEqualsSchemas(schemas);
             }
 
+            pub fn sourceNbytes(_: *const DeviceLazyFrame) usize {
+                return 0;
+            }
+
+            pub fn sourceByteCount(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn nbytes(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn byteCount(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn hasBytes(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn ownedNbytes(_: *const DeviceLazyFrame) usize {
+                return 0;
+            }
+
+            pub fn memoryUsage(self: *const DeviceLazyFrame) usize {
+                return self.ownedNbytes();
+            }
+
+            pub fn estimatedSize(self: *const DeviceLazyFrame) usize {
+                return self.ownedNbytes();
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }

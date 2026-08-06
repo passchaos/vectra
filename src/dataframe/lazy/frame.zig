@@ -431,6 +431,44 @@ pub fn DeviceLazyTypes(
                 return self.schemaEqualsSchemas(schemas);
             }
 
+            pub fn sourceNbytes(self: *const DeviceLazyFrame) usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.totalNbytes(),
+                    .parquet_scan => |scan| scan.sourceNbytes(),
+                };
+            }
+
+            pub fn sourceByteCount(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn nbytes(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn byteCount(self: *const DeviceLazyFrame) usize {
+                return self.sourceNbytes();
+            }
+
+            pub fn hasBytes(self: *const DeviceLazyFrame) bool {
+                return self.sourceNbytes() != 0;
+            }
+
+            pub fn ownedNbytes(self: *const DeviceLazyFrame) usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.totalNbytes(),
+                    .parquet_scan => |scan| scan.ownedNbytes(),
+                };
+            }
+
+            pub fn memoryUsage(self: *const DeviceLazyFrame) usize {
+                return self.ownedNbytes();
+            }
+
+            pub fn estimatedSize(self: *const DeviceLazyFrame) usize {
+                return self.ownedNbytes();
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }
