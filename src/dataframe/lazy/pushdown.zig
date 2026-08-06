@@ -8,7 +8,9 @@ const null_pushdown_mod = @import("pushdown/null.zig");
 const range_pushdown_mod = @import("pushdown/range.zig");
 const requirements_mod = @import("pushdown/requirements.zig");
 const options_mod = @import("../../dataframe_options.zig");
+const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 
+const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
@@ -216,6 +218,25 @@ pub const LazyScanPushdown = struct {
 
     pub fn estimatedSize(self: LazyScanPushdown) usize {
         return self.pushdownMetadataNbytes();
+    }
+
+    pub fn summary(self: LazyScanPushdown) DeviceParquetScanPushdownSummary {
+        return .{
+            .has_projection = self.hasProjection(),
+            .projection_count = self.projectionColumnCount(),
+            .projection_names = self.projectionNames(),
+            .has_range_predicate = self.hasRangePredicate(),
+            .range_predicate_column = self.rangePredicateColumn(),
+            .range_predicate_dtype = self.rangePredicateDType(),
+            .has_null_predicate = self.hasNullPredicate(),
+            .null_predicate_column = self.nullPredicateColumn(),
+            .null_predicate_want_nulls = self.nullPredicateWantNulls(),
+            .projection_metadata_nbytes = self.projectionMetadataNbytes(),
+            .range_predicate_metadata_nbytes = self.rangePredicateMetadataNbytes(),
+            .null_predicate_metadata_nbytes = self.nullPredicateMetadataNbytes(),
+            .predicate_metadata_nbytes = self.predicateMetadataNbytes(),
+            .pushdown_metadata_nbytes = self.pushdownMetadataNbytes(),
+        };
     }
 
     pub fn deinit(self: *LazyScanPushdown) void {
