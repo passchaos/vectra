@@ -163,6 +163,10 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnIndex(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!?usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn hasColumn(_: *const DeviceLazyFrame, _: []const u8) bool {
                 return false;
             }

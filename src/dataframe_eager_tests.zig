@@ -123,6 +123,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     }
     try std.testing.expectEqualStrings("sales", lazy_table_labels[0]);
     try std.testing.expectEqualStrings("units", lazy_table_labels[1]);
+    try std.testing.expectEqual(@as(?usize, 1), try lazy_table.columnIndex("units"));
+    try std.testing.expect((try lazy_table.columnIndex("missing")) == null);
     try std.testing.expect(std.mem.eql(u8, "sales", try table.columnNameAt(0)));
     try std.testing.expectEqual(DeviceDType.f64, try table.columnDTypeAt(0));
     try std.testing.expectEqual(DeviceDType.bool, (try table.columnAt(2)).dtype());
@@ -8129,6 +8131,8 @@ test "device dataframe exports boltha arrow record batch" {
     }
     try std.testing.expectEqualStrings("sales", owned_lazy_labels[0]);
     try std.testing.expectEqualStrings("active", owned_lazy_labels[2]);
+    try std.testing.expectEqual(@as(?usize, 1), try owned_lazy_scan.columnIndex("units"));
+    try std.testing.expect((try owned_lazy_scan.columnIndex("missing")) == null);
     const owned_lazy_name = (try owned_lazy_scan.columnNameAt(gpa, 1)).?;
     defer gpa.free(owned_lazy_name);
     try std.testing.expectEqualStrings("units", owned_lazy_name);

@@ -302,6 +302,13 @@ pub fn DeviceLazyTypes(
                 return try allocator.dupe(u8, names[index]);
             }
 
+            pub fn columnIndex(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!?usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.columnIndex(name),
+                    .parquet_scan => |scan| try scan.arrowFieldIndex(name),
+                };
+            }
+
             pub fn hasColumn(self: *const DeviceLazyFrame, name: []const u8) bool {
                 return switch (self.source) {
                     .dataframe => |frame| frame.hasColumn(name),
