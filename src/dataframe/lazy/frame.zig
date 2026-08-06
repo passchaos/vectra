@@ -228,6 +228,37 @@ pub fn DeviceLazyTypes(
                 return current.rows == rows and current.cols == cols;
             }
 
+            pub fn columnNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return switch (self.source) {
+                    .dataframe => |frame| cloneNameList(allocator, frame.columnNames()),
+                    .parquet_scan => |scan| try scan.arrowFieldNames(allocator),
+                };
+            }
+
+            pub fn columnNameAt(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, index: usize) ParquetInteropError!?[]const u8 {
+                const names = try self.columnNames(allocator);
+                defer freeNameList(allocator, names);
+                if (index >= names.len) return null;
+                return try allocator.dupe(u8, names[index]);
+            }
+
+            pub fn hasColumn(self: *const DeviceLazyFrame, name: []const u8) bool {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.hasColumn(name),
+                    .parquet_scan => |scan| scan.hasArrowField(name),
+                };
+            }
+
+            pub fn hasAllColumns(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                for (names) |name| if (!self.hasColumn(name)) return false;
+                return true;
+            }
+
+            pub fn hasAnyColumn(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                for (names) |name| if (self.hasColumn(name)) return true;
+                return false;
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }

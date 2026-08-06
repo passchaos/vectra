@@ -8013,6 +8013,18 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(owned_lazy_scan.isOptimizedNoOp());
     try std.testing.expectEqual(table.height(), try owned_lazy_scan.rowCount());
     try std.testing.expectEqual(table.width(), try owned_lazy_scan.columnCount());
+    const owned_lazy_names = try owned_lazy_scan.columnNames(gpa);
+    defer {
+        for (owned_lazy_names) |name| gpa.free(name);
+        gpa.free(owned_lazy_names);
+    }
+    try std.testing.expectEqualStrings("sales", owned_lazy_names[0]);
+    const owned_lazy_name = (try owned_lazy_scan.columnNameAt(gpa, 1)).?;
+    defer gpa.free(owned_lazy_name);
+    try std.testing.expectEqualStrings("units", owned_lazy_name);
+    try std.testing.expect(owned_lazy_scan.hasAllColumns(&.{ "sales", "units" }));
+    try std.testing.expect(owned_lazy_scan.hasAnyColumn(&.{ "missing", "active" }));
+    try std.testing.expect(!owned_lazy_scan.hasColumn("missing"));
     try std.testing.expectEqual(table.height() * table.width(), try owned_lazy_scan.cellCount());
     const owned_lazy_shape = try owned_lazy_scan.shape();
     try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);

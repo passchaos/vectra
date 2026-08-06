@@ -107,6 +107,26 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn columnNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNameAt(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: usize) ParquetInteropError!?[]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasColumn(_: *const DeviceLazyFrame, _: []const u8) bool {
+                return false;
+            }
+
+            pub fn hasAllColumns(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn hasAnyColumn(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }
