@@ -183,6 +183,34 @@ pub fn DeviceLazyParquetTypes(
                 return self.columnDTypeClassCount(.bool);
             }
 
+            pub fn columnNullableAt(_: *const DeviceLazyFrame, _: usize) ParquetInteropError!?bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNullable(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNullableMask(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullableColumnCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return 0;
+            }
+
+            pub fn nonNullableColumnCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return 0;
+            }
+
+            pub fn hasNullableColumns(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn allColumnsNullable(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }

@@ -339,6 +339,50 @@ pub fn DeviceLazyTypes(
                 return self.columnDTypeClassCount(.bool);
             }
 
+            pub fn columnNullableAt(self: *const DeviceLazyFrame, index: usize) ParquetInteropError!?bool {
+                return switch (self.source) {
+                    .dataframe => |frame| if (index < frame.columnCount()) (try frame.columnSchemaAt(index)).nullable else null,
+                    .parquet_scan => |scan| try scan.arrowFieldNullableAt(index),
+                };
+            }
+
+            pub fn columnNullable(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!bool {
+                return switch (self.source) {
+                    .dataframe => |frame| (try frame.columnSchema(name)).nullable,
+                    .parquet_scan => |scan| try scan.arrowFieldNullable(name),
+                };
+            }
+
+            pub fn columnNullableMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnNullableMask(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldNullableMask(allocator),
+                };
+            }
+
+            pub fn nullableColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.nullableColumnCount(),
+                    .parquet_scan => |scan| try scan.nullableArrowFieldCount(),
+                };
+            }
+
+            pub fn nonNullableColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.nonNullableColumnCount(),
+                    .parquet_scan => |scan| try scan.nonNullableArrowFieldCount(),
+                };
+            }
+
+            pub fn hasNullableColumns(self: *const DeviceLazyFrame) bool {
+                return (self.nullableColumnCount() catch 0) != 0;
+            }
+
+            pub fn allColumnsNullable(self: *const DeviceLazyFrame) bool {
+                const total = self.columnCount() catch return false;
+                return total != 0 and (self.nullableColumnCount() catch return false) == total;
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }
