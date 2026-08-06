@@ -343,6 +343,18 @@ pub fn DeviceLazyParquetTypes(
                 return self.schemaEqualsSchemas(schemas);
             }
 
+            pub fn schemaEquals(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn sameSchema(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.schemaEquals(other);
+            }
+
+            pub fn schemaCompatible(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
             pub fn sourceNbytes(_: *const DeviceLazyFrame) usize {
                 return 0;
             }

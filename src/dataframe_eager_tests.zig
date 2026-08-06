@@ -360,6 +360,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(lazy_table.schemaEqualsSchemas(schema));
     try std.testing.expect(lazy_table.sameSchemaSchemas(schema));
     try std.testing.expect(lazy_table.schemaCompatibleSchemas(schema));
+    try std.testing.expect(lazy_table.schemaEquals(&lazy_table));
+    try std.testing.expect(lazy_table.sameSchema(&lazy_table));
+    try std.testing.expect(lazy_table.schemaCompatible(&lazy_table));
     const lazy_table_schema_at = (try lazy_table.columnSchemaAt(1)).?;
     try std.testing.expect(lazy_table_schema_at.schemaEquals(schema[1]));
     try std.testing.expect((try lazy_table.columnSchemaAt(99)) == null);
@@ -8199,6 +8202,13 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(owned_lazy_scan.schemaEqualsSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.sameSchemaSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.schemaCompatibleSchemas(lazy_schema_summary));
+    try std.testing.expect(owned_lazy_scan.schemaEquals(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sameSchema(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.schemaCompatible(&owned_lazy_scan));
+    var eager_lazy_for_schema = try DeviceLazyFrame.init(gpa, table);
+    defer eager_lazy_for_schema.deinit();
+    try std.testing.expect(!owned_lazy_scan.schemaEquals(&eager_lazy_for_schema));
+    try std.testing.expect(owned_lazy_scan.schemaCompatible(&eager_lazy_for_schema));
     const lazy_schema_alias = try owned_lazy_scan.schema(gpa);
     defer gpa.free(lazy_schema_alias);
     try std.testing.expectEqual(@as(usize, 3), lazy_schema_alias.len);

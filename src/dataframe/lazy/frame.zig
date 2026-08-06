@@ -527,14 +527,28 @@ pub fn DeviceLazyTypes(
                 return self.columnSchemas(allocator);
             }
 
+            fn schemaSlicesEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
+                if (left.len != right.len) return false;
+                for (left, right) |left_schema, right_schema| {
+                    if (!left_schema.schemaEquals(right_schema)) return false;
+                }
+                return true;
+            }
+
+            fn schemaSlicesCompatible(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
+                if (left.len != right.len) return false;
+                for (left, right) |left_schema, right_schema| {
+                    if (!left_schema.sameDType(right_schema) or
+                        !left_schema.sameNullability(right_schema) or
+                        !left_schema.sameShape(right_schema)) return false;
+                }
+                return true;
+            }
+
             pub fn schemaEqualsSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
                 const current = self.columnSchemas(self.allocator) catch return false;
                 defer self.allocator.free(current);
-                if (current.len != schemas.len) return false;
-                for (current, schemas) |left, right| {
-                    if (!left.schemaEquals(right)) return false;
-                }
-                return true;
+                return schemaSlicesEqual(current, schemas);
             }
 
             pub fn sameSchemaSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
@@ -542,7 +556,25 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn schemaCompatibleSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
-                return self.schemaEqualsSchemas(schemas);
+                const current = self.columnSchemas(self.allocator) catch return false;
+                defer self.allocator.free(current);
+                return schemaSlicesCompatible(current, schemas);
+            }
+
+            pub fn schemaEquals(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                const other_schemas = other.columnSchemas(self.allocator) catch return false;
+                defer self.allocator.free(other_schemas);
+                return self.schemaEqualsSchemas(other_schemas);
+            }
+
+            pub fn sameSchema(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.schemaEquals(other);
+            }
+
+            pub fn schemaCompatible(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                const other_schemas = other.columnSchemas(self.allocator) catch return false;
+                defer self.allocator.free(other_schemas);
+                return self.schemaCompatibleSchemas(other_schemas);
             }
 
             pub fn sourceNbytes(self: *const DeviceLazyFrame) usize {
