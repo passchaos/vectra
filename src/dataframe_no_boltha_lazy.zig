@@ -37,6 +37,26 @@ pub const LazyScanPushdown = struct {
         return false;
     }
 
+    pub fn projectionNamesUnique(_: LazyScanPushdown) bool {
+        return true;
+    }
+
+    pub fn hasDuplicateProjectionNames(_: LazyScanPushdown) bool {
+        return false;
+    }
+
+    pub fn duplicateProjectionNameCount(_: LazyScanPushdown) usize {
+        return 0;
+    }
+
+    pub fn hasAllProjectionNames(_: LazyScanPushdown, _: []const []const u8) bool {
+        return false;
+    }
+
+    pub fn hasAnyProjectionName(_: LazyScanPushdown, _: []const []const u8) bool {
+        return false;
+    }
+
     pub fn projectsColumn(_: LazyScanPushdown, _: []const u8) bool {
         return true;
     }

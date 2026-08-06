@@ -8271,7 +8271,13 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(file_lazy_scan.hasScanPushdown());
     try std.testing.expect(file_lazy_pushdown.hasProjection());
     try std.testing.expectEqual(@as(usize, 1), file_lazy_pushdown.projectionColumnCount());
+    try std.testing.expect(file_lazy_pushdown.projectionNamesUnique());
+    try std.testing.expect(!file_lazy_pushdown.hasDuplicateProjectionNames());
+    try std.testing.expectEqual(@as(usize, 0), file_lazy_pushdown.duplicateProjectionNameCount());
     try std.testing.expect(file_lazy_pushdown.projectionContains("sales"));
+    try std.testing.expect(file_lazy_pushdown.hasAllProjectionNames(&.{"sales"}));
+    try std.testing.expect(file_lazy_pushdown.hasAnyProjectionName(&.{ "missing", "sales" }));
+    try std.testing.expect(!file_lazy_pushdown.hasAnyProjectionName(&.{"missing"}));
     try std.testing.expect(file_lazy_pushdown.projectsColumn("sales"));
     try std.testing.expect(!file_lazy_pushdown.projectsColumn("units"));
     try std.testing.expect(!file_lazy_pushdown.hasPredicate());
