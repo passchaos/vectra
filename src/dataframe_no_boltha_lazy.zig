@@ -127,6 +127,26 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn columnDTypes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn dtypeNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDType(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeAt(_: *const DeviceLazyFrame, _: usize) ParquetInteropError!?array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }

@@ -8025,6 +8025,14 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(owned_lazy_scan.hasAllColumns(&.{ "sales", "units" }));
     try std.testing.expect(owned_lazy_scan.hasAnyColumn(&.{ "missing", "active" }));
     try std.testing.expect(!owned_lazy_scan.hasColumn("missing"));
+    const lazy_dtypes = try owned_lazy_scan.columnDTypes(gpa);
+    defer gpa.free(lazy_dtypes);
+    try std.testing.expectEqualSlices(vectra.DeviceDType, &.{ .f64, .i64, .bool }, lazy_dtypes);
+    const lazy_dtype_names = try owned_lazy_scan.dtypeNames(gpa);
+    defer gpa.free(lazy_dtype_names);
+    try std.testing.expectEqualStrings("f64", lazy_dtype_names[0]);
+    try std.testing.expectEqual(vectra.DeviceDType.i64, try owned_lazy_scan.columnDType("units"));
+    try std.testing.expectEqual(@as(?vectra.DeviceDType, .bool), try owned_lazy_scan.columnDTypeAt(2));
     try std.testing.expectEqual(table.height() * table.width(), try owned_lazy_scan.cellCount());
     const owned_lazy_shape = try owned_lazy_scan.shape();
     try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);

@@ -259,6 +259,38 @@ pub fn DeviceLazyTypes(
                 return false;
             }
 
+            pub fn columnDTypes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypes(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypes(allocator),
+                };
+            }
+
+            pub fn columnDTypeNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypeNames(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeNames(allocator),
+                };
+            }
+
+            pub fn dtypeNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return self.columnDTypeNames(allocator);
+            }
+
+            pub fn columnDType(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!array_mod.DType {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDType(name),
+                    .parquet_scan => |scan| try scan.arrowFieldDType(name),
+                };
+            }
+
+            pub fn columnDTypeAt(self: *const DeviceLazyFrame, index: usize) ParquetInteropError!?array_mod.DType {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypeAt(index),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeAt(index),
+                };
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }
