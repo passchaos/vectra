@@ -433,6 +433,48 @@ const ParquetFieldStorageNbytes = struct {
     }
 };
 
+const ParquetFieldPhysicalNbytes = struct {
+    compressed: usize,
+    uncompressed: usize,
+};
+
+fn parquetPhysicalNbytesForFieldIndex(
+    file_metadata: boltha.parquet.FileMetaData,
+    field_index: usize,
+) ParquetInteropError!ParquetFieldPhysicalNbytes {
+    var compressed_nbytes: usize = 0;
+    var uncompressed_nbytes: usize = 0;
+    for (file_metadata.row_groups) |row_group| {
+        if (field_index >= row_group.columns.len) return error.UnsupportedParquetSchema;
+        const column_metadata = row_group.columns[field_index].metadata orelse return error.UnsupportedParquetSchema;
+        compressed_nbytes = try checkedAddUsize(compressed_nbytes, try nonNegativeI64ToUsize(column_metadata.total_compressed_size));
+        uncompressed_nbytes = try checkedAddUsize(uncompressed_nbytes, try nonNegativeI64ToUsize(column_metadata.total_uncompressed_size));
+    }
+    return .{
+        .compressed = compressed_nbytes,
+        .uncompressed = uncompressed_nbytes,
+    };
+}
+
+fn parquetPhysicalNbytesForFields(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    fields: []const boltha.arrow.Field,
+) ParquetInteropError![]ParquetFieldPhysicalNbytes {
+    var full_schema = try boltha.parquet.readSchema(scan.allocator, scan.bytes);
+    defer full_schema.deinit(scan.allocator);
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+
+    const values = try allocator.alloc(ParquetFieldPhysicalNbytes, fields.len);
+    errdefer allocator.free(values);
+    for (fields, values) |field, *slot| {
+        const full_index = full_schema.fieldIndexByName(field.name) orelse return error.ColumnNotFound;
+        slot.* = try parquetPhysicalNbytesForFieldIndex(file_metadata, full_index);
+    }
+    return values;
+}
+
 fn parquetStorageNbytesForFieldIndex(
     file_metadata: boltha.parquet.FileMetaData,
     field_index: usize,
@@ -759,6 +801,67 @@ pub fn arrowTotalNbytes(scan: anytype) ParquetInteropError!usize {
 
 pub fn arrowTotalNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
     return arrowSchemaMetricTotal(scan, wanted_names, "total_nbytes");
+}
+
+fn parquetPhysicalMetricValues(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    maybe_names: ?[]const []const u8,
+    comptime field_name: []const u8,
+) ParquetInteropError![]usize {
+    var schema_value = if (maybe_names) |names|
+        try toArrowSchemaProjection(scan, allocator, names)
+    else
+        try toArrowSchema(scan, allocator);
+    defer schema_value.deinit(allocator);
+
+    const physical_nbytes = try parquetPhysicalNbytesForFields(scan, allocator, schema_value.fields);
+    defer allocator.free(physical_nbytes);
+
+    const values = try allocator.alloc(usize, physical_nbytes.len);
+    errdefer allocator.free(values);
+    for (physical_nbytes, values) |physical, *slot| slot.* = @field(physical, field_name);
+    return values;
+}
+
+fn parquetPhysicalMetricTotal(scan: anytype, maybe_names: ?[]const []const u8, comptime field_name: []const u8) ParquetInteropError!usize {
+    const values = try parquetPhysicalMetricValues(scan, scan.allocator, maybe_names, field_name);
+    defer scan.allocator.free(values);
+    var total: usize = 0;
+    for (values) |value| total = try checkedAddUsize(total, value);
+    return total;
+}
+
+pub fn parquetFieldCompressedNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetPhysicalMetricValues(scan, allocator, null, "compressed");
+}
+
+pub fn parquetFieldCompressedNbytesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    return parquetPhysicalMetricValues(scan, allocator, wanted_names, "compressed");
+}
+
+pub fn parquetFieldUncompressedNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetPhysicalMetricValues(scan, allocator, null, "uncompressed");
+}
+
+pub fn parquetFieldUncompressedNbytesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    return parquetPhysicalMetricValues(scan, allocator, wanted_names, "uncompressed");
+}
+
+pub fn parquetCompressedNbytes(scan: anytype) ParquetInteropError!usize {
+    return parquetPhysicalMetricTotal(scan, null, "compressed");
+}
+
+pub fn parquetCompressedNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return parquetPhysicalMetricTotal(scan, wanted_names, "compressed");
+}
+
+pub fn parquetUncompressedNbytes(scan: anytype) ParquetInteropError!usize {
+    return parquetPhysicalMetricTotal(scan, null, "uncompressed");
+}
+
+pub fn parquetUncompressedNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return parquetPhysicalMetricTotal(scan, wanted_names, "uncompressed");
 }
 
 fn schemasEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {

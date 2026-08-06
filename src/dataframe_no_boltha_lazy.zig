@@ -1380,6 +1380,38 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn parquetFieldCompressedNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetFieldCompressedNbytesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetFieldUncompressedNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetFieldUncompressedNbytesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetCompressedNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetCompressedNbytesProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetUncompressedNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetUncompressedNbytesProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn parquetCompressionRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
                 return error.FeatureUnavailable;
             }
