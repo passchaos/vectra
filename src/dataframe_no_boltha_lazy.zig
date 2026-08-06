@@ -211,6 +211,38 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn columnSchemaAt(_: *const DeviceLazyFrame, _: usize) ParquetInteropError!?DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnSchema(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnSchemas(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn schema(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn schemaSummary(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn schemaEqualsSchemas(_: *const DeviceLazyFrame, _: []const DeviceColumnSchema) bool {
+                return false;
+            }
+
+            pub fn sameSchemaSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
+                return self.schemaEqualsSchemas(schemas);
+            }
+
+            pub fn schemaCompatibleSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
+                return self.schemaEqualsSchemas(schemas);
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }

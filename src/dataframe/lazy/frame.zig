@@ -24,6 +24,7 @@ const DeviceScalar = options_mod.DeviceScalar;
 const DeviceSortOptions = options_mod.DeviceSortOptions;
 const DeviceDataError = series_mod.DataError || array_mod.ArrayError;
 const ParquetInteropError = lazy_exec_mod.ParquetInteropError;
+const DeviceColumnSchema = @import("../../dataframe_schema.zig").DeviceColumnSchema;
 const cloneNameList = names_mod.cloneNameList;
 const freeNameList = names_mod.freeNameList;
 const freeOwnedNameItems = names_mod.freeOwnedNameItems;
@@ -381,6 +382,53 @@ pub fn DeviceLazyTypes(
             pub fn allColumnsNullable(self: *const DeviceLazyFrame) bool {
                 const total = self.columnCount() catch return false;
                 return total != 0 and (self.nullableColumnCount() catch return false) == total;
+            }
+
+            pub fn columnSchemaAt(self: *const DeviceLazyFrame, index: usize) ParquetInteropError!?DeviceColumnSchema {
+                return switch (self.source) {
+                    .dataframe => |frame| if (index < frame.columnCount()) try frame.columnSchemaAt(index) else null,
+                    .parquet_scan => |scan| try scan.arrowColumnSchemaAt(index),
+                };
+            }
+
+            pub fn columnSchema(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!DeviceColumnSchema {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnSchema(name),
+                    .parquet_scan => |scan| try scan.arrowColumnSchema(name),
+                };
+            }
+
+            pub fn columnSchemas(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnSchemas(allocator),
+                    .parquet_scan => |scan| try scan.arrowColumnSchemas(allocator),
+                };
+            }
+
+            pub fn schema(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return self.columnSchemas(allocator);
+            }
+
+            pub fn schemaSummary(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return self.columnSchemas(allocator);
+            }
+
+            pub fn schemaEqualsSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
+                const current = self.columnSchemas(self.allocator) catch return false;
+                defer self.allocator.free(current);
+                if (current.len != schemas.len) return false;
+                for (current, schemas) |left, right| {
+                    if (!left.schemaEquals(right)) return false;
+                }
+                return true;
+            }
+
+            pub fn sameSchemaSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
+                return self.schemaEqualsSchemas(schemas);
+            }
+
+            pub fn schemaCompatibleSchemas(self: *const DeviceLazyFrame, schemas: []const DeviceColumnSchema) bool {
+                return self.schemaEqualsSchemas(schemas);
             }
 
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
