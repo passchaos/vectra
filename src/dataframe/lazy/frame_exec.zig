@@ -2200,6 +2200,16 @@ pub fn collect(comptime DeviceDataFrame: type, comptime DeviceLazyOp: type, self
     return current;
 }
 
+pub fn optimizedOpCount(comptime DeviceLazyOp: type, self: anytype) DeviceDataError!usize {
+    var optimized = try optimizedOps(DeviceLazyOp, self);
+    defer deinitLazyOps(self.allocator, &optimized);
+    return optimized.items.len;
+}
+
+pub fn optimizedNoOp(comptime DeviceLazyOp: type, self: anytype) bool {
+    return (optimizedOpCount(DeviceLazyOp, self) catch return false) == 0;
+}
+
 pub fn explain(comptime DeviceLazyOp: type, self: anytype, allocator: std.mem.Allocator) DeviceDataError![]u8 {
     var optimized = try optimizedOps(DeviceLazyOp, self);
     defer deinitLazyOps(self.allocator, &optimized);

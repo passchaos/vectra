@@ -63,6 +63,14 @@ pub fn DeviceLazyParquetTypes(
                 return 0;
             }
 
+            pub fn rawOpCount(self: *const DeviceLazyFrame) usize {
+                return self.opCount();
+            }
+
+            pub fn optimizedOpCount(_: *const DeviceLazyFrame) DeviceDataError!usize {
+                return 0;
+            }
+
             pub fn isOptimizedNoOp(_: *const DeviceLazyFrame) bool {
                 return true;
             }

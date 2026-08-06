@@ -178,8 +178,16 @@ pub fn DeviceLazyTypes(
                 return self.ops.items.len;
             }
 
+            pub fn rawOpCount(self: *const DeviceLazyFrame) usize {
+                return self.opCount();
+            }
+
+            pub fn optimizedOpCount(self: *const DeviceLazyFrame) DeviceDataError!usize {
+                return lazy_exec_mod.optimizedOpCount(DeviceLazyOp, self.*);
+            }
+
             pub fn isOptimizedNoOp(self: *const DeviceLazyFrame) bool {
-                return self.ops.items.len == 0;
+                return lazy_exec_mod.optimizedNoOp(DeviceLazyOp, self.*);
             }
 
             pub fn rowCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
