@@ -236,8 +236,24 @@ pub fn arrowFieldDTypeByteSizes(scan: anytype, allocator: std.mem.Allocator) Par
     return sizes;
 }
 
+pub fn arrowFieldDTypeByteSizesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    const dtypes = try arrowFieldDTypesProjection(scan, allocator, wanted_names);
+    defer allocator.free(dtypes);
+    const sizes = try allocator.alloc(usize, dtypes.len);
+    for (dtypes, sizes) |dtype, *slot| slot.* = dtype.byteSize();
+    return sizes;
+}
+
 pub fn arrowFieldDTypeBitSizes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
     const dtypes = try arrowFieldDTypes(scan, allocator);
+    defer allocator.free(dtypes);
+    const sizes = try allocator.alloc(usize, dtypes.len);
+    for (dtypes, sizes) |dtype, *slot| slot.* = dtype.bitSize();
+    return sizes;
+}
+
+pub fn arrowFieldDTypeBitSizesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    const dtypes = try arrowFieldDTypesProjection(scan, allocator, wanted_names);
     defer allocator.free(dtypes);
     const sizes = try allocator.alloc(usize, dtypes.len);
     for (dtypes, sizes) |dtype, *slot| slot.* = dtype.bitSize();
@@ -252,8 +268,26 @@ pub fn arrowFieldDTypeClassMask(scan: anytype, allocator: std.mem.Allocator, cla
     return mask;
 }
 
+pub fn arrowFieldDTypeClassMaskProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8, class: options_mod.DeviceDTypeClass) ParquetInteropError![]bool {
+    const dtypes = try arrowFieldDTypesProjection(scan, allocator, wanted_names);
+    defer allocator.free(dtypes);
+    const mask = try allocator.alloc(bool, dtypes.len);
+    for (dtypes, mask) |dtype, *slot| slot.* = class.matches(dtype);
+    return mask;
+}
+
 pub fn arrowFieldDTypeClassCount(scan: anytype, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
     const dtypes = try arrowFieldDTypes(scan, scan.allocator);
+    defer scan.allocator.free(dtypes);
+    var count: usize = 0;
+    for (dtypes) |dtype| {
+        if (class.matches(dtype)) count += 1;
+    }
+    return count;
+}
+
+pub fn arrowFieldDTypeClassCountProjection(scan: anytype, wanted_names: []const []const u8, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
+    const dtypes = try arrowFieldDTypesProjection(scan, scan.allocator, wanted_names);
     defer scan.allocator.free(dtypes);
     var count: usize = 0;
     for (dtypes) |dtype| {

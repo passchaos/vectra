@@ -8081,6 +8081,19 @@ test "device dataframe exports boltha arrow record batch" {
     defer gpa.free(lazy_table_projected_dtype_names);
     try std.testing.expectEqualStrings("bool", lazy_table_projected_dtype_names[0]);
     try std.testing.expectEqualStrings("f64", lazy_table_projected_dtype_names[1]);
+    const lazy_table_projected_dtype_bytes = try lazy_table.columnDTypeByteSizesProjection(gpa, &.{ "active", "sales" });
+    defer gpa.free(lazy_table_projected_dtype_bytes);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 8 }, lazy_table_projected_dtype_bytes);
+    const lazy_table_projected_dtype_bits = try lazy_table.columnDTypeBitSizesProjection(gpa, &.{ "active", "sales" });
+    defer gpa.free(lazy_table_projected_dtype_bits);
+    try std.testing.expectEqualSlices(usize, &.{ 8, 64 }, lazy_table_projected_dtype_bits);
+    const lazy_table_projected_numeric = try lazy_table.columnDTypeClassMaskProjection(gpa, &.{ "active", "sales" }, .numeric);
+    defer gpa.free(lazy_table_projected_numeric);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, lazy_table_projected_numeric);
+    try std.testing.expectEqual(@as(usize, 1), try lazy_table.numericColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try lazy_table.floatColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 0), try lazy_table.integerColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try lazy_table.boolColumnCountProjection(&.{ "active", "sales" }));
     const lazy_table_projected_nullable = try lazy_table.columnNullableMaskProjection(gpa, &.{ "units", "active" });
     defer gpa.free(lazy_table_projected_nullable);
     try std.testing.expectEqualSlices(bool, &.{ true, false }, lazy_table_projected_nullable);
@@ -8088,6 +8101,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), try lazy_table.nonNullableColumnCountProjection(&.{ "units", "active" }));
     try std.testing.expectError(error.ColumnNotFound, lazy_table.columnSchemasProjection(gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, lazy_table.columnDTypesProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, lazy_table.columnDTypeByteSizesProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, lazy_table.columnDTypeClassMaskProjection(gpa, &.{"missing"}, .numeric));
     try std.testing.expectError(error.ColumnNotFound, lazy_table.columnNullableMaskProjection(gpa, &.{"missing"}));
     const lazy_table_projected_fields = try lazy_table.toArrowFieldsProjection(gpa, &.{ "active", "sales" });
     defer {
@@ -8306,6 +8321,19 @@ test "device dataframe exports boltha arrow record batch" {
     defer gpa.free(lazy_scan_projected_dtype_names);
     try std.testing.expectEqualStrings("bool", lazy_scan_projected_dtype_names[0]);
     try std.testing.expectEqualStrings("f64", lazy_scan_projected_dtype_names[1]);
+    const lazy_scan_projected_dtype_bytes = try owned_lazy_scan.columnDTypeByteSizesProjection(gpa, &.{ "active", "sales" });
+    defer gpa.free(lazy_scan_projected_dtype_bytes);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 8 }, lazy_scan_projected_dtype_bytes);
+    const lazy_scan_projected_dtype_bits = try owned_lazy_scan.columnDTypeBitSizesProjection(gpa, &.{ "active", "sales" });
+    defer gpa.free(lazy_scan_projected_dtype_bits);
+    try std.testing.expectEqualSlices(usize, &.{ 8, 64 }, lazy_scan_projected_dtype_bits);
+    const lazy_scan_projected_numeric = try owned_lazy_scan.columnDTypeClassMaskProjection(gpa, &.{ "active", "sales" }, .numeric);
+    defer gpa.free(lazy_scan_projected_numeric);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, lazy_scan_projected_numeric);
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.numericColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.floatColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 0), try owned_lazy_scan.integerColumnCountProjection(&.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.boolColumnCountProjection(&.{ "active", "sales" }));
     const lazy_scan_projected_nullable = try owned_lazy_scan.columnNullableMaskProjection(gpa, &.{ "units", "active" });
     defer gpa.free(lazy_scan_projected_nullable);
     try std.testing.expectEqualSlices(bool, &.{ true, false }, lazy_scan_projected_nullable);
@@ -8313,6 +8341,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.nonNullableColumnCountProjection(&.{ "units", "active" }));
     try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.columnSchemasProjection(gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.columnDTypesProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.columnDTypeByteSizesProjection(gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.columnDTypeClassMaskProjection(gpa, &.{"missing"}, .numeric));
     try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.columnNullableMaskProjection(gpa, &.{"missing"}));
     const lazy_scan_projected_fields = try owned_lazy_scan.toArrowFieldsProjection(gpa, &.{ "active", "sales" });
     defer {
@@ -8775,6 +8805,19 @@ test "device dataframe exports boltha arrow record batch" {
     defer gpa.free(explicit_scan_dtype_names);
     try std.testing.expectEqualStrings("bool", explicit_scan_dtype_names[0]);
     try std.testing.expectEqualStrings("f64", explicit_scan_dtype_names[1]);
+    const explicit_scan_dtype_bytes = try vectra.ArrowExport.ParquetScan.arrowFieldDTypeByteSizesProjection(grouped_scan, gpa, &.{ "active", "sales" });
+    defer gpa.free(explicit_scan_dtype_bytes);
+    try std.testing.expectEqualSlices(usize, &.{ 1, 8 }, explicit_scan_dtype_bytes);
+    const explicit_scan_dtype_bits = try vectra.ArrowExport.ParquetScan.Arrow.arrowFieldDTypeBitSizesProjection(grouped_scan, gpa, &.{ "active", "sales" });
+    defer gpa.free(explicit_scan_dtype_bits);
+    try std.testing.expectEqualSlices(usize, &.{ 8, 64 }, explicit_scan_dtype_bits);
+    const explicit_scan_numeric = try vectra.ArrowExport.ParquetScan.arrowFieldDTypeClassMaskProjection(grouped_scan, gpa, &.{ "active", "sales" }, .numeric);
+    defer gpa.free(explicit_scan_numeric);
+    try std.testing.expectEqualSlices(bool, &.{ false, true }, explicit_scan_numeric);
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.numericArrowFieldCountProjection(grouped_scan, &.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.floatArrowFieldCountProjection(grouped_scan, &.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 0), try vectra.ArrowExport.ParquetScan.integerArrowFieldCountProjection(grouped_scan, &.{ "active", "sales" }));
+    try std.testing.expectEqual(@as(usize, 1), try vectra.ArrowExport.ParquetScan.boolArrowFieldCountProjection(grouped_scan, &.{ "active", "sales" }));
     const explicit_scan_nullable = try vectra.ArrowExport.ParquetScan.arrowFieldNullableMaskProjection(grouped_scan, gpa, &.{ "units", "active" });
     defer gpa.free(explicit_scan_nullable);
     try std.testing.expectEqualSlices(bool, &.{ true, false }, explicit_scan_nullable);
@@ -8783,6 +8826,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.toArrowSchemaProjection(grouped_scan, gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowColumnSchemasProjection(grouped_scan, gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldDTypesProjection(grouped_scan, gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldDTypeByteSizesProjection(grouped_scan, gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldDTypeClassMaskProjection(grouped_scan, gpa, &.{"missing"}, .numeric));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.arrowFieldNullableMaskProjection(grouped_scan, gpa, &.{"missing"}));
     var invalid_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer invalid_scan.deinit();

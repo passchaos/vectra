@@ -657,24 +657,44 @@ pub fn DeviceParquetScan(
         pub const arrowFieldDTypeNames = scan_metadata_mod.arrowFieldDTypeNames;
         pub const arrowFieldDTypeNamesProjection = scan_metadata_mod.arrowFieldDTypeNamesProjection;
         pub const arrowFieldDTypeByteSizes = scan_metadata_mod.arrowFieldDTypeByteSizes;
+        pub const arrowFieldDTypeByteSizesProjection = scan_metadata_mod.arrowFieldDTypeByteSizesProjection;
         pub const arrowFieldDTypeBitSizes = scan_metadata_mod.arrowFieldDTypeBitSizes;
+        pub const arrowFieldDTypeBitSizesProjection = scan_metadata_mod.arrowFieldDTypeBitSizesProjection;
         pub const arrowFieldDTypeClassMask = scan_metadata_mod.arrowFieldDTypeClassMask;
+        pub const arrowFieldDTypeClassMaskProjection = scan_metadata_mod.arrowFieldDTypeClassMaskProjection;
         pub const arrowFieldDTypeClassCount = scan_metadata_mod.arrowFieldDTypeClassCount;
+        pub const arrowFieldDTypeClassCountProjection = scan_metadata_mod.arrowFieldDTypeClassCountProjection;
 
         pub fn numericArrowFieldCount(self: Self) ParquetInteropError!usize {
             return self.arrowFieldDTypeClassCount(.numeric);
+        }
+
+        pub fn numericArrowFieldCountProjection(self: Self, names: []const []const u8) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCountProjection(names, .numeric);
         }
 
         pub fn floatArrowFieldCount(self: Self) ParquetInteropError!usize {
             return self.arrowFieldDTypeClassCount(.float);
         }
 
+        pub fn floatArrowFieldCountProjection(self: Self, names: []const []const u8) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCountProjection(names, .float);
+        }
+
         pub fn integerArrowFieldCount(self: Self) ParquetInteropError!usize {
             return self.arrowFieldDTypeClassCount(.integer);
         }
 
+        pub fn integerArrowFieldCountProjection(self: Self, names: []const []const u8) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCountProjection(names, .integer);
+        }
+
         pub fn boolArrowFieldCount(self: Self) ParquetInteropError!usize {
             return self.arrowFieldDTypeClassCount(.bool);
+        }
+
+        pub fn boolArrowFieldCountProjection(self: Self, names: []const []const u8) ParquetInteropError!usize {
+            return self.arrowFieldDTypeClassCountProjection(names, .bool);
         }
 
         pub const arrowFieldNullableAt = scan_metadata_mod.arrowFieldNullableAt;

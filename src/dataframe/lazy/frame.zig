@@ -441,10 +441,36 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypeByteSizesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const dtypes = try self.columnDTypesProjection(allocator, names);
+                        defer allocator.free(dtypes);
+                        const sizes = try allocator.alloc(usize, dtypes.len);
+                        for (dtypes, sizes) |dtype, *slot| slot.* = dtype.byteSize();
+                        break :blk sizes;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeByteSizesProjection(allocator, names),
+                };
+            }
+
             pub fn columnDTypeBitSizes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.columnDTypeBitSizes(allocator),
                     .parquet_scan => |scan| try scan.arrowFieldDTypeBitSizes(allocator),
+                };
+            }
+
+            pub fn columnDTypeBitSizesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const dtypes = try self.columnDTypesProjection(allocator, names);
+                        defer allocator.free(dtypes);
+                        const sizes = try allocator.alloc(usize, dtypes.len);
+                        for (dtypes, sizes) |dtype, *slot| slot.* = dtype.bitSize();
+                        break :blk sizes;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeBitSizesProjection(allocator, names),
                 };
             }
 
@@ -459,6 +485,24 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypeClassMaskProjection(
+                self: *const DeviceLazyFrame,
+                allocator: std.mem.Allocator,
+                names: []const []const u8,
+                class: options_mod.DeviceDTypeClass,
+            ) ParquetInteropError![]bool {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const dtypes = try self.columnDTypesProjection(allocator, names);
+                        defer allocator.free(dtypes);
+                        const mask = try allocator.alloc(bool, dtypes.len);
+                        for (dtypes, mask) |dtype, *slot| slot.* = class.matches(dtype);
+                        break :blk mask;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeClassMaskProjection(allocator, names, class),
+                };
+            }
+
             pub fn columnDTypeClassCount(self: *const DeviceLazyFrame, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
                 return switch (self.source) {
                     .dataframe => |frame| frame.columnDTypeClassCount(class),
@@ -466,36 +510,83 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypeClassCountProjection(self: *const DeviceLazyFrame, names: []const []const u8, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const dtypes = try self.columnDTypesProjection(self.allocator, names);
+                        defer self.allocator.free(dtypes);
+                        var count: usize = 0;
+                        for (dtypes) |dtype| {
+                            if (class.matches(dtype)) count += 1;
+                        }
+                        break :blk count;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeClassCountProjection(names, class),
+                };
+            }
+
             pub fn numericColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.numeric);
+            }
+
+            pub fn numericColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .numeric);
             }
 
             pub fn realColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.real);
             }
 
+            pub fn realColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .real);
+            }
+
             pub fn floatColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.float);
+            }
+
+            pub fn floatColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .float);
             }
 
             pub fn integerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.integer);
             }
 
+            pub fn integerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .integer);
+            }
+
             pub fn signedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.signed_integer);
+            }
+
+            pub fn signedIntegerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .signed_integer);
             }
 
             pub fn unsignedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.unsigned_integer);
             }
 
+            pub fn unsignedIntegerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .unsigned_integer);
+            }
+
             pub fn boolColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.bool);
             }
 
+            pub fn boolColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .bool);
+            }
+
             pub fn complexColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.complex);
+            }
+
+            pub fn complexColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .complex);
             }
 
             pub fn columnIsNumericMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {

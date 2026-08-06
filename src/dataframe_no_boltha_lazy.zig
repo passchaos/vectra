@@ -423,7 +423,15 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnDTypeByteSizesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnDTypeBitSizes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeBitSizesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
                 return error.FeatureUnavailable;
             }
 
@@ -435,40 +443,85 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnDTypeClassMaskProjection(
+                _: *const DeviceLazyFrame,
+                _: std.mem.Allocator,
+                _: []const []const u8,
+                _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass,
+            ) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnDTypeClassCount(_: *const DeviceLazyFrame, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
                 return 0;
+            }
+
+            pub fn columnDTypeClassCountProjection(_: *const DeviceLazyFrame, _: []const []const u8, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
             }
 
             pub fn numericColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.numeric);
             }
 
+            pub fn numericColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .numeric);
+            }
+
             pub fn realColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.real);
+            }
+
+            pub fn realColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .real);
             }
 
             pub fn floatColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.float);
             }
 
+            pub fn floatColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .float);
+            }
+
             pub fn integerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.integer);
+            }
+
+            pub fn integerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .integer);
             }
 
             pub fn signedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.signed_integer);
             }
 
+            pub fn signedIntegerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .signed_integer);
+            }
+
             pub fn unsignedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.unsigned_integer);
+            }
+
+            pub fn unsignedIntegerColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .unsigned_integer);
             }
 
             pub fn boolColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.bool);
             }
 
+            pub fn boolColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .bool);
+            }
+
             pub fn complexColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.complex);
+            }
+
+            pub fn complexColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return self.columnDTypeClassCountProjection(names, .complex);
             }
 
             pub fn columnIsNumericMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
@@ -1203,7 +1256,15 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldDTypeByteSizesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn arrowFieldDTypeBitSizes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeBitSizesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
                 return error.FeatureUnavailable;
             }
 
@@ -1211,7 +1272,15 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldDTypeClassMaskProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
             pub fn arrowFieldDTypeClassCount(_: DeviceParquetScan, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeClassCountProjection(_: DeviceParquetScan, _: []const []const u8, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
 
@@ -1219,16 +1288,32 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn numericArrowFieldCountProjection(self: DeviceParquetScan, names: []const []const u8) ParquetInteropError!usize {
+                return self.arrowFieldDTypeClassCountProjection(names, .numeric);
+            }
+
             pub fn floatArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
+            }
+
+            pub fn floatArrowFieldCountProjection(self: DeviceParquetScan, names: []const []const u8) ParquetInteropError!usize {
+                return self.arrowFieldDTypeClassCountProjection(names, .float);
             }
 
             pub fn integerArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
 
+            pub fn integerArrowFieldCountProjection(self: DeviceParquetScan, names: []const []const u8) ParquetInteropError!usize {
+                return self.arrowFieldDTypeClassCountProjection(names, .integer);
+            }
+
             pub fn boolArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
+            }
+
+            pub fn boolArrowFieldCountProjection(self: DeviceParquetScan, names: []const []const u8) ParquetInteropError!usize {
+                return self.arrowFieldDTypeClassCountProjection(names, .bool);
             }
 
             pub fn arrowFieldNullableAt(_: DeviceParquetScan, _: usize) ParquetInteropError!?bool {
