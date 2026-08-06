@@ -704,6 +704,24 @@ pub fn DeviceParquetScan(
         pub const nullableArrowFieldCount = scan_metadata_mod.nullableArrowFieldCount;
         pub const nullableArrowFieldCountProjection = scan_metadata_mod.nullableArrowFieldCountProjection;
         pub const nonNullableArrowFieldCountProjection = scan_metadata_mod.nonNullableArrowFieldCountProjection;
+        pub const arrowFieldNullCount = scan_metadata_mod.arrowFieldNullCount;
+        pub const arrowFieldValidCount = scan_metadata_mod.arrowFieldValidCount;
+        pub const arrowFieldNullCounts = scan_metadata_mod.arrowFieldNullCounts;
+        pub const arrowFieldNullCountsProjection = scan_metadata_mod.arrowFieldNullCountsProjection;
+        pub const arrowFieldValidCounts = scan_metadata_mod.arrowFieldValidCounts;
+        pub const arrowFieldValidCountsProjection = scan_metadata_mod.arrowFieldValidCountsProjection;
+        pub const arrowFieldNullRatios = scan_metadata_mod.arrowFieldNullRatios;
+        pub const arrowFieldNullRatiosProjection = scan_metadata_mod.arrowFieldNullRatiosProjection;
+        pub const arrowFieldValidRatios = scan_metadata_mod.arrowFieldValidRatios;
+        pub const arrowFieldValidRatiosProjection = scan_metadata_mod.arrowFieldValidRatiosProjection;
+        pub const arrowNullCount = scan_metadata_mod.arrowNullCount;
+        pub const arrowNullCountProjection = scan_metadata_mod.arrowNullCountProjection;
+        pub const arrowValidCount = scan_metadata_mod.arrowValidCount;
+        pub const arrowValidCountProjection = scan_metadata_mod.arrowValidCountProjection;
+        pub const arrowNullRatio = scan_metadata_mod.arrowNullRatio;
+        pub const arrowNullRatioProjection = scan_metadata_mod.arrowNullRatioProjection;
+        pub const arrowValidRatio = scan_metadata_mod.arrowValidRatio;
+        pub const arrowValidRatioProjection = scan_metadata_mod.arrowValidRatioProjection;
 
         pub fn nonNullableArrowFieldCount(self: Self) ParquetInteropError!usize {
             return (try self.arrowFieldCount()) - try self.nullableArrowFieldCount();

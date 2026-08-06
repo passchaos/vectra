@@ -387,6 +387,70 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn columnNullCounts(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNullCountsProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidCounts(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidCountsProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullRatio(_: *const DeviceLazyFrame) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nullRatioProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validRatio(_: *const DeviceLazyFrame) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn validRatioProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNullRatios(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNullRatiosProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidRatios(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnValidRatiosProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnDTypes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
                 return error.FeatureUnavailable;
             }
@@ -1345,6 +1409,78 @@ pub fn DeviceLazyParquetTypes(
             }
 
             pub fn nonNullableArrowFieldCountProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullCount(_: DeviceParquetScan, _: []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidCount(_: DeviceParquetScan, _: []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullCounts(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullCountsProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidCounts(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidCountsProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldNullRatiosProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidRatiosProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowNullCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowNullCountProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidCountProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowNullRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowNullRatioProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidRatioProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!f64 {
                 return error.FeatureUnavailable;
             }
 

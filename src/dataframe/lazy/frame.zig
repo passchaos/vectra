@@ -260,6 +260,11 @@ pub fn DeviceLazyTypes(
                 return (try self.rowCount()) * (try self.columnCount());
             }
 
+            fn ratioFromCount(count: usize, total: usize) f64 {
+                if (total == 0) return std.math.nan(f64);
+                return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(total));
+            }
+
             pub fn shape(self: *const DeviceLazyFrame) ParquetInteropError!struct { rows: usize, cols: usize } {
                 return .{ .rows = try self.rowCount(), .cols = try self.columnCount() };
             }
@@ -371,6 +376,150 @@ pub fn DeviceLazyTypes(
             pub fn hasAnyColumn(self: *const DeviceLazyFrame, names: []const []const u8) bool {
                 for (names) |name| if (self.hasColumn(name)) return true;
                 return false;
+            }
+
+            pub fn columnNullCounts(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnNullCounts(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldNullCounts(allocator),
+                };
+            }
+
+            pub fn columnNullCountsProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        const counts = try allocator.alloc(usize, names.len);
+                        errdefer allocator.free(counts);
+                        for (names, counts) |name, *slot| slot.* = (try frame.columnSchema(name)).nullCount();
+                        break :blk counts;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldNullCountsProjection(allocator, names),
+                };
+            }
+
+            pub fn columnValidCounts(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnValidCounts(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldValidCounts(allocator),
+                };
+            }
+
+            pub fn columnValidCountsProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        const counts = try allocator.alloc(usize, names.len);
+                        errdefer allocator.free(counts);
+                        for (names, counts) |name, *slot| slot.* = (try frame.columnSchema(name)).validCount();
+                        break :blk counts;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldValidCountsProjection(allocator, names),
+                };
+            }
+
+            pub fn nullCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.nullCount(),
+                    .parquet_scan => |scan| try scan.arrowNullCount(),
+                };
+            }
+
+            pub fn nullCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const counts = try self.columnNullCountsProjection(self.allocator, names);
+                        defer self.allocator.free(counts);
+                        var total: usize = 0;
+                        for (counts) |count| total += count;
+                        break :blk total;
+                    },
+                    .parquet_scan => |scan| try scan.arrowNullCountProjection(names),
+                };
+            }
+
+            pub fn validCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.validCount(),
+                    .parquet_scan => |scan| try scan.arrowValidCount(),
+                };
+            }
+
+            pub fn validCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => (try self.rowCount()) * names.len - try self.nullCountProjection(names),
+                    .parquet_scan => |scan| try scan.arrowValidCountProjection(names),
+                };
+            }
+
+            pub fn nullRatio(self: *const DeviceLazyFrame) ParquetInteropError!f64 {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.nullRatio(),
+                    .parquet_scan => |scan| try scan.arrowNullRatio(),
+                };
+            }
+
+            pub fn nullRatioProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!f64 {
+                return switch (self.source) {
+                    .dataframe => ratioFromCount(try self.nullCountProjection(names), (try self.rowCount()) * names.len),
+                    .parquet_scan => |scan| try scan.arrowNullRatioProjection(names),
+                };
+            }
+
+            pub fn validRatio(self: *const DeviceLazyFrame) ParquetInteropError!f64 {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.validRatio(),
+                    .parquet_scan => |scan| try scan.arrowValidRatio(),
+                };
+            }
+
+            pub fn validRatioProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!f64 {
+                return switch (self.source) {
+                    .dataframe => ratioFromCount(try self.validCountProjection(names), (try self.rowCount()) * names.len),
+                    .parquet_scan => |scan| try scan.arrowValidRatioProjection(names),
+                };
+            }
+
+            pub fn columnNullRatios(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnNullRatios(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldNullRatios(allocator),
+                };
+            }
+
+            pub fn columnNullRatiosProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]f64 {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const counts = try self.columnNullCountsProjection(allocator, names);
+                        defer allocator.free(counts);
+                        const rows = try self.rowCount();
+                        const ratios = try allocator.alloc(f64, counts.len);
+                        errdefer allocator.free(ratios);
+                        for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+                        break :blk ratios;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldNullRatiosProjection(allocator, names),
+                };
+            }
+
+            pub fn columnValidRatios(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnValidRatios(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldValidRatios(allocator),
+                };
+            }
+
+            pub fn columnValidRatiosProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]f64 {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const counts = try self.columnValidCountsProjection(allocator, names);
+                        defer allocator.free(counts);
+                        const rows = try self.rowCount();
+                        const ratios = try allocator.alloc(f64, counts.len);
+                        errdefer allocator.free(ratios);
+                        for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+                        break :blk ratios;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldValidRatiosProjection(allocator, names),
+                };
             }
 
             pub fn columnDTypes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]array_mod.DType {

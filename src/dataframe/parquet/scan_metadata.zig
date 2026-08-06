@@ -350,6 +350,199 @@ pub fn nonNullableArrowFieldCountProjection(scan: anytype, wanted_names: []const
     return wanted_names.len - try nullableArrowFieldCountProjection(scan, wanted_names);
 }
 
+fn checkedMulUsize(left: usize, right: usize) ParquetInteropError!usize {
+    return std.math.mul(usize, left, right) catch error.UnsupportedParquetSchema;
+}
+
+fn checkedAddUsize(left: usize, right: usize) ParquetInteropError!usize {
+    return std.math.add(usize, left, right) catch error.UnsupportedParquetSchema;
+}
+
+fn checkedSubUsize(left: usize, right: usize) ParquetInteropError!usize {
+    return std.math.sub(usize, left, right) catch error.UnsupportedParquetSchema;
+}
+
+fn ratioFromCount(count: usize, total: usize) f64 {
+    if (total == 0) return std.math.nan(f64);
+    return @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(total));
+}
+
+fn parquetNullCountForFieldIndex(
+    file_metadata: boltha.parquet.FileMetaData,
+    field_index: usize,
+    nullable: bool,
+) ParquetInteropError!usize {
+    var total: usize = 0;
+    for (file_metadata.row_groups) |row_group| {
+        if (field_index >= row_group.columns.len) return error.UnsupportedParquetSchema;
+        const column_metadata = row_group.columns[field_index].metadata orelse {
+            // Required fields are known to have no nulls even if the file omits
+            // chunk metadata. Optional fields need statistics to answer this
+            // metadata query without materializing column pages.
+            if (nullable) return error.UnsupportedParquetSchema;
+            continue;
+        };
+        const statistics = column_metadata.statistics orelse {
+            if (nullable) return error.UnsupportedParquetSchema;
+            continue;
+        };
+        const raw_null_count = statistics.null_count orelse {
+            if (nullable) return error.UnsupportedParquetSchema;
+            continue;
+        };
+        total = try checkedAddUsize(total, try nonNegativeI64ToUsize(raw_null_count));
+    }
+    return total;
+}
+
+fn parquetNullCountForField(scan: anytype, name: []const u8, nullable: bool) ParquetInteropError!usize {
+    var full_schema = try boltha.parquet.readSchema(scan.allocator, scan.bytes);
+    defer full_schema.deinit(scan.allocator);
+    const full_index = full_schema.fieldIndexByName(name) orelse return error.ColumnNotFound;
+
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+    return parquetNullCountForFieldIndex(file_metadata, full_index, nullable);
+}
+
+fn parquetNullCountsForFields(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    fields: []const boltha.arrow.Field,
+) ParquetInteropError![]usize {
+    var full_schema = try boltha.parquet.readSchema(scan.allocator, scan.bytes);
+    defer full_schema.deinit(scan.allocator);
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+
+    const counts = try allocator.alloc(usize, fields.len);
+    errdefer allocator.free(counts);
+    for (fields, counts) |field, *slot| {
+        const full_index = full_schema.fieldIndexByName(field.name) orelse return error.ColumnNotFound;
+        slot.* = try parquetNullCountForFieldIndex(file_metadata, full_index, field.nullable);
+    }
+    return counts;
+}
+
+pub fn arrowFieldNullCount(scan: anytype, name: []const u8) ParquetInteropError!usize {
+    var schema_value = try toArrowSchema(scan, scan.allocator);
+    defer schema_value.deinit(scan.allocator);
+    const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
+    return parquetNullCountForField(scan, name, field.nullable);
+}
+
+pub fn arrowFieldValidCount(scan: anytype, name: []const u8) ParquetInteropError!usize {
+    return checkedSubUsize(try scan.rowCount(), try arrowFieldNullCount(scan, name));
+}
+
+pub fn arrowFieldNullCounts(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    var schema_value = try toArrowSchema(scan, allocator);
+    defer schema_value.deinit(allocator);
+    return parquetNullCountsForFields(scan, allocator, schema_value.fields);
+}
+
+pub fn arrowFieldNullCountsProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    var schema_value = try toArrowSchemaProjection(scan, allocator, wanted_names);
+    defer schema_value.deinit(allocator);
+    return parquetNullCountsForFields(scan, allocator, schema_value.fields);
+}
+
+pub fn arrowFieldValidCounts(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    const null_counts = try arrowFieldNullCounts(scan, allocator);
+    errdefer allocator.free(null_counts);
+    const rows = try scan.rowCount();
+    for (null_counts) |*count| count.* = try checkedSubUsize(rows, count.*);
+    return null_counts;
+}
+
+pub fn arrowFieldValidCountsProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    const null_counts = try arrowFieldNullCountsProjection(scan, allocator, wanted_names);
+    errdefer allocator.free(null_counts);
+    const rows = try scan.rowCount();
+    for (null_counts) |*count| count.* = try checkedSubUsize(rows, count.*);
+    return null_counts;
+}
+
+pub fn arrowFieldNullRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    const counts = try arrowFieldNullCounts(scan, allocator);
+    defer allocator.free(counts);
+    const rows = try scan.rowCount();
+    const ratios = try allocator.alloc(f64, counts.len);
+    errdefer allocator.free(ratios);
+    for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+    return ratios;
+}
+
+pub fn arrowFieldNullRatiosProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]f64 {
+    const counts = try arrowFieldNullCountsProjection(scan, allocator, wanted_names);
+    defer allocator.free(counts);
+    const rows = try scan.rowCount();
+    const ratios = try allocator.alloc(f64, counts.len);
+    errdefer allocator.free(ratios);
+    for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+    return ratios;
+}
+
+pub fn arrowFieldValidRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    const counts = try arrowFieldValidCounts(scan, allocator);
+    defer allocator.free(counts);
+    const rows = try scan.rowCount();
+    const ratios = try allocator.alloc(f64, counts.len);
+    errdefer allocator.free(ratios);
+    for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+    return ratios;
+}
+
+pub fn arrowFieldValidRatiosProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]f64 {
+    const counts = try arrowFieldValidCountsProjection(scan, allocator, wanted_names);
+    defer allocator.free(counts);
+    const rows = try scan.rowCount();
+    const ratios = try allocator.alloc(f64, counts.len);
+    errdefer allocator.free(ratios);
+    for (counts, ratios) |count, *slot| slot.* = ratioFromCount(count, rows);
+    return ratios;
+}
+
+pub fn arrowNullCount(scan: anytype) ParquetInteropError!usize {
+    const counts = try arrowFieldNullCounts(scan, scan.allocator);
+    defer scan.allocator.free(counts);
+    var total: usize = 0;
+    for (counts) |count| total = try checkedAddUsize(total, count);
+    return total;
+}
+
+pub fn arrowNullCountProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    const counts = try arrowFieldNullCountsProjection(scan, scan.allocator, wanted_names);
+    defer scan.allocator.free(counts);
+    var total: usize = 0;
+    for (counts) |count| total = try checkedAddUsize(total, count);
+    return total;
+}
+
+pub fn arrowValidCount(scan: anytype) ParquetInteropError!usize {
+    return checkedSubUsize(try checkedMulUsize(try scan.rowCount(), try arrowFieldCount(scan)), try arrowNullCount(scan));
+}
+
+pub fn arrowValidCountProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return checkedSubUsize(try checkedMulUsize(try scan.rowCount(), wanted_names.len), try arrowNullCountProjection(scan, wanted_names));
+}
+
+pub fn arrowNullRatio(scan: anytype) ParquetInteropError!f64 {
+    return ratioFromCount(try arrowNullCount(scan), try checkedMulUsize(try scan.rowCount(), try arrowFieldCount(scan)));
+}
+
+pub fn arrowNullRatioProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!f64 {
+    return ratioFromCount(try arrowNullCountProjection(scan, wanted_names), try checkedMulUsize(try scan.rowCount(), wanted_names.len));
+}
+
+pub fn arrowValidRatio(scan: anytype) ParquetInteropError!f64 {
+    return ratioFromCount(try arrowValidCount(scan), try checkedMulUsize(try scan.rowCount(), try arrowFieldCount(scan)));
+}
+
+pub fn arrowValidRatioProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!f64 {
+    return ratioFromCount(try arrowValidCountProjection(scan, wanted_names), try checkedMulUsize(try scan.rowCount(), wanted_names.len));
+}
+
 pub fn allArrowFieldsNullable(scan: anytype) bool {
     const total = arrowFieldCount(scan) catch return false;
     return total != 0 and (nullableArrowFieldCount(scan) catch return false) == total;
