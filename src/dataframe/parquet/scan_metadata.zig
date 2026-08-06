@@ -688,6 +688,79 @@ pub fn arrowSchemaSummaryProjection(scan: anytype, allocator: std.mem.Allocator,
     return arrowColumnSchemasProjection(scan, allocator, wanted_names);
 }
 
+fn arrowSchemaMetricValues(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    maybe_names: ?[]const []const u8,
+    comptime field_name: []const u8,
+) ParquetInteropError![]usize {
+    const schemas = if (maybe_names) |names|
+        try arrowColumnSchemasProjection(scan, allocator, names)
+    else
+        try arrowColumnSchemas(scan, allocator);
+    defer allocator.free(schemas);
+    const values = try allocator.alloc(usize, schemas.len);
+    errdefer allocator.free(values);
+    for (schemas, values) |schema_value, *slot| slot.* = @field(schema_value, field_name);
+    return values;
+}
+
+fn arrowSchemaMetricTotal(scan: anytype, maybe_names: ?[]const []const u8, comptime field_name: []const u8) ParquetInteropError!usize {
+    const values = try arrowSchemaMetricValues(scan, scan.allocator, maybe_names, field_name);
+    defer scan.allocator.free(values);
+    var total: usize = 0;
+    for (values) |value| total = try checkedAddUsize(total, value);
+    return total;
+}
+
+pub fn arrowFieldDataNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, null, "data_nbytes");
+}
+
+pub fn arrowFieldDataNbytesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, wanted_names, "data_nbytes");
+}
+
+pub fn arrowFieldValidityNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, null, "validity_nbytes");
+}
+
+pub fn arrowFieldValidityNbytesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, wanted_names, "validity_nbytes");
+}
+
+pub fn arrowFieldTotalNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, null, "total_nbytes");
+}
+
+pub fn arrowFieldTotalNbytesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]usize {
+    return arrowSchemaMetricValues(scan, allocator, wanted_names, "total_nbytes");
+}
+
+pub fn arrowDataNbytes(scan: anytype) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, null, "data_nbytes");
+}
+
+pub fn arrowDataNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, wanted_names, "data_nbytes");
+}
+
+pub fn arrowValidityNbytes(scan: anytype) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, null, "validity_nbytes");
+}
+
+pub fn arrowValidityNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, wanted_names, "validity_nbytes");
+}
+
+pub fn arrowTotalNbytes(scan: anytype) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, null, "total_nbytes");
+}
+
+pub fn arrowTotalNbytesProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return arrowSchemaMetricTotal(scan, wanted_names, "total_nbytes");
+}
+
 fn schemasEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
     if (left.len != right.len) return false;
     for (left, right) |left_schema, right_schema| {

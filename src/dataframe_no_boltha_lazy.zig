@@ -1716,6 +1716,54 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldDataNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDataNbytesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidityNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldValidityNbytesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldTotalNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldTotalNbytesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowDataNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowDataNbytesProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidityNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowValidityNbytesProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowTotalNbytes(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowTotalNbytesProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn arrowSchemaEquals(_: DeviceParquetScan, _: DeviceParquetScan) bool {
                 return false;
             }
