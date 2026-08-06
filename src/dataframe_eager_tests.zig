@@ -8285,6 +8285,16 @@ test "device dataframe exports boltha arrow record batch" {
     const file_lazy_summary = try file_lazy_scan.explainSummary(gpa);
     defer gpa.free(file_lazy_summary);
     try std.testing.expect(std.mem.indexOf(u8, file_lazy_summary, "DeviceLazyFrame(raw_ops=1, optimized_ops=1, source=parquet_scan)") != null);
+    var filtered_lazy_scan = try DeviceLazyFrame.scanParquetFileInDir(gpa, tmp_scan_dir.dir, std.testing.io, "scan.parquet", .limited(1024 * 1024), .cpu);
+    defer filtered_lazy_scan.deinit();
+    try filtered_lazy_scan.filterColumnScalar("sales", f64, 0.0, .ge);
+    var filtered_pushdown = try filtered_lazy_scan.scanPushdownSummary();
+    defer filtered_pushdown.deinit();
+    try std.testing.expect(filtered_pushdown.hasPredicate());
+    try std.testing.expectEqualStrings("sales", filtered_pushdown.predicateColumn().?);
+    try std.testing.expect(filtered_pushdown.hasPredicateFor("sales"));
+    try std.testing.expect(filtered_pushdown.hasRangePredicateFor("sales"));
+    try std.testing.expectEqual(vectra.DeviceDType.f64, filtered_pushdown.rangePredicateDType().?);
     try std.testing.expectEqual(table.height(), try file_lazy_scan.rowCount());
     try std.testing.expectEqual(@as(usize, 3), try file_lazy_scan.columnCount());
     var file_lazy_rows = try file_lazy_scan.collect();

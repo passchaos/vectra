@@ -97,6 +97,14 @@ pub const LazyScanPushdown = struct {
         return false;
     }
 
+    pub fn predicateColumn(_: LazyScanPushdown) ?[]const u8 {
+        return null;
+    }
+
+    pub fn hasPredicateFor(_: LazyScanPushdown, _: []const u8) bool {
+        return false;
+    }
+
     pub fn hasPushdown(_: LazyScanPushdown) bool {
         return false;
     }

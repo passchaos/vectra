@@ -126,11 +126,7 @@ pub const LazyScanPushdown = struct {
     pub fn rangePredicateDType(self: LazyScanPushdown) ?array_mod.DType {
         const predicate = self.range_predicate orelse return null;
         return switch (predicate.predicate) {
-            .f64 => .f64,
-            .f32 => .f32,
-            .i64 => .i64,
-            .i32 => .i32,
-            .bool => .bool,
+            inline else => |_, tag| @field(array_mod.DType, @tagName(tag)),
         };
     }
 
@@ -158,6 +154,17 @@ pub const LazyScanPushdown = struct {
 
     pub fn hasPredicate(self: LazyScanPushdown) bool {
         return self.hasRangePredicate() or self.hasNullPredicate();
+    }
+
+    pub fn predicateColumn(self: LazyScanPushdown) ?[]const u8 {
+        if (self.rangePredicateColumn()) |column| return column;
+        if (self.nullPredicateColumn()) |column| return column;
+        return null;
+    }
+
+    pub fn hasPredicateFor(self: LazyScanPushdown, column: []const u8) bool {
+        const active_column = self.predicateColumn() orelse return false;
+        return std.mem.eql(u8, active_column, column);
     }
 
     pub fn hasPushdown(self: LazyScanPushdown) bool {
