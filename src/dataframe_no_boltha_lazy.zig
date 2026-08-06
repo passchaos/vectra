@@ -219,6 +219,10 @@ pub fn DeviceLazyParquetTypes(
                 return self.columnDTypeClassCount(.numeric);
             }
 
+            pub fn realColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.real);
+            }
+
             pub fn floatColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.float);
             }
@@ -227,8 +231,52 @@ pub fn DeviceLazyParquetTypes(
                 return self.columnDTypeClassCount(.integer);
             }
 
+            pub fn signedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.signed_integer);
+            }
+
+            pub fn unsignedIntegerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.unsigned_integer);
+            }
+
             pub fn boolColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnDTypeClassCount(.bool);
+            }
+
+            pub fn complexColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.complex);
+            }
+
+            pub fn columnIsNumericMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .numeric);
+            }
+
+            pub fn columnIsRealMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .real);
+            }
+
+            pub fn columnIsFloatMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .float);
+            }
+
+            pub fn columnIsIntegerMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .integer);
+            }
+
+            pub fn columnIsSignedIntegerMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .signed_integer);
+            }
+
+            pub fn columnIsUnsignedIntegerMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .unsigned_integer);
+            }
+
+            pub fn columnIsBoolMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .bool);
+            }
+
+            pub fn columnIsComplexMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                return self.columnDTypeClassMask(allocator, .complex);
             }
 
             pub fn columnNullableAt(_: *const DeviceLazyFrame, _: usize) ParquetInteropError!?bool {
