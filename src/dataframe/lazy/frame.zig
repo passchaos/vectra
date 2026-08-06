@@ -361,6 +361,13 @@ pub fn DeviceLazyTypes(
                 return true;
             }
 
+            pub fn hasSchemaProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.hasAllColumns(names),
+                    .parquet_scan => |scan| scan.hasArrowProjection(names),
+                };
+            }
+
             pub fn hasAnyColumn(self: *const DeviceLazyFrame, names: []const []const u8) bool {
                 for (names) |name| if (self.hasColumn(name)) return true;
                 return false;
@@ -559,12 +566,32 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnSchemasProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        const schemas = try allocator.alloc(DeviceColumnSchema, names.len);
+                        errdefer allocator.free(schemas);
+                        for (names, schemas) |name, *slot| slot.* = try frame.columnSchema(name);
+                        break :blk schemas;
+                    },
+                    .parquet_scan => |scan| try scan.arrowColumnSchemasProjection(allocator, names),
+                };
+            }
+
             pub fn schema(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
                 return self.columnSchemas(allocator);
             }
 
+            pub fn schemaProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return self.columnSchemasProjection(allocator, names);
+            }
+
             pub fn schemaSummary(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
                 return self.columnSchemas(allocator);
+            }
+
+            pub fn schemaSummaryProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return self.columnSchemasProjection(allocator, names);
             }
 
             fn schemaSlicesEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {

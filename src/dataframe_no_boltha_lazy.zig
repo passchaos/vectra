@@ -531,12 +531,28 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnSchemasProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
             pub fn schema(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn schemaProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
                 return error.FeatureUnavailable;
             }
 
             pub fn schemaSummary(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
                 return error.FeatureUnavailable;
+            }
+
+            pub fn schemaSummaryProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasSchemaProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
             }
 
             pub fn schemaEqualsSchemas(_: *const DeviceLazyFrame, _: []const DeviceColumnSchema) bool {
@@ -1223,7 +1239,15 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowColumnSchemasProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
             pub fn arrowSchemaSummary(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowSchemaSummaryProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
                 return error.FeatureUnavailable;
             }
 

@@ -425,7 +425,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const arrowColumnSchemaAt = dataframe_mod.DeviceParquetScan.arrowColumnSchemaAt;
             pub const arrowColumnSchema = dataframe_mod.DeviceParquetScan.arrowColumnSchema;
             pub const arrowColumnSchemas = dataframe_mod.DeviceParquetScan.arrowColumnSchemas;
+            pub const arrowColumnSchemasProjection = dataframe_mod.DeviceParquetScan.arrowColumnSchemasProjection;
             pub const arrowSchemaSummary = dataframe_mod.DeviceParquetScan.arrowSchemaSummary;
+            pub const arrowSchemaSummaryProjection = dataframe_mod.DeviceParquetScan.arrowSchemaSummaryProjection;
             pub const arrowSchemaEquals = dataframe_mod.DeviceParquetScan.arrowSchemaEquals;
             pub const arrowSameSchema = dataframe_mod.DeviceParquetScan.arrowSameSchema;
             pub const arrowSchemaCompatible = dataframe_mod.DeviceParquetScan.arrowSchemaCompatible;
@@ -583,7 +585,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const arrowColumnSchemaAt = dataframe_mod.DeviceParquetScan.arrowColumnSchemaAt;
         pub const arrowColumnSchema = dataframe_mod.DeviceParquetScan.arrowColumnSchema;
         pub const arrowColumnSchemas = dataframe_mod.DeviceParquetScan.arrowColumnSchemas;
+        pub const arrowColumnSchemasProjection = dataframe_mod.DeviceParquetScan.arrowColumnSchemasProjection;
         pub const arrowSchemaSummary = dataframe_mod.DeviceParquetScan.arrowSchemaSummary;
+        pub const arrowSchemaSummaryProjection = dataframe_mod.DeviceParquetScan.arrowSchemaSummaryProjection;
         pub const arrowSchemaEquals = dataframe_mod.DeviceParquetScan.arrowSchemaEquals;
         pub const arrowSameSchema = dataframe_mod.DeviceParquetScan.arrowSameSchema;
         pub const arrowSchemaCompatible = dataframe_mod.DeviceParquetScan.arrowSchemaCompatible;
@@ -1016,6 +1020,14 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, frame.columnDTypes(gpa));
         try std.testing.expectError(error.FeatureUnavailable, frame.columnNullCounts(gpa));
         try std.testing.expectError(error.FeatureUnavailable, frame.columnSchemas(gpa));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowColumnSchemasProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowSchemaSummaryProjection(gpa, &.{"id"}));
+
+        const lazy_frame: DeviceLazyFrame = .{};
+        try std.testing.expect(!lazy_frame.hasSchemaProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnSchemasProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.schemaProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.schemaSummaryProjection(gpa, &.{"id"}));
 
         const column = DeviceColumn{ .i32 = undefined };
         const bool_column = DeviceColumn{ .bool = undefined };

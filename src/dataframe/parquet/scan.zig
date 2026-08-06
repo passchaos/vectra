@@ -694,7 +694,9 @@ pub fn DeviceParquetScan(
         pub const arrowColumnSchemaAt = scan_metadata_mod.arrowColumnSchemaAt;
         pub const arrowColumnSchema = scan_metadata_mod.arrowColumnSchema;
         pub const arrowColumnSchemas = scan_metadata_mod.arrowColumnSchemas;
+        pub const arrowColumnSchemasProjection = scan_metadata_mod.arrowColumnSchemasProjection;
         pub const arrowSchemaSummary = scan_metadata_mod.arrowSchemaSummary;
+        pub const arrowSchemaSummaryProjection = scan_metadata_mod.arrowSchemaSummaryProjection;
         pub const arrowSchemaEquals = scan_metadata_mod.arrowSchemaEquals;
         pub const arrowSameSchema = scan_metadata_mod.arrowSameSchema;
         pub const arrowSchemaCompatible = scan_metadata_mod.arrowSchemaCompatible;

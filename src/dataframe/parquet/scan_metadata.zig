@@ -338,8 +338,36 @@ pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetIn
     return schemas;
 }
 
+pub fn arrowColumnSchemasProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+    var schema_value = try toArrowSchemaProjection(scan, allocator, wanted_names);
+    defer schema_value.deinit(allocator);
+    const rows = try scan.rowCount();
+    const schemas = try allocator.alloc(DeviceColumnSchema, schema_value.fields.len);
+    errdefer allocator.free(schemas);
+    for (schema_value.fields, schemas, wanted_names) |field, *slot, name| {
+        const dtype = try deviceDTypeFromArrowField(field);
+        slot.* = .{
+            .name = name,
+            .dtype = dtype,
+            .rows = rows,
+            .nullable = field.nullable,
+            .null_count = 0,
+            .valid_count = rows,
+            .data_nbytes = 0,
+            .validity_nbytes = 0,
+            .total_nbytes = 0,
+            .device = scan.device,
+        };
+    }
+    return schemas;
+}
+
 pub fn arrowSchemaSummary(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
     return arrowColumnSchemas(scan, allocator);
+}
+
+pub fn arrowSchemaSummaryProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]DeviceColumnSchema {
+    return arrowColumnSchemasProjection(scan, allocator, wanted_names);
 }
 
 fn schemasEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
