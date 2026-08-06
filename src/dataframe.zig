@@ -1219,6 +1219,16 @@ pub const DeviceDataFrame = struct {
     pub const toArrowRecordBatch = arrow_methods_mod.toArrowRecordBatch;
     pub const toArrowTable = arrow_methods_mod.toArrowTable;
     pub const toParquetBytes = arrow_methods_mod.toParquetBytes;
+    pub const writeParquetFileInDir = arrow_methods_mod.writeParquetFileInDir;
+    pub const writeParquetFile = arrow_methods_mod.writeParquetFile;
+
+    pub fn fromParquetFileInDir(allocator: std.mem.Allocator, dir: std.Io.Dir, io: std.Io, path: []const u8, read_limit: std.Io.Limit, device_value: array_mod.Device) !DeviceDataFrame {
+        return arrow_methods_mod.fromParquetFileInDir(DeviceDataFrame, DeviceColumnDef, allocator, dir, io, path, read_limit, device_value);
+    }
+
+    pub fn fromParquetFile(allocator: std.mem.Allocator, io: std.Io, path: []const u8, read_limit: std.Io.Limit, device_value: array_mod.Device) !DeviceDataFrame {
+        return arrow_methods_mod.fromParquetFile(DeviceDataFrame, DeviceColumnDef, allocator, io, path, read_limit, device_value);
+    }
 
     pub fn fromParquetBytes(allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) ParquetInteropError!DeviceDataFrame {
         return arrow_methods_mod.fromParquetBytes(DeviceDataFrame, DeviceColumnDef, allocator, bytes, device_value);

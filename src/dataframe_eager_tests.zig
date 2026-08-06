@@ -7987,6 +7987,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.DataFrame.fromArrowTableProjection(gpa, grouped_arrow_table, &.{"missing"}, .cpu));
     const grouped_parquet_bytes = try vectra.ArrowExport.DataFrame.toParquetBytes(table, gpa);
     defer gpa.free(grouped_parquet_bytes);
+    var tmp_parquet_dir = std.testing.tmpDir(.{});
+    defer tmp_parquet_dir.cleanup();
+    try vectra.ArrowExport.DataFrame.writeParquetFileInDir(table, tmp_parquet_dir.dir, std.testing.io, "frame.parquet");
+    var file_roundtrip_df = try vectra.ArrowExport.DataFrame.fromParquetFileInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), .cpu);
+    defer file_roundtrip_df.deinit();
+    try std.testing.expect(file_roundtrip_df.schemaEquals(table));
     var tmp_scan_dir = std.testing.tmpDir(.{});
     defer tmp_scan_dir.cleanup();
     try tmp_scan_dir.dir.writeFile(std.testing.io, .{ .sub_path = "scan.parquet", .data = grouped_parquet_bytes });

@@ -512,6 +512,22 @@ pub fn DeviceDataFrameType(
             return error.FeatureUnavailable;
         }
 
+        pub fn writeParquetFileInDir(_: Self, _: std.Io.Dir, _: std.Io, _: []const u8) ParquetInteropError!void {
+            return error.FeatureUnavailable;
+        }
+
+        pub fn writeParquetFile(_: Self, _: std.Io, _: []const u8) ParquetInteropError!void {
+            return error.FeatureUnavailable;
+        }
+
+        pub fn fromParquetFileInDir(_: std.mem.Allocator, _: std.Io.Dir, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!Self {
+            return error.FeatureUnavailable;
+        }
+
+        pub fn fromParquetFile(_: std.mem.Allocator, _: std.Io, _: []const u8, _: std.Io.Limit, _: array_mod.Device) ParquetInteropError!Self {
+            return error.FeatureUnavailable;
+        }
+
         pub fn fromParquetBytes(_: std.mem.Allocator, _: []const u8, _: array_mod.Device) ParquetInteropError!Self {
             return error.FeatureUnavailable;
         }

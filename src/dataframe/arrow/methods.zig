@@ -58,6 +58,27 @@ pub fn toParquetBytes(self: anytype, allocator: std.mem.Allocator) ParquetIntero
     return dataframe_arrow_mod.toParquetBytes(frameValue(self), allocator);
 }
 
+pub fn writeParquetFileInDir(self: anytype, dir: std.Io.Dir, io: std.Io, path: []const u8) (ParquetInteropError || std.Io.Dir.WriteFileError)!void {
+    const frame = frameValue(self);
+    const bytes = try dataframe_arrow_mod.toParquetBytes(frame, frame.allocator);
+    defer frame.allocator.free(bytes);
+    try dir.writeFile(io, .{ .sub_path = path, .data = bytes });
+}
+
+pub fn writeParquetFile(self: anytype, io: std.Io, path: []const u8) (ParquetInteropError || std.Io.Dir.WriteFileError)!void {
+    return writeParquetFileInDir(self, std.Io.Dir.cwd(), io, path);
+}
+
+pub fn fromParquetFileInDir(comptime Frame: type, comptime DeviceColumnDef: type, allocator: std.mem.Allocator, dir: std.Io.Dir, io: std.Io, path: []const u8, read_limit: std.Io.Limit, device_value: array_mod.Device) !Frame {
+    const bytes = try dir.readFileAlloc(io, path, allocator, read_limit);
+    defer allocator.free(bytes);
+    return fromParquetBytes(Frame, DeviceColumnDef, allocator, bytes, device_value);
+}
+
+pub fn fromParquetFile(comptime Frame: type, comptime DeviceColumnDef: type, allocator: std.mem.Allocator, io: std.Io, path: []const u8, read_limit: std.Io.Limit, device_value: array_mod.Device) !Frame {
+    return fromParquetFileInDir(Frame, DeviceColumnDef, allocator, std.Io.Dir.cwd(), io, path, read_limit, device_value);
+}
+
 pub fn fromParquetBytes(comptime Frame: type, comptime DeviceColumnDef: type, allocator: std.mem.Allocator, bytes: []const u8, device_value: array_mod.Device) ParquetInteropError!Frame {
     return dataframe_arrow_mod.fromParquetBytes(Frame, DeviceColumnDef, @FieldType(DeviceColumnDef, "data"), allocator, bytes, device_value);
 }

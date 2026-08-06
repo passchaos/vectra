@@ -1039,7 +1039,7 @@ strategies, preserving all left rows and nullable right payloads when no
 candidate exists.
 Arrow/Parquet/IPC interoperability is intentionally delegated to the sibling
 [`../boltha`](../boltha) package: `DeviceColumn.toArrowField`,
-`DeviceDataFrame.toArrowFields`, `toArrowSchema`, `toArrowRecordBatch`, and `toArrowTable` materialize Boltha-owned Arrow objects
+`DeviceDataFrame.toArrowFields`, `toArrowSchema`, `toArrowRecordBatch`, `toArrowTable`, `writeParquetFile*`, and `fromParquetFile*` materialize Boltha-owned Arrow objects
 from CPU/CUDA/MPS columns rather than reimplementing Arrow inside Vectra.
 Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension
@@ -1065,7 +1065,7 @@ scan retarget helpers (`setDevice`/`retarget`, `to`/`withDevice`, `cpu`/`cuda`/`
 `DataFrameView.hasArrowProjection`/`toArrowFields`/`toArrowFieldsProjection`/`toArrowSchema`/`toArrowSchemaProjection` for exporting owning schema and
 non-owning view metadata directly (with the older `Device*Arrow`
 names retained as aliases).
-`toParquetBytes` and `fromParquetBytes` reuse Boltha's simple Parquet
+`toParquetBytes`/`fromParquetBytes` and `writeParquetFile*`/`fromParquetFile*` reuse Boltha's simple Parquet
 reader/writer and allow readback directly onto the requested Vectra device.
 `fromParquetBytesPruned` sends fixed-width numeric range predicates to
 Boltha's statistics/Bloom-filter pruning reader before materializing the
