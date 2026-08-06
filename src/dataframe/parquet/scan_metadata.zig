@@ -1153,3 +1153,73 @@ pub fn parquetRowGroupCompressionRatios(scan: anytype, allocator: std.mem.Alloca
     for (summaries, ratios) |summary, *slot| slot.* = summary.compressionRatio();
     return ratios;
 }
+
+fn rowGroupMetadataCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.metadataCoverageRatio();
+}
+
+fn rowGroupMissingMetadataRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.missingMetadataRatio();
+}
+
+fn rowGroupColumnIndexCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.columnIndexCoverageRatio();
+}
+
+fn rowGroupOffsetIndexCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.offsetIndexCoverageRatio();
+}
+
+fn rowGroupPageIndexCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.pageIndexCoverageRatio();
+}
+
+fn rowGroupBloomFilterCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.bloomFilterCoverageRatio();
+}
+
+fn rowGroupSizedBloomFilterCoverageRatio(summary: DeviceParquetRowGroupSummary) f64 {
+    return summary.sizedBloomFilterCoverageRatio();
+}
+
+fn parquetRowGroupCoverageRatioValues(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    comptime ratioFn: fn (DeviceParquetRowGroupSummary) f64,
+) ParquetInteropError![]f64 {
+    const summaries = try parquetRowGroupSummaries(scan, allocator);
+    defer allocator.free(summaries);
+
+    const ratios = try allocator.alloc(f64, summaries.len);
+    errdefer allocator.free(ratios);
+    for (summaries, ratios) |summary, *slot| slot.* = ratioFn(summary);
+    return ratios;
+}
+
+pub fn parquetRowGroupMetadataCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupMetadataCoverageRatio);
+}
+
+pub fn parquetRowGroupMissingMetadataRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupMissingMetadataRatio);
+}
+
+pub fn parquetRowGroupColumnIndexCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupColumnIndexCoverageRatio);
+}
+
+pub fn parquetRowGroupOffsetIndexCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupOffsetIndexCoverageRatio);
+}
+
+pub fn parquetRowGroupPageIndexCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupPageIndexCoverageRatio);
+}
+
+pub fn parquetRowGroupBloomFilterCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupBloomFilterCoverageRatio);
+}
+
+pub fn parquetRowGroupSizedBloomFilterCoverageRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetRowGroupCoverageRatioValues(scan, allocator, rowGroupSizedBloomFilterCoverageRatio);
+}

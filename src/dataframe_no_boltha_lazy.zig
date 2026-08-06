@@ -1333,6 +1333,34 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn parquetRowGroupMetadataCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupMissingMetadataRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupColumnIndexCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupOffsetIndexCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupPageIndexCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupBloomFilterCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupSizedBloomFilterCoverageRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn rowCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }

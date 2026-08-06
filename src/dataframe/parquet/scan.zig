@@ -345,6 +345,13 @@ pub fn DeviceParquetScan(
         pub const parquetRowGroupCompressedNbytes = scan_metadata_mod.parquetRowGroupCompressedNbytes;
         pub const parquetRowGroupUncompressedNbytes = scan_metadata_mod.parquetRowGroupUncompressedNbytes;
         pub const parquetRowGroupCompressionRatios = scan_metadata_mod.parquetRowGroupCompressionRatios;
+        pub const parquetRowGroupMetadataCoverageRatios = scan_metadata_mod.parquetRowGroupMetadataCoverageRatios;
+        pub const parquetRowGroupMissingMetadataRatios = scan_metadata_mod.parquetRowGroupMissingMetadataRatios;
+        pub const parquetRowGroupColumnIndexCoverageRatios = scan_metadata_mod.parquetRowGroupColumnIndexCoverageRatios;
+        pub const parquetRowGroupOffsetIndexCoverageRatios = scan_metadata_mod.parquetRowGroupOffsetIndexCoverageRatios;
+        pub const parquetRowGroupPageIndexCoverageRatios = scan_metadata_mod.parquetRowGroupPageIndexCoverageRatios;
+        pub const parquetRowGroupBloomFilterCoverageRatios = scan_metadata_mod.parquetRowGroupBloomFilterCoverageRatios;
+        pub const parquetRowGroupSizedBloomFilterCoverageRatios = scan_metadata_mod.parquetRowGroupSizedBloomFilterCoverageRatios;
 
         pub fn rowCount(self: Self) ParquetInteropError!usize {
             return (try self.parquetFileSummary()).rowCount();
