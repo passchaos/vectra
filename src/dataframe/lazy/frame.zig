@@ -101,6 +101,13 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn scanParquetOwnedBytes(allocator: std.mem.Allocator, bytes: []u8, device_value: array_mod.Device) DeviceLazyFrame {
+                return .{
+                    .allocator = allocator,
+                    .source = .{ .parquet_scan = DeviceParquetScan.initOwnedBytes(allocator, bytes, device_value) },
+                };
+            }
+
             pub fn scanParquetFileInDir(
                 allocator: std.mem.Allocator,
                 dir: std.Io.Dir,
