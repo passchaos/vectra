@@ -148,6 +148,14 @@ pub const LazyScanPushdown = struct {
     pub fn pushdownMetadataNbytes(_: LazyScanPushdown) usize {
         return 0;
     }
+
+    pub fn memoryUsage(self: LazyScanPushdown) usize {
+        return self.pushdownMetadataNbytes();
+    }
+
+    pub fn estimatedSize(self: LazyScanPushdown) usize {
+        return self.pushdownMetadataNbytes();
+    }
 };
 
 const DeviceColumnSchema = @import("dataframe_schema.zig").DeviceColumnSchema;

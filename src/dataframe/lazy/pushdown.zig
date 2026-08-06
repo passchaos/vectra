@@ -210,6 +210,14 @@ pub const LazyScanPushdown = struct {
         return self.projectionMetadataNbytes() + self.predicateMetadataNbytes();
     }
 
+    pub fn memoryUsage(self: LazyScanPushdown) usize {
+        return self.pushdownMetadataNbytes();
+    }
+
+    pub fn estimatedSize(self: LazyScanPushdown) usize {
+        return self.pushdownMetadataNbytes();
+    }
+
     pub fn deinit(self: *LazyScanPushdown) void {
         if (self.projection) |names| freeNameList(self.allocator, names);
         if (self.range_predicate) |predicate| self.allocator.free(predicate.column);
