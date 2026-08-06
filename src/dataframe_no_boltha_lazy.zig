@@ -563,6 +563,14 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn toArrowSchema(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn toArrowFields(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError!void {
+                return error.FeatureUnavailable;
+            }
+
             pub fn sourceNbytes(_: *const DeviceLazyFrame) usize {
                 return 0;
             }

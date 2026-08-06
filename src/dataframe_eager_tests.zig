@@ -8045,6 +8045,17 @@ test "device dataframe exports boltha arrow record batch" {
     defer view_arrow_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), view_arrow_schema.fieldCount());
     try std.testing.expectEqual(table_schema[1].nullableColumn(), view_arrow_schema.fields[1].nullable);
+    var lazy_table = try DeviceLazyFrame.init(gpa, table);
+    defer lazy_table.deinit();
+    var lazy_table_arrow_schema = try lazy_table.toArrowSchema(gpa);
+    defer lazy_table_arrow_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), lazy_table_arrow_schema.fieldCount());
+    const lazy_table_arrow_fields = try lazy_table.toArrowFields(gpa);
+    defer {
+        for (lazy_table_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(lazy_table_arrow_fields);
+    }
+    try std.testing.expectEqualStrings("sales", lazy_table_arrow_fields[0].name);
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, schema.fields[0].name));
     try std.testing.expectEqual(table_schema[1].nullableColumn(), schema.fields[1].nullable);
     try std.testing.expectEqual(table_schema[2].nullableColumn(), schema.fields[2].nullable);
@@ -8201,6 +8212,15 @@ test "device dataframe exports boltha arrow record batch" {
     defer gpa.free(lazy_schema_summary);
     try std.testing.expectEqual(@as(usize, 3), lazy_schema_summary.len);
     try std.testing.expectEqual(vectra.DeviceDType.f64, lazy_schema_summary[0].dtype);
+    var lazy_scan_arrow_schema = try owned_lazy_scan.toArrowSchema(gpa);
+    defer lazy_scan_arrow_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 3), lazy_scan_arrow_schema.fieldCount());
+    const lazy_scan_arrow_fields = try owned_lazy_scan.toArrowFields(gpa);
+    defer {
+        for (lazy_scan_arrow_fields) |*field| field.deinit(gpa);
+        gpa.free(lazy_scan_arrow_fields);
+    }
+    try std.testing.expectEqualStrings("units", lazy_scan_arrow_fields[1].name);
     try std.testing.expect(owned_lazy_scan.schemaEqualsSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.sameSchemaSchemas(lazy_schema_summary));
     try std.testing.expect(owned_lazy_scan.schemaCompatibleSchemas(lazy_schema_summary));

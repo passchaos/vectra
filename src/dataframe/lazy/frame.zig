@@ -6,6 +6,7 @@
 //! dataframe method signatures and ownership semantics.
 
 const std = @import("std");
+const boltha = @import("boltha");
 const array_mod = @import("../../array.zig");
 const lazy_exec_mod = @import("frame_exec.zig");
 const lazy_expr_mod = @import("expr_plan.zig");
@@ -614,6 +615,20 @@ pub fn DeviceLazyTypes(
                 const other_schemas = other.columnSchemas(self.allocator) catch return false;
                 defer self.allocator.free(other_schemas);
                 return self.schemaCompatibleSchemas(other_schemas);
+            }
+
+            pub fn toArrowSchema(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError!boltha.arrow.Schema {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.toArrowSchema(allocator),
+                    .parquet_scan => |scan| try scan.toArrowSchema(allocator),
+                };
+            }
+
+            pub fn toArrowFields(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]boltha.arrow.Field {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.toArrowFields(allocator),
+                    .parquet_scan => |scan| try scan.toArrowFields(allocator),
+                };
             }
 
             pub fn sourceNbytes(self: *const DeviceLazyFrame) usize {
