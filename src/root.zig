@@ -1175,6 +1175,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypeByteSizesProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypeBitSizesProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypeClassMaskProjection(gpa, &.{"id"}, .numeric));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnIsNumericMaskProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnIsFloatMaskProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnIsBoolMaskProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypeClassCountProjection(&.{"id"}, .numeric));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.numericColumnCountProjection(&.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnNullableMaskProjection(gpa, &.{"id"}));
