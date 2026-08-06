@@ -8012,6 +8012,13 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 0), owned_lazy_scan.opCount());
     try std.testing.expect(owned_lazy_scan.isOptimizedNoOp());
     try std.testing.expectEqualStrings("cpu", owned_lazy_scan.deviceBackendName());
+    try std.testing.expect(owned_lazy_scan.isCpu());
+    try std.testing.expect(owned_lazy_scan.isHostBacked());
+    try std.testing.expect(!owned_lazy_scan.isCudaBacked());
+    try std.testing.expect(!owned_lazy_scan.isMpsBacked());
+    try std.testing.expect(!owned_lazy_scan.isAcceleratorBacked());
+    try std.testing.expect(!owned_lazy_scan.isRemoteBacked());
+    try std.testing.expect(!owned_lazy_scan.isDeviceBacked());
     try std.testing.expect(owned_lazy_scan.isDeviceAvailable());
     var owned_lazy_rows = try owned_lazy_scan.collect();
     defer owned_lazy_rows.deinit();

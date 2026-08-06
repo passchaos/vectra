@@ -201,6 +201,38 @@ pub fn DeviceLazyTypes(
                 return self.sourceDevice().isCpu();
             }
 
+            pub fn isHostBacked(self: *const DeviceLazyFrame) bool {
+                return self.isCpu();
+            }
+
+            pub fn isCuda(self: *const DeviceLazyFrame) bool {
+                return self.sourceDevice().isCuda();
+            }
+
+            pub fn isCudaBacked(self: *const DeviceLazyFrame) bool {
+                return self.isCuda();
+            }
+
+            pub fn isMps(self: *const DeviceLazyFrame) bool {
+                return self.sourceDevice().isMps();
+            }
+
+            pub fn isMpsBacked(self: *const DeviceLazyFrame) bool {
+                return self.isMps();
+            }
+
+            pub fn isAcceleratorBacked(self: *const DeviceLazyFrame) bool {
+                return self.isCudaBacked() or self.isMpsBacked();
+            }
+
+            pub fn isRemoteBacked(self: *const DeviceLazyFrame) bool {
+                return self.isAcceleratorBacked();
+            }
+
+            pub fn isDeviceBacked(self: *const DeviceLazyFrame) bool {
+                return !self.isCpu();
+            }
+
             pub fn isDeviceAvailable(self: *const DeviceLazyFrame) bool {
                 return self.sourceDevice().isAvailable();
             }

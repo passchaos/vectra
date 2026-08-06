@@ -87,6 +87,38 @@ pub fn DeviceLazyParquetTypes(
                 return true;
             }
 
+            pub fn isHostBacked(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn isCuda(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isCudaBacked(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isMps(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isMpsBacked(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isAcceleratorBacked(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isRemoteBacked(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isDeviceBacked(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
             pub fn isDeviceAvailable(_: *const DeviceLazyFrame) bool {
                 return true;
             }
