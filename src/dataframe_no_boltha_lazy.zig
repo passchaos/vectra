@@ -147,6 +147,42 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnDTypeByteSizes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeBitSizes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeClassMask(
+                _: *const DeviceLazyFrame,
+                _: std.mem.Allocator,
+                _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass,
+            ) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnDTypeClassCount(_: *const DeviceLazyFrame, _: @import("dataframe_no_boltha_options.zig").DeviceDTypeClass) ParquetInteropError!usize {
+                return 0;
+            }
+
+            pub fn numericColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.numeric);
+            }
+
+            pub fn floatColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.float);
+            }
+
+            pub fn integerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.integer);
+            }
+
+            pub fn boolColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.bool);
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }

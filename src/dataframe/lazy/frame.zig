@@ -291,6 +291,54 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypeByteSizes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypeByteSizes(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeByteSizes(allocator),
+                };
+            }
+
+            pub fn columnDTypeBitSizes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypeBitSizes(allocator),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeBitSizes(allocator),
+                };
+            }
+
+            pub fn columnDTypeClassMask(
+                self: *const DeviceLazyFrame,
+                allocator: std.mem.Allocator,
+                class: options_mod.DeviceDTypeClass,
+            ) ParquetInteropError![]bool {
+                return switch (self.source) {
+                    .dataframe => |frame| try frame.columnDTypeClassMask(allocator, class),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeClassMask(allocator, class),
+                };
+            }
+
+            pub fn columnDTypeClassCount(self: *const DeviceLazyFrame, class: options_mod.DeviceDTypeClass) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.columnDTypeClassCount(class),
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeClassCount(class),
+                };
+            }
+
+            pub fn numericColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.numeric);
+            }
+
+            pub fn floatColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.float);
+            }
+
+            pub fn integerColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.integer);
+            }
+
+            pub fn boolColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnDTypeClassCount(.bool);
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }

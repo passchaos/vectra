@@ -179,6 +179,24 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), table.unsignedIntegerColumnCount());
     try std.testing.expectEqual(@as(usize, 1), table.boolColumnCount());
     try std.testing.expectEqual(@as(usize, 0), table.complexColumnCount());
+
+    var lazy_table = try DeviceLazyFrame.init(gpa, table);
+    defer lazy_table.deinit();
+    const lazy_table_dtype_byte_sizes = try lazy_table.columnDTypeByteSizes(gpa);
+    defer gpa.free(lazy_table_dtype_byte_sizes);
+    try std.testing.expectEqualSlices(usize, dtype_byte_sizes, lazy_table_dtype_byte_sizes);
+    const lazy_table_dtype_bit_sizes = try lazy_table.columnDTypeBitSizes(gpa);
+    defer gpa.free(lazy_table_dtype_bit_sizes);
+    try std.testing.expectEqualSlices(usize, dtype_bit_sizes, lazy_table_dtype_bit_sizes);
+    const lazy_table_numeric_mask = try lazy_table.columnDTypeClassMask(gpa, .numeric);
+    defer gpa.free(lazy_table_numeric_mask);
+    try std.testing.expectEqualSlices(bool, dtype_class_mask, lazy_table_numeric_mask);
+    try std.testing.expectEqual(table.columnDTypeClassCount(.numeric), try lazy_table.columnDTypeClassCount(.numeric));
+    try std.testing.expectEqual(table.numericColumnCount(), try lazy_table.numericColumnCount());
+    try std.testing.expectEqual(table.floatColumnCount(), try lazy_table.floatColumnCount());
+    try std.testing.expectEqual(table.integerColumnCount(), try lazy_table.integerColumnCount());
+    try std.testing.expectEqual(table.boolColumnCount(), try lazy_table.boolColumnCount());
+
     const null_counts = try table.columnNullCounts(gpa);
     defer gpa.free(null_counts);
     try std.testing.expectEqualSlices(usize, &.{ 0, 1, 0 }, null_counts);
@@ -8033,6 +8051,20 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqualStrings("f64", lazy_dtype_names[0]);
     try std.testing.expectEqual(vectra.DeviceDType.i64, try owned_lazy_scan.columnDType("units"));
     try std.testing.expectEqual(@as(?vectra.DeviceDType, .bool), try owned_lazy_scan.columnDTypeAt(2));
+    const lazy_dtype_byte_sizes = try owned_lazy_scan.columnDTypeByteSizes(gpa);
+    defer gpa.free(lazy_dtype_byte_sizes);
+    try std.testing.expectEqualSlices(usize, &.{ 8, 8, 1 }, lazy_dtype_byte_sizes);
+    const lazy_dtype_bit_sizes = try owned_lazy_scan.columnDTypeBitSizes(gpa);
+    defer gpa.free(lazy_dtype_bit_sizes);
+    try std.testing.expectEqualSlices(usize, &.{ 64, 64, 8 }, lazy_dtype_bit_sizes);
+    const lazy_numeric_mask = try owned_lazy_scan.columnDTypeClassMask(gpa, .numeric);
+    defer gpa.free(lazy_numeric_mask);
+    try std.testing.expectEqualSlices(bool, &.{ true, true, false }, lazy_numeric_mask);
+    try std.testing.expectEqual(@as(usize, 2), try owned_lazy_scan.columnDTypeClassCount(.numeric));
+    try std.testing.expectEqual(@as(usize, 2), try owned_lazy_scan.numericColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.floatColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.integerColumnCount());
+    try std.testing.expectEqual(@as(usize, 1), try owned_lazy_scan.boolColumnCount());
     try std.testing.expectEqual(table.height() * table.width(), try owned_lazy_scan.cellCount());
     const owned_lazy_shape = try owned_lazy_scan.shape();
     try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);
