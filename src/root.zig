@@ -130,6 +130,27 @@ pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const ArrowExport = if (build_options.enable_boltha) struct {
     pub const DataFrame = struct {
+        pub const Arrow = struct {
+            pub const hasProjection = dataframe_mod.deviceDataFrameHasArrowProjection;
+            pub const hasArrowProjection = dataframe_mod.deviceDataFrameHasArrowProjection;
+            pub const toFields = dataframe_mod.DeviceDataFrame.toArrowFields;
+            pub const toArrowFields = dataframe_mod.DeviceDataFrame.toArrowFields;
+            pub const toSchema = dataframe_mod.DeviceDataFrame.toArrowSchema;
+            pub const toArrowSchema = dataframe_mod.DeviceDataFrame.toArrowSchema;
+            pub const toRecordBatch = dataframe_mod.DeviceDataFrame.toArrowRecordBatch;
+            pub const toArrowRecordBatch = dataframe_mod.DeviceDataFrame.toArrowRecordBatch;
+            pub const toTable = dataframe_mod.DeviceDataFrame.toArrowTable;
+            pub const toArrowTable = dataframe_mod.DeviceDataFrame.toArrowTable;
+            pub const fromRecordBatch = dataframe_mod.DeviceDataFrame.fromArrowRecordBatch;
+            pub const fromArrowRecordBatch = dataframe_mod.DeviceDataFrame.fromArrowRecordBatch;
+            pub const fromRecordBatchProjection = dataframe_mod.DeviceDataFrame.fromArrowRecordBatchProjection;
+            pub const fromArrowRecordBatchProjection = dataframe_mod.DeviceDataFrame.fromArrowRecordBatchProjection;
+            pub const fromTable = dataframe_mod.DeviceDataFrame.fromArrowTable;
+            pub const fromArrowTable = dataframe_mod.DeviceDataFrame.fromArrowTable;
+            pub const fromTableProjection = dataframe_mod.DeviceDataFrame.fromArrowTableProjection;
+            pub const fromArrowTableProjection = dataframe_mod.DeviceDataFrame.fromArrowTableProjection;
+        };
+
         pub const Parquet = struct {
             pub const toBytes = dataframe_mod.DeviceDataFrame.toParquetBytes;
             pub const toParquetBytes = dataframe_mod.DeviceDataFrame.toParquetBytes;

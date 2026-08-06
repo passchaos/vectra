@@ -7869,9 +7869,9 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?usize, 0), schema.fieldIndexByName("sales"));
     const table_schema = try table.schema(gpa);
     defer gpa.free(table_schema);
-    try std.testing.expect(vectra.ArrowExport.DataFrame.hasArrowProjection(table, &.{ "sales", "active" }));
-    try std.testing.expect(!vectra.ArrowExport.DataFrame.hasArrowProjection(table, &.{"missing"}));
-    const grouped_arrow_fields = try vectra.ArrowExport.DataFrame.toArrowFields(table, gpa);
+    try std.testing.expect(vectra.ArrowExport.DataFrame.Arrow.hasProjection(table, &.{ "sales", "active" }));
+    try std.testing.expect(!vectra.ArrowExport.DataFrame.Arrow.hasProjection(table, &.{"missing"}));
+    const grouped_arrow_fields = try vectra.ArrowExport.DataFrame.Arrow.toFields(table, gpa);
     defer {
         for (grouped_arrow_fields) |*field| field.deinit(gpa);
         gpa.free(grouped_arrow_fields);
@@ -7957,11 +7957,11 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(?i64, null), batch.columns[1].int64.value(1));
     try std.testing.expectEqual(@as(?bool, true), batch.columns[2].boolean.value(0));
     try std.testing.expectEqual(@as(usize, 1), batch.columns[1].nullCount());
-    var batch_roundtrip = try vectra.ArrowExport.DataFrame.fromArrowRecordBatch(gpa, batch, .cpu);
+    var batch_roundtrip = try vectra.ArrowExport.DataFrame.Arrow.fromRecordBatch(gpa, batch, .cpu);
     defer batch_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), batch_roundtrip.height());
     try std.testing.expect(batch_roundtrip.schemaEquals(table));
-    var batch_projection = try vectra.ArrowExport.DataFrame.fromArrowRecordBatchProjection(gpa, batch, &.{ "sales", "active" }, .cpu);
+    var batch_projection = try vectra.ArrowExport.DataFrame.Arrow.fromRecordBatchProjection(gpa, batch, &.{ "sales", "active" }, .cpu);
     defer batch_projection.deinit();
     try std.testing.expectEqual(@as(usize, 2), batch_projection.width());
     try std.testing.expectEqual(@as(?usize, 0), batch_projection.columnIndex("sales"));
@@ -7973,14 +7973,14 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), arrow_table.batchCount());
     try std.testing.expectEqual(@as(usize, 3), arrow_table.row_count);
     try std.testing.expectEqual(@as(?usize, 1), arrow_table.columnIndexByName("units"));
-    var grouped_arrow_table = try vectra.ArrowExport.DataFrame.toArrowTable(table, gpa);
+    var grouped_arrow_table = try vectra.ArrowExport.DataFrame.Arrow.toTable(table, gpa);
     defer grouped_arrow_table.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 3), grouped_arrow_table.row_count);
-    var table_roundtrip = try vectra.ArrowExport.DataFrame.fromArrowTable(gpa, grouped_arrow_table, .cpu);
+    var table_roundtrip = try vectra.ArrowExport.DataFrame.Arrow.fromTable(gpa, grouped_arrow_table, .cpu);
     defer table_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), table_roundtrip.height());
     try std.testing.expect(table_roundtrip.schemaEquals(table));
-    var table_projection = try vectra.ArrowExport.DataFrame.fromArrowTableProjection(gpa, grouped_arrow_table, &.{"units"}, .cpu);
+    var table_projection = try vectra.ArrowExport.DataFrame.Arrow.fromTableProjection(gpa, grouped_arrow_table, &.{"units"}, .cpu);
     defer table_projection.deinit();
     try std.testing.expectEqual(@as(usize, 1), table_projection.width());
     try std.testing.expectEqual(@as(?usize, 0), table_projection.columnIndex("units"));
