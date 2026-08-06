@@ -516,6 +516,22 @@ pub fn DeviceLazyTypes(
                 return total != 0 and (self.validCountProjection(names) catch return false) == total;
             }
 
+            pub fn anyNullColumn(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!bool {
+                return (try self.columnSchema(name)).anyNull();
+            }
+
+            pub fn allNullColumn(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!bool {
+                return (try self.columnSchema(name)).allNull();
+            }
+
+            pub fn anyValidColumn(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!bool {
+                return (try self.columnSchema(name)).anyValid();
+            }
+
+            pub fn allValidColumn(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!bool {
+                return (try self.columnSchema(name)).allValid();
+            }
+
             pub fn columnNullRatios(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.columnNullRatios(allocator),

@@ -467,6 +467,22 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn anyNullColumn(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn allNullColumn(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn anyValidColumn(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn allValidColumn(_: *const DeviceLazyFrame, _: []const u8) ParquetInteropError!bool {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnNullRatios(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]f64 {
                 return error.FeatureUnavailable;
             }
