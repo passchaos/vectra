@@ -9522,6 +9522,10 @@ pub fn DeviceLazyTypes(
             pub fn explain(self: DeviceLazyFrame, allocator: std.mem.Allocator) DeviceDataError![]u8 {
                 return lazy_exec_mod.explain(DeviceLazyOp, self, allocator);
             }
+
+            pub fn explainSummary(self: DeviceLazyFrame, allocator: std.mem.Allocator) DeviceDataError![]u8 {
+                return self.explain(allocator);
+            }
         };
 
         fn deinitLazyOps(allocator: std.mem.Allocator, ops: *std.ArrayList(DeviceLazyOp)) void {

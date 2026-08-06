@@ -478,6 +478,18 @@ pub fn DeviceLazyParquetTypes(
             pub fn filterNotInValuesColumn(_: *DeviceLazyFrame, _: []const u8, _: DeviceColumn) DeviceDataError!void {
                 return error.FeatureUnavailable;
             }
+
+            pub fn collect(_: DeviceLazyFrame) ParquetInteropError!DeviceDataFrame {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn explain(_: DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn explainSummary(self: DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]u8 {
+                return self.explain(allocator);
+            }
         };
 
         pub const DeviceParquetScan = struct {
