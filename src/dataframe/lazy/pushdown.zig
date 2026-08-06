@@ -51,6 +51,8 @@ pub const OwnedLazyScanPushdownSummary = struct {
         if (self.value.projection_names.len != 0) {
             freeNameList(self.allocator, @constCast(self.value.projection_names));
         }
+        if (self.value.range_predicate_column) |column| self.allocator.free(column);
+        if (self.value.null_predicate_column) |column| self.allocator.free(column);
         self.* = undefined;
     }
 
@@ -259,8 +261,14 @@ pub const LazyScanPushdown = struct {
     pub fn summaryOwned(self: LazyScanPushdown, allocator: std.mem.Allocator) std.mem.Allocator.Error!OwnedLazyScanPushdownSummary {
         const projection_names = try cloneNameList(allocator, self.projectionNames());
         errdefer freeNameList(allocator, projection_names);
+        const range_column = if (self.rangePredicateColumn()) |column| try allocator.dupe(u8, column) else null;
+        errdefer if (range_column) |column| allocator.free(column);
+        const null_column = if (self.nullPredicateColumn()) |column| try allocator.dupe(u8, column) else null;
+        errdefer if (null_column) |column| allocator.free(column);
         var value = self.summary();
         value.projection_names = projection_names;
+        value.range_predicate_column = range_column;
+        value.null_predicate_column = null_column;
         return .{ .allocator = allocator, .value = value };
     }
 
