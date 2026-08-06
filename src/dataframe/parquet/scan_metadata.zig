@@ -1105,3 +1105,51 @@ pub fn parquetRowGroupSummaries(scan: anytype, allocator: std.mem.Allocator) Par
     }
     return summaries;
 }
+
+fn parquetRowGroupMetricValues(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    comptime field_name: []const u8,
+) ParquetInteropError![]usize {
+    const summaries = try parquetRowGroupSummaries(scan, allocator);
+    defer allocator.free(summaries);
+
+    const values = try allocator.alloc(usize, summaries.len);
+    errdefer allocator.free(values);
+    for (summaries, values) |summary, *slot| slot.* = @field(summary, field_name);
+    return values;
+}
+
+pub fn parquetRowGroupRowCounts(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "rows");
+}
+
+pub fn parquetRowGroupColumnChunkCounts(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "column_chunks");
+}
+
+pub fn parquetRowGroupTotalNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "row_group_total_nbytes");
+}
+
+pub fn parquetRowGroupTotalCompressedNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "row_group_total_compressed_nbytes");
+}
+
+pub fn parquetRowGroupCompressedNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "total_compressed_nbytes");
+}
+
+pub fn parquetRowGroupUncompressedNbytes(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]usize {
+    return parquetRowGroupMetricValues(scan, allocator, "total_uncompressed_nbytes");
+}
+
+pub fn parquetRowGroupCompressionRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    const summaries = try parquetRowGroupSummaries(scan, allocator);
+    defer allocator.free(summaries);
+
+    const ratios = try allocator.alloc(f64, summaries.len);
+    errdefer allocator.free(ratios);
+    for (summaries, ratios) |summary, *slot| slot.* = summary.compressionRatio();
+    return ratios;
+}

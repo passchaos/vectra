@@ -1305,6 +1305,34 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn parquetRowGroupRowCounts(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupColumnChunkCounts(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupTotalNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupTotalCompressedNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupCompressedNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupUncompressedNbytes(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupCompressionRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn rowCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
