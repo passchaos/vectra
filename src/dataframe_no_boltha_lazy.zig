@@ -451,6 +451,30 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnHasNullsMask(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnHasNullsMaskProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnsWithNullsCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnsWithNullsCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnsWithoutNullsCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnsWithoutNullsCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnDTypes(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
                 return error.FeatureUnavailable;
             }

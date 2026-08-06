@@ -522,6 +522,52 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnHasNullsMask(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]bool {
+                const counts = try self.columnNullCounts(allocator);
+                defer allocator.free(counts);
+                const mask = try allocator.alloc(bool, counts.len);
+                errdefer allocator.free(mask);
+                for (counts, mask) |count, *slot| slot.* = count != 0;
+                return mask;
+            }
+
+            pub fn columnHasNullsMaskProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]bool {
+                const counts = try self.columnNullCountsProjection(allocator, names);
+                defer allocator.free(counts);
+                const mask = try allocator.alloc(bool, counts.len);
+                errdefer allocator.free(mask);
+                for (counts, mask) |count, *slot| slot.* = count != 0;
+                return mask;
+            }
+
+            pub fn columnsWithNullsCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                const counts = try self.columnNullCounts(self.allocator);
+                defer self.allocator.free(counts);
+                var total: usize = 0;
+                for (counts) |count| {
+                    if (count != 0) total += 1;
+                }
+                return total;
+            }
+
+            pub fn columnsWithNullsCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                const counts = try self.columnNullCountsProjection(self.allocator, names);
+                defer self.allocator.free(counts);
+                var total: usize = 0;
+                for (counts) |count| {
+                    if (count != 0) total += 1;
+                }
+                return total;
+            }
+
+            pub fn columnsWithoutNullsCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return (try self.columnCount()) - try self.columnsWithNullsCount();
+            }
+
+            pub fn columnsWithoutNullsCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return names.len - try self.columnsWithNullsCountProjection(names);
+            }
+
             pub fn columnDTypes(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]array_mod.DType {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.columnDTypes(allocator),

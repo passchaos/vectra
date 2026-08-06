@@ -1131,6 +1131,12 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnNullRatiosProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnValidRatios(gpa));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnValidRatiosProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnHasNullsMask(gpa));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnHasNullsMaskProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnsWithNullsCount());
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnsWithNullsCountProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnsWithoutNullsCount());
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnsWithoutNullsCountProjection(&.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDataNbytes(gpa));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDataNbytesProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDataMemoryUsage(gpa));
