@@ -210,6 +210,28 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const toArrowSchemaProjection = dataframe_mod.deviceDataFrameViewToArrowSchemaProjection;
     };
 
+    pub const LazyFrame = struct {
+        pub const Arrow = struct {
+            pub const hasProjection = dataframe_mod.DeviceLazyFrame.hasArrowProjection;
+            pub const hasArrowProjection = dataframe_mod.DeviceLazyFrame.hasArrowProjection;
+            pub const toFields = dataframe_mod.DeviceLazyFrame.toArrowFields;
+            pub const toArrowFields = dataframe_mod.DeviceLazyFrame.toArrowFields;
+            pub const toFieldsProjection = dataframe_mod.DeviceLazyFrame.toArrowFieldsProjection;
+            pub const toArrowFieldsProjection = dataframe_mod.DeviceLazyFrame.toArrowFieldsProjection;
+            pub const toSchema = dataframe_mod.DeviceLazyFrame.toArrowSchema;
+            pub const toArrowSchema = dataframe_mod.DeviceLazyFrame.toArrowSchema;
+            pub const toSchemaProjection = dataframe_mod.DeviceLazyFrame.toArrowSchemaProjection;
+            pub const toArrowSchemaProjection = dataframe_mod.DeviceLazyFrame.toArrowSchemaProjection;
+        };
+
+        pub const hasProjection = dataframe_mod.DeviceLazyFrame.hasArrowProjection;
+        pub const hasArrowProjection = dataframe_mod.DeviceLazyFrame.hasArrowProjection;
+        pub const toArrowFields = dataframe_mod.DeviceLazyFrame.toArrowFields;
+        pub const toArrowFieldsProjection = dataframe_mod.DeviceLazyFrame.toArrowFieldsProjection;
+        pub const toArrowSchema = dataframe_mod.DeviceLazyFrame.toArrowSchema;
+        pub const toArrowSchemaProjection = dataframe_mod.DeviceLazyFrame.toArrowSchemaProjection;
+    };
+
     pub const ParquetScan = struct {
         pub const Lifecycle = struct {
             pub const init = dataframe_mod.DeviceParquetScan.init;
@@ -604,6 +626,7 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
 
 pub const DeviceDataFrameArrow = if (build_options.enable_boltha) ArrowExport.DataFrame else struct {};
 pub const DeviceDataFrameViewArrow = if (build_options.enable_boltha) ArrowExport.DataFrameView else struct {};
+pub const DeviceLazyFrameArrow = if (build_options.enable_boltha) ArrowExport.LazyFrame else struct {};
 pub const DeviceColumnArrow = if (build_options.enable_boltha) ArrowExport.Column else struct {};
 pub const DeviceColumnViewArrow = if (build_options.enable_boltha) ArrowExport.ColumnView else struct {};
 pub const DeviceColumnSchemaArrow = if (build_options.enable_boltha) ArrowExport.ColumnSchema else struct {};

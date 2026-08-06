@@ -8066,11 +8066,23 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 2), lazy_table_projected_fields.len);
     try std.testing.expectEqualStrings("active", lazy_table_projected_fields[0].name);
     try std.testing.expectEqualStrings("sales", lazy_table_projected_fields[1].name);
+    const grouped_lazy_table_projected_fields = try vectra.ArrowExport.LazyFrame.Arrow.toFieldsProjection(&lazy_table, gpa, &.{"units"});
+    defer {
+        for (grouped_lazy_table_projected_fields) |*field| field.deinit(gpa);
+        gpa.free(grouped_lazy_table_projected_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 1), grouped_lazy_table_projected_fields.len);
+    try std.testing.expectEqualStrings("units", grouped_lazy_table_projected_fields[0].name);
     var lazy_table_projected_schema = try lazy_table.toArrowSchemaProjection(gpa, &.{ "active", "sales" });
     defer lazy_table_projected_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 2), lazy_table_projected_schema.fieldCount());
     try std.testing.expectEqualStrings("active", lazy_table_projected_schema.fields[0].name);
     try std.testing.expectEqualStrings("sales", lazy_table_projected_schema.fields[1].name);
+    try std.testing.expect(vectra.ArrowExport.LazyFrame.hasArrowProjection(&lazy_table, &.{"sales"}));
+    var grouped_lazy_table_schema = try vectra.DeviceLazyFrameArrow.toArrowSchemaProjection(&lazy_table, gpa, &.{"units"});
+    defer grouped_lazy_table_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 1), grouped_lazy_table_schema.fieldCount());
+    try std.testing.expectEqualStrings("units", grouped_lazy_table_schema.fields[0].name);
     try std.testing.expectError(error.ColumnNotFound, lazy_table.toArrowFieldsProjection(gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, lazy_table.toArrowSchemaProjection(gpa, &.{"missing"}));
     try std.testing.expect(std.mem.eql(u8, table_schema[0].name, schema.fields[0].name));
@@ -8248,11 +8260,23 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 2), lazy_scan_projected_fields.len);
     try std.testing.expectEqualStrings("active", lazy_scan_projected_fields[0].name);
     try std.testing.expectEqualStrings("sales", lazy_scan_projected_fields[1].name);
+    const grouped_lazy_scan_fields = try vectra.ArrowExport.LazyFrame.toArrowFieldsProjection(&owned_lazy_scan, gpa, &.{"units"});
+    defer {
+        for (grouped_lazy_scan_fields) |*field| field.deinit(gpa);
+        gpa.free(grouped_lazy_scan_fields);
+    }
+    try std.testing.expectEqual(@as(usize, 1), grouped_lazy_scan_fields.len);
+    try std.testing.expectEqualStrings("units", grouped_lazy_scan_fields[0].name);
     var lazy_scan_projected_schema = try owned_lazy_scan.toArrowSchemaProjection(gpa, &.{ "active", "sales" });
     defer lazy_scan_projected_schema.deinit(gpa);
     try std.testing.expectEqual(@as(usize, 2), lazy_scan_projected_schema.fieldCount());
     try std.testing.expectEqualStrings("active", lazy_scan_projected_schema.fields[0].name);
     try std.testing.expectEqualStrings("sales", lazy_scan_projected_schema.fields[1].name);
+    try std.testing.expect(vectra.ArrowExport.LazyFrame.Arrow.hasProjection(&owned_lazy_scan, &.{"sales"}));
+    var grouped_lazy_scan_schema = try vectra.DeviceLazyFrameArrow.Arrow.toSchemaProjection(&owned_lazy_scan, gpa, &.{"units"});
+    defer grouped_lazy_scan_schema.deinit(gpa);
+    try std.testing.expectEqual(@as(usize, 1), grouped_lazy_scan_schema.fieldCount());
+    try std.testing.expectEqualStrings("units", grouped_lazy_scan_schema.fields[0].name);
     try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.toArrowFieldsProjection(gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, owned_lazy_scan.toArrowSchemaProjection(gpa, &.{"missing"}));
     try std.testing.expect(owned_lazy_scan.schemaEqualsSchemas(lazy_schema_summary));
