@@ -501,6 +501,31 @@ pub fn DeviceLazyTypes(
                 return self.ownedNbytes();
             }
 
+            pub fn sameStorage(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return switch (self.source) {
+                    .dataframe => |left_frame| switch (other.source) {
+                        .dataframe => |right_frame| left_frame.sameStorage(right_frame),
+                        .parquet_scan => false,
+                    },
+                    .parquet_scan => |left_scan| switch (other.source) {
+                        .dataframe => false,
+                        .parquet_scan => |right_scan| left_scan.sameStorage(right_scan),
+                    },
+                };
+            }
+
+            pub fn sharesStorage(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameStorage(other);
+            }
+
+            pub fn sameSource(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameStorage(other);
+            }
+
+            pub fn sharesSource(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameSource(other);
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }

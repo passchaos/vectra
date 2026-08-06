@@ -498,6 +498,10 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 0), table.deviceIndex());
     try std.testing.expect(table.sameDevice(table));
     try std.testing.expect(lazy_table.sameDevice(&lazy_table));
+    try std.testing.expect(lazy_table.sameStorage(&lazy_table));
+    try std.testing.expect(lazy_table.sharesStorage(&lazy_table));
+    try std.testing.expect(lazy_table.sameSource(&lazy_table));
+    try std.testing.expect(lazy_table.sharesSource(&lazy_table));
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
 
     const units_col = try table.column("units");
@@ -8182,6 +8186,13 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!owned_lazy_scan.isDeviceBacked());
     try std.testing.expect(owned_lazy_scan.isDeviceAvailable());
     try std.testing.expect(owned_lazy_scan.sameDevice(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sameStorage(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sharesStorage(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sameSource(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sharesSource(&owned_lazy_scan));
+    var eager_lazy_for_storage = try DeviceLazyFrame.init(gpa, table);
+    defer eager_lazy_for_storage.deinit();
+    try std.testing.expect(!owned_lazy_scan.sameStorage(&eager_lazy_for_storage));
     var owned_lazy_rows = try owned_lazy_scan.collect();
     defer owned_lazy_rows.deinit();
     try std.testing.expectEqual(table.height(), owned_lazy_rows.height());

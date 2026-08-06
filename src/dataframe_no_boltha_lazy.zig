@@ -307,6 +307,22 @@ pub fn DeviceLazyParquetTypes(
                 return self.ownedNbytes();
             }
 
+            pub fn sameStorage(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn sharesStorage(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameStorage(other);
+            }
+
+            pub fn sameSource(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameStorage(other);
+            }
+
+            pub fn sharesSource(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameSource(other);
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }
