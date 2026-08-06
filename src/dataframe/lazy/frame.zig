@@ -161,6 +161,50 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn sourceName(self: *const DeviceLazyFrame) []const u8 {
+                return self.source.name();
+            }
+
+            pub fn isDataFrameSource(self: *const DeviceLazyFrame) bool {
+                return self.source == .dataframe;
+            }
+
+            pub fn isParquetScanSource(self: *const DeviceLazyFrame) bool {
+                return self.source == .parquet_scan;
+            }
+
+            pub fn opCount(self: *const DeviceLazyFrame) usize {
+                return self.ops.items.len;
+            }
+
+            pub fn isOptimizedNoOp(self: *const DeviceLazyFrame) bool {
+                return self.ops.items.len == 0;
+            }
+
+            pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
+                return self.sourceDevice();
+            }
+
+            pub fn deviceBackend(self: *const DeviceLazyFrame) array_mod.Backend {
+                return self.sourceDevice().backend;
+            }
+
+            pub fn deviceBackendName(self: *const DeviceLazyFrame) []const u8 {
+                return self.sourceDevice().backendName();
+            }
+
+            pub fn deviceIndex(self: *const DeviceLazyFrame) usize {
+                return self.sourceDevice().index;
+            }
+
+            pub fn isCpu(self: *const DeviceLazyFrame) bool {
+                return self.sourceDevice().isCpu();
+            }
+
+            pub fn isDeviceAvailable(self: *const DeviceLazyFrame) bool {
+                return self.sourceDevice().isAvailable();
+            }
+
             pub fn select(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {
                 return lazy_expr_mod.select(self, names);
             }

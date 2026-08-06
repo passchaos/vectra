@@ -47,6 +47,50 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn sourceName(_: *const DeviceLazyFrame) []const u8 {
+                return "unsupported";
+            }
+
+            pub fn isDataFrameSource(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isParquetScanSource(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn opCount(_: *const DeviceLazyFrame) usize {
+                return 0;
+            }
+
+            pub fn isOptimizedNoOp(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
+                return .cpu;
+            }
+
+            pub fn deviceBackend(_: *const DeviceLazyFrame) array_mod.Backend {
+                return .cpu;
+            }
+
+            pub fn deviceBackendName(_: *const DeviceLazyFrame) []const u8 {
+                return "cpu";
+            }
+
+            pub fn deviceIndex(_: *const DeviceLazyFrame) usize {
+                return 0;
+            }
+
+            pub fn isCpu(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn isDeviceAvailable(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
             pub fn filterIsInValuesColumn(_: *DeviceLazyFrame, _: []const u8, _: DeviceColumn) DeviceDataError!void {
                 return error.FeatureUnavailable;
             }
