@@ -82,6 +82,9 @@ test "device dataframe owns fixed-width columns on a shared device" {
     });
     defer table.deinit();
 
+    var lazy_table = try DeviceLazyFrame.init(gpa, table);
+    defer lazy_table.deinit();
+
     try std.testing.expectEqual(@as(usize, 3), table.height());
     try std.testing.expectEqual(@as(usize, 3), table.width());
     try std.testing.expectEqual(table.height(), table.rowCount());
@@ -110,6 +113,16 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(!duplicate_name_table.columnNamesUnique());
     try std.testing.expect(duplicate_name_table.hasDuplicateColumnNames());
     try std.testing.expectEqual(@as(usize, 1), duplicate_name_table.duplicateColumnNameCount());
+    try std.testing.expect(lazy_table.columnNamesUnique());
+    try std.testing.expect(!lazy_table.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 0), lazy_table.duplicateColumnNameCount());
+    const lazy_table_labels = try lazy_table.columnLabels(gpa);
+    defer {
+        for (lazy_table_labels) |label| gpa.free(label);
+        gpa.free(lazy_table_labels);
+    }
+    try std.testing.expectEqualStrings("sales", lazy_table_labels[0]);
+    try std.testing.expectEqualStrings("units", lazy_table_labels[1]);
     try std.testing.expect(std.mem.eql(u8, "sales", try table.columnNameAt(0)));
     try std.testing.expectEqual(DeviceDType.f64, try table.columnDTypeAt(0));
     try std.testing.expectEqual(DeviceDType.bool, (try table.columnAt(2)).dtype());
@@ -180,8 +193,6 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expectEqual(@as(usize, 1), table.boolColumnCount());
     try std.testing.expectEqual(@as(usize, 0), table.complexColumnCount());
 
-    var lazy_table = try DeviceLazyFrame.init(gpa, table);
-    defer lazy_table.deinit();
     const lazy_table_dtype_byte_sizes = try lazy_table.columnDTypeByteSizes(gpa);
     defer gpa.free(lazy_table_dtype_byte_sizes);
     try std.testing.expectEqualSlices(usize, dtype_byte_sizes, lazy_table_dtype_byte_sizes);
@@ -8092,6 +8103,16 @@ test "device dataframe exports boltha arrow record batch" {
         gpa.free(owned_lazy_names);
     }
     try std.testing.expectEqualStrings("sales", owned_lazy_names[0]);
+    try std.testing.expect(owned_lazy_scan.columnNamesUnique());
+    try std.testing.expect(!owned_lazy_scan.hasDuplicateColumnNames());
+    try std.testing.expectEqual(@as(usize, 0), owned_lazy_scan.duplicateColumnNameCount());
+    const owned_lazy_labels = try owned_lazy_scan.columnLabels(gpa);
+    defer {
+        for (owned_lazy_labels) |label| gpa.free(label);
+        gpa.free(owned_lazy_labels);
+    }
+    try std.testing.expectEqualStrings("sales", owned_lazy_labels[0]);
+    try std.testing.expectEqualStrings("active", owned_lazy_labels[2]);
     const owned_lazy_name = (try owned_lazy_scan.columnNameAt(gpa, 1)).?;
     defer gpa.free(owned_lazy_name);
     try std.testing.expectEqualStrings("units", owned_lazy_name);

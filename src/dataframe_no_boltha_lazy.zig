@@ -143,6 +143,22 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnLabels(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnNamesUnique(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn hasDuplicateColumnNames(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn duplicateColumnNameCount(_: *const DeviceLazyFrame) usize {
+                return 0;
+            }
+
             pub fn columnNameAt(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: usize) ParquetInteropError!?[]const u8 {
                 return error.FeatureUnavailable;
             }

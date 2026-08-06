@@ -268,6 +268,33 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnLabels(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return self.columnNames(allocator);
+            }
+
+            pub fn columnNamesUnique(self: *const DeviceLazyFrame) bool {
+                const names = self.columnNames(self.allocator) catch return false;
+                defer freeNameList(self.allocator, names);
+                for (names, 0..) |name, index| {
+                    if (names_mod.nameInBorrowedList(name, names[0..index])) return false;
+                }
+                return true;
+            }
+
+            pub fn hasDuplicateColumnNames(self: *const DeviceLazyFrame) bool {
+                return !self.columnNamesUnique();
+            }
+
+            pub fn duplicateColumnNameCount(self: *const DeviceLazyFrame) usize {
+                const names = self.columnNames(self.allocator) catch return 0;
+                defer freeNameList(self.allocator, names);
+                var count: usize = 0;
+                for (names, 0..) |name, index| {
+                    if (names_mod.nameInBorrowedList(name, names[0..index])) count += 1;
+                }
+                return count;
+            }
+
             pub fn columnNameAt(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, index: usize) ParquetInteropError!?[]const u8 {
                 const names = try self.columnNames(allocator);
                 defer freeNameList(allocator, names);
