@@ -229,6 +229,30 @@ pub fn DeviceLazyTypes(
                 return current.rows == rows and current.cols == cols;
             }
 
+            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
+                return self.hasShape(rows, cols);
+            }
+
+            pub fn sameHeight(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return (self.rowCount() catch return false) == (other.rowCount() catch return false);
+            }
+
+            pub fn sameWidth(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return (self.columnCount() catch return false) == (other.columnCount() catch return false);
+            }
+
+            pub fn sameShape(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sameHeight(other) and self.sameWidth(other);
+            }
+
+            pub fn isEmpty(self: *const DeviceLazyFrame) bool {
+                return !self.hasRows() or !self.hasColumns();
+            }
+
+            pub fn isNonEmpty(self: *const DeviceLazyFrame) bool {
+                return !self.isEmpty();
+            }
+
             pub fn columnNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
                 return switch (self.source) {
                     .dataframe => |frame| cloneNameList(allocator, frame.columnNames()),
@@ -523,6 +547,10 @@ pub fn DeviceLazyTypes(
 
             pub fn isDeviceAvailable(self: *const DeviceLazyFrame) bool {
                 return self.sourceDevice().isAvailable();
+            }
+
+            pub fn sameDevice(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {
+                return self.sourceDevice().sameDevice(other.sourceDevice());
             }
 
             pub fn select(self: *DeviceLazyFrame, names: []const []const u8) DeviceDataError!void {

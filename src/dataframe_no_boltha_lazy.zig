@@ -107,6 +107,30 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
+                return self.hasShape(rows, cols);
+            }
+
+            pub fn sameHeight(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn sameWidth(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn sameShape(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn isEmpty(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn isNonEmpty(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
             pub fn columnNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
                 return error.FeatureUnavailable;
             }
@@ -328,6 +352,10 @@ pub fn DeviceLazyParquetTypes(
             }
 
             pub fn isDeviceAvailable(_: *const DeviceLazyFrame) bool {
+                return true;
+            }
+
+            pub fn sameDevice(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {
                 return true;
             }
 

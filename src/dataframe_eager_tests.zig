@@ -204,6 +204,14 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(valid_counts);
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 3 }, valid_counts);
     try std.testing.expectEqual(@as(usize, 9), table.cellCount());
+    try std.testing.expect(lazy_table.shapeEquals(3, 3));
+    try std.testing.expect(lazy_table.hasShape(3, 3));
+    try std.testing.expect(!lazy_table.shapeEquals(3, 2));
+    try std.testing.expect(lazy_table.sameHeight(&lazy_table));
+    try std.testing.expect(lazy_table.sameWidth(&lazy_table));
+    try std.testing.expect(lazy_table.sameShape(&lazy_table));
+    try std.testing.expect(!lazy_table.isEmpty());
+    try std.testing.expect(lazy_table.isNonEmpty());
     try std.testing.expectEqual(@as(usize, 1), table.nullCount());
     try std.testing.expectEqual(@as(usize, 8), table.validCount());
     try std.testing.expectApproxEqAbs(@as(f64, 1.0 / 9.0), table.nullRatio(), 1e-12);
@@ -487,6 +495,7 @@ test "device dataframe owns fixed-width columns on a shared device" {
     try std.testing.expect(table.deviceValue().sameDevice(.cpu));
     try std.testing.expectEqual(@as(usize, 0), table.deviceIndex());
     try std.testing.expect(table.sameDevice(table));
+    try std.testing.expect(lazy_table.sameDevice(&lazy_table));
     try std.testing.expectEqual(DeviceDType.i64, try table.columnDType("units"));
 
     const units_col = try table.column("units");
@@ -8153,6 +8162,12 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);
     try std.testing.expectEqual(table.width(), owned_lazy_shape.cols);
     try std.testing.expect(owned_lazy_scan.hasShape(table.height(), table.width()));
+    try std.testing.expect(owned_lazy_scan.shapeEquals(table.height(), table.width()));
+    try std.testing.expect(owned_lazy_scan.sameHeight(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sameWidth(&owned_lazy_scan));
+    try std.testing.expect(owned_lazy_scan.sameShape(&owned_lazy_scan));
+    try std.testing.expect(!owned_lazy_scan.isEmpty());
+    try std.testing.expect(owned_lazy_scan.isNonEmpty());
     try std.testing.expectEqualStrings("cpu", owned_lazy_scan.deviceBackendName());
     try std.testing.expect(owned_lazy_scan.isCpu());
     try std.testing.expect(owned_lazy_scan.isHostBacked());
@@ -8162,6 +8177,7 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!owned_lazy_scan.isRemoteBacked());
     try std.testing.expect(!owned_lazy_scan.isDeviceBacked());
     try std.testing.expect(owned_lazy_scan.isDeviceAvailable());
+    try std.testing.expect(owned_lazy_scan.sameDevice(&owned_lazy_scan));
     var owned_lazy_rows = try owned_lazy_scan.collect();
     defer owned_lazy_rows.deinit();
     try std.testing.expectEqual(table.height(), owned_lazy_rows.height());
