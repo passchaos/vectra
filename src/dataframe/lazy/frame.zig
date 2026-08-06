@@ -189,6 +189,10 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn height(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.rowCount();
+            }
+
             pub fn nRows(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.rowCount();
             }
@@ -201,6 +205,10 @@ pub fn DeviceLazyTypes(
             }
 
             pub fn width(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnCount();
+            }
+
+            pub fn cols(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return self.columnCount();
             }
 
@@ -224,13 +232,13 @@ pub fn DeviceLazyTypes(
                 return (self.columnCount() catch 0) != 0;
             }
 
-            pub fn hasShape(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
+            pub fn hasShape(self: *const DeviceLazyFrame, rows: usize, columns: usize) bool {
                 const current = self.shape() catch return false;
-                return current.rows == rows and current.cols == cols;
+                return current.rows == rows and current.cols == columns;
             }
 
-            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
-                return self.hasShape(rows, cols);
+            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, columns: usize) bool {
+                return self.hasShape(rows, columns);
             }
 
             pub fn sameHeight(self: *const DeviceLazyFrame, other: *const DeviceLazyFrame) bool {

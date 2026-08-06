@@ -71,6 +71,10 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn height(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn nRows(_: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
@@ -80,6 +84,10 @@ pub fn DeviceLazyParquetTypes(
             }
 
             pub fn width(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cols(_: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
 
@@ -107,8 +115,8 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
-            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
-                return self.hasShape(rows, cols);
+            pub fn shapeEquals(self: *const DeviceLazyFrame, rows: usize, columns: usize) bool {
+                return self.hasShape(rows, columns);
             }
 
             pub fn sameHeight(_: *const DeviceLazyFrame, _: *const DeviceLazyFrame) bool {

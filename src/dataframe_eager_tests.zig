@@ -204,6 +204,8 @@ test "device dataframe owns fixed-width columns on a shared device" {
     defer gpa.free(valid_counts);
     try std.testing.expectEqualSlices(usize, &.{ 3, 2, 3 }, valid_counts);
     try std.testing.expectEqual(@as(usize, 9), table.cellCount());
+    try std.testing.expectEqual(table.height(), try lazy_table.height());
+    try std.testing.expectEqual(table.width(), try lazy_table.cols());
     try std.testing.expect(lazy_table.shapeEquals(3, 3));
     try std.testing.expect(lazy_table.hasShape(3, 3));
     try std.testing.expect(!lazy_table.shapeEquals(3, 2));
@@ -8161,6 +8163,8 @@ test "device dataframe exports boltha arrow record batch" {
     const owned_lazy_shape = try owned_lazy_scan.shape();
     try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);
     try std.testing.expectEqual(table.width(), owned_lazy_shape.cols);
+    try std.testing.expectEqual(table.height(), try owned_lazy_scan.height());
+    try std.testing.expectEqual(table.width(), try owned_lazy_scan.cols());
     try std.testing.expect(owned_lazy_scan.hasShape(table.height(), table.width()));
     try std.testing.expect(owned_lazy_scan.shapeEquals(table.height(), table.width()));
     try std.testing.expect(owned_lazy_scan.sameHeight(&owned_lazy_scan));
