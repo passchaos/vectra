@@ -95,6 +95,37 @@ pub fn fromParquetBytesPruned(
     return dataframe_arrow_mod.fromParquetBytesPruned(Frame, DeviceColumnDef, @FieldType(DeviceColumnDef, "data"), allocator, bytes, column_name, predicate, device_value);
 }
 
+pub fn fromParquetFilePrunedInDir(
+    comptime Frame: type,
+    comptime DeviceColumnDef: type,
+    allocator: std.mem.Allocator,
+    dir: std.Io.Dir,
+    io: std.Io,
+    path: []const u8,
+    read_limit: std.Io.Limit,
+    column_name: []const u8,
+    predicate: ParquetRangePredicate,
+    device_value: array_mod.Device,
+) !Frame {
+    const bytes = try dir.readFileAlloc(io, path, allocator, read_limit);
+    defer allocator.free(bytes);
+    return fromParquetBytesPruned(Frame, DeviceColumnDef, allocator, bytes, column_name, predicate, device_value);
+}
+
+pub fn fromParquetFilePruned(
+    comptime Frame: type,
+    comptime DeviceColumnDef: type,
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    path: []const u8,
+    read_limit: std.Io.Limit,
+    column_name: []const u8,
+    predicate: ParquetRangePredicate,
+    device_value: array_mod.Device,
+) !Frame {
+    return fromParquetFilePrunedInDir(Frame, DeviceColumnDef, allocator, std.Io.Dir.cwd(), io, path, read_limit, column_name, predicate, device_value);
+}
+
 pub fn fromArrowTable(comptime Frame: type, comptime DeviceColumnDef: type, allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!Frame {
     return dataframe_arrow_mod.fromArrowTable(Frame, DeviceColumnDef, @FieldType(DeviceColumnDef, "data"), allocator, table, device_value);
 }

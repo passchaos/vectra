@@ -1244,6 +1244,31 @@ pub const DeviceDataFrame = struct {
         return arrow_methods_mod.fromParquetBytesPruned(DeviceDataFrame, DeviceColumnDef, allocator, bytes, column_name, predicate, device_value);
     }
 
+    pub fn fromParquetFilePrunedInDir(
+        allocator: std.mem.Allocator,
+        dir: std.Io.Dir,
+        io: std.Io,
+        path: []const u8,
+        read_limit: std.Io.Limit,
+        column_name: []const u8,
+        predicate: ParquetRangePredicate,
+        device_value: array_mod.Device,
+    ) !DeviceDataFrame {
+        return arrow_methods_mod.fromParquetFilePrunedInDir(DeviceDataFrame, DeviceColumnDef, allocator, dir, io, path, read_limit, column_name, predicate, device_value);
+    }
+
+    pub fn fromParquetFilePruned(
+        allocator: std.mem.Allocator,
+        io: std.Io,
+        path: []const u8,
+        read_limit: std.Io.Limit,
+        column_name: []const u8,
+        predicate: ParquetRangePredicate,
+        device_value: array_mod.Device,
+    ) !DeviceDataFrame {
+        return arrow_methods_mod.fromParquetFilePruned(DeviceDataFrame, DeviceColumnDef, allocator, io, path, read_limit, column_name, predicate, device_value);
+    }
+
     pub fn fromArrowTable(allocator: std.mem.Allocator, table: boltha.arrow.Table, device_value: array_mod.Device) ArrowInteropError!DeviceDataFrame {
         return arrow_methods_mod.fromArrowTable(DeviceDataFrame, DeviceColumnDef, allocator, table, device_value);
     }

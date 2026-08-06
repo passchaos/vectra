@@ -7993,6 +7993,9 @@ test "device dataframe exports boltha arrow record batch" {
     var file_roundtrip_df = try vectra.ArrowExport.DataFrame.fromParquetFileInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), .cpu);
     defer file_roundtrip_df.deinit();
     try std.testing.expect(file_roundtrip_df.schemaEquals(table));
+    var file_pruned_df = try vectra.ArrowExport.DataFrame.fromParquetFilePrunedInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), "sales", .{ .f64 = .{ .min = 0.0 } }, .cpu);
+    defer file_pruned_df.deinit();
+    try std.testing.expect(file_pruned_df.schemaEquals(table));
     var tmp_scan_dir = std.testing.tmpDir(.{});
     defer tmp_scan_dir.cleanup();
     try tmp_scan_dir.dir.writeFile(std.testing.io, .{ .sub_path = "scan.parquet", .data = grouped_parquet_bytes });

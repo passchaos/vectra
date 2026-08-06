@@ -1039,7 +1039,7 @@ strategies, preserving all left rows and nullable right payloads when no
 candidate exists.
 Arrow/Parquet/IPC interoperability is intentionally delegated to the sibling
 [`../boltha`](../boltha) package: `DeviceColumn.toArrowField`,
-`DeviceDataFrame.toArrowFields`, `toArrowSchema`, `toArrowRecordBatch`, `toArrowTable`, `writeParquetFile*`, and `fromParquetFile*` materialize Boltha-owned Arrow objects
+`DeviceDataFrame.toArrowFields`, `toArrowSchema`, `toArrowRecordBatch`, `toArrowTable`, `writeParquetFile*`, `fromParquetFile*`, and `fromParquetFilePruned*` materialize Boltha-owned Arrow objects
 from CPU/CUDA/MPS columns rather than reimplementing Arrow inside Vectra.
 Arrow field metadata is derived from the same `DeviceColumnSchema` facade used
 by owning dataframes and non-owning views, so nullability and dtype extension

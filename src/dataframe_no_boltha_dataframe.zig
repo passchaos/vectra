@@ -541,5 +541,30 @@ pub fn DeviceDataFrameType(
         ) ParquetInteropError!Self {
             return error.FeatureUnavailable;
         }
+
+        pub fn fromParquetFilePrunedInDir(
+            _: std.mem.Allocator,
+            _: std.Io.Dir,
+            _: std.Io,
+            _: []const u8,
+            _: std.Io.Limit,
+            _: []const u8,
+            _: ParquetRangePredicate,
+            _: array_mod.Device,
+        ) ParquetInteropError!Self {
+            return error.FeatureUnavailable;
+        }
+
+        pub fn fromParquetFilePruned(
+            _: std.mem.Allocator,
+            _: std.Io,
+            _: []const u8,
+            _: std.Io.Limit,
+            _: []const u8,
+            _: ParquetRangePredicate,
+            _: array_mod.Device,
+        ) ParquetInteropError!Self {
+            return error.FeatureUnavailable;
+        }
     };
 }
