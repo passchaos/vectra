@@ -12,6 +12,19 @@ const options_mod = @import("dataframe_no_boltha_options.zig");
 const LazyParquetRangePredicate = options_mod.ParquetRangePredicate;
 const LazyParquetNullFilter = options_mod.DeviceParquetNullFilter;
 
+pub const OwnedLazyScanPushdownSummary = struct {
+    allocator: std.mem.Allocator,
+    value: DeviceParquetScanPushdownSummary = .{},
+
+    pub fn deinit(self: *OwnedLazyScanPushdownSummary) void {
+        self.* = undefined;
+    }
+
+    pub fn summary(self: OwnedLazyScanPushdownSummary) DeviceParquetScanPushdownSummary {
+        return self.value;
+    }
+};
+
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
 
@@ -160,6 +173,10 @@ pub const LazyScanPushdown = struct {
     pub fn summary(_: LazyScanPushdown) DeviceParquetScanPushdownSummary {
         return .{};
     }
+
+    pub fn summaryOwned(self: LazyScanPushdown, allocator: std.mem.Allocator) std.mem.Allocator.Error!OwnedLazyScanPushdownSummary {
+        return .{ .allocator = allocator, .value = self.summary() };
+    }
 };
 
 const DeviceColumnSchema = @import("dataframe_schema.zig").DeviceColumnSchema;
@@ -231,6 +248,13 @@ pub fn DeviceLazyParquetTypes(
 
             pub fn hasScanPushdown(_: *const DeviceLazyFrame) bool {
                 return false;
+            }
+
+            pub fn scanPushdownSummaryOwned(
+                _: *const DeviceLazyFrame,
+                allocator: std.mem.Allocator,
+            ) DeviceDataError!OwnedLazyScanPushdownSummary {
+                return .{ .allocator = allocator, .value = .{} };
             }
 
             pub fn isOptimizedNoOp(_: *const DeviceLazyFrame) bool {

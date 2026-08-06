@@ -8287,6 +8287,12 @@ test "device dataframe exports boltha arrow record batch" {
     const file_lazy_pushdown_summary = file_lazy_pushdown.summary();
     try std.testing.expect(file_lazy_pushdown_summary.hasProjection());
     try std.testing.expectEqual(file_lazy_pushdown.projectionColumnCount(), file_lazy_pushdown_summary.projectionColumnCount());
+    var file_lazy_owned_summary = try file_lazy_pushdown.summaryOwned(gpa);
+    defer file_lazy_owned_summary.deinit();
+    try std.testing.expect(file_lazy_owned_summary.summary().projectionContains("sales"));
+    var file_lazy_owned_frame_summary = try file_lazy_scan.scanPushdownSummaryOwned(gpa);
+    defer file_lazy_owned_frame_summary.deinit();
+    try std.testing.expect(file_lazy_owned_frame_summary.summary().projectionContains("sales"));
     const file_lazy_summary = try file_lazy_scan.explainSummary(gpa);
     defer gpa.free(file_lazy_summary);
     try std.testing.expect(std.mem.indexOf(u8, file_lazy_summary, "DeviceLazyFrame(raw_ops=1, optimized_ops=1, source=parquet_scan)") != null);

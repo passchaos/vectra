@@ -12,6 +12,7 @@ const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const DeviceParquetNullFilter = options_mod.DeviceParquetNullFilter;
+const cloneNameList = names_mod.cloneNameList;
 const DeviceParquetRangeFilter = options_mod.DeviceParquetRangeFilter;
 const appendBorrowedNameUnique = names_mod.appendBorrowedNameUnique;
 const nameInBorrowedList = names_mod.nameInBorrowedList;
@@ -41,6 +42,22 @@ const addWeightedPairRowSingleOutputRequirements = requirements_mod.addWeightedP
 const addWeightedRowMultiOutputRequirements = requirements_mod.addWeightedRowMultiOutputRequirements;
 const addWeightedRowSingleOutputRequirements = requirements_mod.addWeightedRowSingleOutputRequirements;
 const markDerivedName = requirements_mod.markDerivedName;
+
+pub const OwnedLazyScanPushdownSummary = struct {
+    allocator: std.mem.Allocator,
+    value: DeviceParquetScanPushdownSummary,
+
+    pub fn deinit(self: *OwnedLazyScanPushdownSummary) void {
+        if (self.value.projection_names.len != 0) {
+            freeNameList(self.allocator, @constCast(self.value.projection_names));
+        }
+        self.* = undefined;
+    }
+
+    pub fn summary(self: OwnedLazyScanPushdownSummary) DeviceParquetScanPushdownSummary {
+        return self.value;
+    }
+};
 
 pub const LazyScanPushdown = struct {
     allocator: std.mem.Allocator,
@@ -237,6 +254,14 @@ pub const LazyScanPushdown = struct {
             .predicate_metadata_nbytes = self.predicateMetadataNbytes(),
             .pushdown_metadata_nbytes = self.pushdownMetadataNbytes(),
         };
+    }
+
+    pub fn summaryOwned(self: LazyScanPushdown, allocator: std.mem.Allocator) std.mem.Allocator.Error!OwnedLazyScanPushdownSummary {
+        const projection_names = try cloneNameList(allocator, self.projectionNames());
+        errdefer freeNameList(allocator, projection_names);
+        var value = self.summary();
+        value.projection_names = projection_names;
+        return .{ .allocator = allocator, .value = value };
     }
 
     pub fn deinit(self: *LazyScanPushdown) void {

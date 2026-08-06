@@ -200,6 +200,15 @@ pub fn DeviceLazyTypes(
                 return pushdown.hasPushdown();
             }
 
+            pub fn scanPushdownSummaryOwned(
+                self: *const DeviceLazyFrame,
+                allocator: std.mem.Allocator,
+            ) DeviceDataError!lazy_pushdown_mod.OwnedLazyScanPushdownSummary {
+                var pushdown = try self.scanPushdownSummary();
+                defer pushdown.deinit();
+                return pushdown.summaryOwned(allocator);
+            }
+
             pub fn isOptimizedNoOp(self: *const DeviceLazyFrame) bool {
                 return lazy_exec_mod.optimizedNoOp(DeviceLazyOp, self.*);
             }
