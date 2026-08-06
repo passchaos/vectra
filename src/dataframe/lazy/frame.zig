@@ -478,6 +478,44 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn anyNull(self: *const DeviceLazyFrame) bool {
+                return (self.nullCount() catch 0) != 0;
+            }
+
+            pub fn anyNullProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                return (self.nullCountProjection(names) catch 0) != 0;
+            }
+
+            pub fn allNull(self: *const DeviceLazyFrame) bool {
+                const total = self.cellCount() catch return false;
+                return total != 0 and (self.nullCount() catch return false) == total;
+            }
+
+            pub fn allNullProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                const rows = self.rowCount() catch return false;
+                const total = rows * names.len;
+                return total != 0 and (self.nullCountProjection(names) catch return false) == total;
+            }
+
+            pub fn anyValid(self: *const DeviceLazyFrame) bool {
+                return (self.validCount() catch 0) != 0;
+            }
+
+            pub fn anyValidProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                return (self.validCountProjection(names) catch 0) != 0;
+            }
+
+            pub fn allValid(self: *const DeviceLazyFrame) bool {
+                const total = self.cellCount() catch return false;
+                return total != 0 and (self.validCount() catch return false) == total;
+            }
+
+            pub fn allValidProjection(self: *const DeviceLazyFrame, names: []const []const u8) bool {
+                const rows = self.rowCount() catch return false;
+                const total = rows * names.len;
+                return total != 0 and (self.validCountProjection(names) catch return false) == total;
+            }
+
             pub fn columnNullRatios(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.columnNullRatios(allocator),

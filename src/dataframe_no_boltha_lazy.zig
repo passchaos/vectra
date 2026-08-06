@@ -435,6 +435,38 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn anyNull(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn anyNullProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn allNull(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn allNullProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn anyValid(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn anyValidProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
+            pub fn allValid(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn allValidProjection(_: *const DeviceLazyFrame, _: []const []const u8) bool {
+                return false;
+            }
+
             pub fn columnNullRatios(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![]f64 {
                 return error.FeatureUnavailable;
             }
