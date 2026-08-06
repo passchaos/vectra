@@ -130,6 +130,21 @@ pub const DeviceValidityEncoding = dataframe_mod.DeviceValidityEncoding;
 
 pub const ArrowExport = if (build_options.enable_boltha) struct {
     pub const DataFrame = struct {
+        pub const Parquet = struct {
+            pub const toBytes = dataframe_mod.DeviceDataFrame.toParquetBytes;
+            pub const toParquetBytes = dataframe_mod.DeviceDataFrame.toParquetBytes;
+            pub const writeFileInDir = dataframe_mod.DeviceDataFrame.writeParquetFileInDir;
+            pub const writeFile = dataframe_mod.DeviceDataFrame.writeParquetFile;
+            pub const fromBytes = dataframe_mod.DeviceDataFrame.fromParquetBytes;
+            pub const fromParquetBytes = dataframe_mod.DeviceDataFrame.fromParquetBytes;
+            pub const fromBytesPruned = dataframe_mod.DeviceDataFrame.fromParquetBytesPruned;
+            pub const fromParquetBytesPruned = dataframe_mod.DeviceDataFrame.fromParquetBytesPruned;
+            pub const fromFileInDir = dataframe_mod.DeviceDataFrame.fromParquetFileInDir;
+            pub const fromFile = dataframe_mod.DeviceDataFrame.fromParquetFile;
+            pub const fromFilePrunedInDir = dataframe_mod.DeviceDataFrame.fromParquetFilePrunedInDir;
+            pub const fromFilePruned = dataframe_mod.DeviceDataFrame.fromParquetFilePruned;
+        };
+
         pub const hasArrowProjection = dataframe_mod.deviceDataFrameHasArrowProjection;
         pub const toArrowFields = dataframe_mod.DeviceDataFrame.toArrowFields;
         pub const toArrowSchema = dataframe_mod.DeviceDataFrame.toArrowSchema;

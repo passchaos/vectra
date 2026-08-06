@@ -7985,15 +7985,15 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectEqual(@as(usize, 1), table_projection.width());
     try std.testing.expectEqual(@as(?usize, 0), table_projection.columnIndex("units"));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.DataFrame.fromArrowTableProjection(gpa, grouped_arrow_table, &.{"missing"}, .cpu));
-    const grouped_parquet_bytes = try vectra.ArrowExport.DataFrame.toParquetBytes(table, gpa);
+    const grouped_parquet_bytes = try vectra.ArrowExport.DataFrame.Parquet.toBytes(table, gpa);
     defer gpa.free(grouped_parquet_bytes);
     var tmp_parquet_dir = std.testing.tmpDir(.{});
     defer tmp_parquet_dir.cleanup();
-    try vectra.ArrowExport.DataFrame.writeParquetFileInDir(table, tmp_parquet_dir.dir, std.testing.io, "frame.parquet");
-    var file_roundtrip_df = try vectra.ArrowExport.DataFrame.fromParquetFileInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), .cpu);
+    try vectra.ArrowExport.DataFrame.Parquet.writeFileInDir(table, tmp_parquet_dir.dir, std.testing.io, "frame.parquet");
+    var file_roundtrip_df = try vectra.ArrowExport.DataFrame.Parquet.fromFileInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), .cpu);
     defer file_roundtrip_df.deinit();
     try std.testing.expect(file_roundtrip_df.schemaEquals(table));
-    var file_pruned_df = try vectra.ArrowExport.DataFrame.fromParquetFilePrunedInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), "sales", .{ .f64 = .{ .min = 0.0 } }, .cpu);
+    var file_pruned_df = try vectra.ArrowExport.DataFrame.Parquet.fromFilePrunedInDir(gpa, tmp_parquet_dir.dir, std.testing.io, "frame.parquet", .limited(1024 * 1024), "sales", .{ .f64 = .{ .min = 0.0 } }, .cpu);
     defer file_pruned_df.deinit();
     try std.testing.expect(file_pruned_df.schemaEquals(table));
     var tmp_scan_dir = std.testing.tmpDir(.{});
@@ -8014,7 +8014,7 @@ test "device dataframe exports boltha arrow record batch" {
     var file_lazy_rows = try file_lazy_scan.collect();
     defer file_lazy_rows.deinit();
     try std.testing.expectEqual(table.height(), file_lazy_rows.height());
-    var parquet_roundtrip = try vectra.ArrowExport.DataFrame.fromParquetBytes(gpa, grouped_parquet_bytes, .cpu);
+    var parquet_roundtrip = try vectra.ArrowExport.DataFrame.Parquet.fromBytes(gpa, grouped_parquet_bytes, .cpu);
     defer parquet_roundtrip.deinit();
     try std.testing.expectEqual(table.height(), parquet_roundtrip.height());
     try std.testing.expect(parquet_roundtrip.schemaEquals(table));
