@@ -200,6 +200,14 @@ pub fn DeviceLazyTypes(
                 return pushdown.hasPushdown();
             }
 
+            pub fn usesScanPushdown(self: *const DeviceLazyFrame) bool {
+                return self.hasScanPushdown();
+            }
+
+            pub fn usesScanPushdownCollect(self: *const DeviceLazyFrame) bool {
+                return self.usesScanPushdown();
+            }
+
             pub fn scanPushdownSummaryOwned(
                 self: *const DeviceLazyFrame,
                 allocator: std.mem.Allocator,

@@ -256,6 +256,14 @@ pub fn DeviceLazyParquetTypes(
                 return false;
             }
 
+            pub fn usesScanPushdown(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn usesScanPushdownCollect(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
             pub fn scanPushdownSummaryOwned(
                 _: *const DeviceLazyFrame,
                 allocator: std.mem.Allocator,

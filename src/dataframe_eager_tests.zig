@@ -8269,6 +8269,8 @@ test "device dataframe exports boltha arrow record batch" {
     var file_lazy_pushdown = try file_lazy_scan.scanPushdownSummary();
     defer file_lazy_pushdown.deinit();
     try std.testing.expect(file_lazy_scan.hasScanPushdown());
+    try std.testing.expect(file_lazy_scan.usesScanPushdown());
+    try std.testing.expect(file_lazy_scan.usesScanPushdownCollect());
     try std.testing.expect(file_lazy_pushdown.hasProjection());
     try std.testing.expectEqual(@as(usize, 1), file_lazy_pushdown.projectionColumnCount());
     try std.testing.expect(file_lazy_pushdown.projectionNamesUnique());
