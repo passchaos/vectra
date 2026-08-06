@@ -8011,6 +8011,13 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expect(!owned_lazy_scan.isDataFrameSource());
     try std.testing.expectEqual(@as(usize, 0), owned_lazy_scan.opCount());
     try std.testing.expect(owned_lazy_scan.isOptimizedNoOp());
+    try std.testing.expectEqual(table.height(), try owned_lazy_scan.rowCount());
+    try std.testing.expectEqual(table.width(), try owned_lazy_scan.columnCount());
+    try std.testing.expectEqual(table.height() * table.width(), try owned_lazy_scan.cellCount());
+    const owned_lazy_shape = try owned_lazy_scan.shape();
+    try std.testing.expectEqual(table.height(), owned_lazy_shape.rows);
+    try std.testing.expectEqual(table.width(), owned_lazy_shape.cols);
+    try std.testing.expect(owned_lazy_scan.hasShape(table.height(), table.width()));
     try std.testing.expectEqualStrings("cpu", owned_lazy_scan.deviceBackendName());
     try std.testing.expect(owned_lazy_scan.isCpu());
     try std.testing.expect(owned_lazy_scan.isHostBacked());
@@ -8028,6 +8035,8 @@ test "device dataframe exports boltha arrow record batch" {
     try file_lazy_scan.select(&.{"sales"});
     try std.testing.expectEqual(@as(usize, 1), file_lazy_scan.opCount());
     try std.testing.expect(!file_lazy_scan.isOptimizedNoOp());
+    try std.testing.expectEqual(table.height(), try file_lazy_scan.rowCount());
+    try std.testing.expectEqual(@as(usize, 3), try file_lazy_scan.columnCount());
     var file_lazy_rows = try file_lazy_scan.collect();
     defer file_lazy_rows.deinit();
     try std.testing.expectEqual(table.height(), file_lazy_rows.height());

@@ -181,6 +181,53 @@ pub fn DeviceLazyTypes(
                 return self.ops.items.len == 0;
             }
 
+            pub fn rowCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.rowCount(),
+                    .parquet_scan => |scan| try scan.rowCount(),
+                };
+            }
+
+            pub fn nRows(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.rowCount();
+            }
+
+            pub fn columnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| frame.columnCount(),
+                    .parquet_scan => |scan| try scan.columnCount(),
+                };
+            }
+
+            pub fn width(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnCount();
+            }
+
+            pub fn nCols(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return self.columnCount();
+            }
+
+            pub fn cellCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return (try self.rowCount()) * (try self.columnCount());
+            }
+
+            pub fn shape(self: *const DeviceLazyFrame) ParquetInteropError!struct { rows: usize, cols: usize } {
+                return .{ .rows = try self.rowCount(), .cols = try self.columnCount() };
+            }
+
+            pub fn hasRows(self: *const DeviceLazyFrame) bool {
+                return (self.rowCount() catch 0) != 0;
+            }
+
+            pub fn hasColumns(self: *const DeviceLazyFrame) bool {
+                return (self.columnCount() catch 0) != 0;
+            }
+
+            pub fn hasShape(self: *const DeviceLazyFrame, rows: usize, cols: usize) bool {
+                const current = self.shape() catch return false;
+                return current.rows == rows and current.cols == cols;
+            }
+
             pub fn deviceValue(self: *const DeviceLazyFrame) array_mod.Device {
                 return self.sourceDevice();
             }

@@ -67,6 +67,46 @@ pub fn DeviceLazyParquetTypes(
                 return true;
             }
 
+            pub fn rowCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nRows(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn columnCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn width(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nCols(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn cellCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn shape(_: *const DeviceLazyFrame) ParquetInteropError!struct { rows: usize, cols: usize } {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn hasRows(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn hasColumns(_: *const DeviceLazyFrame) bool {
+                return false;
+            }
+
+            pub fn hasShape(_: *const DeviceLazyFrame, _: usize, _: usize) bool {
+                return false;
+            }
+
             pub fn deviceValue(_: *const DeviceLazyFrame) array_mod.Device {
                 return .cpu;
             }
