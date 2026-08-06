@@ -406,7 +406,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const arrowFieldDTypeAt = dataframe_mod.DeviceParquetScan.arrowFieldDTypeAt;
             pub const arrowFieldDType = dataframe_mod.DeviceParquetScan.arrowFieldDType;
             pub const arrowFieldDTypes = dataframe_mod.DeviceParquetScan.arrowFieldDTypes;
+            pub const arrowFieldDTypesProjection = dataframe_mod.DeviceParquetScan.arrowFieldDTypesProjection;
             pub const arrowFieldDTypeNames = dataframe_mod.DeviceParquetScan.arrowFieldDTypeNames;
+            pub const arrowFieldDTypeNamesProjection = dataframe_mod.DeviceParquetScan.arrowFieldDTypeNamesProjection;
             pub const arrowFieldDTypeByteSizes = dataframe_mod.DeviceParquetScan.arrowFieldDTypeByteSizes;
             pub const arrowFieldDTypeBitSizes = dataframe_mod.DeviceParquetScan.arrowFieldDTypeBitSizes;
             pub const arrowFieldDTypeClassMask = dataframe_mod.DeviceParquetScan.arrowFieldDTypeClassMask;
@@ -418,8 +420,11 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const arrowFieldNullableAt = dataframe_mod.DeviceParquetScan.arrowFieldNullableAt;
             pub const arrowFieldNullable = dataframe_mod.DeviceParquetScan.arrowFieldNullable;
             pub const arrowFieldNullableMask = dataframe_mod.DeviceParquetScan.arrowFieldNullableMask;
+            pub const arrowFieldNullableMaskProjection = dataframe_mod.DeviceParquetScan.arrowFieldNullableMaskProjection;
             pub const nullableArrowFieldCount = dataframe_mod.DeviceParquetScan.nullableArrowFieldCount;
+            pub const nullableArrowFieldCountProjection = dataframe_mod.DeviceParquetScan.nullableArrowFieldCountProjection;
             pub const nonNullableArrowFieldCount = dataframe_mod.DeviceParquetScan.nonNullableArrowFieldCount;
+            pub const nonNullableArrowFieldCountProjection = dataframe_mod.DeviceParquetScan.nonNullableArrowFieldCountProjection;
             pub const hasNullableArrowFields = dataframe_mod.DeviceParquetScan.hasNullableArrowFields;
             pub const allArrowFieldsNullable = dataframe_mod.DeviceParquetScan.allArrowFieldsNullable;
             pub const arrowColumnSchemaAt = dataframe_mod.DeviceParquetScan.arrowColumnSchemaAt;
@@ -566,7 +571,9 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const arrowFieldDTypeAt = dataframe_mod.DeviceParquetScan.arrowFieldDTypeAt;
         pub const arrowFieldDType = dataframe_mod.DeviceParquetScan.arrowFieldDType;
         pub const arrowFieldDTypes = dataframe_mod.DeviceParquetScan.arrowFieldDTypes;
+        pub const arrowFieldDTypesProjection = dataframe_mod.DeviceParquetScan.arrowFieldDTypesProjection;
         pub const arrowFieldDTypeNames = dataframe_mod.DeviceParquetScan.arrowFieldDTypeNames;
+        pub const arrowFieldDTypeNamesProjection = dataframe_mod.DeviceParquetScan.arrowFieldDTypeNamesProjection;
         pub const arrowFieldDTypeByteSizes = dataframe_mod.DeviceParquetScan.arrowFieldDTypeByteSizes;
         pub const arrowFieldDTypeBitSizes = dataframe_mod.DeviceParquetScan.arrowFieldDTypeBitSizes;
         pub const arrowFieldDTypeClassMask = dataframe_mod.DeviceParquetScan.arrowFieldDTypeClassMask;
@@ -578,8 +585,11 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const arrowFieldNullableAt = dataframe_mod.DeviceParquetScan.arrowFieldNullableAt;
         pub const arrowFieldNullable = dataframe_mod.DeviceParquetScan.arrowFieldNullable;
         pub const arrowFieldNullableMask = dataframe_mod.DeviceParquetScan.arrowFieldNullableMask;
+        pub const arrowFieldNullableMaskProjection = dataframe_mod.DeviceParquetScan.arrowFieldNullableMaskProjection;
         pub const nullableArrowFieldCount = dataframe_mod.DeviceParquetScan.nullableArrowFieldCount;
+        pub const nullableArrowFieldCountProjection = dataframe_mod.DeviceParquetScan.nullableArrowFieldCountProjection;
         pub const nonNullableArrowFieldCount = dataframe_mod.DeviceParquetScan.nonNullableArrowFieldCount;
+        pub const nonNullableArrowFieldCountProjection = dataframe_mod.DeviceParquetScan.nonNullableArrowFieldCountProjection;
         pub const hasNullableArrowFields = dataframe_mod.DeviceParquetScan.hasNullableArrowFields;
         pub const allArrowFieldsNullable = dataframe_mod.DeviceParquetScan.allArrowFieldsNullable;
         pub const arrowColumnSchemaAt = dataframe_mod.DeviceParquetScan.arrowColumnSchemaAt;
@@ -1022,9 +1032,20 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, frame.columnSchemas(gpa));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowColumnSchemasProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowSchemaSummaryProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowFieldDTypesProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowFieldDTypeNamesProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.arrowFieldNullableMaskProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.nullableArrowFieldCountProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.nonNullableArrowFieldCountProjection(&.{"id"}));
 
         const lazy_frame: DeviceLazyFrame = .{};
         try std.testing.expect(!lazy_frame.hasSchemaProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypesProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnDTypeNamesProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.dtypeNamesProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnNullableMaskProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.nullableColumnCountProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, lazy_frame.nonNullableColumnCountProjection(&.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.columnSchemasProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.schemaProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, lazy_frame.schemaSummaryProjection(gpa, &.{"id"}));

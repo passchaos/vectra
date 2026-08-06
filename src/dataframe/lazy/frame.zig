@@ -380,6 +380,18 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]array_mod.DType {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        const dtypes = try allocator.alloc(array_mod.DType, names.len);
+                        errdefer allocator.free(dtypes);
+                        for (names, dtypes) |name, *slot| slot.* = try frame.columnDType(name);
+                        break :blk dtypes;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypesProjection(allocator, names),
+                };
+            }
+
             pub fn columnDTypeNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
                 return switch (self.source) {
                     .dataframe => |frame| try frame.columnDTypeNames(allocator),
@@ -387,8 +399,25 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnDTypeNamesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![][]const u8 {
+                return switch (self.source) {
+                    .dataframe => blk: {
+                        const dtypes = try self.columnDTypesProjection(allocator, names);
+                        defer allocator.free(dtypes);
+                        const dtype_names = try allocator.alloc([]const u8, dtypes.len);
+                        for (dtypes, dtype_names) |dtype, *slot| slot.* = dtype.name();
+                        break :blk dtype_names;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldDTypeNamesProjection(allocator, names),
+                };
+            }
+
             pub fn dtypeNames(self: *const DeviceLazyFrame, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
                 return self.columnDTypeNames(allocator);
+            }
+
+            pub fn dtypeNamesProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![][]const u8 {
+                return self.columnDTypeNamesProjection(allocator, names);
             }
 
             pub fn columnDType(self: *const DeviceLazyFrame, name: []const u8) ParquetInteropError!array_mod.DType {
@@ -522,10 +551,35 @@ pub fn DeviceLazyTypes(
                 };
             }
 
+            pub fn columnNullableMaskProjection(self: *const DeviceLazyFrame, allocator: std.mem.Allocator, names: []const []const u8) ParquetInteropError![]bool {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        const mask = try allocator.alloc(bool, names.len);
+                        errdefer allocator.free(mask);
+                        for (names, mask) |name, *slot| slot.* = (try frame.columnSchema(name)).nullable;
+                        break :blk mask;
+                    },
+                    .parquet_scan => |scan| try scan.arrowFieldNullableMaskProjection(allocator, names),
+                };
+            }
+
             pub fn nullableColumnCount(self: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return switch (self.source) {
                     .dataframe => |frame| frame.nullableColumnCount(),
                     .parquet_scan => |scan| try scan.nullableArrowFieldCount(),
+                };
+            }
+
+            pub fn nullableColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return switch (self.source) {
+                    .dataframe => |frame| blk: {
+                        var count: usize = 0;
+                        for (names) |name| {
+                            if ((try frame.columnSchema(name)).nullable) count += 1;
+                        }
+                        break :blk count;
+                    },
+                    .parquet_scan => |scan| try scan.nullableArrowFieldCountProjection(names),
                 };
             }
 
@@ -534,6 +588,10 @@ pub fn DeviceLazyTypes(
                     .dataframe => |frame| frame.nonNullableColumnCount(),
                     .parquet_scan => |scan| try scan.nonNullableArrowFieldCount(),
                 };
+            }
+
+            pub fn nonNullableColumnCountProjection(self: *const DeviceLazyFrame, names: []const []const u8) ParquetInteropError!usize {
+                return names.len - try self.nullableColumnCountProjection(names);
             }
 
             pub fn hasNullableColumns(self: *const DeviceLazyFrame) bool {

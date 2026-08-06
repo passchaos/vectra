@@ -203,8 +203,25 @@ pub fn arrowFieldDTypes(scan: anytype, allocator: std.mem.Allocator) ParquetInte
     return dtypes;
 }
 
+pub fn arrowFieldDTypesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]array_mod.DType {
+    var schema = try toArrowSchemaProjection(scan, allocator, wanted_names);
+    defer schema.deinit(allocator);
+    const dtypes = try allocator.alloc(array_mod.DType, schema.fields.len);
+    errdefer allocator.free(dtypes);
+    for (schema.fields, dtypes) |field, *slot| slot.* = try deviceDTypeFromArrowField(field);
+    return dtypes;
+}
+
 pub fn arrowFieldDTypeNames(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![][]const u8 {
     const dtypes = try arrowFieldDTypes(scan, allocator);
+    defer allocator.free(dtypes);
+    const names = try allocator.alloc([]const u8, dtypes.len);
+    for (dtypes, names) |dtype, *slot| slot.* = dtype.name();
+    return names;
+}
+
+pub fn arrowFieldDTypeNamesProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![][]const u8 {
+    const dtypes = try arrowFieldDTypesProjection(scan, allocator, wanted_names);
     defer allocator.free(dtypes);
     const names = try allocator.alloc([]const u8, dtypes.len);
     for (dtypes, names) |dtype, *slot| slot.* = dtype.name();
@@ -267,6 +284,14 @@ pub fn arrowFieldNullableMask(scan: anytype, allocator: std.mem.Allocator) Parqu
     return mask;
 }
 
+pub fn arrowFieldNullableMaskProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]bool {
+    var schema = try toArrowSchemaProjection(scan, allocator, wanted_names);
+    defer schema.deinit(allocator);
+    const mask = try allocator.alloc(bool, schema.fields.len);
+    for (schema.fields, mask) |field, *slot| slot.* = field.nullable;
+    return mask;
+}
+
 pub fn nullableArrowFieldCount(scan: anytype) ParquetInteropError!usize {
     var schema = try toArrowSchema(scan, scan.allocator);
     defer schema.deinit(scan.allocator);
@@ -275,6 +300,20 @@ pub fn nullableArrowFieldCount(scan: anytype) ParquetInteropError!usize {
         if (field.nullable) count += 1;
     }
     return count;
+}
+
+pub fn nullableArrowFieldCountProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    var schema = try toArrowSchemaProjection(scan, scan.allocator, wanted_names);
+    defer schema.deinit(scan.allocator);
+    var count: usize = 0;
+    for (schema.fields) |field| {
+        if (field.nullable) count += 1;
+    }
+    return count;
+}
+
+pub fn nonNullableArrowFieldCountProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!usize {
+    return wanted_names.len - try nullableArrowFieldCountProjection(scan, wanted_names);
 }
 
 pub fn allArrowFieldsNullable(scan: anytype) bool {

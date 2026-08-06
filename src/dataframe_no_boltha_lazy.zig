@@ -391,11 +391,23 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnDTypesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
             pub fn columnDTypeNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnDTypeNamesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn dtypeNames(_: *const DeviceLazyFrame, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn dtypeNamesProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![][]const u8 {
                 return error.FeatureUnavailable;
             }
 
@@ -503,12 +515,24 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn columnNullableMaskProjection(_: *const DeviceLazyFrame, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
             pub fn nullableColumnCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return 0;
             }
 
+            pub fn nullableColumnCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn nonNullableColumnCount(_: *const DeviceLazyFrame) ParquetInteropError!usize {
                 return 0;
+            }
+
+            pub fn nonNullableColumnCountProjection(_: *const DeviceLazyFrame, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
             }
 
             pub fn hasNullableColumns(_: *const DeviceLazyFrame) bool {
@@ -1163,7 +1187,15 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldDTypesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]array_mod.DType {
+                return error.FeatureUnavailable;
+            }
+
             pub fn arrowFieldDTypeNames(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![][]const u8 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn arrowFieldDTypeNamesProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![][]const u8 {
                 return error.FeatureUnavailable;
             }
 
@@ -1211,11 +1243,23 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn arrowFieldNullableMaskProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]bool {
+                return error.FeatureUnavailable;
+            }
+
             pub fn nullableArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
 
+            pub fn nullableArrowFieldCountProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
             pub fn nonNullableArrowFieldCount(_: DeviceParquetScan) ParquetInteropError!usize {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn nonNullableArrowFieldCountProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!usize {
                 return error.FeatureUnavailable;
             }
 

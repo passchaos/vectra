@@ -653,7 +653,9 @@ pub fn DeviceParquetScan(
         pub const arrowFieldDTypeAt = scan_metadata_mod.arrowFieldDTypeAt;
         pub const arrowFieldDType = scan_metadata_mod.arrowFieldDType;
         pub const arrowFieldDTypes = scan_metadata_mod.arrowFieldDTypes;
+        pub const arrowFieldDTypesProjection = scan_metadata_mod.arrowFieldDTypesProjection;
         pub const arrowFieldDTypeNames = scan_metadata_mod.arrowFieldDTypeNames;
+        pub const arrowFieldDTypeNamesProjection = scan_metadata_mod.arrowFieldDTypeNamesProjection;
         pub const arrowFieldDTypeByteSizes = scan_metadata_mod.arrowFieldDTypeByteSizes;
         pub const arrowFieldDTypeBitSizes = scan_metadata_mod.arrowFieldDTypeBitSizes;
         pub const arrowFieldDTypeClassMask = scan_metadata_mod.arrowFieldDTypeClassMask;
@@ -678,7 +680,10 @@ pub fn DeviceParquetScan(
         pub const arrowFieldNullableAt = scan_metadata_mod.arrowFieldNullableAt;
         pub const arrowFieldNullable = scan_metadata_mod.arrowFieldNullable;
         pub const arrowFieldNullableMask = scan_metadata_mod.arrowFieldNullableMask;
+        pub const arrowFieldNullableMaskProjection = scan_metadata_mod.arrowFieldNullableMaskProjection;
         pub const nullableArrowFieldCount = scan_metadata_mod.nullableArrowFieldCount;
+        pub const nullableArrowFieldCountProjection = scan_metadata_mod.nullableArrowFieldCountProjection;
+        pub const nonNullableArrowFieldCountProjection = scan_metadata_mod.nonNullableArrowFieldCountProjection;
 
         pub fn nonNullableArrowFieldCount(self: Self) ParquetInteropError!usize {
             return (try self.arrowFieldCount()) - try self.nullableArrowFieldCount();
