@@ -187,6 +187,7 @@ pub const LazyScanPushdown = struct {
 
 const DeviceColumnSchema = @import("dataframe_schema.zig").DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
+const DeviceParquetRowGroupSummary = scan_summary_mod.DeviceParquetRowGroupSummary;
 const DeviceParquetScanSummary = scan_summary_mod.DeviceParquetScanSummary;
 const DeviceParquetScanPushdownSummary = scan_summary_mod.DeviceParquetScanPushdownSummary;
 const SourceRange = scan_summary_mod.SourceRange;
@@ -1293,6 +1294,14 @@ pub fn DeviceLazyParquetTypes(
             }
 
             pub fn parquetFileSummary(_: DeviceParquetScan) ParquetInteropError!DeviceParquetFileSummary {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupSummaryAt(_: DeviceParquetScan, _: usize) ParquetInteropError!?DeviceParquetRowGroupSummary {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetRowGroupSummaries(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]DeviceParquetRowGroupSummary {
                 return error.FeatureUnavailable;
             }
 

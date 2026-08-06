@@ -164,6 +164,155 @@ pub const DeviceParquetFileSummary = struct {
     }
 };
 
+pub const DeviceParquetRowGroupSummary = struct {
+    row_group_index: usize = 0,
+    rows: usize = 0,
+    column_chunks: usize = 0,
+    columns_with_metadata: usize = 0,
+    columns_without_metadata: usize = 0,
+    columns_with_column_index: usize = 0,
+    columns_with_offset_index: usize = 0,
+    columns_with_page_index: usize = 0,
+    columns_with_bloom_filter: usize = 0,
+    columns_with_sized_bloom_filter: usize = 0,
+    row_group_total_nbytes: usize = 0,
+    row_group_total_compressed_nbytes: usize = 0,
+    has_row_group_total_compressed_size: bool = false,
+    total_compressed_nbytes: usize = 0,
+    total_uncompressed_nbytes: usize = 0,
+
+    const Self = @This();
+
+    pub fn rowGroupIndex(self: Self) usize {
+        return self.row_group_index;
+    }
+
+    pub fn rowCount(self: Self) usize {
+        return self.rows;
+    }
+
+    pub fn nRows(self: Self) usize {
+        return self.rows;
+    }
+
+    pub fn columnChunkCount(self: Self) usize {
+        return self.column_chunks;
+    }
+
+    pub fn columnCount(self: Self) usize {
+        return self.column_chunks;
+    }
+
+    pub fn totalNbytes(self: Self) usize {
+        return self.total_uncompressed_nbytes;
+    }
+
+    pub fn totalCompressedNbytes(self: Self) usize {
+        return self.total_compressed_nbytes;
+    }
+
+    pub fn totalUncompressedNbytes(self: Self) usize {
+        return self.total_uncompressed_nbytes;
+    }
+
+    pub fn rowGroupTotalNbytes(self: Self) usize {
+        return self.row_group_total_nbytes;
+    }
+
+    pub fn rowGroupTotalCompressedNbytes(self: Self) usize {
+        return self.row_group_total_compressed_nbytes;
+    }
+
+    pub fn hasRowGroupTotalCompressedNbytes(self: Self) bool {
+        return self.has_row_group_total_compressed_size;
+    }
+
+    pub fn memoryUsage(self: Self) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn estimatedSize(self: Self) usize {
+        return self.totalNbytes();
+    }
+
+    pub fn hasRows(self: Self) bool {
+        return self.rows != 0;
+    }
+
+    pub fn hasColumns(self: Self) bool {
+        return self.column_chunks != 0;
+    }
+
+    pub fn allColumnsHaveMetadata(self: Self) bool {
+        return self.column_chunks != 0 and self.columns_with_metadata == self.column_chunks;
+    }
+
+    pub fn anyColumnsMissingMetadata(self: Self) bool {
+        return self.columns_without_metadata != 0;
+    }
+
+    pub fn allColumnsHavePageIndex(self: Self) bool {
+        return self.column_chunks != 0 and self.columns_with_page_index == self.column_chunks;
+    }
+
+    pub fn anyColumnsHavePageIndex(self: Self) bool {
+        return self.columns_with_page_index != 0;
+    }
+
+    pub fn anyColumnsHaveBloomFilter(self: Self) bool {
+        return self.columns_with_bloom_filter != 0;
+    }
+
+    pub fn allBloomFiltersSized(self: Self) bool {
+        return self.columns_with_bloom_filter == self.columns_with_sized_bloom_filter;
+    }
+
+    pub fn compressedSmallerThanUncompressed(self: Self) bool {
+        return self.total_compressed_nbytes < self.total_uncompressed_nbytes;
+    }
+
+    pub fn compressedLargerThanUncompressed(self: Self) bool {
+        return self.total_compressed_nbytes > self.total_uncompressed_nbytes;
+    }
+
+    fn ratio(numerator: usize, denominator: usize) f64 {
+        if (denominator == 0) return 0.0;
+        return @as(f64, @floatFromInt(numerator)) / @as(f64, @floatFromInt(denominator));
+    }
+
+    pub fn metadataCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_metadata, self.column_chunks);
+    }
+
+    pub fn pageIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_page_index, self.column_chunks);
+    }
+
+    pub fn bloomFilterCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_bloom_filter, self.column_chunks);
+    }
+
+    pub fn sizedBloomFilterCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_sized_bloom_filter, self.column_chunks);
+    }
+
+    pub fn columnIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_column_index, self.column_chunks);
+    }
+
+    pub fn offsetIndexCoverageRatio(self: Self) f64 {
+        return ratio(self.columns_with_offset_index, self.column_chunks);
+    }
+
+    pub fn missingMetadataRatio(self: Self) f64 {
+        return ratio(self.columns_without_metadata, self.column_chunks);
+    }
+
+    pub fn compressionRatio(self: Self) f64 {
+        return ratio(self.total_compressed_nbytes, self.total_uncompressed_nbytes);
+    }
+};
+
 pub const DeviceParquetScanSummary = struct {
     device: array_mod.Device = .cpu,
     source_ptr: u64 = 0,

@@ -336,6 +336,9 @@ pub fn DeviceParquetScan(
             return scan_metadata_mod.bolthaFileSummaryToDeviceSummary(summary_value);
         }
 
+        pub const parquetRowGroupSummaryAt = scan_metadata_mod.parquetRowGroupSummaryAt;
+        pub const parquetRowGroupSummaries = scan_metadata_mod.parquetRowGroupSummaries;
+
         pub fn rowCount(self: Self) ParquetInteropError!usize {
             return (try self.parquetFileSummary()).rowCount();
         }

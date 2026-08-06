@@ -83,6 +83,7 @@ pub const DeviceParquetScan = dataframe_mod.DeviceParquetScan;
 pub const DeviceParquetRangeFilter = dataframe_mod.DeviceParquetRangeFilter;
 pub const DeviceParquetNullFilter = dataframe_mod.DeviceParquetNullFilter;
 pub const DeviceParquetFileSummary = dataframe_mod.DeviceParquetFileSummary;
+pub const DeviceParquetRowGroupSummary = dataframe_mod.DeviceParquetRowGroupSummary;
 pub const DeviceParquetScanSourceRange = dataframe_mod.DeviceParquetScanSourceRange;
 pub const DeviceParquetScanSummary = dataframe_mod.DeviceParquetScanSummary;
 pub const DeviceParquetScanPushdownSummary = dataframe_mod.DeviceParquetScanPushdownSummary;
@@ -298,6 +299,8 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
 
         pub const File = struct {
             pub const parquetFileSummary = dataframe_mod.DeviceParquetScan.parquetFileSummary;
+            pub const parquetRowGroupSummaryAt = dataframe_mod.DeviceParquetScan.parquetRowGroupSummaryAt;
+            pub const parquetRowGroupSummaries = dataframe_mod.DeviceParquetScan.parquetRowGroupSummaries;
             pub const rowCount = dataframe_mod.DeviceParquetScan.rowCount;
             pub const nRows = dataframe_mod.DeviceParquetScan.nRows;
             pub const rowGroupCount = dataframe_mod.DeviceParquetScan.rowGroupCount;
@@ -548,6 +551,8 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const memoryUsage = dataframe_mod.DeviceParquetScan.memoryUsage;
         pub const estimatedSize = dataframe_mod.DeviceParquetScan.estimatedSize;
         pub const parquetFileSummary = dataframe_mod.DeviceParquetScan.parquetFileSummary;
+        pub const parquetRowGroupSummaryAt = dataframe_mod.DeviceParquetScan.parquetRowGroupSummaryAt;
+        pub const parquetRowGroupSummaries = dataframe_mod.DeviceParquetScan.parquetRowGroupSummaries;
         pub const rowCount = dataframe_mod.DeviceParquetScan.rowCount;
         pub const nRows = dataframe_mod.DeviceParquetScan.nRows;
         pub const rowGroupCount = dataframe_mod.DeviceParquetScan.rowGroupCount;
@@ -1043,6 +1048,8 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.cpu());
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.cuda(0));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.mps(0));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetRowGroupSummaryAt(0));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetRowGroupSummaries(gpa));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetFieldCompressedNbytes(gpa));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetFieldCompressedNbytesProjection(gpa, &.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetFieldUncompressedNbytes(gpa));

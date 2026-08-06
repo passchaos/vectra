@@ -16,6 +16,7 @@ const scan_summary_mod = @import("../../dataframe_parquet_scan_summary.zig");
 const ParquetInteropError = dataframe_arrow_mod.ParquetInteropError;
 const DeviceColumnSchema = schema_mod.DeviceColumnSchema;
 const DeviceParquetFileSummary = scan_summary_mod.DeviceParquetFileSummary;
+const DeviceParquetRowGroupSummary = scan_summary_mod.DeviceParquetRowGroupSummary;
 
 pub fn cloneArrowFields(
     allocator: std.mem.Allocator,
@@ -1037,4 +1038,70 @@ pub fn bolthaFileSummaryToDeviceSummary(summary: boltha.parquet.FileSummary) Par
         .total_compressed_nbytes = try nonNegativeI64ToUsize(summary.total_compressed_size),
         .total_uncompressed_nbytes = try nonNegativeI64ToUsize(summary.total_uncompressed_size),
     };
+}
+
+fn bolthaRowGroupToDeviceSummary(row_group: boltha.parquet.RowGroup, row_group_index: usize) ParquetInteropError!DeviceParquetRowGroupSummary {
+    var columns_with_metadata: usize = 0;
+    var columns_with_column_index: usize = 0;
+    var columns_with_offset_index: usize = 0;
+    var columns_with_page_index: usize = 0;
+    var columns_with_bloom_filter: usize = 0;
+    var columns_with_sized_bloom_filter: usize = 0;
+    var total_compressed_nbytes: usize = 0;
+    var total_uncompressed_nbytes: usize = 0;
+
+    for (row_group.columns) |chunk| {
+        if (chunk.metadata) |column_metadata| {
+            columns_with_metadata += 1;
+            total_compressed_nbytes = try checkedAddUsize(total_compressed_nbytes, try nonNegativeI64ToUsize(column_metadata.total_compressed_size));
+            total_uncompressed_nbytes = try checkedAddUsize(total_uncompressed_nbytes, try nonNegativeI64ToUsize(column_metadata.total_uncompressed_size));
+            if (column_metadata.bloom_filter_offset != null) columns_with_bloom_filter += 1;
+            if (column_metadata.bloom_filter_offset != null and column_metadata.bloom_filter_length != null) columns_with_sized_bloom_filter += 1;
+        }
+        const has_column_index = chunk.column_index_offset != null and chunk.column_index_length != null;
+        const has_offset_index = chunk.offset_index_offset != null and chunk.offset_index_length != null;
+        if (has_column_index) columns_with_column_index += 1;
+        if (has_offset_index) columns_with_offset_index += 1;
+        if (has_column_index and has_offset_index) columns_with_page_index += 1;
+    }
+
+    return .{
+        .row_group_index = row_group_index,
+        .rows = try nonNegativeI64ToUsize(row_group.num_rows),
+        .column_chunks = row_group.columns.len,
+        .columns_with_metadata = columns_with_metadata,
+        .columns_without_metadata = row_group.columns.len - columns_with_metadata,
+        .columns_with_column_index = columns_with_column_index,
+        .columns_with_offset_index = columns_with_offset_index,
+        .columns_with_page_index = columns_with_page_index,
+        .columns_with_bloom_filter = columns_with_bloom_filter,
+        .columns_with_sized_bloom_filter = columns_with_sized_bloom_filter,
+        .row_group_total_nbytes = try nonNegativeI64ToUsize(row_group.total_byte_size),
+        .row_group_total_compressed_nbytes = if (row_group.total_compressed_size) |value|
+            try nonNegativeI64ToUsize(value)
+        else
+            0,
+        .has_row_group_total_compressed_size = row_group.total_compressed_size != null,
+        .total_compressed_nbytes = total_compressed_nbytes,
+        .total_uncompressed_nbytes = total_uncompressed_nbytes,
+    };
+}
+
+pub fn parquetRowGroupSummaryAt(scan: anytype, index: usize) ParquetInteropError!?DeviceParquetRowGroupSummary {
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+    if (index >= file_metadata.row_groups.len) return null;
+    return try bolthaRowGroupToDeviceSummary(file_metadata.row_groups[index], index);
+}
+
+pub fn parquetRowGroupSummaries(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]DeviceParquetRowGroupSummary {
+    var file_metadata = try boltha.parquet.readFileMetadata(scan.allocator, scan.bytes);
+    defer file_metadata.deinit(scan.allocator);
+
+    const summaries = try allocator.alloc(DeviceParquetRowGroupSummary, file_metadata.row_groups.len);
+    errdefer allocator.free(summaries);
+    for (file_metadata.row_groups, summaries, 0..) |row_group, *slot, index| {
+        slot.* = try bolthaRowGroupToDeviceSummary(row_group, index);
+    }
+    return summaries;
 }
