@@ -864,6 +864,64 @@ pub fn parquetUncompressedNbytesProjection(scan: anytype, wanted_names: []const 
     return parquetPhysicalMetricTotal(scan, wanted_names, "uncompressed");
 }
 
+fn compressionRatioFromPhysicalNbytes(compressed: usize, uncompressed: usize) f64 {
+    if (uncompressed == 0) return 0.0;
+    return @as(f64, @floatFromInt(compressed)) / @as(f64, @floatFromInt(uncompressed));
+}
+
+fn parquetPhysicalCompressionRatioValues(
+    scan: anytype,
+    allocator: std.mem.Allocator,
+    maybe_names: ?[]const []const u8,
+) ParquetInteropError![]f64 {
+    var schema_value = if (maybe_names) |names|
+        try toArrowSchemaProjection(scan, allocator, names)
+    else
+        try toArrowSchema(scan, allocator);
+    defer schema_value.deinit(allocator);
+
+    const physical_nbytes = try parquetPhysicalNbytesForFields(scan, allocator, schema_value.fields);
+    defer allocator.free(physical_nbytes);
+
+    const ratios = try allocator.alloc(f64, physical_nbytes.len);
+    errdefer allocator.free(ratios);
+    for (physical_nbytes, ratios) |physical, *slot| {
+        slot.* = compressionRatioFromPhysicalNbytes(physical.compressed, physical.uncompressed);
+    }
+    return ratios;
+}
+
+fn parquetPhysicalCompressionRatioTotal(scan: anytype, maybe_names: ?[]const []const u8) ParquetInteropError!f64 {
+    var schema_value = if (maybe_names) |names|
+        try toArrowSchemaProjection(scan, scan.allocator, names)
+    else
+        try toArrowSchema(scan, scan.allocator);
+    defer schema_value.deinit(scan.allocator);
+
+    const physical_nbytes = try parquetPhysicalNbytesForFields(scan, scan.allocator, schema_value.fields);
+    defer scan.allocator.free(physical_nbytes);
+
+    var compressed_total: usize = 0;
+    var uncompressed_total: usize = 0;
+    for (physical_nbytes) |physical| {
+        compressed_total = try checkedAddUsize(compressed_total, physical.compressed);
+        uncompressed_total = try checkedAddUsize(uncompressed_total, physical.uncompressed);
+    }
+    return compressionRatioFromPhysicalNbytes(compressed_total, uncompressed_total);
+}
+
+pub fn parquetFieldCompressionRatios(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]f64 {
+    return parquetPhysicalCompressionRatioValues(scan, allocator, null);
+}
+
+pub fn parquetFieldCompressionRatiosProjection(scan: anytype, allocator: std.mem.Allocator, wanted_names: []const []const u8) ParquetInteropError![]f64 {
+    return parquetPhysicalCompressionRatioValues(scan, allocator, wanted_names);
+}
+
+pub fn parquetCompressionRatioProjection(scan: anytype, wanted_names: []const []const u8) ParquetInteropError!f64 {
+    return parquetPhysicalCompressionRatioTotal(scan, wanted_names);
+}
+
 fn schemasEqual(left: []const DeviceColumnSchema, right: []const DeviceColumnSchema) bool {
     if (left.len != right.len) return false;
     for (left, right) |left_schema, right_schema| {

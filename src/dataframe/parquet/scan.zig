@@ -432,6 +432,9 @@ pub fn DeviceParquetScan(
         pub const parquetCompressedNbytesProjection = scan_metadata_mod.parquetCompressedNbytesProjection;
         pub const parquetUncompressedNbytes = scan_metadata_mod.parquetUncompressedNbytes;
         pub const parquetUncompressedNbytesProjection = scan_metadata_mod.parquetUncompressedNbytesProjection;
+        pub const parquetFieldCompressionRatios = scan_metadata_mod.parquetFieldCompressionRatios;
+        pub const parquetFieldCompressionRatiosProjection = scan_metadata_mod.parquetFieldCompressionRatiosProjection;
+        pub const parquetCompressionRatioProjection = scan_metadata_mod.parquetCompressionRatioProjection;
 
         pub fn parquetCompressionRatio(self: Self) ParquetInteropError!f64 {
             return (try self.parquetFileSummary()).compressionRatio();

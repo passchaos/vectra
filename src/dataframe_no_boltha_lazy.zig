@@ -1412,7 +1412,19 @@ pub fn DeviceLazyParquetTypes(
                 return error.FeatureUnavailable;
             }
 
+            pub fn parquetFieldCompressionRatios(_: DeviceParquetScan, _: std.mem.Allocator) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetFieldCompressionRatiosProjection(_: DeviceParquetScan, _: std.mem.Allocator, _: []const []const u8) ParquetInteropError![]f64 {
+                return error.FeatureUnavailable;
+            }
+
             pub fn parquetCompressionRatio(_: DeviceParquetScan) ParquetInteropError!f64 {
+                return error.FeatureUnavailable;
+            }
+
+            pub fn parquetCompressionRatioProjection(_: DeviceParquetScan, _: []const []const u8) ParquetInteropError!f64 {
                 return error.FeatureUnavailable;
             }
 

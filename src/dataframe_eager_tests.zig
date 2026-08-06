@@ -8785,6 +8785,16 @@ test "device dataframe exports boltha arrow record batch" {
         parquet_field_compressed_total += compressed_nbytes;
         parquet_field_uncompressed_total += uncompressed_nbytes;
     }
+    const parquet_field_compression_ratios = try vectra.ArrowExport.ParquetScan.File.parquetFieldCompressionRatios(grouped_scan, gpa);
+    defer gpa.free(parquet_field_compression_ratios);
+    try std.testing.expectEqual(table.width(), parquet_field_compression_ratios.len);
+    for (parquet_field_compression_ratios, parquet_field_compressed, parquet_field_uncompressed) |ratio, compressed_nbytes, uncompressed_nbytes| {
+        try std.testing.expectApproxEqAbs(
+            @as(f64, @floatFromInt(compressed_nbytes)) / @as(f64, @floatFromInt(uncompressed_nbytes)),
+            ratio,
+            1e-12,
+        );
+    }
     try std.testing.expectEqual(parquet_field_compressed_total, try vectra.ArrowExport.ParquetScan.parquetCompressedNbytes(grouped_scan));
     try std.testing.expectEqual(parquet_field_uncompressed_total, try vectra.ArrowExport.ParquetScan.File.parquetUncompressedNbytes(grouped_scan));
     try std.testing.expectEqual(parquet_file_summary.totalCompressedNbytes(), try vectra.ArrowExport.ParquetScan.parquetCompressedNbytes(grouped_scan));
@@ -9063,6 +9073,22 @@ test "device dataframe exports boltha arrow record batch" {
         explicit_parquet_field_uncompressed[0] + explicit_parquet_field_uncompressed[1],
         try vectra.ArrowExport.ParquetScan.File.parquetUncompressedNbytesProjection(grouped_scan, &.{ "active", "sales" }),
     );
+    const explicit_parquet_field_ratios = try vectra.ArrowExport.ParquetScan.parquetFieldCompressionRatiosProjection(grouped_scan, gpa, &.{ "active", "sales" });
+    defer gpa.free(explicit_parquet_field_ratios);
+    try std.testing.expectEqual(@as(usize, 2), explicit_parquet_field_ratios.len);
+    for (explicit_parquet_field_ratios, explicit_parquet_field_compressed, explicit_parquet_field_uncompressed) |ratio, compressed_nbytes, uncompressed_nbytes| {
+        try std.testing.expectApproxEqAbs(
+            @as(f64, @floatFromInt(compressed_nbytes)) / @as(f64, @floatFromInt(uncompressed_nbytes)),
+            ratio,
+            1e-12,
+        );
+    }
+    try std.testing.expectApproxEqAbs(
+        @as(f64, @floatFromInt(explicit_parquet_field_compressed[0] + explicit_parquet_field_compressed[1])) /
+            @as(f64, @floatFromInt(explicit_parquet_field_uncompressed[0] + explicit_parquet_field_uncompressed[1])),
+        try vectra.ArrowExport.ParquetScan.File.parquetCompressionRatioProjection(grouped_scan, &.{ "active", "sales" }),
+        1e-12,
+    );
     const explicit_scan_schema_summary = try vectra.ArrowExport.ParquetScan.arrowSchemaSummaryProjection(grouped_scan, gpa, &.{"units"});
     defer gpa.free(explicit_scan_schema_summary);
     try std.testing.expectEqual(@as(usize, 1), explicit_scan_schema_summary.len);
@@ -9119,6 +9145,8 @@ test "device dataframe exports boltha arrow record batch" {
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.parquetFieldUncompressedNbytesProjection(grouped_scan, gpa, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.parquetCompressedNbytesProjection(grouped_scan, &.{"missing"}));
     try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.parquetUncompressedNbytesProjection(grouped_scan, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.parquetFieldCompressionRatiosProjection(grouped_scan, gpa, &.{"missing"}));
+    try std.testing.expectError(error.ColumnNotFound, vectra.ArrowExport.ParquetScan.parquetCompressionRatioProjection(grouped_scan, &.{"missing"}));
     var invalid_scan = try vectra.ArrowExport.ParquetScan.clone(grouped_scan);
     defer invalid_scan.deinit();
     vectra.ArrowExport.ParquetScan.clearPushdown(&invalid_scan);

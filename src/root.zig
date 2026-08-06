@@ -327,7 +327,10 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
             pub const parquetCompressedNbytesProjection = dataframe_mod.DeviceParquetScan.parquetCompressedNbytesProjection;
             pub const parquetUncompressedNbytes = dataframe_mod.DeviceParquetScan.parquetUncompressedNbytes;
             pub const parquetUncompressedNbytesProjection = dataframe_mod.DeviceParquetScan.parquetUncompressedNbytesProjection;
+            pub const parquetFieldCompressionRatios = dataframe_mod.DeviceParquetScan.parquetFieldCompressionRatios;
+            pub const parquetFieldCompressionRatiosProjection = dataframe_mod.DeviceParquetScan.parquetFieldCompressionRatiosProjection;
             pub const parquetCompressionRatio = dataframe_mod.DeviceParquetScan.parquetCompressionRatio;
+            pub const parquetCompressionRatioProjection = dataframe_mod.DeviceParquetScan.parquetCompressionRatioProjection;
             pub const parquetMetadataCoverageRatio = dataframe_mod.DeviceParquetScan.parquetMetadataCoverageRatio;
             pub const parquetPageIndexCoverageRatio = dataframe_mod.DeviceParquetScan.parquetPageIndexCoverageRatio;
             pub const hasRowGroups = dataframe_mod.DeviceParquetScan.hasRowGroups;
@@ -574,7 +577,10 @@ pub const ArrowExport = if (build_options.enable_boltha) struct {
         pub const parquetCompressedNbytesProjection = dataframe_mod.DeviceParquetScan.parquetCompressedNbytesProjection;
         pub const parquetUncompressedNbytes = dataframe_mod.DeviceParquetScan.parquetUncompressedNbytes;
         pub const parquetUncompressedNbytesProjection = dataframe_mod.DeviceParquetScan.parquetUncompressedNbytesProjection;
+        pub const parquetFieldCompressionRatios = dataframe_mod.DeviceParquetScan.parquetFieldCompressionRatios;
+        pub const parquetFieldCompressionRatiosProjection = dataframe_mod.DeviceParquetScan.parquetFieldCompressionRatiosProjection;
         pub const parquetCompressionRatio = dataframe_mod.DeviceParquetScan.parquetCompressionRatio;
+        pub const parquetCompressionRatioProjection = dataframe_mod.DeviceParquetScan.parquetCompressionRatioProjection;
         pub const parquetMetadataCoverageRatio = dataframe_mod.DeviceParquetScan.parquetMetadataCoverageRatio;
         pub const parquetPageIndexCoverageRatio = dataframe_mod.DeviceParquetScan.parquetPageIndexCoverageRatio;
         pub const hasRowGroups = dataframe_mod.DeviceParquetScan.hasRowGroups;
@@ -1045,6 +1051,9 @@ test "no-boltha DeviceDataFrame metadata facade is source-compatible" {
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetCompressedNbytesProjection(&.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetUncompressedNbytes());
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetUncompressedNbytesProjection(&.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetFieldCompressionRatios(gpa));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetFieldCompressionRatiosProjection(gpa, &.{"id"}));
+        try std.testing.expectError(error.FeatureUnavailable, parquet_scan.parquetCompressionRatioProjection(&.{"id"}));
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.rowCount());
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.nRows());
         try std.testing.expectError(error.FeatureUnavailable, parquet_scan.columnCount());
