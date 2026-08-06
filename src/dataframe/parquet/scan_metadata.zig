@@ -548,16 +548,17 @@ pub fn allArrowFieldsNullable(scan: anytype) bool {
     return total != 0 and (nullableArrowFieldCount(scan) catch return false) == total;
 }
 
-fn columnSchemaFromArrowField(scan: anytype, name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
+fn columnSchemaFromArrowField(scan: anytype, schema_name: []const u8, lookup_name: []const u8, field: boltha.arrow.Field) ParquetInteropError!DeviceColumnSchema {
     const rows = try scan.rowCount();
     const dtype = try deviceDTypeFromArrowField(field);
+    const null_count = try parquetNullCountForField(scan, lookup_name, field.nullable);
     return .{
-        .name = name,
+        .name = schema_name,
         .dtype = dtype,
         .rows = rows,
         .nullable = field.nullable,
-        .null_count = 0,
-        .valid_count = rows,
+        .null_count = null_count,
+        .valid_count = try checkedSubUsize(rows, null_count),
         .data_nbytes = 0,
         .validity_nbytes = 0,
         .total_nbytes = 0,
@@ -569,14 +570,14 @@ pub fn arrowColumnSchemaAt(scan: anytype, index: usize) ParquetInteropError!?Dev
     var schema_value = try toArrowSchema(scan, scan.allocator);
     defer schema_value.deinit(scan.allocator);
     const field = schema_value.fieldAt(index) orelse return null;
-    return try columnSchemaFromArrowField(scan, "", field.*);
+    return try columnSchemaFromArrowField(scan, "", field.name, field.*);
 }
 
 pub fn arrowColumnSchema(scan: anytype, name: []const u8) ParquetInteropError!DeviceColumnSchema {
     var schema_value = try toArrowSchema(scan, scan.allocator);
     defer schema_value.deinit(scan.allocator);
     const field = schema_value.fieldByName(name) orelse return error.ColumnNotFound;
-    return try columnSchemaFromArrowField(scan, name, field.*);
+    return try columnSchemaFromArrowField(scan, name, field.name, field.*);
 }
 
 pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetInteropError![]DeviceColumnSchema {
@@ -588,13 +589,14 @@ pub fn arrowColumnSchemas(scan: anytype, allocator: std.mem.Allocator) ParquetIn
     for (schema_value.fields, schemas, 0..) |field, *slot, index| {
         const dtype = try deviceDTypeFromArrowField(field);
         const schema_name = if (scan.projection) |names| names[index] else "";
+        const null_count = try parquetNullCountForField(scan, field.name, field.nullable);
         slot.* = .{
             .name = schema_name,
             .dtype = dtype,
             .rows = rows,
             .nullable = field.nullable,
-            .null_count = 0,
-            .valid_count = rows,
+            .null_count = null_count,
+            .valid_count = try checkedSubUsize(rows, null_count),
             .data_nbytes = 0,
             .validity_nbytes = 0,
             .total_nbytes = 0,
@@ -612,13 +614,14 @@ pub fn arrowColumnSchemasProjection(scan: anytype, allocator: std.mem.Allocator,
     errdefer allocator.free(schemas);
     for (schema_value.fields, schemas, wanted_names) |field, *slot, name| {
         const dtype = try deviceDTypeFromArrowField(field);
+        const null_count = try parquetNullCountForField(scan, field.name, field.nullable);
         slot.* = .{
             .name = name,
             .dtype = dtype,
             .rows = rows,
             .nullable = field.nullable,
-            .null_count = 0,
-            .valid_count = rows,
+            .null_count = null_count,
+            .valid_count = try checkedSubUsize(rows, null_count),
             .data_nbytes = 0,
             .validity_nbytes = 0,
             .total_nbytes = 0,
