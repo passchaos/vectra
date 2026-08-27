@@ -24,6 +24,7 @@ pub const copyStorage = impl.copyStorage;
 pub const fillStorage = impl.fillStorage;
 pub const fillPhiloxUniform = impl.fillPhiloxUniform;
 pub const fillPhiloxNormal = impl.fillPhiloxNormal;
+pub const Histogram2DCountSession = impl.Histogram2DCountSession;
 pub const tryBinaryF32 = impl.tryBinaryF32;
 pub const tryRank3BroadcastBinaryF32 = impl.tryRank3BroadcastBinaryF32;
 pub const tryRank4BroadcastBinaryF32 = impl.tryRank4BroadcastBinaryF32;

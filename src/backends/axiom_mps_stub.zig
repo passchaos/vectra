@@ -64,6 +64,30 @@ pub fn fillPhiloxNormal(comptime T: type, storage: array_mod.DeviceStorage, seed
     return error.InvalidDevice;
 }
 
+pub const Histogram2DCountSession = struct {
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32) array_mod.ArrayError!Histogram2DCountSession {
+        _ = device;
+        _ = cols;
+        _ = rows;
+        return error.InvalidDevice;
+    }
+
+    pub fn deinit(self: *Histogram2DCountSession) void {
+        self.* = undefined;
+    }
+
+    pub fn run(self: *Histogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), bounds: [4]f32, counts: []u32, representatives: []u32, diagnostics: *[2]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = bounds;
+        _ = counts;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+};
+
 pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     _ = op;
     _ = lhs;

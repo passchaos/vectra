@@ -103,6 +103,37 @@ pub fn fillPhiloxNormal(comptime T: type, storage: array_mod.DeviceStorage, seed
     }
 }
 
+pub const Histogram2DCountSession = struct {
+    session: axiom.accelerator.MpsHistogram2DCountSession,
+
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32) array_mod.ArrayError!Histogram2DCountSession {
+        if (!device.isMps()) return error.InvalidDevice;
+        return .{ .session = axiom.accelerator.MpsHistogram2DCountSession.init(device.index, cols, rows) catch return error.BackendFailure };
+    }
+
+    pub fn deinit(self: *Histogram2DCountSession) void {
+        self.session.deinit();
+        self.* = undefined;
+    }
+
+    pub fn run(self: *Histogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), bounds: [4]f32, counts: []u32, representatives: []u32, diagnostics: *[2]u32) array_mod.ArrayError!void {
+        const x_storage = x.device_storage orelse return error.InvalidDevice;
+        const y_storage = y.device_storage orelse return error.InvalidDevice;
+        self.session.run(
+            .{ .ptr = x_storage.ptr, .bytes = x_storage.bytes },
+            .{ .ptr = y_storage.ptr, .bytes = y_storage.bytes },
+            x.numel(),
+            bounds[0],
+            bounds[1],
+            bounds[2],
+            bounds[3],
+            counts,
+            representatives,
+            diagnostics,
+        ) catch return error.BackendFailure;
+    }
+};
+
 fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {
     if (lhs.len != 3 or rhs.len != 3) return null;
     return .{

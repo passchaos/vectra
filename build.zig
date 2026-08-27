@@ -641,6 +641,12 @@ pub fn build(b: *std.Build) void {
         });
         const dependent_mps_smokes = [_]VectraToolStepSpec{
             .{
+                .exe_name = "vectra-axiom-mps-histogram2d-smoke",
+                .root_source_file = "tools/axiom_mps_histogram2d_smoke.zig",
+                .step_name = "axiom-mps-histogram2d-smoke",
+                .description = "Run focused device-native MPS 2D histogram smoke",
+            },
+            .{
                 .exe_name = "vectra-axiom-mps-gelu-smoke",
                 .root_source_file = "tools/axiom_mps_gelu_smoke.zig",
                 .step_name = "axiom-mps-gelu-smoke",
