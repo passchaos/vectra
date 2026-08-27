@@ -7,8 +7,10 @@ pub fn main(init: std.process.Init) !void {
     const available = device.isAvailable();
     var count_exact = !available;
     var weighted_exact = !available;
+    var categorical_exact = !available;
     var count_transferred_bytes: usize = 0;
     var weighted_transferred_bytes: usize = 0;
+    var categorical_transferred_bytes: usize = 0;
     if (available) {
         const x_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, -0.1, std.math.nan(f32), 0.75 };
         const y_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, 0.5, 0.5, std.math.inf(f32) };
@@ -37,10 +39,25 @@ pub fn main(init: std.process.Init) !void {
             std.mem.eql(u32, weighted.representative_source_indices, &.{ 0, std.math.maxInt(u32), std.math.maxInt(u32), 2 }) and
             weighted.input_row_count == 7 and weighted.finite_coordinate_count == 5 and weighted.included_row_count == 4 and
             weighted.omitted_non_finite_coordinate_count == 2 and weighted.omitted_non_finite_value_count == 0 and weighted.negative_value_count == 1 and weighted.out_of_range_count == 1;
+
+        const category_data = [_]i32{ 0, 1, 1, 0, 0, 1, -1 };
+        const category_validity_data = [_]bool{ true, false, true, true, true, true, true };
+        var categories = try vx.Array(i32).fromSliceOn(allocator, &category_data, &.{category_data.len}, device);
+        defer categories.deinit();
+        var category_validity = try vx.Array(bool).fromSliceOn(allocator, &category_validity_data, &.{category_validity_data.len}, device);
+        defer category_validity.deinit();
+        var categorical_session = try vx.DeviceCategoricalHistogram2DCountSession.init(allocator, device, 2, 2, 2);
+        defer categorical_session.deinit();
+        const categorical = try categorical_session.runNullable(x, y, categories, null, null, category_validity, .{ .x_min = 0, .x_max = 1, .y_min = 0, .y_max = 1 });
+        categorical_transferred_bytes = categorical.transferredBytes();
+        categorical_exact = std.mem.eql(u32, categorical.category_counts, &.{ 1, 0, 0, 0, 0, 0, 1, 1 }) and
+            std.mem.eql(u32, categorical.representative_source_indices, &.{ 0, std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), 3, 2 }) and
+            categorical.omitted_null_row_count == 1 and categorical.omitted_non_finite_coordinate_count == 2 and
+            categorical.out_of_range_count == 1 and categorical.omitted_unknown_category_count == 0;
     }
-    if (!count_exact or !weighted_exact) return error.MpsHistogram2DMismatch;
+    if (!count_exact or !weighted_exact or !categorical_exact) return error.MpsHistogram2DMismatch;
     var buffer: [384]u8 = undefined;
     var writer = std.Io.File.stdout().writerStreaming(init.io, &buffer);
-    try writer.interface.print("{{\"kind\":\"vectra_axiom_mps_histogram2d_smoke\",\"ok\":true,\"available\":{},\"device_native\":{},\"count_transferred_bytes\":{},\"weighted_transferred_bytes\":{}}}\n", .{ available, available, count_transferred_bytes, weighted_transferred_bytes });
+    try writer.interface.print("{{\"kind\":\"vectra_axiom_mps_histogram2d_smoke\",\"ok\":true,\"available\":{},\"device_native\":{},\"count_transferred_bytes\":{},\"weighted_transferred_bytes\":{},\"categorical_transferred_bytes\":{}}}\n", .{ available, available, count_transferred_bytes, weighted_transferred_bytes, categorical_transferred_bytes });
     try writer.interface.flush();
 }
