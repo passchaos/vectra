@@ -88,6 +88,35 @@ pub const Histogram2DCountSession = struct {
     }
 };
 
+pub const Histogram2DExtremaOp = enum { min, max };
+
+pub const Histogram2DExtremaSession = struct {
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32, op: Histogram2DExtremaOp) array_mod.ArrayError!Histogram2DExtremaSession {
+        _ = device;
+        _ = cols;
+        _ = rows;
+        _ = op;
+        return error.InvalidDevice;
+    }
+
+    pub fn deinit(self: *Histogram2DExtremaSession) void {
+        self.* = undefined;
+    }
+
+    pub fn run(self: *Histogram2DExtremaSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), bounds: [4]f32, counts: []u32, extrema: []f32, representatives: []u32, diagnostics: *[3]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = values;
+        _ = bounds;
+        _ = counts;
+        _ = extrema;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+};
+
 pub const CategoricalHistogram2DCountSession = struct {
     pub fn init(device: array_mod.Device, cols: u32, rows: u32, category_count: u32) array_mod.ArrayError!CategoricalHistogram2DCountSession {
         _ = device;
