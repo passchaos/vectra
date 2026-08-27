@@ -146,6 +146,48 @@ pub const Histogram2DExtremaSession = struct {
     }
 };
 
+pub const Histogram2DSumSession = struct {
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32) array_mod.ArrayError!Histogram2DSumSession {
+        _ = device;
+        _ = cols;
+        _ = rows;
+        return error.InvalidDevice;
+    }
+
+    pub fn deinit(self: *Histogram2DSumSession) void {
+        self.* = undefined;
+    }
+
+    pub fn run(self: *Histogram2DSumSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), bounds: [4]f32, counts: []u32, sums: []f32, representatives: []u32, diagnostics: *[4]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = values;
+        _ = bounds;
+        _ = counts;
+        _ = sums;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+
+    pub fn runMasked(self: *Histogram2DSumSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), value_validity: ?array_mod.Array(bool), bounds: [4]f32, counts: []u32, sums: []f32, representatives: []u32, diagnostics: *[5]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = values;
+        _ = x_validity;
+        _ = y_validity;
+        _ = value_validity;
+        _ = bounds;
+        _ = counts;
+        _ = sums;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+};
+
 pub const CategoricalHistogram2DCountSession = struct {
     pub fn init(device: array_mod.Device, cols: u32, rows: u32, category_count: u32) array_mod.ArrayError!CategoricalHistogram2DCountSession {
         _ = device;
