@@ -212,6 +212,21 @@ pub const CategoricalHistogram2DCountSession = struct {
         _ = diagnostics;
         return error.InvalidDevice;
     }
+
+    pub fn runMasked(self: *CategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), category_validity: ?array_mod.Array(bool), bounds: [4]f32, category_counts: []u32, representatives: []u32, diagnostics: *[4]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = categories;
+        _ = x_validity;
+        _ = y_validity;
+        _ = category_validity;
+        _ = bounds;
+        _ = category_counts;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
 };
 
 pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {

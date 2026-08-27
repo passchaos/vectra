@@ -91,14 +91,17 @@ pub const CategoricalCountView = struct {
     rows: u32,
     category_count: u32,
     input_row_count: usize,
+    omitted_null_row_count: usize,
     finite_coordinate_count: usize,
     included_row_count: usize,
     omitted_non_finite_coordinate_count: usize,
     omitted_unknown_category_count: usize,
     out_of_range_count: usize,
+    nullable: bool = false,
 
     pub fn transferredBytes(self: CategoricalCountView) usize {
-        return self.category_counts.len * @sizeOf(u32) + self.representative_source_indices.len * @sizeOf(u32) + 3 * @sizeOf(u32);
+        const diagnostics: usize = if (self.nullable) 4 else 3;
+        return self.category_counts.len * @sizeOf(u32) + self.representative_source_indices.len * @sizeOf(u32) + diagnostics * @sizeOf(u32);
     }
 };
 
@@ -407,17 +410,26 @@ pub const DeviceCategoricalHistogram2DCountSession = struct {
     }
 
     pub fn run(self: *DeviceCategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), bounds: BoundsF32) array_mod.ArrayError!CategoricalCountView {
+        try validateCategoricalInputs(self.device, x, y, categories, null, null, null);
         if (!bounds.valid()) return error.InvalidShape;
-        if (!x.device.sameDevice(self.device) or !y.device.sameDevice(self.device) or !categories.device.sameDevice(self.device)) return error.InvalidDevice;
-        if (x.shape.len != 1 or y.shape.len != 1 or categories.shape.len != 1 or x.shape[0] != y.shape[0] or x.shape[0] != categories.shape[0] or !x.isContiguous() or !y.isContiguous() or !categories.isContiguous()) return error.InvalidShape;
         var diagnostics: [3]u32 = undefined;
         self.mps.run(x, y, categories, .{ bounds.x_min, bounds.x_max, bounds.y_min, bounds.y_max }, self.category_counts, self.representatives, &diagnostics) catch return error.BackendFailure;
+        return makeCategoricalCountView(self, x.shape[0], 0, diagnostics[0], diagnostics[1], diagnostics[2], false);
+    }
+
+    pub fn runNullable(self: *DeviceCategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), category_validity: ?array_mod.Array(bool), bounds: BoundsF32) array_mod.ArrayError!CategoricalCountView {
+        try validateCategoricalInputs(self.device, x, y, categories, x_validity, y_validity, category_validity);
+        if (!bounds.valid()) return error.InvalidShape;
+        var diagnostics: [4]u32 = undefined;
+        self.mps.runMasked(x, y, categories, x_validity, y_validity, category_validity, .{ bounds.x_min, bounds.x_max, bounds.y_min, bounds.y_max }, self.category_counts, self.representatives, &diagnostics) catch return error.BackendFailure;
+        return makeCategoricalCountView(self, x.shape[0], diagnostics[0], diagnostics[1], diagnostics[2], diagnostics[3], true);
+    }
+
+    fn makeCategoricalCountView(self: *DeviceCategoricalHistogram2DCountSession, input: usize, omitted_null: usize, omitted_non_finite: usize, out_of_range: usize, omitted_unknown: usize, nullable: bool) array_mod.ArrayError!CategoricalCountView {
         var included: usize = 0;
         for (self.category_counts) |count| included +|= count;
-        const omitted_non_finite: usize = diagnostics[0];
-        const out_of_range: usize = diagnostics[1];
-        const omitted_unknown: usize = diagnostics[2];
-        const finite = x.shape[0] -| omitted_non_finite;
+        const materialized = input -| omitted_null;
+        const finite = materialized -| omitted_non_finite;
         if (included +| out_of_range +| omitted_unknown != finite) return error.BackendFailure;
         return .{
             .category_counts = self.category_counts,
@@ -425,15 +437,28 @@ pub const DeviceCategoricalHistogram2DCountSession = struct {
             .cols = self.cols,
             .rows = self.rows,
             .category_count = self.category_count,
-            .input_row_count = x.shape[0],
+            .input_row_count = input,
+            .omitted_null_row_count = omitted_null,
             .finite_coordinate_count = finite,
             .included_row_count = included,
             .omitted_non_finite_coordinate_count = omitted_non_finite,
             .omitted_unknown_category_count = omitted_unknown,
             .out_of_range_count = out_of_range,
+            .nullable = nullable,
         };
     }
 };
+
+fn validateCategoricalInputs(device: array_mod.Device, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), category_validity: ?array_mod.Array(bool)) array_mod.ArrayError!void {
+    if (!x.device.sameDevice(device) or !y.device.sameDevice(device) or !categories.device.sameDevice(device)) return error.InvalidDevice;
+    if (x.shape.len != 1 or y.shape.len != 1 or categories.shape.len != 1 or x.shape[0] != y.shape[0] or x.shape[0] != categories.shape[0] or !x.isContiguous() or !y.isContiguous() or !categories.isContiguous()) return error.InvalidShape;
+    inline for (.{ x_validity, y_validity, category_validity }) |maybe_validity| {
+        if (maybe_validity) |validity| {
+            if (!validity.device.sameDevice(device)) return error.InvalidDevice;
+            if (validity.shape.len != 1 or validity.shape[0] != x.shape[0] or !validity.isContiguous()) return error.InvalidShape;
+        }
+    }
+}
 
 test "MPS histogram2d count matches CPU bounds and provenance semantics" {
     const device = array_mod.Device.mps(0);
@@ -584,4 +609,37 @@ test "MPS categorical histogram2d matches count and unknown-category semantics" 
     try std.testing.expectEqual(@as(usize, 2), result.omitted_non_finite_coordinate_count);
     try std.testing.expectEqual(@as(usize, 1), result.omitted_unknown_category_count);
     try std.testing.expectEqual(@as(usize, 1), result.out_of_range_count);
+}
+
+test "MPS nullable categorical histogram2d preserves source rows" {
+    const device = array_mod.Device.mps(0);
+    if (!device.isAvailable()) return error.SkipZigTest;
+    const x_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, -0.1, std.math.nan(f32), 0.75, 0.75 };
+    const y_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, 0.5, 0.5, std.math.inf(f32), 0.75 };
+    const category_values = [_]i32{ 0, 1, 1, 0, 0, 1, -1, -1 };
+    const x_validity_values = [_]bool{ true, true, true, true, false, true, true, true };
+    const y_validity_values = [_]bool{ true, true, true, true, true, true, false, true };
+    const category_validity_values = [_]bool{ true, false, true, true, true, true, true, true };
+    var x = try array_mod.Array(f32).fromSliceOn(std.testing.allocator, &x_values, &.{x_values.len}, device);
+    defer x.deinit();
+    var y = try array_mod.Array(f32).fromSliceOn(std.testing.allocator, &y_values, &.{y_values.len}, device);
+    defer y.deinit();
+    var categories = try array_mod.Array(i32).fromSliceOn(std.testing.allocator, &category_values, &.{category_values.len}, device);
+    defer categories.deinit();
+    var x_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &x_validity_values, &.{x_validity_values.len}, device);
+    defer x_validity.deinit();
+    var y_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &y_validity_values, &.{y_validity_values.len}, device);
+    defer y_validity.deinit();
+    var category_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &category_validity_values, &.{category_validity_values.len}, device);
+    defer category_validity.deinit();
+    var session = try DeviceCategoricalHistogram2DCountSession.init(std.testing.allocator, device, 2, 2, 2);
+    defer session.deinit();
+    const result = try session.runNullable(x, y, categories, x_validity, y_validity, category_validity, .{ .x_min = 0, .x_max = 1, .y_min = 0, .y_max = 1 });
+    try std.testing.expectEqualSlices(u32, &.{ 1, 0, 0, 0, 0, 0, 1, 1 }, result.category_counts);
+    try std.testing.expectEqualSlices(u32, &.{ 0, std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), 3, 2 }, result.representative_source_indices);
+    try std.testing.expectEqual(@as(usize, 3), result.omitted_null_row_count);
+    try std.testing.expectEqual(@as(usize, 1), result.omitted_non_finite_coordinate_count);
+    try std.testing.expectEqual(@as(usize, 1), result.omitted_unknown_category_count);
+    try std.testing.expectEqual(@as(usize, 0), result.out_of_range_count);
+    try std.testing.expectEqual(@as(usize, 80), result.transferredBytes());
 }

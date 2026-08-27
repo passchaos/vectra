@@ -281,6 +281,28 @@ pub const CategoricalHistogram2DCountSession = struct {
             diagnostics,
         ) catch return error.BackendFailure;
     }
+
+    pub fn runMasked(self: *CategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), category_validity: ?array_mod.Array(bool), bounds: [4]f32, category_counts: []u32, representatives: []u32, diagnostics: *[4]u32) array_mod.ArrayError!void {
+        const x_storage = x.device_storage orelse return error.InvalidDevice;
+        const y_storage = y.device_storage orelse return error.InvalidDevice;
+        const category_storage = categories.device_storage orelse return error.InvalidDevice;
+        self.session.runMasked(
+            .{ .ptr = x_storage.ptr, .bytes = x_storage.bytes },
+            .{ .ptr = y_storage.ptr, .bytes = y_storage.bytes },
+            .{ .ptr = category_storage.ptr, .bytes = category_storage.bytes },
+            try optionalMpsBuffer(x_validity),
+            try optionalMpsBuffer(y_validity),
+            try optionalMpsBuffer(category_validity),
+            x.numel(),
+            bounds[0],
+            bounds[1],
+            bounds[2],
+            bounds[3],
+            category_counts,
+            representatives,
+            diagnostics,
+        ) catch return error.BackendFailure;
+    }
 };
 
 fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {
