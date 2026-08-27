@@ -25,13 +25,16 @@ pub const CountView = struct {
     cols: u32,
     rows: u32,
     input_row_count: usize,
+    omitted_null_row_count: usize,
     finite_coordinate_count: usize,
     included_row_count: usize,
     omitted_non_finite_coordinate_count: usize,
     out_of_range_count: usize,
+    nullable: bool = false,
 
     pub fn transferredBytes(self: CountView) usize {
-        return self.counts.len * @sizeOf(u32) + self.representative_source_indices.len * @sizeOf(u32) + 2 * @sizeOf(u32);
+        const diagnostics: usize = if (self.nullable) 3 else 2;
+        return self.counts.len * @sizeOf(u32) + self.representative_source_indices.len * @sizeOf(u32) + diagnostics * @sizeOf(u32);
     }
 };
 
@@ -45,14 +48,17 @@ pub const ExtremaView = struct {
     rows: u32,
     op: ExtremaOp,
     input_row_count: usize,
+    omitted_null_row_count: usize,
     finite_coordinate_count: usize,
     included_row_count: usize,
     omitted_non_finite_coordinate_count: usize,
     omitted_non_finite_value_count: usize,
     out_of_range_count: usize,
+    nullable: bool = false,
 
     pub fn transferredBytes(self: ExtremaView) usize {
-        return self.counts.len * @sizeOf(u32) + self.values.len * @sizeOf(f32) + self.representative_source_indices.len * @sizeOf(u32) + 3 * @sizeOf(u32);
+        const diagnostics: usize = if (self.nullable) 4 else 3;
+        return self.counts.len * @sizeOf(u32) + self.values.len * @sizeOf(f32) + self.representative_source_indices.len * @sizeOf(u32) + diagnostics * @sizeOf(u32);
     }
 };
 
@@ -130,10 +136,39 @@ pub const DeviceHistogram2DCountSession = struct {
             .cols = self.cols,
             .rows = self.rows,
             .input_row_count = x.shape[0],
+            .omitted_null_row_count = 0,
             .finite_coordinate_count = finite,
             .included_row_count = included,
             .omitted_non_finite_coordinate_count = omitted_non_finite,
             .out_of_range_count = out_of_range,
+        };
+    }
+
+    pub fn runNullable(self: *DeviceHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), bounds: BoundsF32) array_mod.ArrayError!CountView {
+        try validateNullableInputs(self.device, x, y, null, x_validity, y_validity, null);
+        if (!bounds.valid()) return error.InvalidShape;
+        var diagnostics: [3]u32 = undefined;
+        self.mps.runMasked(x, y, x_validity, y_validity, .{ bounds.x_min, bounds.x_max, bounds.y_min, bounds.y_max }, self.counts, self.representatives, &diagnostics) catch return error.BackendFailure;
+        var included: usize = 0;
+        for (self.counts) |count| included +|= count;
+        const omitted_null: usize = diagnostics[0];
+        const omitted_non_finite: usize = diagnostics[1];
+        const out_of_range: usize = diagnostics[2];
+        const materialized = x.shape[0] -| omitted_null;
+        const finite = materialized -| omitted_non_finite;
+        if (included +| out_of_range != finite) return error.BackendFailure;
+        return .{
+            .counts = self.counts,
+            .representative_source_indices = self.representatives,
+            .cols = self.cols,
+            .rows = self.rows,
+            .input_row_count = x.shape[0],
+            .omitted_null_row_count = omitted_null,
+            .finite_coordinate_count = finite,
+            .included_row_count = included,
+            .omitted_non_finite_coordinate_count = omitted_non_finite,
+            .out_of_range_count = out_of_range,
+            .nullable = true,
         };
     }
 };
@@ -199,6 +234,7 @@ pub const DeviceHistogram2DExtremaSession = struct {
             .rows = self.rows,
             .op = self.op,
             .input_row_count = x.shape[0],
+            .omitted_null_row_count = 0,
             .finite_coordinate_count = finite_coordinate,
             .included_row_count = included,
             .omitted_non_finite_coordinate_count = omitted_non_finite_coordinate,
@@ -206,7 +242,54 @@ pub const DeviceHistogram2DExtremaSession = struct {
             .out_of_range_count = out_of_range,
         };
     }
+
+    pub fn runNullable(self: *DeviceHistogram2DExtremaSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), value_validity: ?array_mod.Array(bool), bounds: BoundsF32) array_mod.ArrayError!ExtremaView {
+        try validateNullableInputs(self.device, x, y, values, x_validity, y_validity, value_validity);
+        if (!bounds.valid()) return error.InvalidShape;
+        var diagnostics: [4]u32 = undefined;
+        self.mps.runMasked(x, y, values, x_validity, y_validity, value_validity, .{ bounds.x_min, bounds.x_max, bounds.y_min, bounds.y_max }, self.counts, self.values, self.representatives, &diagnostics) catch return error.BackendFailure;
+        var included: usize = 0;
+        for (self.counts) |count| included +|= count;
+        const omitted_null: usize = diagnostics[0];
+        const omitted_non_finite_coordinate: usize = diagnostics[1];
+        const out_of_range: usize = diagnostics[2];
+        const omitted_non_finite_value: usize = diagnostics[3];
+        const materialized = x.shape[0] -| omitted_null;
+        const finite_coordinate = materialized -| omitted_non_finite_coordinate;
+        if (included +| out_of_range +| omitted_non_finite_value != finite_coordinate) return error.BackendFailure;
+        return .{
+            .counts = self.counts,
+            .values = self.values,
+            .representative_source_indices = self.representatives,
+            .cols = self.cols,
+            .rows = self.rows,
+            .op = self.op,
+            .input_row_count = x.shape[0],
+            .omitted_null_row_count = omitted_null,
+            .finite_coordinate_count = finite_coordinate,
+            .included_row_count = included,
+            .omitted_non_finite_coordinate_count = omitted_non_finite_coordinate,
+            .omitted_non_finite_value_count = omitted_non_finite_value,
+            .out_of_range_count = out_of_range,
+            .nullable = true,
+        };
+    }
 };
+
+fn validateNullableInputs(device: array_mod.Device, x: array_mod.Array(f32), y: array_mod.Array(f32), values: ?array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), value_validity: ?array_mod.Array(bool)) array_mod.ArrayError!void {
+    if (!x.device.sameDevice(device) or !y.device.sameDevice(device)) return error.InvalidDevice;
+    if (x.shape.len != 1 or y.shape.len != 1 or x.shape[0] != y.shape[0] or !x.isContiguous() or !y.isContiguous()) return error.InvalidShape;
+    if (values) |column| {
+        if (!column.device.sameDevice(device)) return error.InvalidDevice;
+        if (column.shape.len != 1 or column.shape[0] != x.shape[0] or !column.isContiguous()) return error.InvalidShape;
+    } else if (value_validity != null) return error.InvalidShape;
+    inline for (.{ x_validity, y_validity, value_validity }) |maybe_validity| {
+        if (maybe_validity) |validity| {
+            if (!validity.device.sameDevice(device)) return error.InvalidDevice;
+            if (validity.shape.len != 1 or validity.shape[0] != x.shape[0] or !validity.isContiguous()) return error.InvalidShape;
+        }
+    }
+}
 
 pub const DeviceCategoricalHistogram2DCountSession = struct {
     allocator: std.mem.Allocator,
@@ -321,6 +404,51 @@ test "MPS histogram2d extrema matches CPU value and provenance semantics" {
         try std.testing.expectEqual(@as(usize, 7), result.finite_coordinate_count);
         try std.testing.expectEqual(@as(usize, 5), result.included_row_count);
         try std.testing.expectEqual(@as(usize, 2), result.omitted_non_finite_coordinate_count);
+        try std.testing.expectEqual(@as(usize, 1), result.omitted_non_finite_value_count);
+        try std.testing.expectEqual(@as(usize, 1), result.out_of_range_count);
+    }
+}
+
+test "MPS nullable histogram2d preserves original row provenance" {
+    const device = array_mod.Device.mps(0);
+    if (!device.isAvailable()) return error.SkipZigTest;
+    const x_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, -0.1, std.math.nan(f32), 0.75, 0.75, 0.75 };
+    const y_values = [_]f32{ 0.0, 0.24, 0.5, 1.0, 0.5, 0.5, std.math.inf(f32), 0.75, 0.75 };
+    const sample_values = [_]f32{ 5, -2, 9, 4, 1, 2, 3, std.math.nan(f32), -7 };
+    const x_validity_values = [_]bool{ true, true, true, true, true, false, true, true, true };
+    const y_validity_values = [_]bool{ true, true, true, true, true, true, true, true, true };
+    const value_validity_values = [_]bool{ true, true, true, true, true, true, true, true, false };
+    var x = try array_mod.Array(f32).fromSliceOn(std.testing.allocator, &x_values, &.{x_values.len}, device);
+    defer x.deinit();
+    var y = try array_mod.Array(f32).fromSliceOn(std.testing.allocator, &y_values, &.{y_values.len}, device);
+    defer y.deinit();
+    var values = try array_mod.Array(f32).fromSliceOn(std.testing.allocator, &sample_values, &.{sample_values.len}, device);
+    defer values.deinit();
+    var x_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &x_validity_values, &.{x_validity_values.len}, device);
+    defer x_validity.deinit();
+    var y_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &y_validity_values, &.{y_validity_values.len}, device);
+    defer y_validity.deinit();
+    var value_validity = try array_mod.Array(bool).fromSliceOn(std.testing.allocator, &value_validity_values, &.{value_validity_values.len}, device);
+    defer value_validity.deinit();
+
+    var count_session = try DeviceHistogram2DCountSession.init(std.testing.allocator, device, 2, 2);
+    defer count_session.deinit();
+    const count_result = try count_session.runNullable(x, y, x_validity, y_validity, .{ .x_min = 0, .x_max = 1, .y_min = 0, .y_max = 1 });
+    try std.testing.expectEqualSlices(u32, &.{ 2, 0, 0, 4 }, count_result.counts);
+    try std.testing.expectEqualSlices(u32, &.{ 0, std.math.maxInt(u32), std.math.maxInt(u32), 2 }, count_result.representative_source_indices);
+    try std.testing.expectEqual(@as(usize, 1), count_result.omitted_null_row_count);
+    try std.testing.expectEqual(@as(usize, 1), count_result.omitted_non_finite_coordinate_count);
+    try std.testing.expectEqual(@as(usize, 1), count_result.out_of_range_count);
+
+    inline for (.{ ExtremaOp.min, ExtremaOp.max }) |op| {
+        var session = try DeviceHistogram2DExtremaSession.init(std.testing.allocator, device, 2, 2, op);
+        defer session.deinit();
+        const result = try session.runNullable(x, y, values, x_validity, y_validity, value_validity, .{ .x_min = 0, .x_max = 1, .y_min = 0, .y_max = 1 });
+        try std.testing.expectEqualSlices(u32, &.{ 2, 0, 0, 2 }, result.counts);
+        try std.testing.expectEqualSlices(f32, if (op == .min) &.{ -2, 0, 0, 4 } else &.{ 5, 0, 0, 9 }, result.values);
+        try std.testing.expectEqualSlices(u32, &.{ 0, std.math.maxInt(u32), std.math.maxInt(u32), 2 }, result.representative_source_indices);
+        try std.testing.expectEqual(@as(usize, 2), result.omitted_null_row_count);
+        try std.testing.expectEqual(@as(usize, 1), result.omitted_non_finite_coordinate_count);
         try std.testing.expectEqual(@as(usize, 1), result.omitted_non_finite_value_count);
         try std.testing.expectEqual(@as(usize, 1), result.out_of_range_count);
     }

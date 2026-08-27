@@ -132,6 +132,25 @@ pub const Histogram2DCountSession = struct {
             diagnostics,
         ) catch return error.BackendFailure;
     }
+
+    pub fn runMasked(self: *Histogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), bounds: [4]f32, counts: []u32, representatives: []u32, diagnostics: *[3]u32) array_mod.ArrayError!void {
+        const x_storage = x.device_storage orelse return error.InvalidDevice;
+        const y_storage = y.device_storage orelse return error.InvalidDevice;
+        self.session.runMasked(
+            .{ .ptr = x_storage.ptr, .bytes = x_storage.bytes },
+            .{ .ptr = y_storage.ptr, .bytes = y_storage.bytes },
+            try optionalMpsBuffer(x_validity),
+            try optionalMpsBuffer(y_validity),
+            x.numel(),
+            bounds[0],
+            bounds[1],
+            bounds[2],
+            bounds[3],
+            counts,
+            representatives,
+            diagnostics,
+        ) catch return error.BackendFailure;
+    }
 };
 
 pub const Histogram2DExtremaOp = enum { min, max };
@@ -172,7 +191,36 @@ pub const Histogram2DExtremaSession = struct {
             diagnostics,
         ) catch return error.BackendFailure;
     }
+
+    pub fn runMasked(self: *Histogram2DExtremaSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), value_validity: ?array_mod.Array(bool), bounds: [4]f32, counts: []u32, extrema: []f32, representatives: []u32, diagnostics: *[4]u32) array_mod.ArrayError!void {
+        const x_storage = x.device_storage orelse return error.InvalidDevice;
+        const y_storage = y.device_storage orelse return error.InvalidDevice;
+        const value_storage = values.device_storage orelse return error.InvalidDevice;
+        self.session.runMasked(
+            .{ .ptr = x_storage.ptr, .bytes = x_storage.bytes },
+            .{ .ptr = y_storage.ptr, .bytes = y_storage.bytes },
+            .{ .ptr = value_storage.ptr, .bytes = value_storage.bytes },
+            try optionalMpsBuffer(x_validity),
+            try optionalMpsBuffer(y_validity),
+            try optionalMpsBuffer(value_validity),
+            x.numel(),
+            bounds[0],
+            bounds[1],
+            bounds[2],
+            bounds[3],
+            counts,
+            extrema,
+            representatives,
+            diagnostics,
+        ) catch return error.BackendFailure;
+    }
 };
+
+fn optionalMpsBuffer(array: ?array_mod.Array(bool)) array_mod.ArrayError!?axiom.accelerator.MpsBuffer {
+    const value = array orelse return null;
+    const storage = value.device_storage orelse return error.InvalidDevice;
+    return .{ .ptr = storage.ptr, .bytes = storage.bytes };
+}
 
 pub const CategoricalHistogram2DCountSession = struct {
     session: axiom.accelerator.MpsCategoricalHistogram2DCountSession,

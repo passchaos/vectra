@@ -86,6 +86,19 @@ pub const Histogram2DCountSession = struct {
         _ = diagnostics;
         return error.InvalidDevice;
     }
+
+    pub fn runMasked(self: *Histogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), bounds: [4]f32, counts: []u32, representatives: []u32, diagnostics: *[3]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = x_validity;
+        _ = y_validity;
+        _ = bounds;
+        _ = counts;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
 };
 
 pub const Histogram2DExtremaOp = enum { min, max };
@@ -108,6 +121,22 @@ pub const Histogram2DExtremaSession = struct {
         _ = x;
         _ = y;
         _ = values;
+        _ = bounds;
+        _ = counts;
+        _ = extrema;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+
+    pub fn runMasked(self: *Histogram2DExtremaSession, x: array_mod.Array(f32), y: array_mod.Array(f32), values: array_mod.Array(f32), x_validity: ?array_mod.Array(bool), y_validity: ?array_mod.Array(bool), value_validity: ?array_mod.Array(bool), bounds: [4]f32, counts: []u32, extrema: []f32, representatives: []u32, diagnostics: *[4]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = values;
+        _ = x_validity;
+        _ = y_validity;
+        _ = value_validity;
         _ = bounds;
         _ = counts;
         _ = extrema;
