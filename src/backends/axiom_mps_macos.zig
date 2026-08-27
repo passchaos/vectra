@@ -134,6 +134,39 @@ pub const Histogram2DCountSession = struct {
     }
 };
 
+pub const CategoricalHistogram2DCountSession = struct {
+    session: axiom.accelerator.MpsCategoricalHistogram2DCountSession,
+
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32, category_count: u32) array_mod.ArrayError!CategoricalHistogram2DCountSession {
+        if (!device.isMps()) return error.InvalidDevice;
+        return .{ .session = axiom.accelerator.MpsCategoricalHistogram2DCountSession.init(device.index, cols, rows, category_count) catch return error.BackendFailure };
+    }
+
+    pub fn deinit(self: *CategoricalHistogram2DCountSession) void {
+        self.session.deinit();
+        self.* = undefined;
+    }
+
+    pub fn run(self: *CategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), bounds: [4]f32, category_counts: []u32, representatives: []u32, diagnostics: *[3]u32) array_mod.ArrayError!void {
+        const x_storage = x.device_storage orelse return error.InvalidDevice;
+        const y_storage = y.device_storage orelse return error.InvalidDevice;
+        const category_storage = categories.device_storage orelse return error.InvalidDevice;
+        self.session.run(
+            .{ .ptr = x_storage.ptr, .bytes = x_storage.bytes },
+            .{ .ptr = y_storage.ptr, .bytes = y_storage.bytes },
+            .{ .ptr = category_storage.ptr, .bytes = category_storage.bytes },
+            x.numel(),
+            bounds[0],
+            bounds[1],
+            bounds[2],
+            bounds[3],
+            category_counts,
+            representatives,
+            diagnostics,
+        ) catch return error.BackendFailure;
+    }
+};
+
 fn rank3BroadcastShape(lhs: []const usize, rhs: []const usize) ?[3]usize {
     if (lhs.len != 3 or rhs.len != 3) return null;
     return .{

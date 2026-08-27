@@ -88,6 +88,32 @@ pub const Histogram2DCountSession = struct {
     }
 };
 
+pub const CategoricalHistogram2DCountSession = struct {
+    pub fn init(device: array_mod.Device, cols: u32, rows: u32, category_count: u32) array_mod.ArrayError!CategoricalHistogram2DCountSession {
+        _ = device;
+        _ = cols;
+        _ = rows;
+        _ = category_count;
+        return error.InvalidDevice;
+    }
+
+    pub fn deinit(self: *CategoricalHistogram2DCountSession) void {
+        self.* = undefined;
+    }
+
+    pub fn run(self: *CategoricalHistogram2DCountSession, x: array_mod.Array(f32), y: array_mod.Array(f32), categories: array_mod.Array(i32), bounds: [4]f32, category_counts: []u32, representatives: []u32, diagnostics: *[3]u32) array_mod.ArrayError!void {
+        _ = self;
+        _ = x;
+        _ = y;
+        _ = categories;
+        _ = bounds;
+        _ = category_counts;
+        _ = representatives;
+        _ = diagnostics;
+        return error.InvalidDevice;
+    }
+};
+
 pub fn tryBinaryF32(op: axiom.accelerator.MpsBinaryOp, lhs: array_mod.Array(f32), rhs: array_mod.Array(f32)) array_mod.ArrayError!?array_mod.Array(f32) {
     _ = op;
     _ = lhs;
